@@ -51,7 +51,26 @@ source ~/.zshrc
 
 **120+ languages supported!** All completion files are located in the [`completions/`](completions/) directory.
 
-For other languages, replace `_claude` with your preferred language file (e.g., `_claude.ja` for Japanese, `_claude.es` for Spanish).
+### Popular Languages
+
+- English (`_claude`), Japanese (`_claude.ja`), Chinese Simplified (`_claude.zh-CN`), Spanish (`_claude.es`), French (`_claude.fr`), German (`_claude.de`), Korean (`_claude.ko`), Russian (`_claude.ru`), Portuguese (`_claude.pt`), Italian (`_claude.it`), Arabic (`_claude.ar`), Hindi (`_claude.hi`), Turkish (`_claude.tr`), Polish (`_claude.pl`), Dutch (`_claude.nl`), Vietnamese (`_claude.vi`), Thai (`_claude.th`), Indonesian (`_claude.id`)
+
+<details>
+<summary>📋 See all 120+ supported languages</summary>
+
+Browse all language files in the [`completions/`](https://github.com/1160054/claude-code-zsh-completion/tree/main/completions) directory.
+
+**Included:**
+- **European**: Slavic (Bulgarian, Czech, Slovak, Croatian, Serbian, Ukrainian, Belarusian, etc.), Germanic (Swedish, Danish, Norwegian, Icelandic, Afrikaans), Romance (Portuguese, Romanian, Catalan, Galician), Baltic (Lithuanian, Latvian, Estonian), Celtic (Welsh, Scottish Gaelic), and more
+- **Asian**: Chinese (Traditional, Cantonese, Hong Kong), Mongolian, Khmer, Lao, Bengali, Punjabi, Marathi, Tamil, Telugu, Kannada, Malayalam, Odia, Urdu, Nepali, Malay, Tagalog
+- **Middle Eastern**: Persian, Hebrew, Azerbaijani, Kazakh, Uzbek, Uyghur, Tatar, Georgian
+- **African**: Swahili, Wolof, Southern Sotho
+- **Regional variants**: English (10 variants), Spanish (13 variants), German (4 variants), French (4 variants), Swedish (3 variants)
+- **Others**: Esperanto, Basque, and many more
+
+</details>
+
+For any language, replace `_claude` with your preferred language file (e.g., `_claude.ja` for Japanese).
 
 ## Usage
 

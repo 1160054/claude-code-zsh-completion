@@ -12,7 +12,10 @@ We release patches for security vulnerabilities for the following versions:
 
 ## Reporting a Vulnerability
 
-If you discover a security vulnerability, please report it by emailing the maintainers or opening a private security advisory on GitHub.
+If you discover a security vulnerability, please report it by:
+
+1. **Email**: Send details to **1160054@gmail.com**
+2. **GitHub Security Advisory**: Open a private security advisory at https://github.com/1160054/claude-code-zsh-completion/security/advisories/new
 
 **Please do not report security vulnerabilities through public GitHub issues.**
 
