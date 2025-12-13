@@ -1,0 +1,25 @@
+# CODEOWNERS file
+#
+# This file defines who is responsible for reviewing changes to specific files.
+# When a PR modifies these files, the specified owners will be automatically
+# requested for review.
+#
+# More info: https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Default owner for everything in the repo
+* @1160054
+
+# Completion files
+/_claude* @1160054
+
+# Documentation
+/README.md @1160054
+/CONTRIBUTING.md @1160054
+/CHANGELOG.md @1160054
+
+# GitHub workflows and CI/CD
+/.github/ @1160054
+
+# Security and code of conduct
+/SECURITY.md @1160054
+/CODE_OF_CONDUCT.md @1160054
