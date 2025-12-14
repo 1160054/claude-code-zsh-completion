@@ -19,12 +19,12 @@ Enter
 Type "clear"
 Enter
 Sleep 500ms
+Type "claude "
+Tab@300ms 2
+Sleep 300ms
 Show
 
-# 1. Show all main commands
-Type "claude "
-Sleep 400ms
-Tab@300ms 2
+# 1. Show all main commands (already displayed)
 Sleep 2s
 
 Ctrl+C
