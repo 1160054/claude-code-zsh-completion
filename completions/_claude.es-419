@@ -1,68 +1,51 @@
 #compdef claude
 # Español (Latinoamérica)
-
 # Funciones de completado dinámico
 _claude_mcp_servers() {
   local servers config_file
   local -a server_list
-
-  # Leer directamente de archivos de configuración en lugar de ejecutar 'claude mcp list'
+  # Read directly from config files instead of running 'claude mcp list'
   for config_file in ~/.claude/mcp.json ~/.claude.json ~/.config/claude/mcp.json; do
     [[ -f "$config_file" ]] || continue
-
-    # Extraer nombres de servidores desde JSON (sección mcpServers)
+    # Extract server names from JSON (mcpServers section)
     servers=$(grep -oP '(?<="mcpServers":\s*\{)[^}]+' "$config_file" 2>/dev/null | \
               grep -oP '(?<=")[^"]+(?="\s*:)' 2>/dev/null)
-
     [[ -n "$servers" ]] && server_list+=(${(f)servers})
   done
-
-  # Alternativa a claude mcp list si falla el análisis de configuración
+  # Fallback to claude mcp list if config parsing fails
   if [[ ${#server_list[@]} -eq 0 ]]; then
     server_list=(${(f)"$(claude mcp list 2>/dev/null | sed -n 's/^\([^:]*\):.*/\1/p' | grep -v '^Checking')"})
   fi
-
-  _describe 'servidores mcp' server_list
+  compadd -a server_list
 }
-
 _claude_installed_plugins() {
   local -a plugins
   local config_file plugin_dir
-
-  # Verificar directorios de plugins directamente
+  # Check plugin directories directly
   for plugin_dir in ~/.claude/plugins ~/.config/claude/plugins; do
     [[ -d "$plugin_dir" ]] || continue
     plugins+=(${plugin_dir}/*(N:t))
   done
-
-  # Eliminar duplicados
+  # Remove duplicates
   plugins=(${(u)plugins})
-
-  _describe 'plugins instalados' plugins
+  compadd -a plugins
 }
-
 _claude_sessions() {
   local -a sessions
   local session_dir
-
-  # Verificar directorio de sesiones
+  # Check session directory
   for session_dir in ~/.claude/sessions ~/.config/claude/sessions; do
     [[ -d "$session_dir" ]] || continue
-
-    # Extraer UUIDs directamente de nombres de archivos
+    # Extract UUIDs directly from filenames
     sessions+=(${session_dir}/*~*.zwc(N:t:r))
   done
-
-  # Filtrar solo UUIDs válidos
+  # Filter only valid UUIDs
   sessions=(${(M)sessions:#[0-9a-f](#c8)-[0-9a-f](#c4)-[0-9a-f](#c4)-[0-9a-f](#c4)-[0-9a-f](#c12)})
-
-  _describe 'IDs de sesión' sessions
+  compadd -a sessions
 }
-
 _claude() {
   local curcontext="$curcontext" state line
   typeset -A opt_args
-
   local -a main_commands
   main_commands=(
     'mcp:Configurar y administrar servidores MCP'
@@ -72,7 +55,6 @@ _claude() {
     'update:Buscar e instalar actualizaciones'
     'install:Instalar compilación nativa de Claude Code'
   )
-
   local -a main_options
   main_options=(
     '(-d --debug)'{-d,--debug}'[Habilitar modo de depuración con filtrado opcional de categoría (ej., "api,hooks" o "!statsig,!file")]:filtro:'
@@ -111,12 +93,10 @@ _claude() {
     '(-v --version)'{-v,--version}'[Mostrar número de versión]'
     '(-h --help)'{-h,--help}'[Mostrar ayuda del comando]'
   )
-
   _arguments -C \
     $main_options \
     '1: :->command' \
     '*::arg:->args'
-
   case $state in
     command)
       _describe -t commands 'comandos de claude' main_commands
@@ -139,7 +119,6 @@ _claude() {
       ;;
   esac
 }
-
 _claude_mcp() {
   local -a mcp_commands
   mcp_commands=(
@@ -153,15 +132,12 @@ _claude_mcp() {
     'reset-project-choices:Restablecer todos los servidores aprobados/rechazados con ámbito de proyecto (.mcp.json) en este proyecto'
     'help:Mostrar ayuda'
   )
-
   local curcontext="$curcontext" state line
   typeset -A opt_args
-
   _arguments -C \
     '(-h --help)'{-h,--help}'[Mostrar ayuda]' \
     '1: :->command' \
     '*::arg:->args'
-
   case $state in
     command)
       _describe -t commands 'comandos de mcp' mcp_commands
@@ -220,7 +196,6 @@ _claude_mcp() {
       ;;
   esac
 }
-
 _claude_plugin() {
   local -a plugin_commands
   plugin_commands=(
@@ -234,15 +209,12 @@ _claude_plugin() {
     'disable:Deshabilitar un plugin habilitado'
     'help:Mostrar ayuda'
   )
-
   local curcontext="$curcontext" state line
   typeset -A opt_args
-
   _arguments -C \
     '(-h --help)'{-h,--help}'[Mostrar ayuda]' \
     '1: :->command' \
     '*::arg:->args'
-
   case $state in
     command)
       _describe -t commands 'comandos de plugin' plugin_commands
@@ -276,7 +248,6 @@ _claude_plugin() {
       ;;
   esac
 }
-
 _claude_plugin_marketplace() {
   local -a marketplace_commands
   marketplace_commands=(
@@ -287,15 +258,12 @@ _claude_plugin_marketplace() {
     'update:Actualizar marketplace desde la fuente - actualizar todos si no se especifica nombre'
     'help:Mostrar ayuda'
   )
-
   local curcontext="$curcontext" state line
   typeset -A opt_args
-
   _arguments -C \
     '(-h --help)'{-h,--help}'[Mostrar ayuda]' \
     '1: :->command' \
     '*::arg:->args'
-
   case $state in
     command)
       _describe -t commands 'comandos de marketplace' marketplace_commands
@@ -325,12 +293,10 @@ _claude_plugin_marketplace() {
       ;;
   esac
 }
-
 _claude_install() {
   _arguments \
     '--force[Forzar instalación incluso si ya está instalado]' \
     '(-h --help)'{-h,--help}'[Mostrar ayuda]' \
     '::objetivo:(stable latest)'
 }
-
 (( $+_comps[claude] )) || compdef _claude claude

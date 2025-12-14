@@ -1,67 +1,50 @@
 #compdef claude
-
 # Dynamic completion functions
 _claude_mcp_servers() {
   local servers config_file
   local -a server_list
-
   # Read directly from config files instead of running 'claude mcp list'
   for config_file in ~/.claude/mcp.json ~/.claude.json ~/.config/claude/mcp.json; do
     [[ -f "$config_file" ]] || continue
-
     # Extract server names from JSON (mcpServers section)
     servers=$(grep -oP '(?<="mcpServers":\s*\{)[^}]+' "$config_file" 2>/dev/null | \
               grep -oP '(?<=")[^"]+(?="\s*:)' 2>/dev/null)
-
     [[ -n "$servers" ]] && server_list+=(${(f)servers})
   done
-
   # Fallback to claude mcp list if config parsing fails
   if [[ ${#server_list[@]} -eq 0 ]]; then
     server_list=(${(f)"$(claude mcp list 2>/dev/null | sed -n 's/^\([^:]*\):.*/\1/p' | grep -v '^Checking')"})
   fi
-
-  compadd -l -a server_list
+  compadd -a server_list
 }
-
 _claude_installed_plugins() {
   local -a plugins
   local config_file plugin_dir
-
   # Check plugin directories directly
   for plugin_dir in ~/.claude/plugins ~/.config/claude/plugins; do
     [[ -d "$plugin_dir" ]] || continue
     plugins+=(${plugin_dir}/*(N:t))
   done
-
   # Remove duplicates
   plugins=(${(u)plugins})
-
-  compadd -l -a plugins
+  compadd -a plugins
 }
-
 _claude_sessions() {
   local -a sessions
   local session_dir
-
   # Check session directory
   for session_dir in ~/.claude/sessions ~/.config/claude/sessions; do
     [[ -d "$session_dir" ]] || continue
-
     # Extract UUIDs directly from filenames
     sessions+=(${session_dir}/*~*.zwc(N:t:r))
   done
-
   # Filter only valid UUIDs
   sessions=(${(M)sessions:#[0-9a-f](#c8)-[0-9a-f](#c4)-[0-9a-f](#c4)-[0-9a-f](#c4)-[0-9a-f](#c12)})
-
-  compadd -l -a sessions
+  compadd -a sessions
 }
-
 _claude() {
   local curcontext="$curcontext" state line
   typeset -A opt_args
-
   local -a main_commands
   main_commands=(
     'mcp:Διαμόρφωση και διαχείριση διακομιστών MCP'
@@ -71,7 +54,6 @@ _claude() {
     'update:Έλεγχος και εγκατάσταση ενημερώσεων'
     'install:Εγκατάσταση εγγενούς έκδοσης Claude Code'
   )
-
   local -a main_options
   main_options=(
     '(-d --debug)'{-d,--debug}'[Ενεργοποίηση λειτουργίας αποσφαλμάτωσης με προαιρετικό φιλτράρισμα κατηγοριών (π.χ. "api,hooks" ή "!statsig,!file")]:filter:'
@@ -110,12 +92,10 @@ _claude() {
     '(-v --version)'{-v,--version}'[Εμφάνιση αριθμού έκδοσης]'
     '(-h --help)'{-h,--help}'[Εμφάνιση βοήθειας για εντολή]'
   )
-
   _arguments -C \
     $main_options \
     '1: :->command' \
     '*::arg:->args'
-
   case $state in
     command)
       _describe -t commands 'claude commands' main_commands
@@ -138,7 +118,6 @@ _claude() {
       ;;
   esac
 }
-
 _claude_mcp() {
   local -a mcp_commands
   mcp_commands=(
@@ -152,15 +131,12 @@ _claude_mcp() {
     'reset-project-choices:Επαναφορά όλων των εγκεκριμένων/απορριφθέντων διακομιστών εμβέλειας έργου (.mcp.json) σε αυτό το έργο'
     'help:Εμφάνιση βοήθειας'
   )
-
   local curcontext="$curcontext" state line
   typeset -A opt_args
-
   _arguments -C \
     '(-h --help)'{-h,--help}'[Εμφάνιση βοήθειας]' \
     '1: :->command' \
     '*::arg:->args'
-
   case $state in
     command)
       _describe -t commands 'mcp commands' mcp_commands
@@ -219,7 +195,6 @@ _claude_mcp() {
       ;;
   esac
 }
-
 _claude_plugin() {
   local -a plugin_commands
   plugin_commands=(
@@ -233,15 +208,12 @@ _claude_plugin() {
     'disable:Απενεργοποίηση ενεργοποιημένου προσθέτου'
     'help:Εμφάνιση βοήθειας'
   )
-
   local curcontext="$curcontext" state line
   typeset -A opt_args
-
   _arguments -C \
     '(-h --help)'{-h,--help}'[Εμφάνιση βοήθειας]' \
     '1: :->command' \
     '*::arg:->args'
-
   case $state in
     command)
       _describe -t commands 'plugin commands' plugin_commands
@@ -275,7 +247,6 @@ _claude_plugin() {
       ;;
   esac
 }
-
 _claude_plugin_marketplace() {
   local -a marketplace_commands
   marketplace_commands=(
@@ -286,15 +257,12 @@ _claude_plugin_marketplace() {
     'update:Ενημέρωση αγοράς από την πηγή - ενημέρωση όλων εάν δεν καθοριστεί όνομα'
     'help:Εμφάνιση βοήθειας'
   )
-
   local curcontext="$curcontext" state line
   typeset -A opt_args
-
   _arguments -C \
     '(-h --help)'{-h,--help}'[Εμφάνιση βοήθειας]' \
     '1: :->command' \
     '*::arg:->args'
-
   case $state in
     command)
       _describe -t commands 'marketplace commands' marketplace_commands
@@ -324,12 +292,10 @@ _claude_plugin_marketplace() {
       ;;
   esac
 }
-
 _claude_install() {
   _arguments \
     '--force[Εξαναγκασμός εγκατάστασης ακόμα κι αν είναι ήδη εγκατεστημένο]' \
     '(-h --help)'{-h,--help}'[Εμφάνιση βοήθειας]' \
     '::target:(stable latest)'
 }
-
 (( $+_comps[claude] )) || compdef _claude claude

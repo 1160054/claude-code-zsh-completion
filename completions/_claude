@@ -21,8 +21,7 @@ _claude_mcp_servers() {
     server_list=(${(f)"$(claude mcp list 2>/dev/null | sed -n 's/^\([^:]*\):.*/\1/p' | grep -v '^Checking')"})
   fi
 
-  # Display one item per line
-  compadd -l -a server_list
+  compadd -a server_list
 }
 
 _claude_installed_plugins() {
@@ -38,8 +37,7 @@ _claude_installed_plugins() {
   # Remove duplicates
   plugins=(${(u)plugins})
 
-  # Display one item per line
-  compadd -l -a plugins
+  compadd -a plugins
 }
 
 _claude_sessions() {
@@ -57,8 +55,7 @@ _claude_sessions() {
   # Filter only valid UUIDs
   sessions=(${(M)sessions:#[0-9a-f](#c8)-[0-9a-f](#c4)-[0-9a-f](#c4)-[0-9a-f](#c4)-[0-9a-f](#c12)})
 
-  # Display one item per line
-  compadd -l -a sessions
+  compadd -a sessions
 }
 
 _claude() {

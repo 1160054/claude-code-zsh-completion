@@ -1,67 +1,50 @@
 #compdef claude
-
 # Mga dynamic na function ng completion
 _claude_mcp_servers() {
   local servers config_file
   local -a server_list
-
-  # Basahin direkta mula sa mga config file sa halip na patakbuhin ang 'claude mcp list'
+  # Read directly from config files instead of running 'claude mcp list'
   for config_file in ~/.claude/mcp.json ~/.claude.json ~/.config/claude/mcp.json; do
     [[ -f "$config_file" ]] || continue
-
-    # I-extract ang mga pangalan ng server mula sa JSON (seksyon ng mcpServers)
+    # Extract server names from JSON (mcpServers section)
     servers=$(grep -oP '(?<="mcpServers":\s*\{)[^}]+' "$config_file" 2>/dev/null | \
               grep -oP '(?<=")[^"]+(?="\s*:)' 2>/dev/null)
-
     [[ -n "$servers" ]] && server_list+=(${(f)servers})
   done
-
-  # Gamitin ang claude mcp list bilang fallback kung nabigo ang pag-parse ng config
+  # Fallback to claude mcp list if config parsing fails
   if [[ ${#server_list[@]} -eq 0 ]]; then
     server_list=(${(f)"$(claude mcp list 2>/dev/null | sed -n 's/^\([^:]*\):.*/\1/p' | grep -v '^Checking')"})
   fi
-
-  _describe 'mga mcp server' server_list
+  compadd -a server_list
 }
-
 _claude_installed_plugins() {
   local -a plugins
   local config_file plugin_dir
-
-  # Suriin ang mga direktoryo ng plugin nang direkta
+  # Check plugin directories directly
   for plugin_dir in ~/.claude/plugins ~/.config/claude/plugins; do
     [[ -d "$plugin_dir" ]] || continue
     plugins+=(${plugin_dir}/*(N:t))
   done
-
-  # Alisin ang mga duplicate
+  # Remove duplicates
   plugins=(${(u)plugins})
-
-  _describe 'mga naka-install na plugin' plugins
+  compadd -a plugins
 }
-
 _claude_sessions() {
   local -a sessions
   local session_dir
-
-  # Suriin ang direktoryo ng session
+  # Check session directory
   for session_dir in ~/.claude/sessions ~/.config/claude/sessions; do
     [[ -d "$session_dir" ]] || continue
-
-    # I-extract ang mga UUID direkta mula sa mga filename
+    # Extract UUIDs directly from filenames
     sessions+=(${session_dir}/*~*.zwc(N:t:r))
   done
-
-  # Salain lang ang mga valid na UUID
+  # Filter only valid UUIDs
   sessions=(${(M)sessions:#[0-9a-f](#c8)-[0-9a-f](#c4)-[0-9a-f](#c4)-[0-9a-f](#c4)-[0-9a-f](#c12)})
-
-  _describe 'mga session ID' sessions
+  compadd -a sessions
 }
-
 _claude() {
   local curcontext="$curcontext" state line
   typeset -A opt_args
-
   local -a main_commands
   main_commands=(
     'mcp:I-configure at pamahalaan ang mga MCP server'
@@ -71,7 +54,6 @@ _claude() {
     'update:Suriin at i-install ang mga update'
     'install:I-install ang Claude Code native build'
   )
-
   local -a main_options
   main_options=(
     '(-d --debug)'{-d,--debug}'[Paganahin ang debug mode na may opsyonal na pag-filter ng kategorya (hal.: "api,hooks" o "!statsig,!file")]:filter:'
@@ -110,12 +92,10 @@ _claude() {
     '(-v --version)'{-v,--version}'[Ilabas ang numero ng bersyon]'
     '(-h --help)'{-h,--help}'[Ipakita ang tulong para sa command]'
   )
-
   _arguments -C \
     $main_options \
     '1: :->command' \
     '*::arg:->args'
-
   case $state in
     command)
       _describe -t commands 'mga claude command' main_commands
@@ -138,7 +118,6 @@ _claude() {
       ;;
   esac
 }
-
 _claude_mcp() {
   local -a mcp_commands
   mcp_commands=(
@@ -152,15 +131,12 @@ _claude_mcp() {
     'reset-project-choices:I-reset ang lahat ng naaprubahan/tinanggihan na project-scoped (.mcp.json) na mga server sa proyektong ito'
     'help:Ipakita ang tulong'
   )
-
   local curcontext="$curcontext" state line
   typeset -A opt_args
-
   _arguments -C \
     '(-h --help)'{-h,--help}'[Ipakita ang tulong]' \
     '1: :->command' \
     '*::arg:->args'
-
   case $state in
     command)
       _describe -t commands 'mga mcp command' mcp_commands
@@ -219,7 +195,6 @@ _claude_mcp() {
       ;;
   esac
 }
-
 _claude_plugin() {
   local -a plugin_commands
   plugin_commands=(
@@ -233,15 +208,12 @@ _claude_plugin() {
     'disable:I-disable ang naka-enable na plugin'
     'help:Ipakita ang tulong'
   )
-
   local curcontext="$curcontext" state line
   typeset -A opt_args
-
   _arguments -C \
     '(-h --help)'{-h,--help}'[Ipakita ang tulong]' \
     '1: :->command' \
     '*::arg:->args'
-
   case $state in
     command)
       _describe -t commands 'mga plugin command' plugin_commands
@@ -275,7 +247,6 @@ _claude_plugin() {
       ;;
   esac
 }
-
 _claude_plugin_marketplace() {
   local -a marketplace_commands
   marketplace_commands=(
@@ -286,15 +257,12 @@ _claude_plugin_marketplace() {
     'update:I-update ang marketplace mula sa source - i-update lahat kung walang tinukoy na pangalan'
     'help:Ipakita ang tulong'
   )
-
   local curcontext="$curcontext" state line
   typeset -A opt_args
-
   _arguments -C \
     '(-h --help)'{-h,--help}'[Ipakita ang tulong]' \
     '1: :->command' \
     '*::arg:->args'
-
   case $state in
     command)
       _describe -t commands 'mga marketplace command' marketplace_commands
@@ -324,12 +292,10 @@ _claude_plugin_marketplace() {
       ;;
   esac
 }
-
 _claude_install() {
   _arguments \
     '--force[Pilitin ang pag-install kahit naka-install na]' \
     '(-h --help)'{-h,--help}'[Ipakita ang tulong]' \
     '::target:(stable latest)'
 }
-
 (( $+_comps[claude] )) || compdef _claude claude

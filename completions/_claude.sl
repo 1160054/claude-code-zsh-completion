@@ -1,67 +1,50 @@
 #compdef claude
-
 # Dinamične funkcije samodejnega dopolnjevanja
 _claude_mcp_servers() {
   local servers config_file
   local -a server_list
-
-  # Branje neposredno iz konfiguracijskih datotek namesto izvajanja 'claude mcp list'
+  # Read directly from config files instead of running 'claude mcp list'
   for config_file in ~/.claude/mcp.json ~/.claude.json ~/.config/claude/mcp.json; do
     [[ -f "$config_file" ]] || continue
-
-    # Ekstrakcija imen strežnikov iz JSON (sekcija mcpServers)
+    # Extract server names from JSON (mcpServers section)
     servers=$(grep -oP '(?<="mcpServers":\s*\{)[^}]+' "$config_file" 2>/dev/null | \
               grep -oP '(?<=")[^"]+(?="\s*:)' 2>/dev/null)
-
     [[ -n "$servers" ]] && server_list+=(${(f)servers})
   done
-
-  # Rezervna varianta: claude mcp list, če razčlenjevanje konfiguracije ne uspe
+  # Fallback to claude mcp list if config parsing fails
   if [[ ${#server_list[@]} -eq 0 ]]; then
     server_list=(${(f)"$(claude mcp list 2>/dev/null | sed -n 's/^\([^:]*\):.*/\1/p' | grep -v '^Checking')"})
   fi
-
-  _describe 'mcp strežniki' server_list
+  compadd -a server_list
 }
-
 _claude_installed_plugins() {
   local -a plugins
   local config_file plugin_dir
-
-  # Preverjanje imenikov vtičnikov neposredno
+  # Check plugin directories directly
   for plugin_dir in ~/.claude/plugins ~/.config/claude/plugins; do
     [[ -d "$plugin_dir" ]] || continue
     plugins+=(${plugin_dir}/*(N:t))
   done
-
-  # Odstranjevanje podvojitev
+  # Remove duplicates
   plugins=(${(u)plugins})
-
-  _describe 'nameščeni vtičniki' plugins
+  compadd -a plugins
 }
-
 _claude_sessions() {
   local -a sessions
   local session_dir
-
-  # Preverjanje imenika sej
+  # Check session directory
   for session_dir in ~/.claude/sessions ~/.config/claude/sessions; do
     [[ -d "$session_dir" ]] || continue
-
-    # Ekstrakcija UUID neposredno iz imen datotek
+    # Extract UUIDs directly from filenames
     sessions+=(${session_dir}/*~*.zwc(N:t:r))
   done
-
-  # Filtriranje samo veljavnih UUID
+  # Filter only valid UUIDs
   sessions=(${(M)sessions:#[0-9a-f](#c8)-[0-9a-f](#c4)-[0-9a-f](#c4)-[0-9a-f](#c4)-[0-9a-f](#c12)})
-
-  _describe 'identifikatorji sej' sessions
+  compadd -a sessions
 }
-
 _claude() {
   local curcontext="$curcontext" state line
   typeset -A opt_args
-
   local -a main_commands
   main_commands=(
     'mcp:Konfiguracija in upravljanje MCP strežnikov'
@@ -71,7 +54,6 @@ _claude() {
     'update:Preverjanje in namestitev posodobitev'
     'install:Namestitev izvorne različice Claude Code'
   )
-
   local -a main_options
   main_options=(
     '(-d --debug)'{-d,--debug}'[Vklop načina odpravljanja napak z izbirnim filtriranjem kategorij (npr. "api,hooks" ali "!statsig,!file")]:filter:'
@@ -110,12 +92,10 @@ _claude() {
     '(-v --version)'{-v,--version}'[Izpiši številko različice]'
     '(-h --help)'{-h,--help}'[Prikaži pomoč za ukaz]'
   )
-
   _arguments -C \
     $main_options \
     '1: :->command' \
     '*::arg:->args'
-
   case $state in
     command)
       _describe -t commands 'ukazi claude' main_commands
@@ -138,7 +118,6 @@ _claude() {
       ;;
   esac
 }
-
 _claude_mcp() {
   local -a mcp_commands
   mcp_commands=(
@@ -152,15 +131,12 @@ _claude_mcp() {
     'reset-project-choices:Ponastavi vse odobrene/zavrnjene strežnike z obsegom projekta (.mcp.json) v tem projektu'
     'help:Prikaži pomoč'
   )
-
   local curcontext="$curcontext" state line
   typeset -A opt_args
-
   _arguments -C \
     '(-h --help)'{-h,--help}'[Prikaži pomoč]' \
     '1: :->command' \
     '*::arg:->args'
-
   case $state in
     command)
       _describe -t commands 'ukazi mcp' mcp_commands
@@ -219,7 +195,6 @@ _claude_mcp() {
       ;;
   esac
 }
-
 _claude_plugin() {
   local -a plugin_commands
   plugin_commands=(
@@ -233,15 +208,12 @@ _claude_plugin() {
     'disable:Onemogoči omogočen vtičnik'
     'help:Prikaži pomoč'
   )
-
   local curcontext="$curcontext" state line
   typeset -A opt_args
-
   _arguments -C \
     '(-h --help)'{-h,--help}'[Prikaži pomoč]' \
     '1: :->command' \
     '*::arg:->args'
-
   case $state in
     command)
       _describe -t commands 'ukazi plugin' plugin_commands
@@ -275,7 +247,6 @@ _claude_plugin() {
       ;;
   esac
 }
-
 _claude_plugin_marketplace() {
   local -a marketplace_commands
   marketplace_commands=(
@@ -286,15 +257,12 @@ _claude_plugin_marketplace() {
     'update:Posodobi tržnico iz vira - posodobi vse če ime ni navedeno'
     'help:Prikaži pomoč'
   )
-
   local curcontext="$curcontext" state line
   typeset -A opt_args
-
   _arguments -C \
     '(-h --help)'{-h,--help}'[Prikaži pomoč]' \
     '1: :->command' \
     '*::arg:->args'
-
   case $state in
     command)
       _describe -t commands 'ukazi marketplace' marketplace_commands
@@ -324,12 +292,10 @@ _claude_plugin_marketplace() {
       ;;
   esac
 }
-
 _claude_install() {
   _arguments \
     '--force[Prisili namestitev tudi če je že nameščeno]' \
     '(-h --help)'{-h,--help}'[Prikaži pomoč]' \
     '::target:(stable latest)'
 }
-
 (( $+_comps[claude] )) || compdef _claude claude
