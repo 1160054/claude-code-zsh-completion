@@ -1,22 +1,26 @@
 #compdef claude
 # Динамичке функције аутоматског допуњавања
 _claude_mcp_servers() {
-  local servers config_file
+  local config_file
   local -a server_list
-  # Read directly from config files instead of running 'claude mcp list'
-  for config_file in ~/.claude/mcp.json ~/.claude.json ~/.config/claude/mcp.json; do
+
+  # Parse config files using grep/sed (no external dependencies)
+  for config_file in ~/.claude.json ~/.claude/mcp.json ~/.config/claude/mcp.json; do
     [[ -f "$config_file" ]] || continue
-    # Extract server names from JSON (mcpServers section)
-    servers=$(grep -oP '(?<="mcpServers":\s*\{)[^}]+' "$config_file" 2>/dev/null | \
-              grep -oP '(?<=")[^"]+(?="\s*:)' 2>/dev/null)
-    [[ -n "$servers" ]] && server_list+=(${(f)servers})
+    # Find entries with "command", "type", or "url" (MCP server signature)
+    server_list+=(${(f)"$(grep -B 1 -E '"(command|type|url)"[[:space:]]*:' "$config_file" 2>/dev/null | \
+      grep -E '"[^"]+": \{' | sed 's/.*"\([^"]*\)".*/\1/' | grep -v '/')"})
   done
-  # Fallback to claude mcp list if config parsing fails
+  server_list=(${(u)server_list})
+
+  # Fallback to claude mcp list
   if [[ ${#server_list[@]} -eq 0 ]]; then
     server_list=(${(f)"$(claude mcp list 2>/dev/null | sed -n 's/^\([^:]*\):.*/\1/p' | grep -v '^Checking')"})
   fi
+
   compadd -a server_list
 }
+
 _claude_installed_plugins() {
   local -a plugins
   local config_file plugin_dir
