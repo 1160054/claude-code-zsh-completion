@@ -1,115 +1,391 @@
 #!/usr/bin/env zsh
 # Automated test script for Claude Code zsh completion
+# Tests all completion files in completions/ directory
 
 SCRIPT_DIR="${0:A:h}/../.."
-COMPLETION_FILE="$SCRIPT_DIR/completions/_claude"
+COMPLETIONS_DIR="$SCRIPT_DIR/completions"
+ENGLISH_FILE="$COMPLETIONS_DIR/_claude"
 
-# Enable error handling but continue on expected errors
 setopt LOCAL_OPTIONS
 
-echo "=== Claude Code Completion Test ==="
-echo "Testing file: $COMPLETION_FILE"
-echo ""
+# Test counters
+typeset -i total_tests=0
+typeset -i passed_tests=0
+typeset -i failed_tests=0
+typeset -a failed_files=()
 
-# Test 1: Syntax check
-echo "[1/6] Syntax check..."
-if zsh -n "$COMPLETION_FILE" 2>&1; then
-  echo "✓ Syntax OK"
-else
-  echo "✗ Syntax error found"
-  exit 1
-fi
+# Color output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+NC='\033[0m'
 
-# Test 2: Load completion
-echo ""
-echo "[2/6] Loading completion..."
-autoload -U compinit
-compinit -u
-source "$COMPLETION_FILE"
+log_pass() {
+  echo "${GREEN}✓${NC} $1"
+  ((passed_tests++))
+  ((total_tests++))
+}
 
-if (( ${+functions[_claude]} )); then
-  echo "✓ _claude function loaded"
-else
-  echo "✗ _claude function not found"
-  exit 1
-fi
+log_fail() {
+  echo "${RED}✗${NC} $1"
+  ((failed_tests++))
+  ((total_tests++))
+}
 
-# Test 3: Check dynamic completion functions
-echo ""
-echo "[3/6] Checking dynamic completion functions..."
-for func in _claude_mcp_servers _claude_installed_plugins _claude_sessions; do
-  if (( ${+functions[$func]} )); then
-    echo "✓ $func defined"
+log_section() {
+  echo ""
+  echo "${YELLOW}=== $1 ===${NC}"
+}
+
+# Get reference counts from English file
+get_reference_counts() {
+  local file="$ENGLISH_FILE"
+
+  REF_MAIN_COMMANDS=$(grep -c "'[a-z-]*:" "$file" | head -1)
+  REF_FUNCTIONS=$(grep -c "^_claude" "$file")
+
+  # Count main_options entries
+  REF_MAIN_OPTIONS=$(sed -n '/^[[:space:]]*main_options=(/,/^[[:space:]]*)$/p' "$file" | grep -c "'\(-\|--\)")
+
+  # Count mcp_commands entries
+  REF_MCP_COMMANDS=$(sed -n '/^[[:space:]]*mcp_commands=(/,/^[[:space:]]*)$/p' "$file" | grep -c "'[a-z-]*:")
+
+  # Count plugin_commands entries
+  REF_PLUGIN_COMMANDS=$(sed -n '/^[[:space:]]*plugin_commands=(/,/^[[:space:]]*)$/p' "$file" | grep -c "'[a-z-]*:")
+
+  # Count marketplace_commands entries
+  REF_MARKETPLACE_COMMANDS=$(sed -n '/^[[:space:]]*marketplace_commands=(/,/^[[:space:]]*)$/p' "$file" | grep -c "'[a-z-]*:")
+}
+
+# Test 1: Basic syntax check
+test_syntax() {
+  local file="$1"
+  if zsh -n "$file" 2>&1; then
+    return 0
   else
-    echo "✗ $func not found"
-    exit 1
+    return 1
   fi
-done
+}
 
-# Test 4: Test data extraction (MCP servers)
-echo ""
-echo "[4/6] Testing MCP server extraction..."
-# Add test servers
-claude mcp add test-completion-1 echo "test1" >/dev/null 2>&1 || true
-claude mcp add test-completion-2 echo "test2" >/dev/null 2>&1 || true
+# Test 2: Check #compdef declaration
+test_compdef_declaration() {
+  local file="$1"
+  head -1 "$file" | grep -q "^#compdef claude"
+}
 
-servers=(${(f)"$(claude mcp list 2>/dev/null | sed -n 's/^\([^:]*\):.*/\1/p' | grep -v '^Checking')"})
-if [[ ${#servers[@]} -ge 2 ]]; then
-  echo "✓ MCP servers extracted: ${#servers[@]} servers found"
-  echo "  Servers: ${servers[1,3]}"
-else
-  echo "✗ MCP server extraction failed"
-fi
+# Test 3: UTF-8 encoding check
+test_utf8_encoding() {
+  local file="$1"
+  file "$file" | grep -qE "(UTF-8|ASCII)"
+}
 
-# Cleanup test servers
-claude mcp remove test-completion-1 >/dev/null 2>&1 || true
-claude mcp remove test-completion-2 >/dev/null 2>&1 || true
+# Test 4: Required functions exist
+test_required_functions() {
+  local file="$1"
+  local -a required_funcs=(
+    "_claude()"
+    "_claude_mcp()"
+    "_claude_plugin()"
+    "_claude_plugin_marketplace()"
+    "_claude_install()"
+  )
 
-# Test 5: Test completion structure
-echo ""
-echo "[5/6] Checking completion structure..."
-tests=(
-  "main_commands"
-  "main_options"
-  "_claude_mcp"
-  "_claude_plugin"
-  "_claude_plugin_marketplace"
-  "_claude_install"
-)
+  for func in $required_funcs; do
+    if ! grep -q "$func" "$file"; then
+      return 1
+    fi
+  done
+  return 0
+}
 
-for item in $tests; do
-  if grep -q "$item" "$COMPLETION_FILE"; then
-    echo "✓ $item found"
+# Test 5: Dynamic completion functions exist
+test_dynamic_functions() {
+  local file="$1"
+  local -a dynamic_funcs=(
+    "_claude_mcp_servers()"
+    "_claude_installed_plugins()"
+    "_claude_sessions()"
+  )
+
+  for func in $dynamic_funcs; do
+    if ! grep -q "$func" "$file"; then
+      return 1
+    fi
+  done
+  return 0
+}
+
+# Test 6: Required arrays exist
+test_required_arrays() {
+  local file="$1"
+  local -a required_arrays=(
+    "main_commands="
+    "main_options="
+    "mcp_commands="
+    "plugin_commands="
+    "marketplace_commands="
+  )
+
+  for arr in $required_arrays; do
+    if ! grep -q "$arr" "$file"; then
+      return 1
+    fi
+  done
+  return 0
+}
+
+# Test 7: Required commands in main_commands
+test_required_commands() {
+  local file="$1"
+  local -a required_cmds=(
+    "'mcp:"
+    "'plugin:"
+    "'doctor:"
+    "'update:"
+    "'install:"
+  )
+
+  for cmd in $required_cmds; do
+    if ! grep -q "$cmd" "$file"; then
+      return 1
+    fi
+  done
+  return 0
+}
+
+# Test 8: Required options exist
+test_required_options() {
+  local file="$1"
+  local -a required_opts=(
+    "{-h,--help}"
+    "{-v,--version}"
+    "'--model["
+    "{-r,--resume}"
+    "{-c,--continue}"
+  )
+
+  for opt in $required_opts; do
+    if ! grep -qF "$opt" "$file"; then
+      return 1
+    fi
+  done
+  return 0
+}
+
+# Test 9: compdef registration
+test_compdef_registration() {
+  local file="$1"
+  grep -q "compdef _claude claude" "$file"
+}
+
+# Test 10: Source file without error
+test_source_file() {
+  local file="$1"
+  (
+    autoload -U compinit
+    compinit -u 2>/dev/null
+    source "$file" 2>&1
+  )
+}
+
+# Test 11: Structure consistency with English version
+test_structure_consistency() {
+  local file="$1"
+
+  # Count main_options in target file
+  local target_options=$(sed -n '/^[[:space:]]*main_options=(/,/^[[:space:]]*)$/p' "$file" | grep -c "'\(-\|--\)")
+
+  # Count mcp_commands in target file
+  local target_mcp=$(sed -n '/^[[:space:]]*mcp_commands=(/,/^[[:space:]]*)$/p' "$file" | grep -c "'[a-z-]*:")
+
+  # Count plugin_commands in target file
+  local target_plugin=$(sed -n '/^[[:space:]]*plugin_commands=(/,/^[[:space:]]*)$/p' "$file" | grep -c "'[a-z-]*:")
+
+  # Count marketplace_commands in target file
+  local target_marketplace=$(sed -n '/^[[:space:]]*marketplace_commands=(/,/^[[:space:]]*)$/p' "$file" | grep -c "'[a-z-]*:")
+
+  # Allow small variance for translation differences
+  if [[ $target_options -lt $((REF_MAIN_OPTIONS - 2)) ]] || \
+     [[ $target_mcp -ne $REF_MCP_COMMANDS ]] || \
+     [[ $target_plugin -ne $REF_PLUGIN_COMMANDS ]] || \
+     [[ $target_marketplace -ne $REF_MARKETPLACE_COMMANDS ]]; then
+    return 1
+  fi
+  return 0
+}
+
+# Test 12: File naming convention
+test_file_naming() {
+  local file="$1"
+  local basename="${file:t}"
+
+  # Should be _claude or _claude.<locale>
+  # Locale: 2-3 letter code, optionally with region
+  # Region can be: 2-4 letters (e.g., CN, BR) or 3 digits (e.g., 419 for Latin America)
+  if [[ "$basename" == "_claude" ]] || [[ "$basename" =~ ^_claude\.[a-zA-Z]{2,3}(-[a-zA-Z0-9]{2,4})?$ ]]; then
+    return 0
+  fi
+  return 1
+}
+
+# Run all tests for a single file
+run_tests_for_file() {
+  local file="$1"
+  local basename="${file:t}"
+  local file_passed=true
+
+  echo ""
+  echo "Testing: $basename"
+
+  # Test 1: Syntax
+  if test_syntax "$file"; then
+    log_pass "Syntax check"
   else
-    echo "✗ $item not found"
-    exit 1
+    log_fail "Syntax check"
+    file_passed=false
   fi
-done
 
-# Test 6: Verify dynamic completion usage
-echo ""
-echo "[6/6] Verifying dynamic completion integration..."
-checks=(
-  "_claude_mcp_servers"
-  "_claude_installed_plugins"
-  "_claude_sessions"
-)
-
-for check in $checks; do
-  if grep -q "$check" "$COMPLETION_FILE"; then
-    echo "✓ $check is used in completion"
+  # Test 2: #compdef declaration
+  if test_compdef_declaration "$file"; then
+    log_pass "#compdef declaration"
   else
-    echo "✗ $check not integrated"
-    exit 1
+    log_fail "#compdef declaration"
+    file_passed=false
   fi
-done
 
-echo ""
-echo "==================================="
-echo "✓ All tests passed!"
-echo "==================================="
-echo ""
-echo "To test interactively, run:"
-echo "  source $COMPLETION_FILE"
-echo "  claude <TAB>"
-echo ""
+  # Test 3: UTF-8 encoding
+  if test_utf8_encoding "$file"; then
+    log_pass "UTF-8 encoding"
+  else
+    log_fail "UTF-8 encoding"
+    file_passed=false
+  fi
+
+  # Test 4: Required functions
+  if test_required_functions "$file"; then
+    log_pass "Required functions exist"
+  else
+    log_fail "Required functions exist"
+    file_passed=false
+  fi
+
+  # Test 5: Dynamic functions
+  if test_dynamic_functions "$file"; then
+    log_pass "Dynamic completion functions"
+  else
+    log_fail "Dynamic completion functions"
+    file_passed=false
+  fi
+
+  # Test 6: Required arrays
+  if test_required_arrays "$file"; then
+    log_pass "Required arrays exist"
+  else
+    log_fail "Required arrays exist"
+    file_passed=false
+  fi
+
+  # Test 7: Required commands
+  if test_required_commands "$file"; then
+    log_pass "Required commands in main_commands"
+  else
+    log_fail "Required commands in main_commands"
+    file_passed=false
+  fi
+
+  # Test 8: Required options
+  if test_required_options "$file"; then
+    log_pass "Required options exist"
+  else
+    log_fail "Required options exist"
+    file_passed=false
+  fi
+
+  # Test 9: compdef registration
+  if test_compdef_registration "$file"; then
+    log_pass "compdef registration"
+  else
+    log_fail "compdef registration"
+    file_passed=false
+  fi
+
+  # Test 10: Source file
+  if test_source_file "$file"; then
+    log_pass "Source file loads"
+  else
+    log_fail "Source file loads"
+    file_passed=false
+  fi
+
+  # Test 11: Structure consistency (skip for English file)
+  if [[ "$basename" != "_claude" ]]; then
+    if test_structure_consistency "$file"; then
+      log_pass "Structure consistency with English"
+    else
+      log_fail "Structure consistency with English"
+      file_passed=false
+    fi
+  fi
+
+  # Test 12: File naming
+  if test_file_naming "$file"; then
+    log_pass "File naming convention"
+  else
+    log_fail "File naming convention"
+    file_passed=false
+  fi
+
+  if [[ "$file_passed" == "false" ]]; then
+    failed_files+=("$basename")
+  fi
+}
+
+# Main execution
+main() {
+  echo "╔════════════════════════════════════════════════════════════╗"
+  echo "║     Claude Code Completion Test Suite                      ║"
+  echo "╚════════════════════════════════════════════════════════════╝"
+
+  # Get reference counts from English file
+  log_section "Loading reference counts from English file"
+  get_reference_counts
+  echo "Reference main_options: $REF_MAIN_OPTIONS"
+  echo "Reference mcp_commands: $REF_MCP_COMMANDS"
+  echo "Reference plugin_commands: $REF_PLUGIN_COMMANDS"
+  echo "Reference marketplace_commands: $REF_MARKETPLACE_COMMANDS"
+
+  # Get all completion files
+  local -a completion_files
+  completion_files=($COMPLETIONS_DIR/_claude*)
+
+  log_section "Running tests for ${#completion_files[@]} completion files"
+
+  # Run tests for each file
+  for file in $completion_files; do
+    run_tests_for_file "$file"
+  done
+
+  # Summary
+  log_section "Test Summary"
+  echo ""
+  echo "Total tests:  $total_tests"
+  echo "Passed:       ${GREEN}$passed_tests${NC}"
+  echo "Failed:       ${RED}$failed_tests${NC}"
+  echo ""
+
+  if [[ ${#failed_files[@]} -gt 0 ]]; then
+    echo "${RED}Failed files:${NC}"
+    for f in $failed_files; do
+      echo "  - $f"
+    done
+    echo ""
+    exit 1
+  else
+    echo "${GREEN}╔════════════════════════════════════════════════════════════╗${NC}"
+    echo "${GREEN}║     All tests passed!                                      ║${NC}"
+    echo "${GREEN}╚════════════════════════════════════════════════════════════╝${NC}"
+    exit 0
+  fi
+}
+
+main "$@"

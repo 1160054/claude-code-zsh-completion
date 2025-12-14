@@ -17,7 +17,7 @@ jobs:
     - name: Install zsh
       run: |
         sudo apt-get update
-        sudo apt-get install -y zsh
+        sudo apt-get install -y zsh file
 
     - name: Verify zsh installation
       run: |
@@ -28,16 +28,3 @@ jobs:
       run: |
         chmod +x .github/workflows/test.zsh
         zsh .github/workflows/test.zsh
-
-    - name: Test all language files syntax
-      run: |
-        echo "=== Testing all completion files ==="
-        for file in completions/_claude*; do
-          echo "Testing $file..."
-          if zsh -n "$file"; then
-            echo "✓ $file syntax OK"
-          else
-            echo "✗ $file syntax error"
-            exit 1
-          fi
-        done
