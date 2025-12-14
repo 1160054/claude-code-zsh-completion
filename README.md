@@ -50,6 +50,39 @@ Reload your shell:
 source ~/.zshrc
 ```
 
+### Plugin Managers
+
+#### [zinit](https://github.com/zdharma-continuum/zinit)
+
+```bash
+zinit light 1160054/claude-code-zsh-completion
+```
+
+#### [antigen](https://github.com/zsh-users/antigen)
+
+```bash
+antigen bundle 1160054/claude-code-zsh-completion
+```
+
+#### [sheldon](https://github.com/rossmacarthur/sheldon)
+
+Add to `~/.config/sheldon/plugins.toml`:
+```toml
+[plugins.claude-code-zsh-completion]
+github = "1160054/claude-code-zsh-completion"
+```
+
+#### [Oh My Zsh](https://ohmyz.sh/)
+
+```bash
+git clone https://github.com/1160054/claude-code-zsh-completion ${ZSH_CUSTOM:-~/.oh-my-zsh/custom}/plugins/claude-code
+```
+
+Add `claude-code` to your plugins in `~/.zshrc`:
+```bash
+plugins=(... claude-code)
+```
+
 ## Available Languages
 
 **120+ languages supported!** All completion files are located in the [`completions/`](completions/) directory.
