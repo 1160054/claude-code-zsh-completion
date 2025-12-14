@@ -66,7 +66,6 @@ _claude() {
   main_commands=(
     'mcp:MCP zerbitzariak konfiguratu eta kudeatu'
     'plugin:Claude Code pluginak kudeatu'
-    'migrate-installer:npm instalazio globaletik instalazio lokalera migratu'
     'setup-token:Epe luzerako autentifikazio tokena konfiguratu (Claude harpidetza behar du)'
     'doctor:Claude Code eguneratzaile automatikoaren osasun egiaztapena'
     'update:Eguneraketak egiaztatu eta instalatu'
@@ -132,7 +131,7 @@ _claude() {
         install)
           _claude_install
           ;;
-        migrate-installer|setup-token|doctor|update)
+        setup-token|doctor|update)
           _message "argumenturik ez"
           ;;
       esac

@@ -66,7 +66,6 @@ _claude() {
   main_commands=(
     'mcp:Agordi kaj administri MCP-servilojn'
     'plugin:Administri Claude Code kromaĵojn'
-    'migrate-installer:Migri de tutmonda npm-instalo al loka instalo'
     'setup-token:Agordi longdaŭran aŭtentikigan ĵetonon (bezonas Claude-abonon)'
     'doctor:Sankontrolo por Claude Code aŭtomata ĝisdatigilo'
     'update:Kontroli kaj instali ĝisdatigojn'
@@ -132,7 +131,7 @@ _claude() {
         install)
           _claude_install
           ;;
-        migrate-installer|setup-token|doctor|update)
+        setup-token|doctor|update)
           _message "neniuj argumentoj"
           ;;
       esac

@@ -66,7 +66,6 @@ _claude() {
   main_commands=(
     'mcp:I-configure at pamahalaan ang mga MCP server'
     'plugin:Pamahalaan ang mga Claude Code plugin'
-    'migrate-installer:Lumipat mula sa global npm install papunta sa lokal na install'
     'setup-token:I-set up ang pangmatagalang authentication token (kailangan ng Claude subscription)'
     'doctor:Health check para sa Claude Code auto-updater'
     'update:Suriin at i-install ang mga update'
@@ -132,7 +131,7 @@ _claude() {
         install)
           _claude_install
           ;;
-        migrate-installer|setup-token|doctor|update)
+        setup-token|doctor|update)
           _message "walang mga argumento"
           ;;
       esac

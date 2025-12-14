@@ -66,7 +66,6 @@ _claude() {
   main_commands=(
     'mcp:Configurar i gestionar servidors MCP'
     'plugin:Gestionar connectors de Claude Code'
-    'migrate-installer:Migrar de la instal·lació npm global a la instal·lació local'
     'setup-token:Configurar token d'\''autenticació a llarg termini (requereix subscripció Claude)'
     'doctor:Comprovació d'\''integritat per a l'\''actualitzador automàtic de Claude Code'
     'update:Comprovar i instal·lar actualitzacions'
@@ -132,7 +131,7 @@ _claude() {
         install)
           _claude_install
           ;;
-        migrate-installer|setup-token|doctor|update)
+        setup-token|doctor|update)
           _message "sense arguments"
           ;;
       esac

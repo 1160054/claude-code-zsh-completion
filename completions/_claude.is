@@ -66,7 +66,6 @@ _claude() {
   main_commands=(
     'mcp:Stilla og stjórna MCP-þjónum'
     'plugin:Stjórna Claude Code viðbótum'
-    'migrate-installer:Flytja frá altækri npm uppsetningar í staðbundna uppsetningu'
     'setup-token:Stilla langtíma auðkenningarmerki (krefst Claude áskriftar)'
     'doctor:Heilsuathugun fyrir Claude Code sjálfvirka uppfæringar'
     'update:Leita að og setja upp uppfærslur'
@@ -132,7 +131,7 @@ _claude() {
         install)
           _claude_install
           ;;
-        migrate-installer|setup-token|doctor|update)
+        setup-token|doctor|update)
           _message "engin viðfang"
           ;;
       esac

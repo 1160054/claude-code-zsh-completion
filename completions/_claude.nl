@@ -21,7 +21,7 @@ _claude_mcp_servers() {
     server_list=(${(f)"$(claude mcp list 2>/dev/null | sed -n 's/^\([^:]*\):.*/\1/p' | grep -v '^Checking')"})
   fi
 
-  _describe 'mcp servers' server_list
+  compadd -l -a server_list
 }
 
 _claude_installed_plugins() {
@@ -66,7 +66,6 @@ _claude() {
   main_commands=(
     'mcp:MCP-servers configureren en beheren'
     'plugin:Claude Code plugins beheren'
-    'migrate-installer:Migreren van globale npm-installatie naar lokale installatie'
     'setup-token:Langdurig authenticatietoken instellen (vereist Claude-abonnement)'
     'doctor:Gezondheidscontrole voor Claude Code auto-updater'
     'update:Controleren op en installeren van updates'
@@ -132,7 +131,7 @@ _claude() {
         install)
           _claude_install
           ;;
-        migrate-installer|setup-token|doctor|update)
+        setup-token|doctor|update)
           _message "geen argumenten"
           ;;
       esac

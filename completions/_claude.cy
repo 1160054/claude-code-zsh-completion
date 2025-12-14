@@ -66,7 +66,6 @@ _claude() {
   main_commands=(
     'mcp:Ffurfweddu a rheoli gweinyddion MCP'
     'plugin:Rheoli ategion Claude Code'
-    'migrate-installer:Mudo o osodiad npm byd-eang i osodiad lleol'
     'setup-token:Gosod tocyn dilysu hirdymor (angen tanysgrifiad Claude)'
     'doctor:Gwiriad iechyd ar gyfer diweddarwr Claude Code'
     'update:Gwirio am a gosod diweddariadau'
@@ -132,7 +131,7 @@ _claude() {
         install)
           _claude_install
           ;;
-        migrate-installer|setup-token|doctor|update)
+        setup-token|doctor|update)
           _message "dim dadleuon"
           ;;
       esac

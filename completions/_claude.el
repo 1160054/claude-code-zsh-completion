@@ -21,7 +21,7 @@ _claude_mcp_servers() {
     server_list=(${(f)"$(claude mcp list 2>/dev/null | sed -n 's/^\([^:]*\):.*/\1/p' | grep -v '^Checking')"})
   fi
 
-  _describe 'mcp servers' server_list
+  compadd -l -a server_list
 }
 
 _claude_installed_plugins() {
@@ -37,7 +37,7 @@ _claude_installed_plugins() {
   # Remove duplicates
   plugins=(${(u)plugins})
 
-  _describe 'installed plugins' plugins
+  compadd -l -a plugins
 }
 
 _claude_sessions() {
@@ -55,7 +55,7 @@ _claude_sessions() {
   # Filter only valid UUIDs
   sessions=(${(M)sessions:#[0-9a-f](#c8)-[0-9a-f](#c4)-[0-9a-f](#c4)-[0-9a-f](#c4)-[0-9a-f](#c12)})
 
-  _describe 'session IDs' sessions
+  compadd -l -a sessions
 }
 
 _claude() {
@@ -66,7 +66,6 @@ _claude() {
   main_commands=(
     'mcp:Διαμόρφωση και διαχείριση διακομιστών MCP'
     'plugin:Διαχείριση προσθέτων Claude Code'
-    'migrate-installer:Μετεγκατάσταση από καθολική εγκατάσταση npm σε τοπική εγκατάσταση'
     'setup-token:Ρύθμιση μακροπρόθεσμου διακριτικού ελέγχου ταυτότητας (απαιτεί συνδρομή Claude)'
     'doctor:Έλεγχος υγείας για το αυτόματο ενημερωτικό του Claude Code'
     'update:Έλεγχος και εγκατάσταση ενημερώσεων'
@@ -132,7 +131,7 @@ _claude() {
         install)
           _claude_install
           ;;
-        migrate-installer|setup-token|doctor|update)
+        setup-token|doctor|update)
           _message "no arguments"
           ;;
       esac

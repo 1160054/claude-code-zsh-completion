@@ -66,7 +66,6 @@ _claude() {
   main_commands=(
     'mcp:Rèitich agus stiùir frithealaichean MCP'
     'plugin:Stiùir plugain Claude Code'
-    'migrate-installer:Imrich bho stàladh npm cruinneil gu stàladh ionadail'
     'setup-token:Suidhich tòcan dearbhaidh fad-ùine (feumaidh fo-sgrìobhadh Claude)'
     'doctor:Sgrùdadh slàinte airson ùrachadair Claude Code'
     'update:Thoir sùil airson agus stàlaich ùrachaidhean'
@@ -132,7 +131,7 @@ _claude() {
         install)
           _claude_install
           ;;
-        migrate-installer|setup-token|doctor|update)
+        setup-token|doctor|update)
           _message "gun argamaidean"
           ;;
       esac

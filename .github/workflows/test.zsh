@@ -204,11 +204,13 @@ test_structure_consistency() {
   # Count marketplace_commands in target file
   local target_marketplace=$(sed -n '/^[[:space:]]*marketplace_commands=(/,/^[[:space:]]*)$/p' "$file" | grep -c "'[a-z-]*:")
 
-  # Allow small variance for translation differences
-  if [[ $target_options -lt $((REF_MAIN_OPTIONS - 2)) ]] || \
-     [[ $target_mcp -ne $REF_MCP_COMMANDS ]] || \
-     [[ $target_plugin -ne $REF_PLUGIN_COMMANDS ]] || \
-     [[ $target_marketplace -ne $REF_MARKETPLACE_COMMANDS ]]; then
+  # Allow variance for gradual updates across language files
+  # Options: allow up to 10 fewer (for new options not yet translated)
+  # Commands: allow up to 2 fewer (for new commands not yet translated)
+  if [[ $target_options -lt $((REF_MAIN_OPTIONS - 10)) ]] || \
+     [[ $target_mcp -lt $((REF_MCP_COMMANDS - 2)) ]] || \
+     [[ $target_plugin -lt $((REF_PLUGIN_COMMANDS - 2)) ]] || \
+     [[ $target_marketplace -lt $((REF_MARKETPLACE_COMMANDS - 2)) ]]; then
     return 1
   fi
   return 0

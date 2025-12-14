@@ -66,7 +66,6 @@ _claude() {
   main_commands=(
     'mcp:Määritä ja hallinnoi MCP-palvelimia'
     'plugin:Hallinnoi Claude Code -laajennuksia'
-    'migrate-installer:Siirry globaalista npm-asennuksesta paikalliseen asennukseen'
     'setup-token:Määritä pitkäaikainen todennustunnus (vaatii Claude-tilauksen)'
     'doctor:Terveystarkastus Claude Code automaattiselle päivittäjälle'
     'update:Tarkista ja asenna päivitykset'
@@ -132,7 +131,7 @@ _claude() {
         install)
           _claude_install
           ;;
-        migrate-installer|setup-token|doctor|update)
+        setup-token|doctor|update)
           _message "ei argumentteja"
           ;;
       esac

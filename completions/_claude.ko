@@ -22,7 +22,7 @@ _claude_mcp_servers() {
     server_list=(${(f)"$(claude mcp list 2>/dev/null | sed -n 's/^\([^:]*\):.*/\1/p' | grep -v '^Checking')"})
   fi
 
-  _describe 'mcp servers' server_list
+  compadd -l -a server_list
 }
 
 _claude_installed_plugins() {
@@ -38,7 +38,7 @@ _claude_installed_plugins() {
   # Remove duplicates
   plugins=(${(u)plugins})
 
-  _describe 'installed plugins' plugins
+  compadd -l -a plugins
 }
 
 _claude_sessions() {
@@ -56,7 +56,7 @@ _claude_sessions() {
   # Filter only valid UUIDs
   sessions=(${(M)sessions:#[0-9a-f](#c8)-[0-9a-f](#c4)-[0-9a-f](#c4)-[0-9a-f](#c4)-[0-9a-f](#c12)})
 
-  _describe 'session IDs' sessions
+  compadd -l -a sessions
 }
 _claude() {
   local curcontext="$curcontext" state line
@@ -66,7 +66,6 @@ _claude() {
   main_commands=(
     'mcp:MCP 서버 구성 및 관리'
     'plugin:Claude Code 플러그인 관리'
-    'migrate-installer:전역 npm 설치에서 로컬 설치로 마이그레이션'
     'setup-token:장기 인증 토큰 설정(Claude 구독 필요)'
     'doctor:Claude Code 자동 업데이터 상태 점검'
     'update:업데이트 확인 및 설치'
@@ -132,7 +131,7 @@ _claude() {
         install)
           _claude_install
           ;;
-        migrate-installer|setup-token|doctor|update)
+        setup-token|doctor|update)
           _message "인수 없음"
           ;;
       esac

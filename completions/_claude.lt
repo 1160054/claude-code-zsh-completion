@@ -66,7 +66,6 @@ _claude() {
   main_commands=(
     'mcp:Konfigūruoti ir valdyti MCP serverius'
     'plugin:Valdyti Claude Code papildinius'
-    'migrate-installer:Migruoti iš globalaus npm diegimo į vietinį diegimą'
     'setup-token:Nustatyti ilgalaikės autentifikacijos prieigos raktą (reikalinga Claude prenumerata)'
     'doctor:Patikrinti Claude Code automatinio atnaujinimo sistemos būklę'
     'update:Patikrinti ir įdiegti atnaujinimus'
@@ -132,7 +131,7 @@ _claude() {
         install)
           _claude_install
           ;;
-        migrate-installer|setup-token|doctor|update)
+        setup-token|doctor|update)
           _message "be argumentų"
           ;;
       esac

@@ -66,7 +66,6 @@ _claude() {
   main_commands=(
     'mcp:Sanidi na simamia seva za MCP'
     'plugin:Simamia programu-jalizi za Claude Code'
-    'migrate-installer:Hamisha kutoka kwa usakinishaji wa npm wa kimataifa hadi usakinishaji wa ndani'
     'setup-token:Weka alama ya uthibitishaji wa muda mrefu (inahitaji usajili wa Claude)'
     'doctor:Ukaguzi wa afya kwa auto-updater ya Claude Code'
     'update:Angalia na sakinisha masasisho'
@@ -132,7 +131,7 @@ _claude() {
         install)
           _claude_install
           ;;
-        migrate-installer|setup-token|doctor|update)
+        setup-token|doctor|update)
           _message "hakuna hoja"
           ;;
       esac

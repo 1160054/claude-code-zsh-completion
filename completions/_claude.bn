@@ -21,7 +21,7 @@ _claude_mcp_servers() {
     server_list=(${(f)"$(claude mcp list 2>/dev/null | sed -n 's/^\([^:]*\):.*/\1/p' | grep -v '^Checking')"})
   fi
 
-  _describe 'mcp servers' server_list
+  compadd -l -a server_list
 }
 
 _claude_installed_plugins() {
@@ -37,7 +37,7 @@ _claude_installed_plugins() {
   # Remove duplicates
   plugins=(${(u)plugins})
 
-  _describe 'installed plugins' plugins
+  compadd -l -a plugins
 }
 
 _claude_sessions() {
@@ -55,7 +55,7 @@ _claude_sessions() {
   # Filter only valid UUIDs
   sessions=(${(M)sessions:#[0-9a-f](#c8)-[0-9a-f](#c4)-[0-9a-f](#c4)-[0-9a-f](#c4)-[0-9a-f](#c12)})
 
-  _describe 'session IDs' sessions
+  compadd -l -a sessions
 }
 
 _claude() {
@@ -66,7 +66,6 @@ _claude() {
   main_commands=(
     'mcp:MCP সার্ভারগুলি কনফিগার এবং পরিচালনা করুন'
     'plugin:Claude Code প্লাগইনগুলি পরিচালনা করুন'
-    'migrate-installer:গ্লোবাল npm ইনস্টল থেকে লোকাল ইনস্টলে মাইগ্রেট করুন'
     'setup-token:দীর্ঘমেয়াদী প্রমাণীকরণ টোকেন সেট করুন (Claude সাবস্ক্রিপশন প্রয়োজন)'
     'doctor:Claude Code অটো-আপডেটারের জন্য স্বাস্থ্য পরীক্ষা'
     'update:আপডেট পরীক্ষা করুন এবং ইনস্টল করুন'
@@ -132,7 +131,7 @@ _claude() {
         install)
           _claude_install
           ;;
-        migrate-installer|setup-token|doctor|update)
+        setup-token|doctor|update)
           _message "no arguments"
           ;;
       esac

@@ -67,7 +67,6 @@ _claude() {
   main_commands=(
     'mcp:Configurar y gestionar servidores MCP'
     'plugin:Gestionar plugins de Claude Code'
-    'migrate-installer:Migrar de instalación global npm a instalación local'
     'setup-token:Configurar token de autenticación a largo plazo (requiere suscripción Claude)'
     'doctor:Comprobación de salud para actualizador automático de Claude Code'
     'update:Buscar e instalar actualizaciones'
@@ -133,7 +132,7 @@ _claude() {
         install)
           _claude_install
           ;;
-        migrate-installer|setup-token|doctor|update)
+        setup-token|doctor|update)
           _message "sin argumentos"
           ;;
       esac

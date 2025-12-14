@@ -21,7 +21,8 @@ _claude_mcp_servers() {
     server_list=(${(f)"$(claude mcp list 2>/dev/null | sed -n 's/^\([^:]*\):.*/\1/p' | grep -v '^Checking')"})
   fi
 
-  _describe 'mcp servers' server_list
+  # Display one item per line
+  compadd -l -a server_list
 }
 
 _claude_installed_plugins() {
@@ -37,7 +38,8 @@ _claude_installed_plugins() {
   # Remove duplicates
   plugins=(${(u)plugins})
 
-  _describe 'installed plugins' plugins
+  # Display one item per line
+  compadd -l -a plugins
 }
 
 _claude_sessions() {
@@ -55,7 +57,8 @@ _claude_sessions() {
   # Filter only valid UUIDs
   sessions=(${(M)sessions:#[0-9a-f](#c8)-[0-9a-f](#c4)-[0-9a-f](#c4)-[0-9a-f](#c4)-[0-9a-f](#c12)})
 
-  _describe 'session IDs' sessions
+  # Display one item per line
+  compadd -l -a sessions
 }
 
 _claude() {
@@ -66,7 +69,6 @@ _claude() {
   main_commands=(
     'mcp:Configure and manage MCP servers'
     'plugin:Manage Claude Code plugins'
-    'migrate-installer:Migrate from global npm install to local install'
     'setup-token:Set up long-term authentication token (requires Claude subscription)'
     'doctor:Health check for Claude Code auto-updater'
     'update:Check for and install updates'
@@ -85,6 +87,7 @@ _claude() {
     '--mcp-debug[\[Deprecated. Use --debug instead\] Enable MCP debug mode (shows MCP server errors)]'
     '--dangerously-skip-permissions[Bypass all permission checks. Recommended only for sandboxes without internet access]'
     '--allow-dangerously-skip-permissions[Enable option to bypass permission checks without enabling by default]'
+    '--max-budget-usd[Maximum dollar amount to spend on API calls (--print only)]:amount:'
     '--replay-user-messages[Re-send user messages from stdin on stdout for confirmation]'
     '--allowed-tools[Comma or space-separated list of allowed tool names (e.g., "Bash(git:*) Edit")]:tools:'
     '--allowedTools[Comma or space-separated list of allowed tool names (camelCase format)]:tools:'
@@ -98,7 +101,10 @@ _claude() {
     '(-c --continue)'{-c,--continue}'[Continue the most recent conversation]'
     '(-r --resume)'{-r,--resume}'[Resume a conversation - specify session ID or select interactively]:sessionId:_claude_sessions'
     '--fork-session[Create new session ID instead of reusing original session ID when resuming (with --resume or --continue)]'
+    '--no-session-persistence[Disable session persistence - sessions will not be saved (--print only)]'
     '--model[Model for current session. Specify alias for latest model (e.g., '\''sonnet'\'' or '\''opus'\'')]:model:'
+    '--agent[Agent for the current session. Overrides the '\''agent'\'' setting]:agent:'
+    '--betas[Beta headers to include in API requests (API key users only)]:betas:'
     '--fallback-model[Enable automatic fallback to specified model when default model is overloaded (--print only)]:model:'
     '--settings[Path to settings JSON file or JSON string to load additional settings]:file-or-json:_files'
     '--add-dir[Additional directories to allow tool access]:directories:_directories'
@@ -108,6 +114,7 @@ _claude() {
     '--agents[JSON object defining custom agents]:json:'
     '--setting-sources[Comma-separated list of setting sources to load (user, project, local)]:sources:'
     '--plugin-dir[Directory to load plugins from for this session only (repeatable)]:paths:_directories'
+    '--disable-slash-commands[Disable all slash commands]'
     '(-v --version)'{-v,--version}'[Output version number]'
     '(-h --help)'{-h,--help}'[Display help for command]'
   )
@@ -132,7 +139,7 @@ _claude() {
         install)
           _claude_install
           ;;
-        migrate-installer|setup-token|doctor|update)
+        setup-token|doctor|update)
           _message "no arguments"
           ;;
       esac
@@ -232,6 +239,7 @@ _claude_plugin() {
     'remove:Uninstall an installed plugin (alias for uninstall)'
     'enable:Enable a disabled plugin'
     'disable:Disable an enabled plugin'
+    'update:Update a plugin to the latest version'
     'help:Display help'
   )
 
@@ -259,16 +267,25 @@ _claude_plugin() {
           ;;
         install|i)
           _arguments \
+            '(-s --scope)'{-s,--scope}'[Installation scope]:scope:(user project local)' \
             '(-h --help)'{-h,--help}'[Display help]' \
             '1:plugin:'
           ;;
         uninstall|remove)
           _arguments \
+            '(-s --scope)'{-s,--scope}'[Installation scope]:scope:(user project local)' \
             '(-h --help)'{-h,--help}'[Display help]' \
             '1:plugin:_claude_installed_plugins'
           ;;
         enable|disable)
           _arguments \
+            '(-s --scope)'{-s,--scope}'[Installation scope]:scope:(user project local)' \
+            '(-h --help)'{-h,--help}'[Display help]' \
+            '1:plugin:_claude_installed_plugins'
+          ;;
+        update)
+          _arguments \
+            '(-s --scope)'{-s,--scope}'[Installation scope]:scope:(user project local managed)' \
             '(-h --help)'{-h,--help}'[Display help]' \
             '1:plugin:_claude_installed_plugins'
           ;;

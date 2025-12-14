@@ -66,7 +66,6 @@ _claude() {
   main_commands=(
     'mcp:Konfigurasi dan urus pelayan MCP'
     'plugin:Urus plugin Claude Code'
-    'migrate-installer:Pindah dari pemasangan npm global ke pemasangan tempatan'
     'setup-token:Sediakan token pengesahan jangka panjang (memerlukan langganan Claude)'
     'doctor:Pemeriksaan kesihatan untuk auto-updater Claude Code'
     'update:Semak dan pasang kemas kini'
@@ -132,7 +131,7 @@ _claude() {
         install)
           _claude_install
           ;;
-        migrate-installer|setup-token|doctor|update)
+        setup-token|doctor|update)
           _message "tiada argumen"
           ;;
       esac

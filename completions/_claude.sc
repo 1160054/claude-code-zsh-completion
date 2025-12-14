@@ -66,7 +66,6 @@ _claude() {
   main_commands=(
     'mcp:Configurare e gestire sos serbidores MCP'
     'plugin:Gestire sos plugins de Claude Code'
-    'migrate-installer:Migrare dae s'\''installatzione npm globale a cussa locale'
     'setup-token:Configurare su token de autenticatzione a longu tempus (recheret abbonamentu Claude)'
     'doctor:Verificatzione de salude pro s'\''agiornamentu automàticu de Claude Code'
     'update:Verificare e installare sos agiornamentos'
@@ -132,7 +131,7 @@ _claude() {
         install)
           _claude_install
           ;;
-        migrate-installer|setup-token|doctor|update)
+        setup-token|doctor|update)
           _message "perunu argumentu"
           ;;
       esac

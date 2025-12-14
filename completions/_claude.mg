@@ -66,7 +66,6 @@ _claude() {
   main_commands=(
     'mcp:Mametraka sy mitantana ny serveurs MCP'
     'plugin:Mitantana ny plugins Claude Code'
-    'migrate-installer:Mifindra avy amin ny fametrahana npm global mankany amin ny fametrahana eo an-toerana'
     'setup-token:Mametraka token authentication maharitra (mitaky famandrihana Claude)'
     'doctor:Fizahana fahasalamana ho an ny auto-updater Claude Code'
     'update:Manamarina sy mametraka fanavaozana'
@@ -132,7 +131,7 @@ _claude() {
         install)
           _claude_install
           ;;
-        migrate-installer|setup-token|doctor|update)
+        setup-token|doctor|update)
           _message "tsy misy argument"
           ;;
       esac
