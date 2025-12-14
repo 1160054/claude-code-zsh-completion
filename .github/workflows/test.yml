@@ -24,6 +24,17 @@ jobs:
         zsh --version
         which zsh
 
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+
+    - name: Install Claude CLI
+      run: npm install -g @anthropic-ai/claude-code
+
+    - name: Verify Claude CLI installation
+      run: claude --version
+
     - name: Run completion tests
       run: |
         chmod +x .github/workflows/test.zsh

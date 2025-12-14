@@ -165,7 +165,7 @@ test_required_options() {
   )
 
   for opt in $required_opts; do
-    if ! grep -qF "$opt" "$file"; then
+    if ! grep -qF -- "$opt" "$file"; then
       return 1
     fi
   done
@@ -228,6 +228,82 @@ test_file_naming() {
     return 0
   fi
   return 1
+}
+
+# Test 13: CLI version check (compare with actual Claude CLI)
+test_cli_options_coverage() {
+  local file="$1"
+
+  # Skip if claude command not available
+  if ! command -v claude &>/dev/null; then
+    return 0
+  fi
+
+  local -a missing_options=()
+
+  # Extract CLI options from claude --help
+  local cli_options=$(claude --help 2>&1 | grep -oE '\-\-[a-zA-Z][-a-zA-Z]*' | sort -u)
+
+  # Check each CLI option exists in completion file
+  for opt in ${(f)cli_options}; do
+    # Skip deprecated options
+    [[ "$opt" == "--mcp-debug" ]] && continue
+
+    if ! grep -qF -- "$opt" "$file"; then
+      missing_options+=("$opt")
+    fi
+  done
+
+  if [[ ${#missing_options[@]} -gt 0 ]]; then
+    echo "    Missing options: ${missing_options[*]}" >&2
+    return 1
+  fi
+  return 0
+}
+
+# Test 14: CLI subcommands coverage
+test_cli_commands_coverage() {
+  local file="$1"
+
+  # Skip if claude command not available
+  if ! command -v claude &>/dev/null; then
+    return 0
+  fi
+
+  local -a missing_commands=()
+
+  # Check main commands
+  local main_cmds=$(claude --help 2>&1 | sed -n '/Commands:/,/^$/p' | grep -E '^  [a-z]' | awk '{print $1}')
+  for cmd in ${(f)main_cmds}; do
+    [[ -z "$cmd" ]] && continue
+    if ! grep -q "'$cmd:" "$file"; then
+      missing_commands+=("$cmd")
+    fi
+  done
+
+  # Check mcp subcommands
+  local mcp_cmds=$(claude mcp --help 2>&1 | sed -n '/Commands:/,/^$/p' | grep -E '^  [a-z]' | awk '{print $1}')
+  for cmd in ${(f)mcp_cmds}; do
+    [[ -z "$cmd" || "$cmd" == "help" ]] && continue
+    if ! grep -q "'$cmd:" "$file"; then
+      missing_commands+=("mcp $cmd")
+    fi
+  done
+
+  # Check plugin subcommands
+  local plugin_cmds=$(claude plugin --help 2>&1 | sed -n '/Commands:/,/^$/p' | grep -E '^  [a-z]' | awk '{print $1}' | sed 's/|.*//')
+  for cmd in ${(f)plugin_cmds}; do
+    [[ -z "$cmd" || "$cmd" == "help" ]] && continue
+    if ! grep -q "'$cmd:" "$file"; then
+      missing_commands+=("plugin $cmd")
+    fi
+  done
+
+  if [[ ${#missing_commands[@]} -gt 0 ]]; then
+    echo "    Missing commands: ${missing_commands[*]}" >&2
+    return 1
+  fi
+  return 0
 }
 
 # Run all tests for a single file
@@ -335,6 +411,23 @@ run_tests_for_file() {
   else
     log_fail "File naming convention"
     file_passed=false
+  fi
+
+  # Test 13 & 14: CLI coverage (only for English file)
+  if [[ "$basename" == "_claude" ]]; then
+    if test_cli_options_coverage "$file"; then
+      log_pass "CLI options coverage"
+    else
+      log_fail "CLI options coverage"
+      file_passed=false
+    fi
+
+    if test_cli_commands_coverage "$file"; then
+      log_pass "CLI commands coverage"
+    else
+      log_fail "CLI commands coverage"
+      file_passed=false
+    fi
   fi
 
   if [[ "$file_passed" == "false" ]]; then
