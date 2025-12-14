@@ -7,6 +7,8 @@
 
 🚀 Zsh completion script for Claude Code CLI - intelligent auto-completion for all claude commands, options, and arguments
 
+![Demo](demo.gif)
+
 ## Features
 
 - ✨ Complete command completion for all `claude` commands
