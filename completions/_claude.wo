@@ -1,4 +1,5 @@
 #compdef claude
+
 # Dynamic completion functions
 _claude_mcp_servers() {
   local config_file
@@ -24,82 +25,127 @@ _claude_mcp_servers() {
 _claude_installed_plugins() {
   local -a plugins
   local config_file plugin_dir
+
   # Check plugin directories directly
   for plugin_dir in ~/.claude/plugins ~/.config/claude/plugins; do
     [[ -d "$plugin_dir" ]] || continue
     plugins+=(${plugin_dir}/*(N:t))
   done
+
   # Remove duplicates
   plugins=(${(u)plugins})
+
   compadd -a plugins
 }
+
 _claude_sessions() {
   local -a sessions
   local session_dir
+
   # Check session directory
   for session_dir in ~/.claude/sessions ~/.config/claude/sessions; do
     [[ -d "$session_dir" ]] || continue
+
     # Extract UUIDs directly from filenames
     sessions+=(${session_dir}/*~*.zwc(N:t:r))
   done
+
   # Filter only valid UUIDs
   sessions=(${(M)sessions:#[0-9a-f](#c8)-[0-9a-f](#c4)-[0-9a-f](#c4)-[0-9a-f](#c4)-[0-9a-f](#c12)})
+
   compadd -a sessions
 }
+
 _claude() {
   local curcontext="$curcontext" state line
   typeset -A opt_args
+
   local -a main_commands
   main_commands=(
-    'mcp:Configure and manage MCP servers'
-    'plugin:Manage Claude Code plugins'
-    'setup-token:Set up long-term authentication token (requires Claude subscription)'
-    'doctor:Health check for Claude Code auto-updater'
-    'update:Check for and install updates'
-    'install:Install Claude Code native build'
+    'mcp:Konfigure te yor ay serwëer MCP'
+    'plugin:Yor ay plugin bu Claude Code'
+    'agents:Yor ay ajaŋ bu background'
+    'auth:Yor autentifikasion'
+    'auto-mode:Seet walla reset konfigurasion classifier bu auto mode'
+    'gateway:Doxal gateway auth/telemetry bu entreprise'
+    'project:Yor état projet bu Claude Code'
+    'ultrareview:Doxal ab review kode multi-agent ci cloud te wone li ñu gis'
+    'setup-token:Defar token autentifikasion bu yàgg (soxla na abonnement Claude)'
+    'doctor:Saytu wér-gu-yaram bu auto-updater bu Claude Code'
+    'update:Seet te instale ay mise à jour'
+    'install:Instale build native bu Claude Code'
   )
+
   local -a main_options
   main_options=(
-    '(-d --debug)'{-d,--debug}'[Enable debug mode with optional category filtering (e.g., "api,hooks" or "!statsig,!file")]:filter:'
-    '--verbose[Override verbose mode setting from config file]'
-    '(-p --print)'{-p,--print}'[Print response and exit (for use with pipes). Note: use only in trusted directories]'
-    '--output-format[Output format (with --print): "text" (default), "json" (single result), or "stream-json" (real-time streaming)]:format:(text json stream-json)'
-    '--json-schema[JSON schema for structured output validation]:schema:'
-    '--include-partial-messages[Include partial message chunks as they arrive (with --print and --output-format=stream-json)]'
-    '--input-format[Input format (with --print): "text" (default) or "stream-json" (real-time streaming input)]:format:(text stream-json)'
-    '--mcp-debug[\[Deprecated. Use --debug instead\] Enable MCP debug mode (shows MCP server errors)]'
-    '--dangerously-skip-permissions[Bypass all permission checks. Recommended only for sandboxes without internet access]'
-    '--allow-dangerously-skip-permissions[Enable option to bypass permission checks without enabling by default]'
-    '--replay-user-messages[Re-send user messages from stdin on stdout for confirmation]'
-    '--allowed-tools[Comma or space-separated list of allowed tool names (e.g., "Bash(git:*) Edit")]:tools:'
-    '--allowedTools[Comma or space-separated list of allowed tool names (camelCase format)]:tools:'
-    '--tools[Specify list of available tools from built-in set. Print mode only]:tools:'
-    '--disallowed-tools[Comma or space-separated list of disallowed tool names (e.g., "Bash(git:*) Edit")]:tools:'
-    '--disallowedTools[Comma or space-separated list of disallowed tool names (camelCase format)]:tools:'
-    '--mcp-config[Load MCP servers from JSON file or string (space-separated)]:configs:'
-    '--system-prompt[System prompt to use for session]:prompt:'
-    '--append-system-prompt[Append system prompt to default system prompt]:prompt:'
-    '--permission-mode[Permission mode to use for session]:mode:(acceptEdits bypassPermissions default dontAsk plan)'
-    '(-c --continue)'{-c,--continue}'[Continue the most recent conversation]'
-    '(-r --resume)'{-r,--resume}'[Resume a conversation - specify session ID or select interactively]:sessionId:_claude_sessions'
-    '--fork-session[Create new session ID instead of reusing original session ID when resuming (with --resume or --continue)]'
-    '--model[Model for current session. Specify alias for latest model (e.g., '\''sonnet'\'' or '\''opus'\'')]:model:'
-    '--fallback-model[Enable automatic fallback to specified model when default model is overloaded (--print only)]:model:'
-    '--settings[Path to settings JSON file or JSON string to load additional settings]:file-or-json:_files'
-    '--add-dir[Additional directories to allow tool access]:directories:_directories'
-    '--ide[Auto-connect to IDE on startup if exactly one valid IDE is available]'
-    '--strict-mcp-config[Use only MCP servers from --mcp-config and ignore all other MCP settings]'
-    '--session-id[Specific session ID to use for conversation (must be valid UUID)]:uuid:'
-    '--agents[JSON object defining custom agents]:json:'
-    '--setting-sources[Comma-separated list of setting sources to load (user, project, local)]:sources:'
-    '--plugin-dir[Directory to load plugins from for this session only (repeatable)]:paths:_directories'
-    '(-v --version)'{-v,--version}'[Output version number]'
-    '(-h --help)'{-h,--help}'[Display help for command]'
+    '(-d --debug)'{-d,--debug}'[Tàggat mode debug ak filtre kategori bu optionel (misaal, "api,hooks" walla "!statsig,!file")]:filter:'
+    '--verbose[Soppi réglaas mode verbose bu jóge ci fiise config]'
+    '(-p --print)'{-p,--print}'[Wone réponse te génn (ngir jëfandikoo ak pipes). Njël: jëfandikoo rekk ci ay répertoire bu ñu wóolu]'
+    '--output-format[Format bu output (ak --print): "text" (default), "json" (benn résultat), walla "stream-json" (streaming ci waxtu wu jaadu)]:format:(text json stream-json)'
+    '--json-schema[Schema JSON ngir validasion output bu structuré]:schema:'
+    '--include-partial-messages[Boole ay chunk bataaxal bu partiel ci saa yu ñuy ñów (ak --print ak --output-format=stream-json)]'
+    '--input-format[Format bu input (ak --print): "text" (default) walla "stream-json" (input streaming ci waxtu wu jaadu)]:format:(text stream-json)'
+    '--mcp-debug[\[Bàyyeeku. Jëfandikoo --debug\] Tàggat mode debug MCP (dafay wone ay erreur serwëer MCP)]'
+    '--dangerously-skip-permissions[Weesu ëpp saytu permission yépp. Ñu koy digal rekk ngir sandbox yu amul access internet]'
+    '--allow-dangerously-skip-permissions[Tàggat opsion bu weesu saytu permission te taggatul ko par défaut]'
+    '--max-budget-usd[Xaalis dollar bu gëna kawe ngir jëfandikoo ci ay appel API (--print rekk)]:amount:'
+    '--replay-user-messages[Yónnee ci at ay bataaxal utilisateur bu jóge stdin ci stdout ngir konfirmasion]'
+    '--allowed-tools[Limu tur bu outil bu ñu may, ratax ak virgule walla espaas (misaal, "Bash(git:*) Edit")]:tools:'
+    '--allowedTools[Limu tur bu outil bu ñu may, ratax ak virgule walla espaas (format camelCase)]:tools:'
+    '--tools[Wone limu outil yu am ci ansàmb built-in. Mode print rekk]:tools:'
+    '--disallowed-tools[Limu tur bu outil bu ñu tere, ratax ak virgule walla espaas (misaal, "Bash(git:*) Edit")]:tools:'
+    '--disallowedTools[Limu tur bu outil bu ñu tere, ratax ak virgule walla espaas (format camelCase)]:tools:'
+    '--mcp-config[Yeb ay serwëer MCP bu jóge ci fiise JSON walla string (ratax ak espaas)]:configs:'
+    '--system-prompt[Prompt système bu ñuy jëfandikoo ngir session]:prompt:'
+    '--append-system-prompt[Yokk prompt système ci prompt système bu default]:prompt:'
+    '--permission-mode[Mode permission bu ñuy jëfandikoo ngir session]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)'
+    '(-c --continue)'{-c,--continue}'[Wéyal waxtaan bi gëna yees]'
+    '(-r --resume)'{-r,--resume}'[Dellu ci ab waxtaan - wone session ID walla tànn ci anteraktivite]:sessionId:_claude_sessions'
+    '--fork-session[Sos session ID bu bees ci lu dul jëfandikooti session ID bu njëkk bu ñuy delluwaat (ak --resume walla --continue)]'
+    '--no-session-persistence[Tere persistence bu session - session yi duñu denc (--print rekk)]'
+    '--model[Model ngir session bi nekk. Wone alias ngir model bi gëna yees (misaal, '\''sonnet'\'' walla '\''opus'\'')]:model:'
+    '--agent[Ajaŋ ngir session bi nekk. Dafay soppi réglaas '\''agent'\'']:agent:'
+    '--betas[Header beta yu ñuy boole ci ay requête API (jëfandikookat bu API key rekk)]:betas:'
+    '--fallback-model[Tàggat fallback otomatik ci model bu ñu wone bu model bu default chargé lool (--print rekk)]:model:'
+    '--settings[Yoon ci fiise JSON réglaas walla string JSON ngir yeb réglaas yu yokk]:file-or-json:_files'
+    '--add-dir[Ay répertoire yu yokk ngir may access outil]:directories:_directories'
+    '--ide[Jokkoo otomatik ak IDE ci tàmbali bu benn IDE bu baax rekk am]'
+    '--strict-mcp-config[Jëfandikoo rekk ay serwëer MCP bu jóge --mcp-config te bàyyi réglaas MCP yépp yu ci des]'
+    '--session-id[Session ID bu wóor ngir jëfandikoo ci waxtaan (fàww mu doon UUID bu baax)]:uuid:'
+    '--agents[Objet JSON bu wone ay ajaŋ bu custom]:json:'
+    '--setting-sources[Limu source réglaas bu ñuy yeb, ratax ak virgule (user, project, local)]:sources:'
+    '--plugin-dir[Répertoire bu ñuy yeb ay plugin ngir session bii rekk (mën na ñu ko baamtu)]:paths:_directories'
+    '--disable-slash-commands[Tere komond slash yépp]'
+    '(--bg --background)'{--bg,--background}'[Tàmbali session bi ni ab ajaŋ background te dellu ci saa si]'
+    '(-w --worktree)'{-w,--worktree}'[Sos ab worktree git bu bees ngir session bii (mën nga wone tur bu optionel)]::name:'
+    '--tmux[Sos ab session tmux ngir worktree bi (soxla na --worktree)]'
+    '(-n --name)'{-n,--name}'[Def ab tur bu wone ngir session bii]:name:'
+    '--effort[Niveau effort ngir session bi nekk]:level:(low medium high xhigh max)'
+    '--debug-file[Bind ay log debug ci ab yoon fiise bu wóor (dafay tàggat mode debug ci lu wóoral)]:path:_files'
+    '--from-pr[Dellu ci ab session bu ñu boole ak ab PR ci nimero/URL, walla ubbi picker anteraktif]::value:'
+    '--remote-control[Tàmbali session anteraktif ak Remote Control bu ñu tàggat (mën na am tur bu optionel)]::name:'
+    '--remote-control-session-name-prefix[Prefix ngir tur session Remote Control bu ñu génère otomatik]:prefix:'
+    '--chrome[Tàggat integrasion Claude ci Chrome]'
+    '--no-chrome[Tere integrasion Claude ci Chrome]'
+    '--plugin-url[Jël ab plugin .zip bu jóge ci ab URL ngir session bii rekk (mën na ñu ko baamtu)]:url:'
+    '--file[Ay ressource fiise bu ñuy télécharge ci tàmbali (format: file_id:relative_path)]:specs:'
+    '--prompt-suggestions[Tàggat suggestion prompt (dafay génne prompt bu ñuy topp bu ñu prédire ci mode print/SDK)]::value:(true false 1 0 yes no on off)'
+    '--forward-subagent-text[Yónnee text subagent ak bloc xalaat ni ay bataaxal (ak --print ak stream-json)]'
+    '--include-hook-events[Boole event lifecycle hook yépp ci stream output (ak stream-json)]'
+    '--exclude-dynamic-system-prompt-sections[Yóbbu section per-machine ci bataaxal utilisateur bu njëkk ngir gëna baax reuse bu prompt-cache]'
+    '--brief[Tàggat outil SendUserMessage ngir jokkoo ajaŋ-ci-utilisateur]'
+    '--safe-mode[Tàmbali ak customisation yépp yu ñu tere (baax na ngir saytu ab konfigurasion bu yàqu)]'
+    '--bare[Mode minimal: dee hooks, LSP, sync plugin, attribution, auto-memory, ak auto-discovery CLAUDE.md]'
+    '--ax-screen-reader[Wone output bu jaadu ak screen-reader (text bu flat, amul border walla animasion decoratif)]'
+    '(-v --version)'{-v,--version}'[Wone nimero version]'
+    '(-h --help)'{-h,--help}'[Wone ndimbal ci komond bi]'
   )
+
   _arguments -C \
     $main_options \
     '1: :->command' \
     '*::arg:->args'
+
   case $state in
     command)
       _describe -t commands 'ay commande claude' main_commands
@@ -115,6 +161,24 @@ _claude() {
         install)
           _claude_install
           ;;
+        agents)
+          _claude_agents
+          ;;
+        auth)
+          _claude_auth
+          ;;
+        auto-mode)
+          _claude_auto_mode
+          ;;
+        gateway)
+          _claude_gateway
+          ;;
+        project)
+          _claude_project
+          ;;
+        ultrareview)
+          _claude_ultrareview
+          ;;
         setup-token|doctor|update)
           _message "amul argument"
           ;;
@@ -122,25 +186,31 @@ _claude() {
       ;;
   esac
 }
+
 _claude_mcp() {
   local -a mcp_commands
   mcp_commands=(
-    'serve:Start a Claude Code MCP server'
-    'add:Add an MCP server to Claude Code'
-    'remove:Remove an MCP server'
-    'list:List configured MCP servers'
-    'get:Get MCP server details'
-    'add-json:Add an MCP server (stdio or SSE) with JSON string'
-    'add-from-claude-desktop:Import MCP servers from Claude Desktop (Mac and WSL only)'
-    'reset-project-choices:Reset all approved/rejected project-scoped (.mcp.json) servers in this project'
-    'help:Display help'
+    'serve:Tàmbali ab serwëer MCP bu Claude Code'
+    'add:Yokk ab serwëer MCP ci Claude Code'
+    'remove:Dindi ab serwëer MCP'
+    'list:Wone limu serwëer MCP yu ñu konfigure'
+    'get:Jël détails serwëer MCP'
+    'add-json:Yokk ab serwëer MCP (stdio walla SSE) ak string JSON'
+    'add-from-claude-desktop:Import ay serwëer MCP bu jóge Claude Desktop (Mac ak WSL rekk)'
+    'reset-project-choices:Reset serwëer yépp yu ñu nangu/ban yu project-scoped (.mcp.json) ci projet bii'
+    'login:Autentifie ak ab serwëer MCP (HTTP, SSE, walla connector claude.ai)'
+    'logout:Dindi credentials OAuth yu ñu denc ngir ab serwëer MCP'
+    'help:Wone ndimbal'
   )
+
   local curcontext="$curcontext" state line
   typeset -A opt_args
+
   _arguments -C \
-    '(-h --help)'{-h,--help}'[Display help]' \
+    '(-h --help)'{-h,--help}'[Wone ndimbal]' \
     '1: :->command' \
     '*::arg:->args'
+
   case $state in
     command)
       _describe -t commands 'ay commande mcp' mcp_commands
@@ -149,75 +219,91 @@ _claude_mcp() {
       case $words[1] in
         serve)
           _arguments \
-            '(-d --debug)'{-d,--debug}'[Enable debug mode]' \
-            '--verbose[Override verbose mode setting from config file]' \
-            '(-h --help)'{-h,--help}'[Display help]'
+            '(-d --debug)'{-d,--debug}'[Tàggat mode debug]' \
+            '--verbose[Soppi réglaas mode verbose bu jóge ci fiise config]' \
+            '(-h --help)'{-h,--help}'[Wone ndimbal]'
           ;;
         add)
           _arguments \
-            '(-s --scope)'{-s,--scope}'[Config scope (local, user, project)]:scope:(local user project)' \
-            '(-t --transport)'{-t,--transport}'[Transport type (stdio, sse, http)]:transport:(stdio sse http)' \
-            '(-e --env)'{-e,--env}'[Set environment variable (e.g., -e KEY=value)]:env:' \
-            '(-H --header)'{-H,--header}'[Set WebSocket header]:header:' \
-            '(-h --help)'{-h,--help}'[Display help]' \
+            '(-s --scope)'{-s,--scope}'[Waññ config (local, user, project)]:scope:(local user project)' \
+            '(-t --transport)'{-t,--transport}'[Xeetu transport (stdio, sse, http)]:transport:(stdio sse http)' \
+            '(-e --env)'{-e,--env}'[Def variable environnement (misaal, -e KEY=value)]:env:' \
+            '(-H --header)'{-H,--header}'[Def header WebSocket]:header:' \
+            '(-h --help)'{-h,--help}'[Wone ndimbal]' \
             '1:name:' \
             '2:commandOrUrl:' \
             '*:args:'
           ;;
         remove)
           _arguments \
-            '(-s --scope)'{-s,--scope}'[Config scope (local, user, project) - remove from existing scope if unspecified]:scope:(local user project)' \
-            '(-h --help)'{-h,--help}'[Display help]' \
+            '(-s --scope)'{-s,--scope}'[Waññ config (local, user, project) - dindi ci waññ bi am bu ñu ko wonewul]:scope:(local user project)' \
+            '(-h --help)'{-h,--help}'[Wone ndimbal]' \
             '1:name:_claude_mcp_servers'
           ;;
         list)
           _arguments \
-            '(-h --help)'{-h,--help}'[Display help]'
+            '(-h --help)'{-h,--help}'[Wone ndimbal]'
           ;;
         get)
           _arguments \
-            '(-h --help)'{-h,--help}'[Display help]' \
+            '(-h --help)'{-h,--help}'[Wone ndimbal]' \
             '1:name:_claude_mcp_servers'
           ;;
         add-json)
           _arguments \
-            '(-s --scope)'{-s,--scope}'[Config scope (local, user, project)]:scope:(local user project)' \
-            '(-h --help)'{-h,--help}'[Display help]' \
+            '(-s --scope)'{-s,--scope}'[Waññ config (local, user, project)]:scope:(local user project)' \
+            '(-h --help)'{-h,--help}'[Wone ndimbal]' \
             '1:name:' \
             '2:json:'
           ;;
         add-from-claude-desktop)
           _arguments \
-            '(-s --scope)'{-s,--scope}'[Config scope (local, user, project)]:scope:(local user project)' \
-            '(-h --help)'{-h,--help}'[Display help]'
+            '(-s --scope)'{-s,--scope}'[Waññ config (local, user, project)]:scope:(local user project)' \
+            '(-h --help)'{-h,--help}'[Wone ndimbal]'
           ;;
         reset-project-choices)
           _arguments \
-            '(-h --help)'{-h,--help}'[Display help]'
+            '(-h --help)'{-h,--help}'[Wone ndimbal]'
+          ;;
+        login|logout)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Wone ndimbal]' \
+            '1:name:_claude_mcp_servers'
           ;;
       esac
       ;;
   esac
 }
+
 _claude_plugin() {
   local -a plugin_commands
   plugin_commands=(
-    'validate:Validate a plugin or marketplace manifest'
-    'marketplace:Manage Claude Code marketplaces'
-    'install:Install a plugin from available marketplaces'
-    'i:Install a plugin from available marketplaces (short for install)'
-    'uninstall:Uninstall an installed plugin'
-    'remove:Uninstall an installed plugin (alias for uninstall)'
-    'enable:Enable a disabled plugin'
-    'disable:Disable an enabled plugin'
-    'help:Display help'
+    'validate:Validate manifest bu plugin walla marché'
+    'marketplace:Yor ay marché bu Claude Code'
+    'list:Wone limu plugin yu ñu instale'
+    'details:Wone inventaire composant ak coût token bu ñu prédire ngir ab plugin'
+    'install:Instale ab plugin bu jóge ci ay marché yu am'
+    'i:Instale ab plugin bu jóge ci ay marché yu am (raccourci bu install)'
+    'init:Defar ab plugin bu bees (dafay yeb otomatik ci session bu ñëw)'
+    'uninstall:Dindi ab plugin bu ñu instale'
+    'remove:Dindi ab plugin bu ñu instale (alias bu uninstall)'
+    'enable:Tàggat ab plugin bu ñu tere'
+    'disable:Tere ab plugin bu ñu tàggat'
+    'update:Mettre à jour ab plugin ci version bi gëna yees'
+    'eval:Doxal ay cas eval ci ab plugin te wone résultat yu ñu noté'
+    'prune:Dindi ay dépendance yu ñu instale otomatik yu ñu soxlaatul'
+    'tag:Sos ab tag git {name}--v{version} ngir ab release plugin'
+    'help:Wone ndimbal'
   )
+
   local curcontext="$curcontext" state line
   typeset -A opt_args
+
   _arguments -C \
-    '(-h --help)'{-h,--help}'[Display help]' \
+    '(-h --help)'{-h,--help}'[Wone ndimbal]' \
     '1: :->command' \
     '*::arg:->args'
+
   case $state in
     command)
       _describe -t commands 'ay commande plugin' plugin_commands
@@ -226,7 +312,7 @@ _claude_plugin() {
       case $words[1] in
         validate)
           _arguments \
-            '(-h --help)'{-h,--help}'[Display help]' \
+            '(-h --help)'{-h,--help}'[Wone ndimbal]' \
             '1:path:_files'
           ;;
         marketplace)
@@ -234,39 +320,76 @@ _claude_plugin() {
           ;;
         install|i)
           _arguments \
-            '(-h --help)'{-h,--help}'[Display help]' \
+            '(-s --scope)'{-s,--scope}'[Waññ instalasion]:scope:(user project local)' \
+            '(-h --help)'{-h,--help}'[Wone ndimbal]' \
             '1:plugin:'
           ;;
         uninstall|remove)
           _arguments \
-            '(-h --help)'{-h,--help}'[Display help]' \
+            '(-s --scope)'{-s,--scope}'[Waññ instalasion]:scope:(user project local)' \
+            '(-h --help)'{-h,--help}'[Wone ndimbal]' \
             '1:plugin:_claude_installed_plugins'
           ;;
         enable|disable)
           _arguments \
-            '(-h --help)'{-h,--help}'[Display help]' \
+            '(-s --scope)'{-s,--scope}'[Waññ instalasion]:scope:(user project local)' \
+            '(-h --help)'{-h,--help}'[Wone ndimbal]' \
             '1:plugin:_claude_installed_plugins'
+          ;;
+        update)
+          _arguments \
+            '(-s --scope)'{-s,--scope}'[Waññ instalasion]:scope:(user project local managed)' \
+            '(-h --help)'{-h,--help}'[Wone ndimbal]' \
+            '1:plugin:_claude_installed_plugins'
+          ;;
+        list|prune)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Wone ndimbal]'
+          ;;
+        details)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Wone ndimbal]' \
+            '1:plugin:_claude_installed_plugins'
+          ;;
+        init)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Wone ndimbal]' \
+            '1:name:'
+          ;;
+        eval)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Wone ndimbal]' \
+            '1:target:'
+          ;;
+        tag)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Wone ndimbal]' \
+            '1:path:_files'
           ;;
       esac
       ;;
   esac
 }
+
 _claude_plugin_marketplace() {
   local -a marketplace_commands
   marketplace_commands=(
-    'add:Add a marketplace from URL, path, or GitHub repository'
-    'list:List configured marketplaces'
-    'remove:Remove a configured marketplace'
-    'rm:Remove a configured marketplace (alias for remove)'
-    'update:Update marketplace from source - update all if no name specified'
-    'help:Display help'
+    'add:Yokk ab marché bu jóge ci URL, yoon, walla repository GitHub'
+    'list:Wone limu marché yu ñu konfigure'
+    'remove:Dindi ab marché bu ñu konfigure'
+    'rm:Dindi ab marché bu ñu konfigure (alias bu remove)'
+    'update:Mettre à jour marché bu jóge source - update ñépp bu ñu wonewul tur'
+    'help:Wone ndimbal'
   )
+
   local curcontext="$curcontext" state line
   typeset -A opt_args
+
   _arguments -C \
-    '(-h --help)'{-h,--help}'[Display help]' \
+    '(-h --help)'{-h,--help}'[Wone ndimbal]' \
     '1: :->command' \
     '*::arg:->args'
+
   case $state in
     command)
       _describe -t commands 'ay commande marché' marketplace_commands
@@ -275,31 +398,163 @@ _claude_plugin_marketplace() {
       case $words[1] in
         add)
           _arguments \
-            '(-h --help)'{-h,--help}'[Display help]' \
+            '(-h --help)'{-h,--help}'[Wone ndimbal]' \
             '1:source:'
           ;;
         list)
           _arguments \
-            '(-h --help)'{-h,--help}'[Display help]'
+            '(-h --help)'{-h,--help}'[Wone ndimbal]'
           ;;
         remove|rm)
           _arguments \
-            '(-h --help)'{-h,--help}'[Display help]' \
+            '(-h --help)'{-h,--help}'[Wone ndimbal]' \
             '1:name:'
           ;;
         update)
           _arguments \
-            '(-h --help)'{-h,--help}'[Display help]' \
+            '(-h --help)'{-h,--help}'[Wone ndimbal]' \
             '::name:'
           ;;
       esac
       ;;
   esac
 }
+
 _claude_install() {
   _arguments \
-    '--force[Force install even if already installed]' \
-    '(-h --help)'{-h,--help}'[Display help]' \
+    '--force[Force instalasion doonte bu ñu ko instale ba noppi]' \
+    '(-h --help)'{-h,--help}'[Wone ndimbal]' \
     '::target:(stable latest)'
 }
+
+_claude_agents() {
+  _arguments \
+    '*--add-dir[Répertoire yu yokk ngir may access outil ci session yu ñu dispatch]:directory:_directories' \
+    '--agent[Ajaŋ default ngir session yu ñu dispatch bu jóge agent view]:agent:' \
+    '--all[Ak --json: boole itam session background yu ñu jeexal]' \
+    '--allow-dangerously-skip-permissions[Def mode bypass-permissions bu am ngir session yu ñu dispatch]' \
+    '--cwd[Wone rekk session background yu ñu tàmbali ci yoon wi]:path:_directories' \
+    '--dangerously-skip-permissions[Alias bu --permission-mode bypassPermissions]' \
+    '--effort[Niveau effort default ngir session yu ñu dispatch]:level:(low medium high xhigh max)' \
+    '--json[Wone session yu doxal ni array JSON te génn]' \
+    '*--mcp-config[Konfigurasion serwëer MCP bu ñuy applique ci session yu ñu dispatch]:config:' \
+    '--model[Model default ngir session yu ñu dispatch bu jóge agent view]:model:' \
+    '--permission-mode[Mode permission default ngir session yu ñu dispatch]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)' \
+    '*--plugin-dir[Yeb ay plugin bu jóge répertoire ngir agent view ak session yu ñu dispatch]:path:_directories' \
+    '--setting-sources[Limu source réglaas bu ñuy yeb, ratax ak virgule (user, project, local)]:sources:' \
+    '--settings[Fiise réglaas walla string JSON bu ñuy applique]:file-or-json:_files' \
+    '--strict-mcp-config[Jëfandikoo rekk ay serwëer MCP bu jóge --mcp-config ci session yu ñu dispatch]' \
+    '(-h --help)'{-h,--help}'[Wone ndimbal ci komond bi]'
+}
+
+_claude_auth() {
+  local -a auth_commands
+  auth_commands=(
+    'login:Dugg ci sa compte Anthropic'
+    'logout:Génn ci sa compte Anthropic'
+    'status:Wone statut autentifikasion'
+    'help:Wone ndimbal'
+  )
+
+  local curcontext="$curcontext" state line
+  typeset -A opt_args
+
+  _arguments -C \
+    '(-h --help)'{-h,--help}'[Wone ndimbal ci komond bi]' \
+    '1: :->command' \
+    '*::arg:->args'
+
+  case $state in
+    command)
+      _describe -t commands 'ay commande auth' auth_commands
+      ;;
+    args)
+      case $words[1] in
+        login|logout|status)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Wone ndimbal ci komond bi]'
+          ;;
+      esac
+      ;;
+  esac
+}
+
+_claude_auto_mode() {
+  local -a auto_mode_commands
+  auto_mode_commands=(
+    'config:Wone config auto mode bu doxal ni JSON'
+    'critique:Jël feedback AI ci sa ay règ auto mode bu custom'
+    'defaults:Wone ay règ auto mode bu default ni JSON'
+    'reset:Reset konfigurasion auto mode ci default yu ñu yónnee'
+    'help:Wone ndimbal'
+  )
+
+  local curcontext="$curcontext" state line
+  typeset -A opt_args
+
+  _arguments -C \
+    '(-h --help)'{-h,--help}'[Wone ndimbal ci komond bi]' \
+    '1: :->command' \
+    '*::arg:->args'
+
+  case $state in
+    command)
+      _describe -t commands 'ay commande auto-mode' auto_mode_commands
+      ;;
+    args)
+      case $words[1] in
+        config|critique|defaults|reset)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Wone ndimbal ci komond bi]'
+          ;;
+      esac
+      ;;
+  esac
+}
+
+_claude_gateway() {
+  _arguments \
+    '--config[Yoon ci config YAML bu gateway]:path:_files' \
+    '(-h --help)'{-h,--help}'[Wone ndimbal ci komond bi]'
+}
+
+_claude_project() {
+  local -a project_commands
+  project_commands=(
+    'purge:Far état Claude Code yépp ngir ab projet (transcripts, tasks, historique fiise, entrée config)'
+    'help:Wone ndimbal'
+  )
+
+  local curcontext="$curcontext" state line
+  typeset -A opt_args
+
+  _arguments -C \
+    '(-h --help)'{-h,--help}'[Wone ndimbal ci komond bi]' \
+    '1: :->command' \
+    '*::arg:->args'
+
+  case $state in
+    command)
+      _describe -t commands 'ay commande project' project_commands
+      ;;
+    args)
+      case $words[1] in
+        purge)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Wone ndimbal ci komond bi]' \
+            '1:path:_directories'
+          ;;
+      esac
+      ;;
+  esac
+}
+
+_claude_ultrareview() {
+  _arguments \
+    '--json[Wone payload bugs.json bu raw ci lu dul li ñu gis bu ñu formaté]' \
+    '--timeout[Nombre minute bu gëna kawe ngir xaar review bi jeex]:minutes:' \
+    '(-h --help)'{-h,--help}'[Wone ndimbal ci komond bi]' \
+    '1:target:'
+}
+
 (( $+_comps[claude] )) || compdef _claude claude

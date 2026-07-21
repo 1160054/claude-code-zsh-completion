@@ -1,5 +1,6 @@
 #compdef claude
-# Динамични функции за автоматично попълване
+
+# Dynamic completion functions
 _claude_mcp_servers() {
   local config_file
   local -a server_list
@@ -24,40 +25,57 @@ _claude_mcp_servers() {
 _claude_installed_plugins() {
   local -a plugins
   local config_file plugin_dir
+
   # Check plugin directories directly
   for plugin_dir in ~/.claude/plugins ~/.config/claude/plugins; do
     [[ -d "$plugin_dir" ]] || continue
     plugins+=(${plugin_dir}/*(N:t))
   done
+
   # Remove duplicates
   plugins=(${(u)plugins})
+
   compadd -a plugins
 }
+
 _claude_sessions() {
   local -a sessions
   local session_dir
+
   # Check session directory
   for session_dir in ~/.claude/sessions ~/.config/claude/sessions; do
     [[ -d "$session_dir" ]] || continue
+
     # Extract UUIDs directly from filenames
     sessions+=(${session_dir}/*~*.zwc(N:t:r))
   done
+
   # Filter only valid UUIDs
   sessions=(${(M)sessions:#[0-9a-f](#c8)-[0-9a-f](#c4)-[0-9a-f](#c4)-[0-9a-f](#c4)-[0-9a-f](#c12)})
+
   compadd -a sessions
 }
+
 _claude() {
   local curcontext="$curcontext" state line
   typeset -A opt_args
+
   local -a main_commands
   main_commands=(
     'mcp:Конфигуриране и управление на MCP сървъри'
     'plugin:Управление на плъгини на Claude Code'
+    'agents:Управление на фонови агенти'
+    'auth:Управление на автентикацията'
+    'auto-mode:Преглед или нулиране на конфигурацията на класификатора за автоматичен режим'
+    'gateway:Стартиране на корпоративния шлюз за автентикация/телеметрия'
+    'project:Управление на състоянието на проект на Claude Code'
+    'ultrareview:Изпълнение на облачно хостван преглед на код с множество агенти и извеждане на констатациите'
     'setup-token:Настройване на токен за дългосрочна автентикация (изисква Claude абонамент)'
     'doctor:Проверка на здравето на системата за автоматично обновяване на Claude Code'
     'update:Проверка и инсталиране на актуализации'
     'install:Инсталиране на нативна версия на Claude Code'
   )
+
   local -a main_options
   main_options=(
     '(-d --debug)'{-d,--debug}'[Активиране на режим за отстраняване на грешки с опционално филтриране по категории (напр. "api,hooks" или "!statsig,!file")]:filter:'
@@ -70,6 +88,7 @@ _claude() {
     '--mcp-debug[\[Остаряло. Използвайте --debug вместо това\] Активиране на режим за отстраняване на грешки на MCP (показва грешки на MCP сървъра)]'
     '--dangerously-skip-permissions[Заобикаляне на всички проверки за разрешения. Препоръчително само за изолирани среди без интернет достъп]'
     '--allow-dangerously-skip-permissions[Активиране на опция за заобикаляне на проверки за разрешения без активиране по подразбиране]'
+    '--max-budget-usd[Максимална сума в долари за изразходване по API повиквания (само --print)]:amount:'
     '--replay-user-messages[Повторно изпращане на потребителски съобщения от stdin към stdout за потвърждение]'
     '--allowed-tools[Списък на разрешени имена на инструменти разделени със запетая или интервал (напр. "Bash(git:*) Edit")]:tools:'
     '--allowedTools[Списък на разрешени имена на инструменти разделени със запетая или интервал (формат camelCase)]:tools:'
@@ -79,11 +98,14 @@ _claude() {
     '--mcp-config[Зареждане на MCP сървъри от JSON файл или низ (разделени с интервали)]:configs:'
     '--system-prompt[Системен промпт за използване в сесията]:prompt:'
     '--append-system-prompt[Добавяне на системен промпт към стандартния системен промпт]:prompt:'
-    '--permission-mode[Режим на разрешения за използване в сесията]:mode:(acceptEdits bypassPermissions default dontAsk plan)'
+    '--permission-mode[Режим на разрешения за използване в сесията]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)'
     '(-c --continue)'{-c,--continue}'[Продължаване на последния разговор]'
     '(-r --resume)'{-r,--resume}'[Възобновяване на разговор - укажете идентификатор на сесия или изберете интерактивно]:sessionId:_claude_sessions'
     '--fork-session[Създаване на нов идентификатор на сесия вместо повторно използване на оригиналния при възобновяване (с --resume или --continue)]'
+    '--no-session-persistence[Деактивиране на постоянство на сесии - сесиите няма да бъдат запазвани (само --print)]'
     '--model[Модел за текущата сесия. Укажете псевдоним за най-новия модел (напр. '\''sonnet'\'' или '\''opus'\'')]:model:'
+    '--agent[Агент за текущата сесия. Заменя настройката '\''agent'\'']:agent:'
+    '--betas[Бета заглавки за включване в API заявки (само за потребители с API ключ)]:betas:'
     '--fallback-model[Активиране на автоматично превключване към указания модел когато моделът по подразбиране е претоварен (само --print)]:model:'
     '--settings[Път към JSON файл с настройки или JSON низ за зареждане на допълнителни настройки]:file-or-json:_files'
     '--add-dir[Допълнителни директории за предоставяне на достъп на инструменти]:directories:_directories'
@@ -93,16 +115,40 @@ _claude() {
     '--agents[JSON обект дефиниращ потребителски агенти]:json:'
     '--setting-sources[Списък на източници на настройки разделени със запетая за зареждане (user, project, local)]:sources:'
     '--plugin-dir[Директория за зареждане на плъгини само за тази сесия (може да се повтаря)]:paths:_directories'
+    '--disable-slash-commands[Деактивиране на всички команди с наклонена черта]'
+    '(--bg --background)'{--bg,--background}'[Стартиране на сесията като фонов агент и незабавно връщане]'
+    '(-w --worktree)'{-w,--worktree}'[Създаване на нов git worktree за тази сесия (по желание укажете име)]::name:'
+    '--tmux[Създаване на tmux сесия за worktree (изисква --worktree)]'
+    '(-n --name)'{-n,--name}'[Задаване на показвано име за тази сесия]:name:'
+    '--effort[Ниво на усилие за текущата сесия]:level:(low medium high xhigh max)'
+    '--debug-file[Записване на дневници за отстраняване на грешки в конкретен файлов път (имплицитно активира режима за отстраняване на грешки)]:path:_files'
+    '--from-pr[Възобновяване на сесия свързана с PR по номер/URL, или отваряне на интерактивен избор]::value:'
+    '--remote-control[Стартиране на интерактивна сесия с активирано дистанционно управление (по желание с име)]::name:'
+    '--remote-control-session-name-prefix[Префикс за автоматично генерирани имена на сесии за дистанционно управление]:prefix:'
+    '--chrome[Активиране на интеграцията на Claude в Chrome]'
+    '--no-chrome[Деактивиране на интеграцията на Claude в Chrome]'
+    '--plugin-url[Изтегляне на плъгин .zip от URL само за тази сесия (може да се повтаря)]:url:'
+    '--file[Файлови ресурси за изтегляне при стартиране (формат: file_id:relative_path)]:specs:'
+    '--prompt-suggestions[Активиране на предложения за промпт (извежда предсказан следващ промпт в режим print/SDK)]::value:(true false 1 0 yes no on off)'
+    '--forward-subagent-text[Препращане на текст и блокове с разсъждения на подагент като съобщения (с --print и stream-json)]'
+    '--include-hook-events[Включване на всички събития от жизнения цикъл на hook в изходния поток (с stream-json)]'
+    '--exclude-dynamic-system-prompt-sections[Преместване на секциите за отделна машина в първото потребителско съобщение за подобряване на повторното използване на кеша за промпти]'
+    '--brief[Активиране на инструмента SendUserMessage за комуникация от агент към потребител]'
+    '--safe-mode[Стартиране с деактивирани всички персонализации (полезно за отстраняване на проблеми с повредена конфигурация)]'
+    '--bare[Минимален режим: пропуска hooks, LSP, синхронизация на плъгини, атрибуция, автоматична памет и автоматично откриване на CLAUDE.md]'
+    '--ax-screen-reader[Извеждане на изход подходящ за екранни четци (плосък текст, без декоративни рамки или анимации)]'
     '(-v --version)'{-v,--version}'[Извеждане на номер на версия]'
     '(-h --help)'{-h,--help}'[Показване на помощ за команда]'
   )
+
   _arguments -C \
     $main_options \
     '1: :->command' \
     '*::arg:->args'
+
   case $state in
     command)
-      _describe -t commands 'команди на claude' main_commands
+      _describe -t commands 'claude commands' main_commands
       ;;
     args)
       case $words[1] in
@@ -115,6 +161,24 @@ _claude() {
         install)
           _claude_install
           ;;
+        agents)
+          _claude_agents
+          ;;
+        auth)
+          _claude_auth
+          ;;
+        auto-mode)
+          _claude_auto_mode
+          ;;
+        gateway)
+          _claude_gateway
+          ;;
+        project)
+          _claude_project
+          ;;
+        ultrareview)
+          _claude_ultrareview
+          ;;
         setup-token|doctor|update)
           _message "без аргументи"
           ;;
@@ -122,6 +186,7 @@ _claude() {
       ;;
   esac
 }
+
 _claude_mcp() {
   local -a mcp_commands
   mcp_commands=(
@@ -133,17 +198,22 @@ _claude_mcp() {
     'add-json:Добавяне на MCP сървър (stdio или SSE) с JSON низ'
     'add-from-claude-desktop:Импортиране на MCP сървъри от Claude Desktop (само Mac и WSL)'
     'reset-project-choices:Нулиране на всички одобрени/отхвърлени сървъри с обхват на проект (.mcp.json) в този проект'
+    'login:Автентикация с MCP сървър (HTTP, SSE или claude.ai конектор)'
+    'logout:Изчистване на съхранените OAuth удостоверения за MCP сървър'
     'help:Показване на помощ'
   )
+
   local curcontext="$curcontext" state line
   typeset -A opt_args
+
   _arguments -C \
     '(-h --help)'{-h,--help}'[Показване на помощ]' \
     '1: :->command' \
     '*::arg:->args'
+
   case $state in
     command)
-      _describe -t commands 'команди на mcp' mcp_commands
+      _describe -t commands 'mcp commands' mcp_commands
       ;;
     args)
       case $words[1] in
@@ -195,32 +265,48 @@ _claude_mcp() {
           _arguments \
             '(-h --help)'{-h,--help}'[Показване на помощ]'
           ;;
+        login|logout)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Показване на помощ]' \
+            '1:name:_claude_mcp_servers'
+          ;;
       esac
       ;;
   esac
 }
+
 _claude_plugin() {
   local -a plugin_commands
   plugin_commands=(
     'validate:Валидиране на плъгин или манифест на маркетплейс'
     'marketplace:Управление на маркетплейси на Claude Code'
+    'list:Показване на списък с инсталирани плъгини'
+    'details:Показване на инвентар на компоненти и прогнозна цена в токени за плъгин'
     'install:Инсталиране на плъгин от налични маркетплейси'
     'i:Инсталиране на плъгин от налични маркетплейси (съкращение за install)'
+    'init:Създаване на скеле за нов плъгин (автоматично зареждане при следваща сесия)'
     'uninstall:Деинсталиране на инсталиран плъгин'
     'remove:Деинсталиране на инсталиран плъгин (псевдоним за uninstall)'
     'enable:Активиране на деактивиран плъгин'
     'disable:Деактивиране на активиран плъгин'
+    'update:Актуализиране на плъгин до най-новата версия'
+    'eval:Изпълнение на eval случаи срещу плъгин и докладване на оценени резултати'
+    'prune:Премахване на автоматично инсталирани зависимости които вече не са необходими'
+    'tag:Създаване на git таг {name}--v{version} за издание на плъгин'
     'help:Показване на помощ'
   )
+
   local curcontext="$curcontext" state line
   typeset -A opt_args
+
   _arguments -C \
     '(-h --help)'{-h,--help}'[Показване на помощ]' \
     '1: :->command' \
     '*::arg:->args'
+
   case $state in
     command)
-      _describe -t commands 'команди на plugin' plugin_commands
+      _describe -t commands 'plugin commands' plugin_commands
       ;;
     args)
       case $words[1] in
@@ -234,23 +320,57 @@ _claude_plugin() {
           ;;
         install|i)
           _arguments \
+            '(-s --scope)'{-s,--scope}'[Обхват на инсталация]:scope:(user project local)' \
             '(-h --help)'{-h,--help}'[Показване на помощ]' \
             '1:plugin:'
           ;;
         uninstall|remove)
           _arguments \
+            '(-s --scope)'{-s,--scope}'[Обхват на инсталация]:scope:(user project local)' \
             '(-h --help)'{-h,--help}'[Показване на помощ]' \
             '1:plugin:_claude_installed_plugins'
           ;;
         enable|disable)
           _arguments \
+            '(-s --scope)'{-s,--scope}'[Обхват на инсталация]:scope:(user project local)' \
             '(-h --help)'{-h,--help}'[Показване на помощ]' \
             '1:plugin:_claude_installed_plugins'
+          ;;
+        update)
+          _arguments \
+            '(-s --scope)'{-s,--scope}'[Обхват на инсталация]:scope:(user project local managed)' \
+            '(-h --help)'{-h,--help}'[Показване на помощ]' \
+            '1:plugin:_claude_installed_plugins'
+          ;;
+        list|prune)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Показване на помощ]'
+          ;;
+        details)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Показване на помощ]' \
+            '1:plugin:_claude_installed_plugins'
+          ;;
+        init)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Показване на помощ]' \
+            '1:name:'
+          ;;
+        eval)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Показване на помощ]' \
+            '1:target:'
+          ;;
+        tag)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Показване на помощ]' \
+            '1:path:_files'
           ;;
       esac
       ;;
   esac
 }
+
 _claude_plugin_marketplace() {
   local -a marketplace_commands
   marketplace_commands=(
@@ -261,15 +381,18 @@ _claude_plugin_marketplace() {
     'update:Актуализиране на маркетплейс от източника - актуализиране на всички ако името не е указано'
     'help:Показване на помощ'
   )
+
   local curcontext="$curcontext" state line
   typeset -A opt_args
+
   _arguments -C \
     '(-h --help)'{-h,--help}'[Показване на помощ]' \
     '1: :->command' \
     '*::arg:->args'
+
   case $state in
     command)
-      _describe -t commands 'команди на marketplace' marketplace_commands
+      _describe -t commands 'marketplace commands' marketplace_commands
       ;;
     args)
       case $words[1] in
@@ -296,10 +419,142 @@ _claude_plugin_marketplace() {
       ;;
   esac
 }
+
 _claude_install() {
   _arguments \
     '--force[Принудителна инсталация дори ако вече е инсталирано]' \
     '(-h --help)'{-h,--help}'[Показване на помощ]' \
     '::target:(stable latest)'
 }
+
+_claude_agents() {
+  _arguments \
+    '*--add-dir[Допълнителна директория за предоставяне на достъп на инструменти в изпратени сесии]:directory:_directories' \
+    '--agent[Агент по подразбиране за сесии изпратени от изгледа за агенти]:agent:' \
+    '--all[С --json: включване също на завършени фонови сесии]' \
+    '--allow-dangerously-skip-permissions[Предоставяне на режима за заобикаляне на разрешения на изпратени сесии]' \
+    '--cwd[Показване само на фонови сесии стартирани под път]:path:_directories' \
+    '--dangerously-skip-permissions[Псевдоним за --permission-mode bypassPermissions]' \
+    '--effort[Ниво на усилие по подразбиране за изпратени сесии]:level:(low medium high xhigh max)' \
+    '--json[Извеждане на активни сесии като JSON масив и изход]' \
+    '*--mcp-config[Конфигурация на MCP сървър за прилагане към изпратени сесии]:config:' \
+    '--model[Модел по подразбиране за сесии изпратени от изгледа за агенти]:model:' \
+    '--permission-mode[Режим на разрешения по подразбиране за изпратени сесии]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)' \
+    '*--plugin-dir[Зареждане на плъгини от директория за изгледа за агенти и изпратени сесии]:path:_directories' \
+    '--setting-sources[Списък на източници на настройки разделени със запетая за зареждане (user, project, local)]:sources:' \
+    '--settings[Файл с настройки или JSON низ за прилагане]:file-or-json:_files' \
+    '--strict-mcp-config[Използване само на MCP сървъри от --mcp-config в изпратени сесии]' \
+    '(-h --help)'{-h,--help}'[Показване на помощ за команда]'
+}
+
+_claude_auth() {
+  local -a auth_commands
+  auth_commands=(
+    'login:Влизане във вашия Anthropic акаунт'
+    'logout:Излизане от вашия Anthropic акаунт'
+    'status:Показване на статуса на автентикация'
+    'help:Показване на помощ'
+  )
+
+  local curcontext="$curcontext" state line
+  typeset -A opt_args
+
+  _arguments -C \
+    '(-h --help)'{-h,--help}'[Показване на помощ за команда]' \
+    '1: :->command' \
+    '*::arg:->args'
+
+  case $state in
+    command)
+      _describe -t commands 'auth commands' auth_commands
+      ;;
+    args)
+      case $words[1] in
+        login|logout|status)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Показване на помощ за команда]'
+          ;;
+      esac
+      ;;
+  esac
+}
+
+_claude_auto_mode() {
+  local -a auto_mode_commands
+  auto_mode_commands=(
+    'config:Извеждане на действащата конфигурация за автоматичен режим като JSON'
+    'critique:Получаване на обратна връзка от AI за вашите персонализирани правила за автоматичен режим'
+    'defaults:Извеждане на правилата по подразбиране за автоматичен режим като JSON'
+    'reset:Нулиране на конфигурацията за автоматичен режим до стойностите по подразбиране'
+    'help:Показване на помощ'
+  )
+
+  local curcontext="$curcontext" state line
+  typeset -A opt_args
+
+  _arguments -C \
+    '(-h --help)'{-h,--help}'[Показване на помощ за команда]' \
+    '1: :->command' \
+    '*::arg:->args'
+
+  case $state in
+    command)
+      _describe -t commands 'auto-mode commands' auto_mode_commands
+      ;;
+    args)
+      case $words[1] in
+        config|critique|defaults|reset)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Показване на помощ за команда]'
+          ;;
+      esac
+      ;;
+  esac
+}
+
+_claude_gateway() {
+  _arguments \
+    '--config[Път към YAML конфигурация на шлюза]:path:_files' \
+    '(-h --help)'{-h,--help}'[Показване на помощ за команда]'
+}
+
+_claude_project() {
+  local -a project_commands
+  project_commands=(
+    'purge:Изтриване на цялото състояние на Claude Code за проект (стенограми, задачи, история на файлове, конфигурационен запис)'
+    'help:Показване на помощ'
+  )
+
+  local curcontext="$curcontext" state line
+  typeset -A opt_args
+
+  _arguments -C \
+    '(-h --help)'{-h,--help}'[Показване на помощ за команда]' \
+    '1: :->command' \
+    '*::arg:->args'
+
+  case $state in
+    command)
+      _describe -t commands 'project commands' project_commands
+      ;;
+    args)
+      case $words[1] in
+        purge)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Показване на помощ за команда]' \
+            '1:path:_directories'
+          ;;
+      esac
+      ;;
+  esac
+}
+
+_claude_ultrareview() {
+  _arguments \
+    '--json[Извеждане на суровия bugs.json вместо форматирани констатации]' \
+    '--timeout[Максимален брой минути за изчакване прегледът да завърши]:minutes:' \
+    '(-h --help)'{-h,--help}'[Показване на помощ за команда]' \
+    '1:target:'
+}
+
 (( $+_comps[claude] )) || compdef _claude claude

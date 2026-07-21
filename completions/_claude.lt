@@ -1,5 +1,6 @@
 #compdef claude
-# Dinaminės automatinio užpildymo funkcijos
+
+# Dynamic completion functions
 _claude_mcp_servers() {
   local config_file
   local -a server_list
@@ -24,40 +25,57 @@ _claude_mcp_servers() {
 _claude_installed_plugins() {
   local -a plugins
   local config_file plugin_dir
+
   # Check plugin directories directly
   for plugin_dir in ~/.claude/plugins ~/.config/claude/plugins; do
     [[ -d "$plugin_dir" ]] || continue
     plugins+=(${plugin_dir}/*(N:t))
   done
+
   # Remove duplicates
   plugins=(${(u)plugins})
+
   compadd -a plugins
 }
+
 _claude_sessions() {
   local -a sessions
   local session_dir
+
   # Check session directory
   for session_dir in ~/.claude/sessions ~/.config/claude/sessions; do
     [[ -d "$session_dir" ]] || continue
+
     # Extract UUIDs directly from filenames
     sessions+=(${session_dir}/*~*.zwc(N:t:r))
   done
+
   # Filter only valid UUIDs
   sessions=(${(M)sessions:#[0-9a-f](#c8)-[0-9a-f](#c4)-[0-9a-f](#c4)-[0-9a-f](#c4)-[0-9a-f](#c12)})
+
   compadd -a sessions
 }
+
 _claude() {
   local curcontext="$curcontext" state line
   typeset -A opt_args
+
   local -a main_commands
   main_commands=(
     'mcp:Konfigūruoti ir valdyti MCP serverius'
     'plugin:Valdyti Claude Code papildinius'
+    'agents:Valdyti foninius agentus'
+    'auth:Valdyti autentifikaciją'
+    'auto-mode:Peržiūrėti arba iš naujo nustatyti automatinio režimo klasifikatoriaus konfigūraciją'
+    'gateway:Paleisti įmonės autentifikacijos/telemetrijos tinklų sietuvą'
+    'project:Valdyti Claude Code projekto būseną'
+    'ultrareview:Paleisti debesyje talpinamą daugiaagentę kodo peržiūrą ir atspausdinti radinius'
     'setup-token:Nustatyti ilgalaikės autentifikacijos prieigos raktą (reikalinga Claude prenumerata)'
     'doctor:Patikrinti Claude Code automatinio atnaujinimo sistemos būklę'
     'update:Patikrinti ir įdiegti atnaujinimus'
     'install:Įdiegti vietinę Claude Code versiją'
   )
+
   local -a main_options
   main_options=(
     '(-d --debug)'{-d,--debug}'[Įjungti derinimo režimą su papildomu kategorijų fitravimu (pvz., "api,hooks" arba "!statsig,!file")]:filter:'
@@ -70,6 +88,7 @@ _claude() {
     '--mcp-debug[\[Pasenęs. Naudokite --debug vietoj to\] Įjungti MCP derinimo režimą (rodo MCP serverio klaidas)]'
     '--dangerously-skip-permissions[Apeiti visas leidimų patikras. Rekomenduojama tik smėlio dėžėms be interneto prieigos]'
     '--allow-dangerously-skip-permissions[Įgalinti leidimų patikrų apėjimo parinktį be įgalinimo pagal numatytuosius nustatymus]'
+    '--max-budget-usd[Maksimali dolerių suma API iškvietimams (tik --print)]:amount:'
     '--replay-user-messages[Pakartotinai išsiųsti vartotojo pranešimus iš stdin į stdout patvirtinimui]'
     '--allowed-tools[Leidžiamų įrankių pavadinimų sąrašas atskirtas kableliais arba tarpais (pvz., "Bash(git:*) Edit")]:tools:'
     '--allowedTools[Leidžiamų įrankių pavadinimų sąrašas atskirtas kableliais arba tarpais (camelCase formatas)]:tools:'
@@ -79,11 +98,14 @@ _claude() {
     '--mcp-config[Įkelti MCP serverius iš JSON failo arba eilutės (atskirti tarpais)]:configs:'
     '--system-prompt[Sisteminė užklausa naudojimui seanse]:prompt:'
     '--append-system-prompt[Pridėti sisteminę užklausą prie numatytosios sisteminės užklausos]:prompt:'
-    '--permission-mode[Leidimų režimas naudojimui seanse]:mode:(acceptEdits bypassPermissions default dontAsk plan)'
+    '--permission-mode[Leidimų režimas naudojimui seanse]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)'
     '(-c --continue)'{-c,--continue}'[Tęsti paskutinį pokalbį]'
     '(-r --resume)'{-r,--resume}'[Atnaujinti pokalbį - nurodykite seanso identifikatorių arba pasirinkite interaktyviai]:sessionId:_claude_sessions'
     '--fork-session[Sukurti naują seanso identifikatorių vietoj originalaus pakartotinio naudojimo atnaujinant (su --resume arba --continue)]'
+    '--no-session-persistence[Išjungti seanso išsaugojimą - seansai nebus išsaugoti (tik --print)]'
     '--model[Modelis dabartiniam seansui. Nurodykite slapyvardį naujausiajam modeliui (pvz., '\''sonnet'\'' arba '\''opus'\'')]:model:'
+    '--agent[Agentas dabartiniam seansui. Perrašo '\''agent'\'' nustatymą]:agent:'
+    '--betas[Beta antraštės įtraukimui į API užklausas (tik API rakto vartotojams)]:betas:'
     '--fallback-model[Įgalinti automatinį perjungimą į nurodytą modelį, kai numatytasis modelis perkrautas (tik --print)]:model:'
     '--settings[Kelias į JSON nustatymų failą arba JSON eilutę papildomų nustatymų įkėlimui]:file-or-json:_files'
     '--add-dir[Papildomi katalogai įrankių prieigai suteikti]:directories:_directories'
@@ -93,13 +115,37 @@ _claude() {
     '--agents[JSON objektas, apibrėžiantis pasirinktus agentus]:json:'
     '--setting-sources[Nustatymų šaltinių sąrašas atskirtas kableliais įkėlimui (user, project, local)]:sources:'
     '--plugin-dir[Katalogas papildinių įkėlimui tik šiam seansui (galima kartoti)]:paths:_directories'
+    '--disable-slash-commands[Išjungti visas pasvirojo brūkšnio komandas]'
+    '(--bg --background)'{--bg,--background}'[Paleisti seansą kaip foninį agentą ir nedelsiant grįžti]'
+    '(-w --worktree)'{-w,--worktree}'[Sukurti naują git darbo medį šiam seansui (galima nurodyti pavadinimą)]::name:'
+    '--tmux[Sukurti tmux seansą darbo medžiui (reikalauja --worktree)]'
+    '(-n --name)'{-n,--name}'[Nustatyti šio seanso rodomą pavadinimą]:name:'
+    '--effort[Pastangų lygis dabartiniam seansui]:level:(low medium high xhigh max)'
+    '--debug-file[Rašyti derinimo žurnalus į konkretų failo kelią (netiesiogiai įjungia derinimo režimą)]:path:_files'
+    '--from-pr[Atnaujinti seansą, susietą su PR pagal numerį/URL, arba atidaryti interaktyvų parinkiklį]::value:'
+    '--remote-control[Paleisti interaktyvų seansą su įjungtu nuotoliniu valdymu (galima nurodyti pavadinimą)]::name:'
+    '--remote-control-session-name-prefix[Automatiškai generuojamų nuotolinio valdymo seansų pavadinimų priešdėlis]:prefix:'
+    '--chrome[Įjungti Claude in Chrome integraciją]'
+    '--no-chrome[Išjungti Claude in Chrome integraciją]'
+    '--plugin-url[Atsisiųsti papildinio .zip iš URL tik šiam seansui (galima kartoti)]:url:'
+    '--file[Failų ištekliai atsisiuntimui paleidžiant (formatas: file_id:relative_path)]:specs:'
+    '--prompt-suggestions[Įgalinti užklausų pasiūlymus (pateikia numatytą kitą užklausą print/SDK režime)]::value:(true false 1 0 yes no on off)'
+    '--forward-subagent-text[Persiųsti subagento tekstą ir mąstymo blokus kaip pranešimus (su --print ir stream-json)]'
+    '--include-hook-events[Įtraukti visus kabliuko gyvavimo ciklo įvykius į išvesties srautą (su stream-json)]'
+    '--exclude-dynamic-system-prompt-sections[Perkelti kiekvienam įrenginiui skirtus skyrius į pirmą vartotojo pranešimą, kad pagerėtų užklausų talpyklos pakartotinis naudojimas]'
+    '--brief[Įgalinti SendUserMessage įrankį agento ir vartotojo komunikacijai]'
+    '--safe-mode[Paleisti su visais išjungtais pritaikymais (naudinga sprendžiant sugadintos konfigūracijos problemas)]'
+    '--bare[Minimalus režimas: praleisti kabliukus, LSP, papildinių sinchronizavimą, priskyrimą, automatinę atmintį ir CLAUDE.md automatinį aptikimą]'
+    '--ax-screen-reader[Pateikti ekrano skaitytuvui pritaikytą išvestį (paprastas tekstas, be dekoratyvinių rėmelių ar animacijų)]'
     '(-v --version)'{-v,--version}'[Išvesti versijos numerį]'
     '(-h --help)'{-h,--help}'[Rodyti pagalbą komandai]'
   )
+
   _arguments -C \
     $main_options \
     '1: :->command' \
     '*::arg:->args'
+
   case $state in
     command)
       _describe -t commands 'claude komandos' main_commands
@@ -115,6 +161,24 @@ _claude() {
         install)
           _claude_install
           ;;
+        agents)
+          _claude_agents
+          ;;
+        auth)
+          _claude_auth
+          ;;
+        auto-mode)
+          _claude_auto_mode
+          ;;
+        gateway)
+          _claude_gateway
+          ;;
+        project)
+          _claude_project
+          ;;
+        ultrareview)
+          _claude_ultrareview
+          ;;
         setup-token|doctor|update)
           _message "be argumentų"
           ;;
@@ -122,6 +186,7 @@ _claude() {
       ;;
   esac
 }
+
 _claude_mcp() {
   local -a mcp_commands
   mcp_commands=(
@@ -133,14 +198,19 @@ _claude_mcp() {
     'add-json:Pridėti MCP serverį (stdio arba SSE) su JSON eilute'
     'add-from-claude-desktop:Importuoti MCP serverius iš Claude Desktop (tik Mac ir WSL)'
     'reset-project-choices:Iš naujo nustatyti visus patvirtintus/atmestus projekto apimties (.mcp.json) serverius šiame projekte'
+    'login:Autentifikuotis su MCP serveriu (HTTP, SSE arba claude.ai jungtimi)'
+    'logout:Išvalyti išsaugotus OAuth kredencialus MCP serveriui'
     'help:Rodyti pagalbą'
   )
+
   local curcontext="$curcontext" state line
   typeset -A opt_args
+
   _arguments -C \
     '(-h --help)'{-h,--help}'[Rodyti pagalbą]' \
     '1: :->command' \
     '*::arg:->args'
+
   case $state in
     command)
       _describe -t commands 'mcp komandos' mcp_commands
@@ -195,29 +265,45 @@ _claude_mcp() {
           _arguments \
             '(-h --help)'{-h,--help}'[Rodyti pagalbą]'
           ;;
+        login|logout)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Rodyti pagalbą]' \
+            '1:name:_claude_mcp_servers'
+          ;;
       esac
       ;;
   esac
 }
+
 _claude_plugin() {
   local -a plugin_commands
   plugin_commands=(
     'validate:Tikrinti papildinį arba rinkos manifestą'
     'marketplace:Valdyti Claude Code rinkas'
+    'list:Rodyti įdiegtų papildinių sąrašą'
+    'details:Rodyti komponentų inventorių ir numatomą prieigos raktų sąnaudą papildiniui'
     'install:Įdiegti papildinį iš prieinamų rinkų'
     'i:Įdiegti papildinį iš prieinamų rinkų (sutrumpinimas install)'
+    'init:Sukurti naujo papildinio karkasą (automatiškai įkeliamas kitą seansą)'
     'uninstall:Pašalinti įdiegtą papildinį'
     'remove:Pašalinti įdiegtą papildinį (uninstall sinonimas)'
     'enable:Įgalinti išjungtą papildinį'
     'disable:Išjungti įgalintą papildinį'
+    'update:Atnaujinti papildinį iki naujausios versijos'
+    'eval:Paleisti vertinimo atvejus prieš papildinį ir pateikti įvertintus rezultatus'
+    'prune:Pašalinti automatiškai įdiegtas priklausomybes, kurių nebereikia'
+    'tag:Sukurti {name}--v{version} git žymą papildinio leidimui'
     'help:Rodyti pagalbą'
   )
+
   local curcontext="$curcontext" state line
   typeset -A opt_args
+
   _arguments -C \
     '(-h --help)'{-h,--help}'[Rodyti pagalbą]' \
     '1: :->command' \
     '*::arg:->args'
+
   case $state in
     command)
       _describe -t commands 'plugin komandos' plugin_commands
@@ -234,23 +320,57 @@ _claude_plugin() {
           ;;
         install|i)
           _arguments \
+            '(-s --scope)'{-s,--scope}'[Diegimo apimtis]:scope:(user project local)' \
             '(-h --help)'{-h,--help}'[Rodyti pagalbą]' \
             '1:plugin:'
           ;;
         uninstall|remove)
           _arguments \
+            '(-s --scope)'{-s,--scope}'[Diegimo apimtis]:scope:(user project local)' \
             '(-h --help)'{-h,--help}'[Rodyti pagalbą]' \
             '1:plugin:_claude_installed_plugins'
           ;;
         enable|disable)
           _arguments \
+            '(-s --scope)'{-s,--scope}'[Diegimo apimtis]:scope:(user project local)' \
             '(-h --help)'{-h,--help}'[Rodyti pagalbą]' \
             '1:plugin:_claude_installed_plugins'
+          ;;
+        update)
+          _arguments \
+            '(-s --scope)'{-s,--scope}'[Diegimo apimtis]:scope:(user project local managed)' \
+            '(-h --help)'{-h,--help}'[Rodyti pagalbą]' \
+            '1:plugin:_claude_installed_plugins'
+          ;;
+        list|prune)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Rodyti pagalbą]'
+          ;;
+        details)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Rodyti pagalbą]' \
+            '1:plugin:_claude_installed_plugins'
+          ;;
+        init)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Rodyti pagalbą]' \
+            '1:name:'
+          ;;
+        eval)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Rodyti pagalbą]' \
+            '1:target:'
+          ;;
+        tag)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Rodyti pagalbą]' \
+            '1:path:_files'
           ;;
       esac
       ;;
   esac
 }
+
 _claude_plugin_marketplace() {
   local -a marketplace_commands
   marketplace_commands=(
@@ -261,12 +381,15 @@ _claude_plugin_marketplace() {
     'update:Atnaujinti rinką iš šaltinio - atnaujinti visas, jei pavadinimas nenurodytas'
     'help:Rodyti pagalbą'
   )
+
   local curcontext="$curcontext" state line
   typeset -A opt_args
+
   _arguments -C \
     '(-h --help)'{-h,--help}'[Rodyti pagalbą]' \
     '1: :->command' \
     '*::arg:->args'
+
   case $state in
     command)
       _describe -t commands 'marketplace komandos' marketplace_commands
@@ -296,10 +419,142 @@ _claude_plugin_marketplace() {
       ;;
   esac
 }
+
 _claude_install() {
   _arguments \
     '--force[Priverstinis diegimas, net jei jau įdiegta]' \
     '(-h --help)'{-h,--help}'[Rodyti pagalbą]' \
     '::target:(stable latest)'
 }
+
+_claude_agents() {
+  _arguments \
+    '*--add-dir[Papildomas katalogas įrankių prieigai suteikti išsiųstuose seansuose]:directory:_directories' \
+    '--agent[Numatytasis agentas seansams, išsiųstiems iš agentų rodinio]:agent:' \
+    '--all[Su --json: taip pat įtraukti užbaigtus foninius seansus]' \
+    '--allow-dangerously-skip-permissions[Padaryti leidimų apėjimo režimą prieinamą išsiųstiems seansams]' \
+    '--cwd[Rodyti tik foninius seansus, pradėtus nurodytame kelyje]:path:_directories' \
+    '--dangerously-skip-permissions[Sinonimas --permission-mode bypassPermissions]' \
+    '--effort[Numatytasis pastangų lygis išsiųstiems seansams]:level:(low medium high xhigh max)' \
+    '--json[Atspausdinti aktyvius seansus kaip JSON masyvą ir išeiti]' \
+    '*--mcp-config[MCP serverio konfigūracija, taikoma išsiųstiems seansams]:config:' \
+    '--model[Numatytasis modelis seansams, išsiųstiems iš agentų rodinio]:model:' \
+    '--permission-mode[Numatytasis leidimų režimas išsiųstiems seansams]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)' \
+    '*--plugin-dir[Įkelti papildinius iš katalogo agentų rodiniui ir išsiųstiems seansams]:path:_directories' \
+    '--setting-sources[Nustatymų šaltinių sąrašas atskirtas kableliais įkėlimui (user, project, local)]:sources:' \
+    '--settings[Nustatymų failas arba JSON eilutė taikymui]:file-or-json:_files' \
+    '--strict-mcp-config[Naudoti tik MCP serverius iš --mcp-config išsiųstuose seansuose]' \
+    '(-h --help)'{-h,--help}'[Rodyti pagalbą komandai]'
+}
+
+_claude_auth() {
+  local -a auth_commands
+  auth_commands=(
+    'login:Prisijungti prie savo Anthropic paskyros'
+    'logout:Atsijungti nuo savo Anthropic paskyros'
+    'status:Rodyti autentifikacijos būseną'
+    'help:Rodyti pagalbą'
+  )
+
+  local curcontext="$curcontext" state line
+  typeset -A opt_args
+
+  _arguments -C \
+    '(-h --help)'{-h,--help}'[Rodyti pagalbą komandai]' \
+    '1: :->command' \
+    '*::arg:->args'
+
+  case $state in
+    command)
+      _describe -t commands 'auth komandos' auth_commands
+      ;;
+    args)
+      case $words[1] in
+        login|logout|status)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Rodyti pagalbą komandai]'
+          ;;
+      esac
+      ;;
+  esac
+}
+
+_claude_auto_mode() {
+  local -a auto_mode_commands
+  auto_mode_commands=(
+    'config:Atspausdinti galiojančią automatinio režimo konfigūraciją kaip JSON'
+    'critique:Gauti DI atsiliepimą apie savo pasirinktas automatinio režimo taisykles'
+    'defaults:Atspausdinti numatytąsias automatinio režimo taisykles kaip JSON'
+    'reset:Iš naujo nustatyti automatinio režimo konfigūraciją į pristatytus numatytuosius nustatymus'
+    'help:Rodyti pagalbą'
+  )
+
+  local curcontext="$curcontext" state line
+  typeset -A opt_args
+
+  _arguments -C \
+    '(-h --help)'{-h,--help}'[Rodyti pagalbą komandai]' \
+    '1: :->command' \
+    '*::arg:->args'
+
+  case $state in
+    command)
+      _describe -t commands 'auto-mode komandos' auto_mode_commands
+      ;;
+    args)
+      case $words[1] in
+        config|critique|defaults|reset)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Rodyti pagalbą komandai]'
+          ;;
+      esac
+      ;;
+  esac
+}
+
+_claude_gateway() {
+  _arguments \
+    '--config[Kelias į tinklų sietuvo YAML konfigūraciją]:path:_files' \
+    '(-h --help)'{-h,--help}'[Rodyti pagalbą komandai]'
+}
+
+_claude_project() {
+  local -a project_commands
+  project_commands=(
+    'purge:Ištrinti visą Claude Code būseną projektui (nuorašai, užduotys, failų istorija, konfigūracijos įrašas)'
+    'help:Rodyti pagalbą'
+  )
+
+  local curcontext="$curcontext" state line
+  typeset -A opt_args
+
+  _arguments -C \
+    '(-h --help)'{-h,--help}'[Rodyti pagalbą komandai]' \
+    '1: :->command' \
+    '*::arg:->args'
+
+  case $state in
+    command)
+      _describe -t commands 'project komandos' project_commands
+      ;;
+    args)
+      case $words[1] in
+        purge)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Rodyti pagalbą komandai]' \
+            '1:path:_directories'
+          ;;
+      esac
+      ;;
+  esac
+}
+
+_claude_ultrareview() {
+  _arguments \
+    '--json[Atspausdinti neapdorotą bugs.json turinį vietoj suformatuotų radinių]' \
+    '--timeout[Maksimalus minučių skaičius laukti, kol peržiūra bus baigta]:minutes:' \
+    '(-h --help)'{-h,--help}'[Rodyti pagalbą komandai]' \
+    '1:target:'
+}
+
 (( $+_comps[claude] )) || compdef _claude claude

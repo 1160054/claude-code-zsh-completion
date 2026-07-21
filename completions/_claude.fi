@@ -1,4 +1,5 @@
 #compdef claude
+
 # Dynamic completion functions
 _claude_mcp_servers() {
   local config_file
@@ -24,40 +25,57 @@ _claude_mcp_servers() {
 _claude_installed_plugins() {
   local -a plugins
   local config_file plugin_dir
+
   # Check plugin directories directly
   for plugin_dir in ~/.claude/plugins ~/.config/claude/plugins; do
     [[ -d "$plugin_dir" ]] || continue
     plugins+=(${plugin_dir}/*(N:t))
   done
+
   # Remove duplicates
   plugins=(${(u)plugins})
+
   compadd -a plugins
 }
+
 _claude_sessions() {
   local -a sessions
   local session_dir
+
   # Check session directory
   for session_dir in ~/.claude/sessions ~/.config/claude/sessions; do
     [[ -d "$session_dir" ]] || continue
+
     # Extract UUIDs directly from filenames
     sessions+=(${session_dir}/*~*.zwc(N:t:r))
   done
+
   # Filter only valid UUIDs
   sessions=(${(M)sessions:#[0-9a-f](#c8)-[0-9a-f](#c4)-[0-9a-f](#c4)-[0-9a-f](#c4)-[0-9a-f](#c12)})
+
   compadd -a sessions
 }
+
 _claude() {
   local curcontext="$curcontext" state line
   typeset -A opt_args
+
   local -a main_commands
   main_commands=(
     'mcp:Määritä ja hallinnoi MCP-palvelimia'
     'plugin:Hallinnoi Claude Code -laajennuksia'
+    'agents:Hallinnoi taustagentteja'
+    'auth:Hallinnoi todennusta'
+    'auto-mode:Tarkastele tai nollaa automaattitilan luokittelijan asetukset'
+    'gateway:Suorita yritystason todennus-/telemetriayhdyskäytävä'
+    'project:Hallinnoi Claude Code -projektin tilaa'
+    'ultrareview:Suorita pilvipohjainen moniagenttinen koodikatselmus ja tulosta havainnot'
     'setup-token:Määritä pitkäaikainen todennustunnus (vaatii Claude-tilauksen)'
     'doctor:Terveystarkastus Claude Code automaattiselle päivittäjälle'
     'update:Tarkista ja asenna päivitykset'
     'install:Asenna Claude Code native build'
   )
+
   local -a main_options
   main_options=(
     '(-d --debug)'{-d,--debug}'[Ota käyttöön virheenkorjaustila valinnaisella luokkasuodatuksella (esim. "api,hooks" tai "!statsig,!file")]:filter:'
@@ -70,6 +88,7 @@ _claude() {
     '--mcp-debug[\[Vanhentunut. Käytä --debug sen sijaan\] Ota käyttöön MCP-virheenkorjaustila (näyttää MCP-palvelinvirheet)]'
     '--dangerously-skip-permissions[Ohita kaikki käyttöoikeustarkistukset. Suositellaan vain hiekkalaatikoille ilman internet-yhteyttä]'
     '--allow-dangerously-skip-permissions[Ota käyttöön vaihtoehto ohittaa käyttöoikeustarkistukset ottamatta oletuksena käyttöön]'
+    '--max-budget-usd[Enimmäisdollarimäärä API-kutsuihin käytettäväksi (vain --print)]:amount:'
     '--replay-user-messages[Lähetä uudelleen käyttäjäviestit stdin:stä stdout:iin vahvistusta varten]'
     '--allowed-tools[Pilkulla tai välilyönnillä erotettu luettelo sallituista työkalujen nimistä (esim. "Bash(git:*) Edit")]:tools:'
     '--allowedTools[Pilkulla tai välilyönnillä erotettu luettelo sallituista työkalujen nimistä (camelCase-muoto)]:tools:'
@@ -79,11 +98,14 @@ _claude() {
     '--mcp-config[Lataa MCP-palvelimet JSON-tiedostosta tai merkkijonosta (välilyönnillä erotettu)]:configs:'
     '--system-prompt[Järjestelmäkehote istuntoa varten]:prompt:'
     '--append-system-prompt[Liitä järjestelmäkehote oletuskehote perään]:prompt:'
-    '--permission-mode[Käyttöoikeustila istuntoa varten]:mode:(acceptEdits bypassPermissions default dontAsk plan)'
+    '--permission-mode[Käyttöoikeustila istuntoa varten]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)'
     '(-c --continue)'{-c,--continue}'[Jatka viimeisintä keskustelua]'
     '(-r --resume)'{-r,--resume}'[Jatka keskustelua - määritä istunto-tunnus tai valitse interaktiivisesti]:sessionId:_claude_sessions'
     '--fork-session[Luo uusi istunto-tunnus alkuperäisen istunto-tunnuksen uudelleenkäytön sijaan jatkettaessa (--resume tai --continue -vaihtoehtojen kanssa)]'
+    '--no-session-persistence[Poista istunnon säilyvyys käytöstä - istuntoja ei tallenneta (vain --print)]'
     '--model[Malli nykyiselle istunnolle. Määritä alias uusimmalle mallille (esim. '\''sonnet'\'' tai '\''opus'\'')]:model:'
+    '--agent[Agentti nykyiselle istunnolle. Ohittaa '\''agent'\''-asetuksen]:agent:'
+    '--betas[Beta-otsikot sisällytettäväksi API-pyyntöihin (vain API-avaimen käyttäjät)]:betas:'
     '--fallback-model[Ota käyttöön automaattinen varamalli kun oletusmalli on ylikuormitettu (vain --print)]:model:'
     '--settings[Polku asetuksiin JSON-tiedostoon tai JSON-merkkijonoon lisäasetusten lataamiseksi]:file-or-json:_files'
     '--add-dir[Lisähakemistot työkalukäyttöä varten]:directories:_directories'
@@ -93,13 +115,37 @@ _claude() {
     '--agents[JSON-objekti mukautettujen agenttien määrittämiseksi]:json:'
     '--setting-sources[Pilkulla erotettu luettelo asetuslähteitä ladattavaksi (user, project, local)]:sources:'
     '--plugin-dir[Hakemisto laajennusten lataamiseen vain tälle istunnolle (toistettavissa)]:paths:_directories'
+    '--disable-slash-commands[Poista käytöstä kaikki kauttaviivakomennot]'
+    '(--bg --background)'{--bg,--background}'[Käynnistä istunto taustagenttina ja palaa välittömästi]'
+    '(-w --worktree)'{-w,--worktree}'[Luo uusi git-työpuu tälle istunnolle (voit valinnaisesti määrittää nimen)]::name:'
+    '--tmux[Luo tmux-istunto työpuulle (vaatii --worktree)]'
+    '(-n --name)'{-n,--name}'[Aseta näyttönimi tälle istunnolle]:name:'
+    '--effort[Panostustaso nykyiselle istunnolle]:level:(low medium high xhigh max)'
+    '--debug-file[Kirjoita virheenkorjauslokit tiettyyn tiedostopolkuun (ottaa implisiittisesti käyttöön virheenkorjaustilan)]:path:_files'
+    '--from-pr[Jatka PR:ään numeron/URL:n perusteella linkitettyä istuntoa tai avaa interaktiivinen valitsin]::value:'
+    '--remote-control[Käynnistä interaktiivinen istunto etäohjaus käytössä (valinnaisesti nimetty)]::name:'
+    '--remote-control-session-name-prefix[Etuliite automaattisesti luoduille etäohjausistuntojen nimille]:prefix:'
+    '--chrome[Ota käyttöön Claude in Chrome -integraatio]'
+    '--no-chrome[Poista käytöstä Claude in Chrome -integraatio]'
+    '--plugin-url[Nouda laajennuksen .zip URL-osoitteesta vain tälle istunnolle (toistettavissa)]:url:'
+    '--file[Ladattavat tiedostoresurssit käynnistyksessä (muoto: file_id:relative_path)]:specs:'
+    '--prompt-suggestions[Ota käyttöön kehote-ehdotukset (tuottaa ennustetun seuraavan kehotteen print-/SDK-tilassa)]::value:(true false 1 0 yes no on off)'
+    '--forward-subagent-text[Välitä aliagentin teksti ja ajattelulohkot viesteinä (--print ja stream-json -vaihtoehtojen kanssa)]'
+    '--include-hook-events[Sisällytä kaikki hook-elinkaaritapahtumat tulostevirtaan (stream-json-vaihtoehdon kanssa)]'
+    '--exclude-dynamic-system-prompt-sections[Siirrä konekohtaiset osiot ensimmäiseen käyttäjäviestiin kehotevälimuistin uudelleenkäytön parantamiseksi]'
+    '--brief[Ota käyttöön SendUserMessage-työkalu agentin ja käyttäjän väliseen viestintään]'
+    '--safe-mode[Käynnistä kaikki mukautukset poistettuina käytöstä (hyödyllinen rikkoutuneen määrityksen vianmäärityksessä)]'
+    '--bare[Minimitila: ohita hookit, LSP, laajennusten synkronointi, attribuutio, automaattimuisti ja CLAUDE.md-automaattitunnistus]'
+    '--ax-screen-reader[Renderöi näytönlukijaystävällinen tuloste (tasainen teksti, ei koristereunuksia tai animaatioita)]'
     '(-v --version)'{-v,--version}'[Näytä versionumero]'
     '(-h --help)'{-h,--help}'[Näytä ohjeet komennolle]'
   )
+
   _arguments -C \
     $main_options \
     '1: :->command' \
     '*::arg:->args'
+
   case $state in
     command)
       _describe -t commands 'claude-komennot' main_commands
@@ -115,6 +161,24 @@ _claude() {
         install)
           _claude_install
           ;;
+        agents)
+          _claude_agents
+          ;;
+        auth)
+          _claude_auth
+          ;;
+        auto-mode)
+          _claude_auto_mode
+          ;;
+        gateway)
+          _claude_gateway
+          ;;
+        project)
+          _claude_project
+          ;;
+        ultrareview)
+          _claude_ultrareview
+          ;;
         setup-token|doctor|update)
           _message "ei argumentteja"
           ;;
@@ -122,6 +186,7 @@ _claude() {
       ;;
   esac
 }
+
 _claude_mcp() {
   local -a mcp_commands
   mcp_commands=(
@@ -133,14 +198,19 @@ _claude_mcp() {
     'add-json:Lisää MCP-palvelin (stdio tai SSE) JSON-merkkijonolla'
     'add-from-claude-desktop:Tuo MCP-palvelimet Claude Desktopista (vain Mac ja WSL)'
     'reset-project-choices:Nollaa kaikki hyväksytyt/hylätyt projektikohtaiset (.mcp.json) palvelimet tässä projektissa'
+    'login:Todenna MCP-palvelimella (HTTP, SSE tai claude.ai-liitin)'
+    'logout:Tyhjennä MCP-palvelimen tallennetut OAuth-tunnistetiedot'
     'help:Näytä ohje'
   )
+
   local curcontext="$curcontext" state line
   typeset -A opt_args
+
   _arguments -C \
     '(-h --help)'{-h,--help}'[Näytä ohje]' \
     '1: :->command' \
     '*::arg:->args'
+
   case $state in
     command)
       _describe -t commands 'mcp-komennot' mcp_commands
@@ -195,29 +265,45 @@ _claude_mcp() {
           _arguments \
             '(-h --help)'{-h,--help}'[Näytä ohje]'
           ;;
+        login|logout)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Näytä ohje]' \
+            '1:name:_claude_mcp_servers'
+          ;;
       esac
       ;;
   esac
 }
+
 _claude_plugin() {
   local -a plugin_commands
   plugin_commands=(
     'validate:Validoi laajennus tai markkinapaikan manifesti'
     'marketplace:Hallinnoi Claude Code -markkinapaikkoja'
+    'list:Luettele asennetut laajennukset'
+    'details:Näytä laajennuksen komponenttiluettelo ja arvioitu token-kustannus'
     'install:Asenna laajennus saatavilla olevista markkinapaikoista'
     'i:Asenna laajennus saatavilla olevista markkinapaikoista (lyhyt muoto install:lle)'
+    'init:Luo uuden laajennuksen runko (latautuu automaattisesti seuraavassa istunnossa)'
     'uninstall:Poista asennettu laajennus'
     'remove:Poista asennettu laajennus (alias uninstall:lle)'
     'enable:Ota käyttöön poistettu laajennus'
     'disable:Poista käytöstä käytössä oleva laajennus'
+    'update:Päivitä laajennus uusimpaan versioon'
+    'eval:Suorita eval-tapaukset laajennusta vasten ja raportoi pisteytetyt tulokset'
+    'prune:Poista automaattisesti asennetut riippuvuudet joita ei enää tarvita'
+    'tag:Luo {name}--v{version} git-tagi laajennuksen julkaisulle'
     'help:Näytä ohje'
   )
+
   local curcontext="$curcontext" state line
   typeset -A opt_args
+
   _arguments -C \
     '(-h --help)'{-h,--help}'[Näytä ohje]' \
     '1: :->command' \
     '*::arg:->args'
+
   case $state in
     command)
       _describe -t commands 'plugin-komennot' plugin_commands
@@ -234,23 +320,57 @@ _claude_plugin() {
           ;;
         install|i)
           _arguments \
+            '(-s --scope)'{-s,--scope}'[Asennusalue]:scope:(user project local)' \
             '(-h --help)'{-h,--help}'[Näytä ohje]' \
             '1:plugin:'
           ;;
         uninstall|remove)
           _arguments \
+            '(-s --scope)'{-s,--scope}'[Asennusalue]:scope:(user project local)' \
             '(-h --help)'{-h,--help}'[Näytä ohje]' \
             '1:plugin:_claude_installed_plugins'
           ;;
         enable|disable)
           _arguments \
+            '(-s --scope)'{-s,--scope}'[Asennusalue]:scope:(user project local)' \
             '(-h --help)'{-h,--help}'[Näytä ohje]' \
             '1:plugin:_claude_installed_plugins'
+          ;;
+        update)
+          _arguments \
+            '(-s --scope)'{-s,--scope}'[Asennusalue]:scope:(user project local managed)' \
+            '(-h --help)'{-h,--help}'[Näytä ohje]' \
+            '1:plugin:_claude_installed_plugins'
+          ;;
+        list|prune)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Näytä ohje]'
+          ;;
+        details)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Näytä ohje]' \
+            '1:plugin:_claude_installed_plugins'
+          ;;
+        init)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Näytä ohje]' \
+            '1:name:'
+          ;;
+        eval)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Näytä ohje]' \
+            '1:target:'
+          ;;
+        tag)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Näytä ohje]' \
+            '1:path:_files'
           ;;
       esac
       ;;
   esac
 }
+
 _claude_plugin_marketplace() {
   local -a marketplace_commands
   marketplace_commands=(
@@ -261,12 +381,15 @@ _claude_plugin_marketplace() {
     'update:Päivitä markkinapaikka lähteestä - päivitä kaikki jos nimeä ei ole määritetty'
     'help:Näytä ohje'
   )
+
   local curcontext="$curcontext" state line
   typeset -A opt_args
+
   _arguments -C \
     '(-h --help)'{-h,--help}'[Näytä ohje]' \
     '1: :->command' \
     '*::arg:->args'
+
   case $state in
     command)
       _describe -t commands 'marketplace-komennot' marketplace_commands
@@ -296,10 +419,142 @@ _claude_plugin_marketplace() {
       ;;
   esac
 }
+
 _claude_install() {
   _arguments \
     '--force[Pakota asennus vaikka jo asennettu]' \
     '(-h --help)'{-h,--help}'[Näytä ohje]' \
     '::target:(stable latest)'
 }
+
+_claude_agents() {
+  _arguments \
+    '*--add-dir[Lisähakemisto työkalukäyttöä varten lähetetyissä istunnoissa]:directory:_directories' \
+    '--agent[Oletusagentti agenttinäkymästä lähetetyille istunnoille]:agent:' \
+    '--all[--json-vaihtoehdon kanssa: sisällytä myös valmiit taustaistunnot]' \
+    '--allow-dangerously-skip-permissions[Tee ohituskäyttöoikeustila saataville lähetetyille istunnoille]' \
+    '--cwd[Näytä vain polun alla käynnistetyt taustaistunnot]:path:_directories' \
+    '--dangerously-skip-permissions[Alias --permission-mode bypassPermissions -asetukselle]' \
+    '--effort[Oletuspanostustaso lähetetyille istunnoille]:level:(low medium high xhigh max)' \
+    '--json[Tulosta aktiiviset istunnot JSON-taulukkona ja poistu]' \
+    '*--mcp-config[MCP-palvelinmääritys lähetetyille istunnoille sovellettavaksi]:config:' \
+    '--model[Oletusmalli agenttinäkymästä lähetetyille istunnoille]:model:' \
+    '--permission-mode[Oletuskäyttöoikeustila lähetetyille istunnoille]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)' \
+    '*--plugin-dir[Lataa laajennukset hakemistosta agenttinäkymälle ja lähetetyille istunnoille]:path:_directories' \
+    '--setting-sources[Pilkulla erotettu luettelo asetuslähteitä ladattavaksi (user, project, local)]:sources:' \
+    '--settings[Asetustiedosto tai JSON-merkkijono sovellettavaksi]:file-or-json:_files' \
+    '--strict-mcp-config[Käytä vain --mcp-config-vaihtoehdon MCP-palvelimia lähetetyissä istunnoissa]' \
+    '(-h --help)'{-h,--help}'[Näytä ohjeet komennolle]'
+}
+
+_claude_auth() {
+  local -a auth_commands
+  auth_commands=(
+    'login:Kirjaudu sisään Anthropic-tiliisi'
+    'logout:Kirjaudu ulos Anthropic-tilistäsi'
+    'status:Näytä todennuksen tila'
+    'help:Näytä ohje'
+  )
+
+  local curcontext="$curcontext" state line
+  typeset -A opt_args
+
+  _arguments -C \
+    '(-h --help)'{-h,--help}'[Näytä ohjeet komennolle]' \
+    '1: :->command' \
+    '*::arg:->args'
+
+  case $state in
+    command)
+      _describe -t commands 'auth-komennot' auth_commands
+      ;;
+    args)
+      case $words[1] in
+        login|logout|status)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Näytä ohjeet komennolle]'
+          ;;
+      esac
+      ;;
+  esac
+}
+
+_claude_auto_mode() {
+  local -a auto_mode_commands
+  auto_mode_commands=(
+    'config:Tulosta voimassa oleva automaattitilan määritys JSON-muodossa'
+    'critique:Hanki tekoälypalaute mukautetuille automaattitilan säännöille'
+    'defaults:Tulosta oletusautomaattitilan säännöt JSON-muodossa'
+    'reset:Nollaa automaattitilan määritys toimitettuihin oletuksiin'
+    'help:Näytä ohje'
+  )
+
+  local curcontext="$curcontext" state line
+  typeset -A opt_args
+
+  _arguments -C \
+    '(-h --help)'{-h,--help}'[Näytä ohjeet komennolle]' \
+    '1: :->command' \
+    '*::arg:->args'
+
+  case $state in
+    command)
+      _describe -t commands 'auto-mode-komennot' auto_mode_commands
+      ;;
+    args)
+      case $words[1] in
+        config|critique|defaults|reset)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Näytä ohjeet komennolle]'
+          ;;
+      esac
+      ;;
+  esac
+}
+
+_claude_gateway() {
+  _arguments \
+    '--config[Polku yhdyskäytävän YAML-määritykseen]:path:_files' \
+    '(-h --help)'{-h,--help}'[Näytä ohjeet komennolle]'
+}
+
+_claude_project() {
+  local -a project_commands
+  project_commands=(
+    'purge:Poista kaikki Claude Code -tila projektilta (transkriptit, tehtävät, tiedostohistoria, määrityskohta)'
+    'help:Näytä ohje'
+  )
+
+  local curcontext="$curcontext" state line
+  typeset -A opt_args
+
+  _arguments -C \
+    '(-h --help)'{-h,--help}'[Näytä ohjeet komennolle]' \
+    '1: :->command' \
+    '*::arg:->args'
+
+  case $state in
+    command)
+      _describe -t commands 'project-komennot' project_commands
+      ;;
+    args)
+      case $words[1] in
+        purge)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Näytä ohjeet komennolle]' \
+            '1:path:_directories'
+          ;;
+      esac
+      ;;
+  esac
+}
+
+_claude_ultrareview() {
+  _arguments \
+    '--json[Tulosta raaka bugs.json-hyötykuorma muotoiltujen havaintojen sijaan]' \
+    '--timeout[Enimmäisminuuttimäärä katselmuksen valmistumisen odottamiseen]:minutes:' \
+    '(-h --help)'{-h,--help}'[Näytä ohjeet komennolle]' \
+    '1:target:'
+}
+
 (( $+_comps[claude] )) || compdef _claude claude

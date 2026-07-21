@@ -1,4 +1,5 @@
 #compdef claude
+
 # Dynamic completion functions
 _claude_mcp_servers() {
   local config_file
@@ -24,40 +25,57 @@ _claude_mcp_servers() {
 _claude_installed_plugins() {
   local -a plugins
   local config_file plugin_dir
+
   # Check plugin directories directly
   for plugin_dir in ~/.claude/plugins ~/.config/claude/plugins; do
     [[ -d "$plugin_dir" ]] || continue
     plugins+=(${plugin_dir}/*(N:t))
   done
+
   # Remove duplicates
   plugins=(${(u)plugins})
+
   compadd -a plugins
 }
+
 _claude_sessions() {
   local -a sessions
   local session_dir
+
   # Check session directory
   for session_dir in ~/.claude/sessions ~/.config/claude/sessions; do
     [[ -d "$session_dir" ]] || continue
+
     # Extract UUIDs directly from filenames
     sessions+=(${session_dir}/*~*.zwc(N:t:r))
   done
+
   # Filter only valid UUIDs
   sessions=(${(M)sessions:#[0-9a-f](#c8)-[0-9a-f](#c4)-[0-9a-f](#c4)-[0-9a-f](#c4)-[0-9a-f](#c12)})
+
   compadd -a sessions
 }
+
 _claude() {
   local curcontext="$curcontext" state line
   typeset -A opt_args
+
   local -a main_commands
   main_commands=(
     'mcp:MCP serverlərini konfiqurasiya et və idarə et'
     'plugin:Claude Code əlavələrini idarə et'
+    'agents:Fon agentlərini idarə et'
+    'auth:Autentifikasiyanı idarə et'
+    'auto-mode:Avtomatik rejim təsnifatçısı konfiqurasiyasını yoxla və ya sıfırla'
+    'gateway:Enterprise autentifikasiya/telemetriya şlüzünü işə sal'
+    'project:Claude Code layihə vəziyyətini idarə et'
+    'ultrareview:Bulud əsaslı çoxagentli kod nəzərdən keçirməsini işə sal və nəticələri çap et'
     'setup-token:Uzunmüddətli autentifikasiya tokeni qur (Claude abunəliyi tələb olunur)'
     'doctor:Claude Code avtomatik yeniləyici üçün sağlamlıq yoxlaması'
     'update:Yeniləmələri yoxla və quraşdır'
     'install:Claude Code native qurulmasını quraşdır'
   )
+
   local -a main_options
   main_options=(
     '(-d --debug)'{-d,--debug}'[Kateqoriya filtrasiyası ilə debug rejimini aktivləşdir (məsələn, "api,hooks" və ya "!statsig,!file")]:filter:'
@@ -67,9 +85,10 @@ _claude() {
     '--json-schema[Strukturlaşdırılmış çıxış yoxlaması üçün JSON sxemi]:schema:'
     '--include-partial-messages[Gələn qismən mesaj fraqmentlərini daxil et (--print və --output-format=stream-json ilə)]'
     '--input-format[Giriş formatı (--print ilə): "text" (standart) və ya "stream-json" (real vaxt axını girişi)]:format:(text stream-json)'
-    '--mcp-debug[Köhnəlmiş. Əvəzinə --debug istifadə edin] MCP debug rejimini aktivləşdir (MCP server xətalarını göstərir)]'
+    '--mcp-debug[\[Köhnəlmiş. Əvəzinə --debug istifadə edin\] MCP debug rejimini aktivləşdir (MCP server xətalarını göstərir)]'
     '--dangerously-skip-permissions[Bütün icazə yoxlamalarını keç. Yalnız internetə çıxışı olmayan sandbox mühitlər üçün tövsiyə olunur]'
     '--allow-dangerously-skip-permissions[İcazə yoxlamalarını keçmə seçimini standart olaraq aktivləşdirmədən aktivləşdir]'
+    '--max-budget-usd[API çağırışlarına xərclənəcək maksimum dollar məbləği (yalnız --print)]:amount:'
     '--replay-user-messages[Təsdiq üçün stdin-dən stdout-a istifadəçi mesajlarını yenidən göndər]'
     '--allowed-tools[Vergül və ya boşluqla ayrılmış icazə verilən alət adları siyahısı (məsələn, "Bash(git:*) Edit")]:tools:'
     '--allowedTools[Vergül və ya boşluqla ayrılmış icazə verilən alət adları siyahısı (camelCase formatı)]:tools:'
@@ -79,11 +98,14 @@ _claude() {
     '--mcp-config[JSON faylından və ya sətirdən MCP serverlərini yüklə (boşluqla ayrılmış)]:configs:'
     '--system-prompt[Sessiya üçün sistem promptu]:prompt:'
     '--append-system-prompt[Standart sistem promptuna sistem promptu əlavə et]:prompt:'
-    '--permission-mode[Sessiya üçün icazə rejimi]:mode:(acceptEdits bypassPermissions default dontAsk plan)'
+    '--permission-mode[Sessiya üçün icazə rejimi]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)'
     '(-c --continue)'{-c,--continue}'[Ən son söhbəti davam et]'
     '(-r --resume)'{-r,--resume}'[Söhbətə davam et - sessiya ID-ni təyin et və ya interaktiv seç]:sessionId:_claude_sessions'
     '--fork-session[Davam edərkən orijinal sessiya ID-ni yenidən istifadə etmək əvəzinə yeni sessiya ID yarat (--resume və ya --continue ilə)]'
+    '--no-session-persistence[Sessiya davamlılığını deaktiv et - sessiyalar saxlanılmayacaq (yalnız --print)]'
     '--model[Cari sessiya üçün model. Ən son model üçün təxəllüs təyin edin (məsələn, '\''sonnet'\'' və ya '\''opus'\'')]:model:'
+    '--agent[Cari sessiya üçün agent. '\''agent'\'' parametrini ləğv edir]:agent:'
+    '--betas[API sorğularına daxil ediləcək beta başlıqları (yalnız API açarı istifadəçiləri)]:betas:'
     '--fallback-model[Standart model yüklənmiş olduqda təyin edilmiş modelə avtomatik keçidi aktivləşdir (yalnız --print)]:model:'
     '--settings[Əlavə parametrləri yükləmək üçün parametrlər JSON faylı və ya JSON sətri yolu]:file-or-json:_files'
     '--add-dir[Alət girişinə icazə vermək üçün əlavə qovluqlar]:directories:_directories'
@@ -93,13 +115,37 @@ _claude() {
     '--agents[Fərdi agentləri təyin edən JSON obyekti]:json:'
     '--setting-sources[Yükləmək üçün vergüllə ayrılmış parametr mənbələri siyahısı (user, project, local)]:sources:'
     '--plugin-dir[Yalnız bu sessiya üçün əlavələri yükləmək üçün qovluq (təkrarlana bilər)]:paths:_directories'
+    '--disable-slash-commands[Bütün slash əmrlərini deaktiv et]'
+    '(--bg --background)'{--bg,--background}'[Sessiyanı fon agenti kimi başlat və dərhal geri qayıt]'
+    '(-w --worktree)'{-w,--worktree}'[Bu sessiya üçün yeni git worktree yarat (istəyə görə ad təyin edin)]::name:'
+    '--tmux[Worktree üçün tmux sessiyası yarat (--worktree tələb edir)]'
+    '(-n --name)'{-n,--name}'[Bu sessiya üçün göstərilən ad təyin et]:name:'
+    '--effort[Cari sessiya üçün səy səviyyəsi]:level:(low medium high xhigh max)'
+    '--debug-file[Debug loglarını xüsusi fayl yoluna yaz (debug rejimini dolayısı ilə aktivləşdirir)]:path:_files'
+    '--from-pr[Nömrə/URL ilə PR-a bağlı sessiyaya davam et, və ya interaktiv seçici aç]::value:'
+    '--remote-control[Remote Control aktiv edilmiş interaktiv sessiya başlat (istəyə görə adlandırılmış)]::name:'
+    '--remote-control-session-name-prefix[Avtomatik yaradılan Remote Control sessiya adları üçün prefiks]:prefix:'
+    '--chrome[Chrome-da Claude inteqrasiyasını aktivləşdir]'
+    '--no-chrome[Chrome-da Claude inteqrasiyasını deaktiv et]'
+    '--plugin-url[Yalnız bu sessiya üçün URL-dən plugin .zip yüklə (təkrarlana bilər)]:url:'
+    '--file[Başlanğıcda yüklənəcək fayl resursları (format: file_id:relative_path)]:specs:'
+    '--prompt-suggestions[Prompt təkliflərini aktivləşdir (print/SDK rejimində proqnozlaşdırılan növbəti promptu yayır)]::value:(true false 1 0 yes no on off)'
+    '--forward-subagent-text[Subagent mətnini və düşüncə bloklarını mesaj kimi ötür (--print və stream-json ilə)]'
+    '--include-hook-events[Bütün hook həyat dövrü hadisələrini çıxış axınına daxil et (stream-json ilə)]'
+    '--exclude-dynamic-system-prompt-sections[Prompt-keş təkrar istifadəsini yaxşılaşdırmaq üçün maşına xas bölmələri ilk istifadəçi mesajına köçür]'
+    '--brief[Agent-istifadəçi ünsiyyəti üçün SendUserMessage alətini aktivləşdir]'
+    '--safe-mode[Bütün fərdiləşdirmələr deaktiv edilmiş halda başlat (pozulmuş konfiqurasiyanın aradan qaldırılması üçün faydalıdır)]'
+    '--bare[Minimal rejim: hook-lar, LSP, plugin sinxronizasiyası, atribusiya, avtomatik yaddaş və CLAUDE.md avtomatik aşkarlanmasını keç]'
+    '--ax-screen-reader[Ekran oxuyucusuna uyğun çıxış göstər (düz mətn, dekorativ sərhədlər və ya animasiyalar olmadan)]'
     '(-v --version)'{-v,--version}'[Versiya nömrəsini göstər]'
     '(-h --help)'{-h,--help}'[Əmr üçün kömək göstər]'
   )
+
   _arguments -C \
     $main_options \
     '1: :->command' \
     '*::arg:->args'
+
   case $state in
     command)
       _describe -t commands 'claude commands' main_commands
@@ -115,13 +161,32 @@ _claude() {
         install)
           _claude_install
           ;;
+        agents)
+          _claude_agents
+          ;;
+        auth)
+          _claude_auth
+          ;;
+        auto-mode)
+          _claude_auto_mode
+          ;;
+        gateway)
+          _claude_gateway
+          ;;
+        project)
+          _claude_project
+          ;;
+        ultrareview)
+          _claude_ultrareview
+          ;;
         setup-token|doctor|update)
-          _message "no arguments"
+          _message "arqument yoxdur"
           ;;
       esac
       ;;
   esac
 }
+
 _claude_mcp() {
   local -a mcp_commands
   mcp_commands=(
@@ -133,14 +198,19 @@ _claude_mcp() {
     'add-json:JSON sətri ilə MCP serveri əlavə et (stdio və ya SSE)'
     'add-from-claude-desktop:Claude Desktop-dan MCP serverlərini idxal et (yalnız Mac və WSL)'
     'reset-project-choices:Bu layihədə bütün təsdiq edilmiş/rədd edilmiş layihə səviyyəli (.mcp.json) serverləri sıfırla'
+    'login:MCP serveri ilə autentifikasiya et (HTTP, SSE, və ya claude.ai konnektoru)'
+    'logout:MCP serveri üçün saxlanılmış OAuth kimlik məlumatlarını təmizlə'
     'help:Kömək göstər'
   )
+
   local curcontext="$curcontext" state line
   typeset -A opt_args
+
   _arguments -C \
     '(-h --help)'{-h,--help}'[Kömək göstər]' \
     '1: :->command' \
     '*::arg:->args'
+
   case $state in
     command)
       _describe -t commands 'mcp commands' mcp_commands
@@ -195,29 +265,45 @@ _claude_mcp() {
           _arguments \
             '(-h --help)'{-h,--help}'[Kömək göstər]'
           ;;
+        login|logout)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Kömək göstər]' \
+            '1:name:_claude_mcp_servers'
+          ;;
       esac
       ;;
   esac
 }
+
 _claude_plugin() {
   local -a plugin_commands
   plugin_commands=(
     'validate:Əlavə və ya marketplace manifestini yoxla'
     'marketplace:Claude Code marketplace-lərini idarə et'
+    'list:Quraşdırılmış əlavələrin siyahısı'
+    'details:Əlavə üçün komponent inventarını və proqnozlaşdırılan token dəyərini göstər'
     'install:Mövcud marketplace-lərdən əlavə quraşdır'
     'i:Mövcud marketplace-lərdən əlavə quraşdır (install üçün qısa)'
+    'init:Yeni əlavə skeleti yarat (növbəti sessiyada avtomatik yüklənir)'
     'uninstall:Quraşdırılmış əlavəni sil'
     'remove:Quraşdırılmış əlavəni sil (uninstall üçün təxəllüs)'
     'enable:Deaktiv əlavəni aktivləşdir'
     'disable:Aktiv əlavəni deaktivləşdir'
+    'update:Əlavəni ən son versiyaya yenilə'
+    'eval:Əlavəyə qarşı eval hallarını işə sal və qiymətləndirilmiş nəticələri bildir'
+    'prune:Artıq lazım olmayan avtomatik quraşdırılmış asılılıqları sil'
+    'tag:Əlavə buraxılışı üçün {name}--v{version} git etiketi yarat'
     'help:Kömək göstər'
   )
+
   local curcontext="$curcontext" state line
   typeset -A opt_args
+
   _arguments -C \
     '(-h --help)'{-h,--help}'[Kömək göstər]' \
     '1: :->command' \
     '*::arg:->args'
+
   case $state in
     command)
       _describe -t commands 'plugin commands' plugin_commands
@@ -234,23 +320,57 @@ _claude_plugin() {
           ;;
         install|i)
           _arguments \
+            '(-s --scope)'{-s,--scope}'[Quraşdırma əhatəsi]:scope:(user project local)' \
             '(-h --help)'{-h,--help}'[Kömək göstər]' \
             '1:plugin:'
           ;;
         uninstall|remove)
           _arguments \
+            '(-s --scope)'{-s,--scope}'[Quraşdırma əhatəsi]:scope:(user project local)' \
             '(-h --help)'{-h,--help}'[Kömək göstər]' \
             '1:plugin:_claude_installed_plugins'
           ;;
         enable|disable)
           _arguments \
+            '(-s --scope)'{-s,--scope}'[Quraşdırma əhatəsi]:scope:(user project local)' \
             '(-h --help)'{-h,--help}'[Kömək göstər]' \
             '1:plugin:_claude_installed_plugins'
+          ;;
+        update)
+          _arguments \
+            '(-s --scope)'{-s,--scope}'[Quraşdırma əhatəsi]:scope:(user project local managed)' \
+            '(-h --help)'{-h,--help}'[Kömək göstər]' \
+            '1:plugin:_claude_installed_plugins'
+          ;;
+        list|prune)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Kömək göstər]'
+          ;;
+        details)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Kömək göstər]' \
+            '1:plugin:_claude_installed_plugins'
+          ;;
+        init)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Kömək göstər]' \
+            '1:name:'
+          ;;
+        eval)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Kömək göstər]' \
+            '1:target:'
+          ;;
+        tag)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Kömək göstər]' \
+            '1:path:_files'
           ;;
       esac
       ;;
   esac
 }
+
 _claude_plugin_marketplace() {
   local -a marketplace_commands
   marketplace_commands=(
@@ -261,12 +381,15 @@ _claude_plugin_marketplace() {
     'update:Mənbədən marketplace-i yenilə - ad təyin edilməzsə hamısını yenilə'
     'help:Kömək göstər'
   )
+
   local curcontext="$curcontext" state line
   typeset -A opt_args
+
   _arguments -C \
     '(-h --help)'{-h,--help}'[Kömək göstər]' \
     '1: :->command' \
     '*::arg:->args'
+
   case $state in
     command)
       _describe -t commands 'marketplace commands' marketplace_commands
@@ -296,10 +419,142 @@ _claude_plugin_marketplace() {
       ;;
   esac
 }
+
 _claude_install() {
   _arguments \
     '--force[Artıq quraşdırılmış olsa belə məcburi quraşdır]' \
     '(-h --help)'{-h,--help}'[Kömək göstər]' \
     '::target:(stable latest)'
 }
+
+_claude_agents() {
+  _arguments \
+    '*--add-dir[Göndərilən sessiyalarda alət girişinə icazə vermək üçün əlavə qovluq]:directory:_directories' \
+    '--agent[Agent görünüşündən göndərilən sessiyalar üçün standart agent]:agent:' \
+    '--all[--json ilə: tamamlanmış fon sessiyalarını da daxil et]' \
+    '--allow-dangerously-skip-permissions[bypass-permissions rejimini göndərilən sessiyalar üçün əlçatan et]' \
+    '--cwd[Yalnız yol altında başladılmış fon sessiyalarını göstər]:path:_directories' \
+    '--dangerously-skip-permissions[--permission-mode bypassPermissions üçün təxəllüs]' \
+    '--effort[Göndərilən sessiyalar üçün standart səy səviyyəsi]:level:(low medium high xhigh max)' \
+    '--json[Aktiv sessiyaları JSON massivi kimi çap et və çıx]' \
+    '*--mcp-config[Göndərilən sessiyalara tətbiq ediləcək MCP server konfiqurasiyası]:config:' \
+    '--model[Agent görünüşündən göndərilən sessiyalar üçün standart model]:model:' \
+    '--permission-mode[Göndərilən sessiyalar üçün standart icazə rejimi]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)' \
+    '*--plugin-dir[Agent görünüşü və göndərilən sessiyalar üçün qovluqdan əlavələr yüklə]:path:_directories' \
+    '--setting-sources[Yükləmək üçün vergüllə ayrılmış parametr mənbələri siyahısı (user, project, local)]:sources:' \
+    '--settings[Tətbiq ediləcək parametrlər faylı və ya JSON sətri]:file-or-json:_files' \
+    '--strict-mcp-config[Göndərilən sessiyalarda yalnız --mcp-config-dən MCP serverlərini istifadə et]' \
+    '(-h --help)'{-h,--help}'[Əmr üçün kömək göstər]'
+}
+
+_claude_auth() {
+  local -a auth_commands
+  auth_commands=(
+    'login:Anthropic hesabınıza daxil olun'
+    'logout:Anthropic hesabınızdan çıxın'
+    'status:Autentifikasiya vəziyyətini göstər'
+    'help:Kömək göstər'
+  )
+
+  local curcontext="$curcontext" state line
+  typeset -A opt_args
+
+  _arguments -C \
+    '(-h --help)'{-h,--help}'[Əmr üçün kömək göstər]' \
+    '1: :->command' \
+    '*::arg:->args'
+
+  case $state in
+    command)
+      _describe -t commands 'auth commands' auth_commands
+      ;;
+    args)
+      case $words[1] in
+        login|logout|status)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Əmr üçün kömək göstər]'
+          ;;
+      esac
+      ;;
+  esac
+}
+
+_claude_auto_mode() {
+  local -a auto_mode_commands
+  auto_mode_commands=(
+    'config:Effektiv avtomatik rejim konfiqurasiyasını JSON kimi çap et'
+    'critique:Fərdi avtomatik rejim qaydalarınız üçün AI rəyi alın'
+    'defaults:Standart avtomatik rejim qaydalarını JSON kimi çap et'
+    'reset:Avtomatik rejim konfiqurasiyasını gələn standartlara sıfırla'
+    'help:Kömək göstər'
+  )
+
+  local curcontext="$curcontext" state line
+  typeset -A opt_args
+
+  _arguments -C \
+    '(-h --help)'{-h,--help}'[Əmr üçün kömək göstər]' \
+    '1: :->command' \
+    '*::arg:->args'
+
+  case $state in
+    command)
+      _describe -t commands 'auto-mode commands' auto_mode_commands
+      ;;
+    args)
+      case $words[1] in
+        config|critique|defaults|reset)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Əmr üçün kömək göstər]'
+          ;;
+      esac
+      ;;
+  esac
+}
+
+_claude_gateway() {
+  _arguments \
+    '--config[Şlüz YAML konfiqurasiyasına yol]:path:_files' \
+    '(-h --help)'{-h,--help}'[Əmr üçün kömək göstər]'
+}
+
+_claude_project() {
+  local -a project_commands
+  project_commands=(
+    'purge:Layihə üçün bütün Claude Code vəziyyətini sil (transkriptlər, tapşırıqlar, fayl tarixçəsi, konfiqurasiya qeydi)'
+    'help:Kömək göstər'
+  )
+
+  local curcontext="$curcontext" state line
+  typeset -A opt_args
+
+  _arguments -C \
+    '(-h --help)'{-h,--help}'[Əmr üçün kömək göstər]' \
+    '1: :->command' \
+    '*::arg:->args'
+
+  case $state in
+    command)
+      _describe -t commands 'project commands' project_commands
+      ;;
+    args)
+      case $words[1] in
+        purge)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Əmr üçün kömək göstər]' \
+            '1:path:_directories'
+          ;;
+      esac
+      ;;
+  esac
+}
+
+_claude_ultrareview() {
+  _arguments \
+    '--json[Formatlanmış nəticələr əvəzinə xam bugs.json yükünü çap et]' \
+    '--timeout[Nəzərdən keçirmənin bitməsini gözləmək üçün maksimum dəqiqə]:minutes:' \
+    '(-h --help)'{-h,--help}'[Əmr üçün kömək göstər]' \
+    '1:target:'
+}
+
 (( $+_comps[claude] )) || compdef _claude claude

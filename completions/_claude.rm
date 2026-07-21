@@ -1,4 +1,5 @@
 #compdef claude
+
 # Dynamic completion functions
 _claude_mcp_servers() {
   local config_file
@@ -24,40 +25,57 @@ _claude_mcp_servers() {
 _claude_installed_plugins() {
   local -a plugins
   local config_file plugin_dir
+
   # Check plugin directories directly
   for plugin_dir in ~/.claude/plugins ~/.config/claude/plugins; do
     [[ -d "$plugin_dir" ]] || continue
     plugins+=(${plugin_dir}/*(N:t))
   done
+
   # Remove duplicates
   plugins=(${(u)plugins})
+
   compadd -a plugins
 }
+
 _claude_sessions() {
   local -a sessions
   local session_dir
+
   # Check session directory
   for session_dir in ~/.claude/sessions ~/.config/claude/sessions; do
     [[ -d "$session_dir" ]] || continue
+
     # Extract UUIDs directly from filenames
     sessions+=(${session_dir}/*~*.zwc(N:t:r))
   done
+
   # Filter only valid UUIDs
   sessions=(${(M)sessions:#[0-9a-f](#c8)-[0-9a-f](#c4)-[0-9a-f](#c4)-[0-9a-f](#c4)-[0-9a-f](#c12)})
+
   compadd -a sessions
 }
+
 _claude() {
   local curcontext="$curcontext" state line
   typeset -A opt_args
+
   local -a main_commands
   main_commands=(
     'mcp:Configurar e administrar servers MCP'
     'plugin:Administrar plugins da Claude Code'
+    'agents:Administrar agentas en fund'
+    'auth:Administrar l'\''autentificaziun'
+    'auto-mode:Inspectar u reinizialisar la configuraziun dal classifikatur dal modus automatic'
+    'gateway:Exequir il gateway d'\''autentificaziun/telemetria per interpresas'
+    'project:Administrar il stadi dal project da Claude Code'
+    'ultrareview:Exequir ina revisiun da code cun pliras agentas en il cloud e stampar ils resultats'
     'setup-token:Configurar il token d'\''autentificaziun a lunga durada (basegna in abunament Claude)'
     'doctor:Controlla da sanadad per l'\''actualisaziun automatica da Claude Code'
     'update:Controllar ed installar actualisaziuns'
     'install:Installar la versiun nativa da Claude Code'
   )
+
   local -a main_options
   main_options=(
     '(-d --debug)'{-d,--debug}'[Activar il modus da debugging cun filtraziun opziunala per categoria (p.ex. "api,hooks" u "!statsig,!file")]:filter:'
@@ -70,20 +88,24 @@ _claude() {
     '--mcp-debug[\[Antiquà. Duvrar --debug empè\] Activar il modus da debugging MCP (mussa errurs dal server MCP)]'
     '--dangerously-skip-permissions[Sursiglir tut las controllas da permissiuns. Recumandà mo per sandboxes senza access a l'\''internet]'
     '--allow-dangerously-skip-permissions[Activar l'\''opziun da sursiglir controllas da permissiuns senza l'\''activar per standard]'
+    '--max-budget-usd[Import maximal en dollars da spender per clamadas API (mo --print)]:amount:'
     '--replay-user-messages[Trametter danovamain messadis d'\''utilisaders da stdin a stdout per confirmaziun]'
     '--allowed-tools[Glista separada cun commas u spazis dals nums dals utensils permess (p.ex. "Bash(git:*) Edit")]:tools:'
     '--allowedTools[Glista separada cun commas u spazis dals nums dals utensils permess (format camelCase)]:tools:'
-    '--tools[Specificar ina glista dals utensils disponibels dal set integràperModus da stampar mo]:tools:'
+    '--tools[Specificar ina glista dals utensils disponibels dal set integrà. Mo en il modus da stampar]:tools:'
     '--disallowed-tools[Glista separada cun commas u spazis dals nums dals utensils betg permess (p.ex. "Bash(git:*) Edit")]:tools:'
     '--disallowedTools[Glista separada cun commas u spazis dals nums dals utensils betg permess (format camelCase)]:tools:'
     '--mcp-config[Chargiar servers MCP dad in file JSON u ina chadaina (separads cun spazis)]:configs:'
     '--system-prompt[Prompt dal sistem per utilisar per la sessiun]:prompt:'
     '--append-system-prompt[Agiuntar in prompt dal sistem al prompt dal sistem standard]:prompt:'
-    '--permission-mode[Modus da permissiuns per utilisar per la sessiun]:mode:(acceptEdits bypassPermissions default dontAsk plan)'
+    '--permission-mode[Modus da permissiuns per utilisar per la sessiun]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)'
     '(-c --continue)'{-c,--continue}'[Cuntinuar la conversaziun pli nova]'
     '(-r --resume)'{-r,--resume}'[Reprender ina conversaziun - specificar l'\''ID da sessiun u tscherner interactivamain]:sessionId:_claude_sessions'
     '--fork-session[Crear in nov ID da sessiun empè da reutilisar l'\''ID da sessiun original cura reprender (cun --resume u --continue)]'
+    '--no-session-persistence[Deactivar la persistenza da la sessiun - las sessiuns na vegnan betg memorisadas (mo --print)]'
     '--model[Model per la sessiun actuala. Specificar in alias per il model pli nov (p.ex. '\''sonnet'\'' u '\''opus'\'')]:model:'
+    '--agent[Agenta per la sessiun actuala. Surscriva la configuraziun '\''agent'\'']:agent:'
+    '--betas[Headers beta d'\''includer en las dumondas API (mo per utilisaders cun clav API)]:betas:'
     '--fallback-model[Activar il midament automatic al model specifichà sch'\''il model standard è surchargià (mo --print)]:model:'
     '--settings[Via ad in file JSON da configuraziun u ina chadaina JSON per chargiar configuraziuns supplementaras]:file-or-json:_files'
     '--add-dir[Directories supplementars per permetter l'\''access als utensils]:directories:_directories'
@@ -93,13 +115,37 @@ _claude() {
     '--agents[Object JSON che definescha agentas persunalisadas]:json:'
     '--setting-sources[Glista separada cun commas da funtaunas da configuraziun da chargiar (user, project, local)]:sources:'
     '--plugin-dir[Directory per chargiar plugins mo per questa sessiun (repetibel)]:paths:_directories'
+    '--disable-slash-commands[Deactivar tut ils cumonds cun slash]'
+    '(--bg --background)'{--bg,--background}'[Aviar la sessiun sco agenta en fund e returnar immediatamain]'
+    '(-w --worktree)'{-w,--worktree}'[Crear in nov worktree git per questa sessiun (specificar opziunalmain in num)]::name:'
+    '--tmux[Crear ina sessiun tmux per il worktree (basegna --worktree)]'
+    '(-n --name)'{-n,--name}'[Definir in num da visualisaziun per questa sessiun]:name:'
+    '--effort[Nivel d'\''effort per la sessiun actuala]:level:(low medium high xhigh max)'
+    '--debug-file[Scriver protocols da debugging en ina via da file specifica (activescha implicitamain il modus da debugging)]:path:_files'
+    '--from-pr[Reprender ina sessiun colliada cun in PR tras numer/URL, u avrir il tschernider interactiv]::value:'
+    '--remote-control[Aviar ina sessiun interactiva cun Remote Control activà (opziunalmain cun num)]::name:'
+    '--remote-control-session-name-prefix[Prefix per nums da sessiun Remote Control generads automaticamain]:prefix:'
+    '--chrome[Activar l'\''integraziun da Claude en Chrome]'
+    '--no-chrome[Deactivar l'\''integraziun da Claude en Chrome]'
+    '--plugin-url[Retrair in .zip da plugin dad ina URL mo per questa sessiun (repetibel)]:url:'
+    '--file[Resursas da file da telechargiar a l'\''aviaziun (format: file_id:relative_path)]:specs:'
+    '--prompt-suggestions[Activar propostas da prompt (emetta in prossim prompt predschà en il modus print/SDK)]::value:(true false 1 0 yes no on off)'
+    '--forward-subagent-text[Trametter enavant text da subagenta e blocs da patratg sco messadis (cun --print e stream-json)]'
+    '--include-hook-events[Includer tut ils eveniments dal ciclus da viver dals hooks en il flux da sortida (cun stream-json)]'
+    '--exclude-dynamic-system-prompt-sections[Spustar las secziuns per singula maschina en l'\''emprim messadi d'\''utilisader per meglierar la reutilisaziun dal cache da prompt]'
+    '--brief[Activar l'\''utensil SendUserMessage per la communicaziun tranter agenta ed utilisader]'
+    '--safe-mode[Aviar cun tut las persunalisaziuns deactivadas (util per schlariar ina configuraziun rutta)]'
+    '--bare[Modus minimal: sursiglir hooks, LSP, sincronisaziun da plugins, attribuziun, auto-memoria ed auto-scuverta da CLAUDE.md]'
+    '--ax-screen-reader[Renderisar sortida adattada per liaders da visur (text plan, senza urs decorativs u animaziuns)]'
     '(-v --version)'{-v,--version}'[Mussar il numer da versiun]'
     '(-h --help)'{-h,--help}'[Mussar l'\''agid per il cumond]'
   )
+
   _arguments -C \
     $main_options \
     '1: :->command' \
     '*::arg:->args'
+
   case $state in
     command)
       _describe -t commands 'cumonds claude' main_commands
@@ -115,6 +161,24 @@ _claude() {
         install)
           _claude_install
           ;;
+        agents)
+          _claude_agents
+          ;;
+        auth)
+          _claude_auth
+          ;;
+        auto-mode)
+          _claude_auto_mode
+          ;;
+        gateway)
+          _claude_gateway
+          ;;
+        project)
+          _claude_project
+          ;;
+        ultrareview)
+          _claude_ultrareview
+          ;;
         setup-token|doctor|update)
           _message "nagins arguments"
           ;;
@@ -122,6 +186,7 @@ _claude() {
       ;;
   esac
 }
+
 _claude_mcp() {
   local -a mcp_commands
   mcp_commands=(
@@ -133,14 +198,19 @@ _claude_mcp() {
     'add-json:Agiuntar in server MCP (stdio u SSE) cun ina chadaina JSON'
     'add-from-claude-desktop:Importar servers MCP da Claude Desktop (mo Mac e WSL)'
     'reset-project-choices:Reinizialisar tut ils servers cun ambit da project (.mcp.json) approvads/refusads en quest project'
+    'login:Autentificar cun in server MCP (HTTP, SSE, u connectur da claude.ai)'
+    'logout:Stizzar las credenzialas OAuth memorisadas per in server MCP'
     'help:Mussar l'\''agid'
   )
+
   local curcontext="$curcontext" state line
   typeset -A opt_args
+
   _arguments -C \
     '(-h --help)'{-h,--help}'[Mussar l'\''agid]' \
     '1: :->command' \
     '*::arg:->args'
+
   case $state in
     command)
       _describe -t commands 'cumonds mcp' mcp_commands
@@ -195,29 +265,45 @@ _claude_mcp() {
           _arguments \
             '(-h --help)'{-h,--help}'[Mussar l'\''agid]'
           ;;
+        login|logout)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Mussar l'\''agid]' \
+            '1:name:_claude_mcp_servers'
+          ;;
       esac
       ;;
   esac
 }
+
 _claude_plugin() {
   local -a plugin_commands
   plugin_commands=(
     'validate:Validar in plugin u in manifest da martgà'
     'marketplace:Administrar martgads da Claude Code'
+    'list:Elencar plugins installads'
+    'details:Mussar l'\''inventari da cumponents ed il cust da tokens projectà per in plugin'
     'install:Installar in plugin dals martgads disponibels'
     'i:Installar in plugin dals martgads disponibels (furma curta dad install)'
+    'init:Stgaffar in nov plugin (vegn chargià automaticamain la proxima sessiun)'
     'uninstall:Desinstallar in plugin installà'
     'remove:Desinstallar in plugin installà (alias per uninstall)'
     'enable:Activar in plugin deactivà'
     'disable:Deactivar in plugin activà'
+    'update:Actualisar in plugin a la versiun pli nova'
+    'eval:Exequir cas da test cunter in plugin e rapportar ils resultats evaluads'
+    'prune:Allontanar dependenzas installadas automaticamain che n'\''èn betg pli basegnadas'
+    'tag:Crear in tag git {name}--v{version} per ina publicaziun da plugin'
     'help:Mussar l'\''agid'
   )
+
   local curcontext="$curcontext" state line
   typeset -A opt_args
+
   _arguments -C \
     '(-h --help)'{-h,--help}'[Mussar l'\''agid]' \
     '1: :->command' \
     '*::arg:->args'
+
   case $state in
     command)
       _describe -t commands 'cumonds da plugin' plugin_commands
@@ -234,23 +320,57 @@ _claude_plugin() {
           ;;
         install|i)
           _arguments \
+            '(-s --scope)'{-s,--scope}'[Ambit d'\''installaziun]:scope:(user project local)' \
             '(-h --help)'{-h,--help}'[Mussar l'\''agid]' \
             '1:plugin:'
           ;;
         uninstall|remove)
           _arguments \
+            '(-s --scope)'{-s,--scope}'[Ambit d'\''installaziun]:scope:(user project local)' \
             '(-h --help)'{-h,--help}'[Mussar l'\''agid]' \
             '1:plugin:_claude_installed_plugins'
           ;;
         enable|disable)
           _arguments \
+            '(-s --scope)'{-s,--scope}'[Ambit d'\''installaziun]:scope:(user project local)' \
             '(-h --help)'{-h,--help}'[Mussar l'\''agid]' \
             '1:plugin:_claude_installed_plugins'
+          ;;
+        update)
+          _arguments \
+            '(-s --scope)'{-s,--scope}'[Ambit d'\''installaziun]:scope:(user project local managed)' \
+            '(-h --help)'{-h,--help}'[Mussar l'\''agid]' \
+            '1:plugin:_claude_installed_plugins'
+          ;;
+        list|prune)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Mussar l'\''agid]'
+          ;;
+        details)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Mussar l'\''agid]' \
+            '1:plugin:_claude_installed_plugins'
+          ;;
+        init)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Mussar l'\''agid]' \
+            '1:name:'
+          ;;
+        eval)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Mussar l'\''agid]' \
+            '1:target:'
+          ;;
+        tag)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Mussar l'\''agid]' \
+            '1:path:_files'
           ;;
       esac
       ;;
   esac
 }
+
 _claude_plugin_marketplace() {
   local -a marketplace_commands
   marketplace_commands=(
@@ -261,12 +381,15 @@ _claude_plugin_marketplace() {
     'update:Actualisar il martgà da la funtauna - actualisar tuts sch'\''i n'\''è specifichà nagin num'
     'help:Mussar l'\''agid'
   )
+
   local curcontext="$curcontext" state line
   typeset -A opt_args
+
   _arguments -C \
     '(-h --help)'{-h,--help}'[Mussar l'\''agid]' \
     '1: :->command' \
     '*::arg:->args'
+
   case $state in
     command)
       _describe -t commands 'cumonds da martgà' marketplace_commands
@@ -296,10 +419,142 @@ _claude_plugin_marketplace() {
       ;;
   esac
 }
+
 _claude_install() {
   _arguments \
     '--force[Sfurzar l'\''installaziun er sch'\''i è gia installà]' \
     '(-h --help)'{-h,--help}'[Mussar l'\''agid]' \
     '::target:(stable latest)'
 }
+
+_claude_agents() {
+  _arguments \
+    '*--add-dir[Directory supplementar per permetter l'\''access als utensils en sessiuns spedidas]:directory:_directories' \
+    '--agent[Agenta standard per sessiuns spedidas da la vista d'\''agentas]:agent:' \
+    '--all[Cun --json: includer er sessiuns en fund terminadas]' \
+    '--allow-dangerously-skip-permissions[Render disponibel il modus bypass-permissions per sessiuns spedidas]' \
+    '--cwd[Mussar mo sessiuns en fund aviadas sut la via]:path:_directories' \
+    '--dangerously-skip-permissions[Alias per --permission-mode bypassPermissions]' \
+    '--effort[Nivel d'\''effort standard per sessiuns spedidas]:level:(low medium high xhigh max)' \
+    '--json[Stampar las sessiuns activas sco array JSON e finir]' \
+    '*--mcp-config[Configuraziun dal server MCP d'\''applitgar a sessiuns spedidas]:config:' \
+    '--model[Model standard per sessiuns spedidas da la vista d'\''agentas]:model:' \
+    '--permission-mode[Modus da permissiuns standard per sessiuns spedidas]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)' \
+    '*--plugin-dir[Chargiar plugins dad in directory per la vista d'\''agentas e sessiuns spedidas]:path:_directories' \
+    '--setting-sources[Glista separada cun commas da funtaunas da configuraziun da chargiar (user, project, local)]:sources:' \
+    '--settings[File da configuraziun u chadaina JSON d'\''applitgar]:file-or-json:_files' \
+    '--strict-mcp-config[Duvrar mo servers MCP da --mcp-config en sessiuns spedidas]' \
+    '(-h --help)'{-h,--help}'[Mussar l'\''agid per il cumond]'
+}
+
+_claude_auth() {
+  local -a auth_commands
+  auth_commands=(
+    'login:S'\''annunziar tar Voss conto Anthropic'
+    'logout:S'\''annunziar or da Voss conto Anthropic'
+    'status:Mussar il status da l'\''autentificaziun'
+    'help:Mussar l'\''agid'
+  )
+
+  local curcontext="$curcontext" state line
+  typeset -A opt_args
+
+  _arguments -C \
+    '(-h --help)'{-h,--help}'[Mussar l'\''agid per il cumond]' \
+    '1: :->command' \
+    '*::arg:->args'
+
+  case $state in
+    command)
+      _describe -t commands 'cumonds auth' auth_commands
+      ;;
+    args)
+      case $words[1] in
+        login|logout|status)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Mussar l'\''agid per il cumond]'
+          ;;
+      esac
+      ;;
+  esac
+}
+
+_claude_auto_mode() {
+  local -a auto_mode_commands
+  auto_mode_commands=(
+    'config:Stampar la configuraziun effectiva dal modus automatic sco JSON'
+    'critique:Retschaiver feedback IA davart Vossas reglas persunalisadas dal modus automatic'
+    'defaults:Stampar las reglas standard dal modus automatic sco JSON'
+    'reset:Reinizialisar la configuraziun dal modus automatic als standards furnids'
+    'help:Mussar l'\''agid'
+  )
+
+  local curcontext="$curcontext" state line
+  typeset -A opt_args
+
+  _arguments -C \
+    '(-h --help)'{-h,--help}'[Mussar l'\''agid per il cumond]' \
+    '1: :->command' \
+    '*::arg:->args'
+
+  case $state in
+    command)
+      _describe -t commands 'cumonds auto-mode' auto_mode_commands
+      ;;
+    args)
+      case $words[1] in
+        config|critique|defaults|reset)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Mussar l'\''agid per il cumond]'
+          ;;
+      esac
+      ;;
+  esac
+}
+
+_claude_gateway() {
+  _arguments \
+    '--config[Via a la configuraziun YAML dal gateway]:path:_files' \
+    '(-h --help)'{-h,--help}'[Mussar l'\''agid per il cumond]'
+}
+
+_claude_project() {
+  local -a project_commands
+  project_commands=(
+    'purge:Stizzar tut il stadi da Claude Code per in project (transcripziuns, incumbensas, cronologia da files, endataziun da configuraziun)'
+    'help:Mussar l'\''agid'
+  )
+
+  local curcontext="$curcontext" state line
+  typeset -A opt_args
+
+  _arguments -C \
+    '(-h --help)'{-h,--help}'[Mussar l'\''agid per il cumond]' \
+    '1: :->command' \
+    '*::arg:->args'
+
+  case $state in
+    command)
+      _describe -t commands 'cumonds project' project_commands
+      ;;
+    args)
+      case $words[1] in
+        purge)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Mussar l'\''agid per il cumond]' \
+            '1:path:_directories'
+          ;;
+      esac
+      ;;
+  esac
+}
+
+_claude_ultrareview() {
+  _arguments \
+    '--json[Stampar il payload brut bugs.json empè dals resultats formatads]' \
+    '--timeout[Minutas maximalas d'\''spetgar fin che la revisiun è finida]:minutes:' \
+    '(-h --help)'{-h,--help}'[Mussar l'\''agid per il cumond]' \
+    '1:target:'
+}
+
 (( $+_comps[claude] )) || compdef _claude claude

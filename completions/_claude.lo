@@ -1,4 +1,5 @@
 #compdef claude
+
 # Dynamic completion functions
 _claude_mcp_servers() {
   local config_file
@@ -24,40 +25,57 @@ _claude_mcp_servers() {
 _claude_installed_plugins() {
   local -a plugins
   local config_file plugin_dir
+
   # Check plugin directories directly
   for plugin_dir in ~/.claude/plugins ~/.config/claude/plugins; do
     [[ -d "$plugin_dir" ]] || continue
     plugins+=(${plugin_dir}/*(N:t))
   done
+
   # Remove duplicates
   plugins=(${(u)plugins})
+
   compadd -a plugins
 }
+
 _claude_sessions() {
   local -a sessions
   local session_dir
+
   # Check session directory
   for session_dir in ~/.claude/sessions ~/.config/claude/sessions; do
     [[ -d "$session_dir" ]] || continue
+
     # Extract UUIDs directly from filenames
     sessions+=(${session_dir}/*~*.zwc(N:t:r))
   done
+
   # Filter only valid UUIDs
   sessions=(${(M)sessions:#[0-9a-f](#c8)-[0-9a-f](#c4)-[0-9a-f](#c4)-[0-9a-f](#c4)-[0-9a-f](#c12)})
+
   compadd -a sessions
 }
+
 _claude() {
   local curcontext="$curcontext" state line
   typeset -A opt_args
+
   local -a main_commands
   main_commands=(
     'mcp:ກຳນົດຄ່າແລະຈັດການເຊີບເວີ MCP'
     'plugin:ຈັດການໂປລແກຼມເສີມ Claude Code'
+    'agents:ຈັດການຕົວແທນທີ່ເຮັດວຽກພື້ນຫຼັງ'
+    'auth:ຈັດການການຢືນຢັນຕົວຕົນ'
+    'auto-mode:ກວດສອບ ຫຼືຕັ້ງຄ່າໃໝ່ການຕັ້ງຄ່າຕົວຈັດປະເພດຂອງໂໝດອັດຕະໂນມັດ'
+    'gateway:ແລ່ນເກດເວທ໌ການຢືນຢັນ/telemetry ສຳລັບອົງກອນ'
+    'project:ຈັດການສະຖານະໂຄງການ Claude Code'
+    'ultrareview:ແລ່ນການກວດສອບໂຄດແບບຫຼາຍຕົວແທນທີ່ໂຮສຢູ່ຄລາວ ແລະພິມຜົນການຄົ້ນພົບ'
     'setup-token:ຕັ້ງຄ່າໂທເຄນຢືນຢັນໄລຍະຍາວ (ຕ້ອງການການສະໝັກໃຊ້ Claude)'
     'doctor:ກວດສຸຂະພາບໂປລແກຼມອັບເດດອັດຕະໂນມັດ Claude Code'
     'update:ກວດສອບແລະຕິດຕັ້ງການອັບເດດ'
     'install:ຕິດຕັ້ງ Claude Code ເວີຊັນພື້ນເມືອງ'
   )
+
   local -a main_options
   main_options=(
     '(-d --debug)'{-d,--debug}'[ເປີດໃຊ້ໂໝດດີບັກ ດ້ວຍການກັ່ນຕອງປະເພດທີ່ເລືອກໄດ້ (ຕົວຢ່າງ "api,hooks" ຫຼື "!statsig,!file")]:filter:'
@@ -67,9 +85,10 @@ _claude() {
     '--json-schema[JSON schema ສຳລັບການກວດສອບຜົນໄດ້ຮັບທີ່ມີໂຄງສ້າງ]:schema:'
     '--include-partial-messages[ລວມສ່ວນຂໍ້ຄວາມບາງສ່ວນ (ກັບ --print ແລະ --output-format=stream-json)]'
     '--input-format[ຮູບແບບການປ້ອນຂໍ້ມູນ (ກັບ --print): "text" (ຄ່າເລີ່ມຕົ້ນ) ຫຼື "stream-json" (ການສະຕຣີມປ້ອນເວລາຕົວຈິງ)]:format:(text stream-json)'
-    '--mcp-debug[【ຖືກຍົກເລີກແລ້ວ. ໃຊ້ --debug ແທນ】 ເປີດໃຊ້ໂໝດດີບັກ MCP (ສະແດງຂໍ້ຜິດພາດເຊີບເວີ MCP)]'
+    '--mcp-debug[\[ຖືກຍົກເລີກແລ້ວ. ໃຊ້ --debug ແທນ\] ເປີດໃຊ້ໂໝດດີບັກ MCP (ສະແດງຂໍ້ຜິດພາດເຊີບເວີ MCP)]'
     '--dangerously-skip-permissions[ຂ້າມການກວດສອບການອະນຸຍາດທັງໝົດ. ແນະນຳພຽງແຕ່ສຳລັບ sandbox ທີ່ບໍ່ມີການເຂົ້າເຖິງອິນເຕີເນັດ]'
     '--allow-dangerously-skip-permissions[ເປີດໃຊ້ຕົວເລືອກການຂ້າມການກວດສອບການອະນຸຍາດ ແຕ່ບໍ່ເປີດໃຊ້ຕາມຄ່າເລີ່ມຕົ້ນ]'
+    '--max-budget-usd[ຈຳນວນເງິນໂດລາສູງສຸດທີ່ຈະໃຊ້ຈ່າຍໃນການເອີ້ນ API (ພຽງແຕ່ --print)]:amount:'
     '--replay-user-messages[ສົ່ງຂໍ້ຄວາມຜູ້ໃຊ້ຈາກ stdin ໃນ stdout ອີກຄັ້ງເພື່ອຢືນຢັນ]'
     '--allowed-tools[ລາຍຊື່ຊື່ເຄື່ອງມືທີ່ອະນຸຍາດ (ແຍກດ້ວຍເຄື່ອງໝາຍຈຸດຄໍາຫຼືເວັ້ນວ່າງ ຕົວຢ່າງ "Bash(git:*) Edit")]:tools:'
     '--allowedTools[ລາຍຊື່ຊື່ເຄື່ອງມືທີ່ອະນຸຍາດ (ຮູບແບບ camelCase)]:tools:'
@@ -79,11 +98,14 @@ _claude() {
     '--mcp-config[ໂຫລດເຊີບເວີ MCP ຈາກໄຟລ໌ JSON ຫຼືສະຕຣິງ (ແຍກດ້ວຍເວັ້ນວ່າງ)]:configs:'
     '--system-prompt[ການກະຕຸ້ນລະບົບສຳລັບເຊສຊັນ]:prompt:'
     '--append-system-prompt[ຕື່ມການກະຕຸ້ນລະບົບໃສ່ການກະຕຸ້ນລະບົບເລີ່ມຕົ້ນ]:prompt:'
-    '--permission-mode[ໂໝດການອະນຸຍາດສຳລັບເຊສຊັນ]:mode:(acceptEdits bypassPermissions default dontAsk plan)'
+    '--permission-mode[ໂໝດການອະນຸຍາດສຳລັບເຊສຊັນ]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)'
     '(-c --continue)'{-c,--continue}'[ສືບຕໍ່ການສົນທະນາຫຼ້າສຸດ]'
     '(-r --resume)'{-r,--resume}'[ສືບຕໍ່ການສົນທະນາ - ລະບຸ ID ເຊສຊັນ ຫຼືເລືອກແບບໂຕ້ຕອບ]:sessionId:_claude_sessions'
     '--fork-session[ສ້າງ ID ເຊສຊັນໃໝ່ແທນການໃຊ້ຄືນ ID ເຊສຊັນດັ້ງເດີມ ເມື່ອສືບຕໍ່ (ກັບ --resume ຫຼື --continue)]'
+    '--no-session-persistence[ປິດການບັນທຶກເຊສຊັນ - ເຊສຊັນຈະບໍ່ຖືກບັນທຶກ (ພຽງແຕ່ --print)]'
     '--model[ຮູບແບບສຳລັບເຊສຊັນປັດຈຸບັນ. ລະບຸນາມແຝງສຳລັບຮູບແບບຫຼ້າສຸດ (ຕົວຢ່າງ '\''sonnet'\'' ຫຼື '\''opus'\'')]:model:'
+    '--agent[ຕົວແທນສຳລັບເຊສຊັນປັດຈຸບັນ. ຂຽນທັບການຕັ້ງຄ່າ '\''agent'\'']:agent:'
+    '--betas[ຫົວ Beta ທີ່ຈະລວມໃນຄຳຂໍ API (ພຽງແຕ່ຜູ້ໃຊ້ API key)]:betas:'
     '--fallback-model[ເປີດໃຊ້ການສຳຮອງອັດຕະໂນມັດໄປຫາຮູບແບບທີ່ລະບຸ ເມື່ອຮູບແບບເລີ່ມຕົ້ນໂຫລດເກີນ (ພຽງແຕ່ --print)]:model:'
     '--settings[ເສັ້ນທາງໄຟລ໌ JSON ຂອງການຕັ້ງຄ່າ ຫຼືສະຕຣິງ JSON ເພື່ອໂຫລດການຕັ້ງຄ່າເພີ່ມເຕີມ]:file-or-json:_files'
     '--add-dir[ໂຟນເດີເພີ່ມເຕີມເພື່ອອະນຸຍາດການເຂົ້າເຖິງເຄື່ອງມື]:directories:_directories'
@@ -93,13 +115,37 @@ _claude() {
     '--agents[ອອບເຈັກ JSON ກຳນົດຕົວແທນທີ່ກຳນົດເອງ]:json:'
     '--setting-sources[ລາຍຊື່ແຫຼ່ງການຕັ້ງຄ່າທີ່ຈະໂຫລດ (ແຍກດ້ວຍເຄື່ອງໝາຍຈຸດຄໍາ: user, project, local)]:sources:'
     '--plugin-dir[ໂຟນເດີເພື່ອໂຫລດໂປລແກຼມເສີມສຳລັບເຊສຊັນນີ້ເທົ່ານັ້ນ (ສາມາດຊ້ຳໄດ້)]:paths:_directories'
+    '--disable-slash-commands[ປິດຄຳສັ່ງ slash ທັງໝົດ]'
+    '(--bg --background)'{--bg,--background}'[ເລີ່ມເຊສຊັນເປັນຕົວແທນພື້ນຫຼັງ ແລະກັບຄືນທັນທີ]'
+    '(-w --worktree)'{-w,--worktree}'[ສ້າງ git worktree ໃໝ່ສຳລັບເຊສຊັນນີ້ (ລະບຸຊື່ໄດ້ຕາມທາງເລືອກ)]::name:'
+    '--tmux[ສ້າງເຊສຊັນ tmux ສຳລັບ worktree (ຕ້ອງການ --worktree)]'
+    '(-n --name)'{-n,--name}'[ຕັ້ງຊື່ສະແດງສຳລັບເຊສຊັນນີ້]:name:'
+    '--effort[ລະດັບຄວາມພະຍາຍາມສຳລັບເຊສຊັນປັດຈຸບັນ]:level:(low medium high xhigh max)'
+    '--debug-file[ຂຽນບັນທຶກດີບັກໄປຫາເສັ້ນທາງໄຟລ໌ສະເພາະ (ເປີດໃຊ້ໂໝດດີບັກໂດຍປະລິຍາຍ)]:path:_files'
+    '--from-pr[ສືບຕໍ່ເຊສຊັນທີ່ເຊື່ອມກັບ PR ດ້ວຍໝາຍເລກ/URL ຫຼືເປີດຕົວເລືອກແບບໂຕ້ຕອບ]::value:'
+    '--remote-control[ເລີ່ມເຊສຊັນແບບໂຕ້ຕອບໂດຍເປີດໃຊ້ Remote Control (ຕັ້ງຊື່ໄດ້ຕາມທາງເລືອກ)]::name:'
+    '--remote-control-session-name-prefix[ຄຳນຳໜ້າສຳລັບຊື່ເຊສຊັນ Remote Control ທີ່ສ້າງອັດຕະໂນມັດ]:prefix:'
+    '--chrome[ເປີດໃຊ້ການເຊື່ອມໂຍງ Claude ໃນ Chrome]'
+    '--no-chrome[ປິດການເຊື່ອມໂຍງ Claude ໃນ Chrome]'
+    '--plugin-url[ດຶງໄຟລ໌ .zip ຂອງໂປລແກຼມເສີມຈາກ URL ສຳລັບເຊສຊັນນີ້ເທົ່ານັ້ນ (ສາມາດຊ້ຳໄດ້)]:url:'
+    '--file[ຊັບພະຍາກອນໄຟລ໌ທີ່ຈະດາວໂຫລດເມື່ອເລີ່ມຕົ້ນ (ຮູບແບບ: file_id:relative_path)]:specs:'
+    '--prompt-suggestions[ເປີດໃຊ້ຄຳແນະນຳການກະຕຸ້ນ (ສົ່ງການກະຕຸ້ນຖັດໄປທີ່ຄາດການໃນໂໝດ print/SDK)]::value:(true false 1 0 yes no on off)'
+    '--forward-subagent-text[ສົ່ງຕໍ່ຂໍ້ຄວາມ subagent ແລະບລັອກການຄິດເປັນຂໍ້ຄວາມ (ກັບ --print ແລະ stream-json)]'
+    '--include-hook-events[ລວມເຫດການວົງຈອນຊີວິດ hook ທັງໝົດໃນສະຕຣີມຜົນໄດ້ຮັບ (ກັບ stream-json)]'
+    '--exclude-dynamic-system-prompt-sections[ຍ້າຍສ່ວນຕໍ່ເຄື່ອງໄປໃສ່ຂໍ້ຄວາມຜູ້ໃຊ້ທຳອິດເພື່ອປັບປຸງການໃຊ້ຄືນ prompt-cache]'
+    '--brief[ເປີດໃຊ້ເຄື່ອງມື SendUserMessage ສຳລັບການສື່ສານຈາກຕົວແທນຫາຜູ້ໃຊ້]'
+    '--safe-mode[ເລີ່ມຕົ້ນໂດຍປິດການປັບແຕ່ງທັງໝົດ (ເປັນປະໂຫຍດສຳລັບການແກ້ໄຂການຕັ້ງຄ່າທີ່ເສຍຫາຍ)]'
+    '--bare[ໂໝດຕໍ່າສຸດ: ຂ້າມ hooks, LSP, ການຊິງໂປລແກຼມເສີມ, ການລະບຸແຫຼ່ງ, auto-memory ແລະການຄົ້ນພົບ CLAUDE.md ອັດຕະໂນມັດ]'
+    '--ax-screen-reader[ສະແດງຜົນໄດ້ຮັບທີ່ເປັນມິດກັບໂປລແກຼມອ່ານໜ້າຈໍ (ຂໍ້ຄວາມແບນ ບໍ່ມີຂອບຕົກແຕ່ງ ຫຼືພາບເຄື່ອນໄຫວ)]'
     '(-v --version)'{-v,--version}'[ອອກເລກເວີຊັນ]'
     '(-h --help)'{-h,--help}'[ສະແດງຄຳແນະນຳຄຳສັ່ງ]'
   )
+
   _arguments -C \
     $main_options \
     '1: :->command' \
     '*::arg:->args'
+
   case $state in
     command)
       _describe -t commands 'claude commands' main_commands
@@ -115,6 +161,24 @@ _claude() {
         install)
           _claude_install
           ;;
+        agents)
+          _claude_agents
+          ;;
+        auth)
+          _claude_auth
+          ;;
+        auto-mode)
+          _claude_auto_mode
+          ;;
+        gateway)
+          _claude_gateway
+          ;;
+        project)
+          _claude_project
+          ;;
+        ultrareview)
+          _claude_ultrareview
+          ;;
         setup-token|doctor|update)
           _message "no arguments"
           ;;
@@ -122,6 +186,7 @@ _claude() {
       ;;
   esac
 }
+
 _claude_mcp() {
   local -a mcp_commands
   mcp_commands=(
@@ -133,14 +198,19 @@ _claude_mcp() {
     'add-json:ເພີ່ມເຊີບເວີ MCP ດ້ວຍສະຕຣິງ JSON (stdio ຫຼື SSE)'
     'add-from-claude-desktop:ນຳເຂົ້າເຊີບເວີ MCP ຈາກ Claude Desktop (ພຽງແຕ່ Mac ແລະ WSL)'
     'reset-project-choices:ຕັ້ງຄ່າເຊີບເວີທີ່ມີຂອບເຂດໂຄງການ (.mcp.json) ທັງໝົດທີ່ອະນຸມັດ/ປະຕິເສດໃນໂຄງການນີ້ໃໝ່'
+    'login:ຢືນຢັນຕົວຕົນກັບເຊີບເວີ MCP (HTTP, SSE ຫຼືຕົວເຊື່ອມ claude.ai)'
+    'logout:ລ້າງຂໍ້ມູນຮັບຮອງ OAuth ທີ່ບັນທຶກໄວ້ສຳລັບເຊີບເວີ MCP'
     'help:ສະແດງຄຳແນະນຳ'
   )
+
   local curcontext="$curcontext" state line
   typeset -A opt_args
+
   _arguments -C \
     '(-h --help)'{-h,--help}'[ສະແດງຄຳແນະນຳ]' \
     '1: :->command' \
     '*::arg:->args'
+
   case $state in
     command)
       _describe -t commands 'mcp commands' mcp_commands
@@ -195,29 +265,45 @@ _claude_mcp() {
           _arguments \
             '(-h --help)'{-h,--help}'[ສະແດງຄຳແນະນຳ]'
           ;;
+        login|logout)
+          _arguments \
+            '(-h --help)'{-h,--help}'[ສະແດງຄຳແນະນຳ]' \
+            '1:name:_claude_mcp_servers'
+          ;;
       esac
       ;;
   esac
 }
+
 _claude_plugin() {
   local -a plugin_commands
   plugin_commands=(
     'validate:ກວດສອບໂປລແກຼມເສີມ ຫຼືລາຍການຂໍ້ມູນຕະຫຼາດ'
     'marketplace:ຈັດການຕະຫຼາດ Claude Code'
+    'list:ສະແດງລາຍຊື່ໂປລແກຼມເສີມທີ່ຕິດຕັ້ງແລ້ວ'
+    'details:ສະແດງລາຍການອົງປະກອບ ແລະຄ່າໃຊ້ຈ່າຍໂທເຄນທີ່ຄາດຄະເນສຳລັບໂປລແກຼມເສີມ'
     'install:ຕິດຕັ້ງໂປລແກຼມເສີມຈາກຕະຫຼາດທີ່ມີ'
     'i:ຕິດຕັ້ງໂປລແກຼມເສີມຈາກຕະຫຼາດທີ່ມີ (ຮູບແບບສັ້ນຂອງ install)'
+    'init:ສ້າງໂຄງໂປລແກຼມເສີມໃໝ່ (ໂຫລດອັດຕະໂນມັດໃນເຊສຊັນຖັດໄປ)'
     'uninstall:ຖອນການຕິດຕັ້ງໂປລແກຼມເສີມທີ່ຕິດຕັ້ງແລ້ວ'
     'remove:ຖອນການຕິດຕັ້ງໂປລແກຼມເສີມທີ່ຕິດຕັ້ງແລ້ວ (ຊື່ອື່ນຂອງ uninstall)'
     'enable:ເປີດໃຊ້ໂປລແກຼມເສີມທີ່ປິດໄວ້'
     'disable:ປິດໂປລແກຼມເສີມທີ່ເປີດໃຊ້ຢູ່'
+    'update:ອັບເດດໂປລແກຼມເສີມໄປຫາເວີຊັນຫຼ້າສຸດ'
+    'eval:ແລ່ນກໍລະນີປະເມີນຕໍ່ໂປລແກຼມເສີມ ແລະລາຍງານຜົນທີ່ໃຫ້ຄະແນນ'
+    'prune:ລຶບ dependency ທີ່ຕິດຕັ້ງອັດຕະໂນມັດທີ່ບໍ່ຕ້ອງການອີກຕໍ່ໄປ'
+    'tag:ສ້າງ git tag {name}--v{version} ສຳລັບການປ່ອຍໂປລແກຼມເສີມ'
     'help:ສະແດງຄຳແນະນຳ'
   )
+
   local curcontext="$curcontext" state line
   typeset -A opt_args
+
   _arguments -C \
     '(-h --help)'{-h,--help}'[ສະແດງຄຳແນະນຳ]' \
     '1: :->command' \
     '*::arg:->args'
+
   case $state in
     command)
       _describe -t commands 'plugin commands' plugin_commands
@@ -234,23 +320,57 @@ _claude_plugin() {
           ;;
         install|i)
           _arguments \
+            '(-s --scope)'{-s,--scope}'[ຂອບເຂດການຕິດຕັ້ງ]:scope:(user project local)' \
             '(-h --help)'{-h,--help}'[ສະແດງຄຳແນະນຳ]' \
             '1:plugin:'
           ;;
         uninstall|remove)
           _arguments \
+            '(-s --scope)'{-s,--scope}'[ຂອບເຂດການຕິດຕັ້ງ]:scope:(user project local)' \
             '(-h --help)'{-h,--help}'[ສະແດງຄຳແນະນຳ]' \
             '1:plugin:_claude_installed_plugins'
           ;;
         enable|disable)
           _arguments \
+            '(-s --scope)'{-s,--scope}'[ຂອບເຂດການຕິດຕັ້ງ]:scope:(user project local)' \
             '(-h --help)'{-h,--help}'[ສະແດງຄຳແນະນຳ]' \
             '1:plugin:_claude_installed_plugins'
+          ;;
+        update)
+          _arguments \
+            '(-s --scope)'{-s,--scope}'[ຂອບເຂດການຕິດຕັ້ງ]:scope:(user project local managed)' \
+            '(-h --help)'{-h,--help}'[ສະແດງຄຳແນະນຳ]' \
+            '1:plugin:_claude_installed_plugins'
+          ;;
+        list|prune)
+          _arguments \
+            '(-h --help)'{-h,--help}'[ສະແດງຄຳແນະນຳ]'
+          ;;
+        details)
+          _arguments \
+            '(-h --help)'{-h,--help}'[ສະແດງຄຳແນະນຳ]' \
+            '1:plugin:_claude_installed_plugins'
+          ;;
+        init)
+          _arguments \
+            '(-h --help)'{-h,--help}'[ສະແດງຄຳແນະນຳ]' \
+            '1:name:'
+          ;;
+        eval)
+          _arguments \
+            '(-h --help)'{-h,--help}'[ສະແດງຄຳແນະນຳ]' \
+            '1:target:'
+          ;;
+        tag)
+          _arguments \
+            '(-h --help)'{-h,--help}'[ສະແດງຄຳແນະນຳ]' \
+            '1:path:_files'
           ;;
       esac
       ;;
   esac
 }
+
 _claude_plugin_marketplace() {
   local -a marketplace_commands
   marketplace_commands=(
@@ -261,12 +381,15 @@ _claude_plugin_marketplace() {
     'update:ອັບເດດຕະຫຼາດຈາກແຫຼ່ງ - ອັບເດດທັງໝົດຖ້າບໍ່ໄດ້ລະບຸຊື່'
     'help:ສະແດງຄຳແນະນຳ'
   )
+
   local curcontext="$curcontext" state line
   typeset -A opt_args
+
   _arguments -C \
     '(-h --help)'{-h,--help}'[ສະແດງຄຳແນະນຳ]' \
     '1: :->command' \
     '*::arg:->args'
+
   case $state in
     command)
       _describe -t commands 'marketplace commands' marketplace_commands
@@ -296,10 +419,142 @@ _claude_plugin_marketplace() {
       ;;
   esac
 }
+
 _claude_install() {
   _arguments \
     '--force[ບັງຄັບຕິດຕັ້ງເຖິງວ່າຈະຕິດຕັ້ງແລ້ວກໍຕາມ]' \
     '(-h --help)'{-h,--help}'[ສະແດງຄຳແນະນຳ]' \
     '::target:(stable latest)'
 }
+
+_claude_agents() {
+  _arguments \
+    '*--add-dir[ໂຟນເດີເພີ່ມເຕີມເພື່ອອະນຸຍາດການເຂົ້າເຖິງເຄື່ອງມືໃນເຊສຊັນທີ່ຖືກສົ່ງໄປ]:directory:_directories' \
+    '--agent[ຕົວແທນເລີ່ມຕົ້ນສຳລັບເຊສຊັນທີ່ຖືກສົ່ງຈາກມຸມມອງຕົວແທນ]:agent:' \
+    '--all[ກັບ --json: ລວມເຊສຊັນພື້ນຫຼັງທີ່ສຳເລັດແລ້ວນຳ]' \
+    '--allow-dangerously-skip-permissions[ເຮັດໃຫ້ໂໝດຂ້າມການອະນຸຍາດໃຊ້ໄດ້ກັບເຊສຊັນທີ່ຖືກສົ່ງໄປ]' \
+    '--cwd[ສະແດງພຽງແຕ່ເຊສຊັນພື້ນຫຼັງທີ່ເລີ່ມພາຍໃຕ້ເສັ້ນທາງ]:path:_directories' \
+    '--dangerously-skip-permissions[ຊື່ອື່ນສຳລັບ --permission-mode bypassPermissions]' \
+    '--effort[ລະດັບຄວາມພະຍາຍາມເລີ່ມຕົ້ນສຳລັບເຊສຊັນທີ່ຖືກສົ່ງໄປ]:level:(low medium high xhigh max)' \
+    '--json[ພິມເຊສຊັນທີ່ໃຊ້ງານຢູ່ເປັນ JSON array ແລະອອກ]' \
+    '*--mcp-config[ການຕັ້ງຄ່າເຊີບເວີ MCP ທີ່ຈະນຳໃຊ້ກັບເຊສຊັນທີ່ຖືກສົ່ງໄປ]:config:' \
+    '--model[ຮູບແບບເລີ່ມຕົ້ນສຳລັບເຊສຊັນທີ່ຖືກສົ່ງຈາກມຸມມອງຕົວແທນ]:model:' \
+    '--permission-mode[ໂໝດການອະນຸຍາດເລີ່ມຕົ້ນສຳລັບເຊສຊັນທີ່ຖືກສົ່ງໄປ]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)' \
+    '*--plugin-dir[ໂຫລດໂປລແກຼມເສີມຈາກໂຟນເດີສຳລັບມຸມມອງຕົວແທນ ແລະເຊສຊັນທີ່ຖືກສົ່ງໄປ]:path:_directories' \
+    '--setting-sources[ລາຍຊື່ແຫຼ່ງການຕັ້ງຄ່າທີ່ຈະໂຫລດ (ແຍກດ້ວຍເຄື່ອງໝາຍຈຸດຄໍາ: user, project, local)]:sources:' \
+    '--settings[ໄຟລ໌ການຕັ້ງຄ່າ ຫຼືສະຕຣິງ JSON ທີ່ຈະນຳໃຊ້]:file-or-json:_files' \
+    '--strict-mcp-config[ໃຊ້ພຽງແຕ່ເຊີບເວີ MCP ຈາກ --mcp-config ໃນເຊສຊັນທີ່ຖືກສົ່ງໄປ]' \
+    '(-h --help)'{-h,--help}'[ສະແດງຄຳແນະນຳຄຳສັ່ງ]'
+}
+
+_claude_auth() {
+  local -a auth_commands
+  auth_commands=(
+    'login:ເຂົ້າສູ່ລະບົບບັນຊີ Anthropic ຂອງທ່ານ'
+    'logout:ອອກຈາກລະບົບບັນຊີ Anthropic ຂອງທ່ານ'
+    'status:ສະແດງສະຖານະການຢືນຢັນຕົວຕົນ'
+    'help:ສະແດງຄຳແນະນຳ'
+  )
+
+  local curcontext="$curcontext" state line
+  typeset -A opt_args
+
+  _arguments -C \
+    '(-h --help)'{-h,--help}'[ສະແດງຄຳແນະນຳຄຳສັ່ງ]' \
+    '1: :->command' \
+    '*::arg:->args'
+
+  case $state in
+    command)
+      _describe -t commands 'auth commands' auth_commands
+      ;;
+    args)
+      case $words[1] in
+        login|logout|status)
+          _arguments \
+            '(-h --help)'{-h,--help}'[ສະແດງຄຳແນະນຳຄຳສັ່ງ]'
+          ;;
+      esac
+      ;;
+  esac
+}
+
+_claude_auto_mode() {
+  local -a auto_mode_commands
+  auto_mode_commands=(
+    'config:ພິມການຕັ້ງຄ່າໂໝດອັດຕະໂນມັດທີ່ມີຜົນເປັນ JSON'
+    'critique:ຮັບຄຳຕິຊົມຈາກ AI ກ່ຽວກັບກົດໂໝດອັດຕະໂນມັດທີ່ກຳນົດເອງຂອງທ່ານ'
+    'defaults:ພິມກົດໂໝດອັດຕະໂນມັດເລີ່ມຕົ້ນເປັນ JSON'
+    'reset:ຕັ້ງຄ່າໂໝດອັດຕະໂນມັດໃໝ່ໄປຫາຄ່າເລີ່ມຕົ້ນທີ່ມາກັບໂປລແກຼມ'
+    'help:ສະແດງຄຳແນະນຳ'
+  )
+
+  local curcontext="$curcontext" state line
+  typeset -A opt_args
+
+  _arguments -C \
+    '(-h --help)'{-h,--help}'[ສະແດງຄຳແນະນຳຄຳສັ່ງ]' \
+    '1: :->command' \
+    '*::arg:->args'
+
+  case $state in
+    command)
+      _describe -t commands 'auto-mode commands' auto_mode_commands
+      ;;
+    args)
+      case $words[1] in
+        config|critique|defaults|reset)
+          _arguments \
+            '(-h --help)'{-h,--help}'[ສະແດງຄຳແນະນຳຄຳສັ່ງ]'
+          ;;
+      esac
+      ;;
+  esac
+}
+
+_claude_gateway() {
+  _arguments \
+    '--config[ເສັ້ນທາງໄປຫາການຕັ້ງຄ່າ YAML ຂອງເກດເວທ໌]:path:_files' \
+    '(-h --help)'{-h,--help}'[ສະແດງຄຳແນະນຳຄຳສັ່ງ]'
+}
+
+_claude_project() {
+  local -a project_commands
+  project_commands=(
+    'purge:ລຶບສະຖານະ Claude Code ທັງໝົດສຳລັບໂຄງການ (ບົດບັນທຶກ, ໜ້າວຽກ, ປະຫວັດໄຟລ໌, ລາຍການຕັ້ງຄ່າ)'
+    'help:ສະແດງຄຳແນະນຳ'
+  )
+
+  local curcontext="$curcontext" state line
+  typeset -A opt_args
+
+  _arguments -C \
+    '(-h --help)'{-h,--help}'[ສະແດງຄຳແນະນຳຄຳສັ່ງ]' \
+    '1: :->command' \
+    '*::arg:->args'
+
+  case $state in
+    command)
+      _describe -t commands 'project commands' project_commands
+      ;;
+    args)
+      case $words[1] in
+        purge)
+          _arguments \
+            '(-h --help)'{-h,--help}'[ສະແດງຄຳແນະນຳຄຳສັ່ງ]' \
+            '1:path:_directories'
+          ;;
+      esac
+      ;;
+  esac
+}
+
+_claude_ultrareview() {
+  _arguments \
+    '--json[ພິມ payload bugs.json ດິບ ແທນທີ່ຈະເປັນຜົນການຄົ້ນພົບທີ່ຈັດຮູບແບບແລ້ວ]' \
+    '--timeout[ນາທີສູງສຸດທີ່ຈະລໍຖ້າໃຫ້ການກວດສອບສຳເລັດ]:minutes:' \
+    '(-h --help)'{-h,--help}'[ສະແດງຄຳແນະນຳຄຳສັ່ງ]' \
+    '1:target:'
+}
+
 (( $+_comps[claude] )) || compdef _claude claude

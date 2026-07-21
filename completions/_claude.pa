@@ -1,4 +1,5 @@
 #compdef claude
+
 # Dynamic completion functions
 _claude_mcp_servers() {
   local config_file
@@ -24,40 +25,57 @@ _claude_mcp_servers() {
 _claude_installed_plugins() {
   local -a plugins
   local config_file plugin_dir
+
   # Check plugin directories directly
   for plugin_dir in ~/.claude/plugins ~/.config/claude/plugins; do
     [[ -d "$plugin_dir" ]] || continue
     plugins+=(${plugin_dir}/*(N:t))
   done
+
   # Remove duplicates
   plugins=(${(u)plugins})
+
   compadd -a plugins
 }
+
 _claude_sessions() {
   local -a sessions
   local session_dir
+
   # Check session directory
   for session_dir in ~/.claude/sessions ~/.config/claude/sessions; do
     [[ -d "$session_dir" ]] || continue
+
     # Extract UUIDs directly from filenames
     sessions+=(${session_dir}/*~*.zwc(N:t:r))
   done
+
   # Filter only valid UUIDs
   sessions=(${(M)sessions:#[0-9a-f](#c8)-[0-9a-f](#c4)-[0-9a-f](#c4)-[0-9a-f](#c4)-[0-9a-f](#c12)})
+
   compadd -a sessions
 }
+
 _claude() {
   local curcontext="$curcontext" state line
   typeset -A opt_args
+
   local -a main_commands
   main_commands=(
     'mcp:MCP ਸਰਵਰਾਂ ਨੂੰ ਸੰਰਚਿਤ ਅਤੇ ਪ੍ਰਬੰਧਿਤ ਕਰੋ'
     'plugin:Claude Code ਪਲੱਗਇਨਾਂ ਦਾ ਪ੍ਰਬੰਧਨ ਕਰੋ'
+    'agents:ਬੈਕਗ੍ਰਾਊਂਡ ਏਜੰਟਾਂ ਦਾ ਪ੍ਰਬੰਧਨ ਕਰੋ'
+    'auth:ਪ੍ਰਮਾਣਿਕਤਾ ਦਾ ਪ੍ਰਬੰਧਨ ਕਰੋ'
+    'auto-mode:ਆਟੋ ਮੋਡ ਵਰਗੀਕਰਤਾ ਸੰਰਚਨਾ ਦਾ ਨਿਰੀਖਣ ਜਾਂ ਰੀਸੈੱਟ ਕਰੋ'
+    'gateway:ਐਂਟਰਪ੍ਰਾਈਜ਼ ਪ੍ਰਮਾਣਿਕਤਾ/ਟੈਲੀਮੈਟਰੀ ਗੇਟਵੇ ਚਲਾਓ'
+    'project:Claude Code ਪ੍ਰੋਜੈਕਟ ਸਥਿਤੀ ਦਾ ਪ੍ਰਬੰਧਨ ਕਰੋ'
+    'ultrareview:ਕਲਾਊਡ-ਹੋਸਟ ਕੀਤੀ ਮਲਟੀ-ਏਜੰਟ ਕੋਡ ਸਮੀਖਿਆ ਚਲਾਓ ਅਤੇ ਨਤੀਜੇ ਪ੍ਰਿੰਟ ਕਰੋ'
     'setup-token:ਲੰਬੇ ਸਮੇਂ ਲਈ ਪ੍ਰਮਾਣਿਕਤਾ ਟੋਕਨ ਸੈੱਟ ਕਰੋ (Claude ਸਬਸਕ੍ਰਿਪਸ਼ਨ ਲੋੜੀਂਦੀ ਹੈ)'
     'doctor:Claude Code ਆਟੋ-ਅੱਪਡੇਟਰ ਲਈ ਸਿਹਤ ਜਾਂਚ'
     'update:ਅੱਪਡੇਟਾਂ ਦੀ ਜਾਂਚ ਕਰੋ ਅਤੇ ਇੰਸਟਾਲ ਕਰੋ'
     'install:Claude Code ਨੇਟਿਵ ਬਿਲਡ ਇੰਸਟਾਲ ਕਰੋ'
   )
+
   local -a main_options
   main_options=(
     '(-d --debug)'{-d,--debug}'[ਵਿਕਲਪਿਕ ਸ਼੍ਰੇਣੀ ਫਿਲਟਰਿੰਗ ਨਾਲ ਡੀਬੱਗ ਮੋਡ ਸਮਰੱਥ ਕਰੋ (ਜਿਵੇਂ, "api,hooks" ਜਾਂ "!statsig,!file")]:filter:'
@@ -70,6 +88,7 @@ _claude() {
     '--mcp-debug[\[ਪੁਰਾਣਾ। ਇਸ ਦੀ ਬਜਾਏ --debug ਵਰਤੋਂ ਕਰੋ\] MCP ਡੀਬੱਗ ਮੋਡ ਸਮਰੱਥ ਕਰੋ (MCP ਸਰਵਰ ਗਲਤੀਆਂ ਦਿਖਾਉਂਦਾ ਹੈ)]'
     '--dangerously-skip-permissions[ਸਾਰੀਆਂ ਇਜਾਜ਼ਤ ਜਾਂਚਾਂ ਨੂੰ ਬਾਈਪਾਸ ਕਰੋ। ਇੰਟਰਨੈੱਟ ਐਕਸੈਸ ਤੋਂ ਬਿਨਾਂ ਸੈਂਡਬਾਕਸਾਂ ਲਈ ਸਿਫਾਰਿਸ਼ ਕੀਤੀ ਜਾਂਦੀ ਹੈ]'
     '--allow-dangerously-skip-permissions[ਡਿਫਾਲਟ ਰੂਪ ਵਿੱਚ ਸਮਰੱਥ ਕੀਤੇ ਬਿਨਾਂ ਇਜਾਜ਼ਤ ਜਾਂਚਾਂ ਨੂੰ ਬਾਈਪਾਸ ਕਰਨ ਦੇ ਵਿਕਲਪ ਨੂੰ ਸਮਰੱਥ ਕਰੋ]'
+    '--max-budget-usd[API ਕਾਲਾਂ ਤੇ ਖਰਚ ਕਰਨ ਲਈ ਵੱਧ ਤੋਂ ਵੱਧ ਡਾਲਰ ਰਕਮ (ਸਿਰਫ਼ --print)]:amount:'
     '--replay-user-messages[ਪੁਸ਼ਟੀ ਲਈ stdin ਤੋਂ stdout ਤੇ ਉਪਭੋਗਤਾ ਸੰਦੇਸ਼ਾਂ ਨੂੰ ਦੁਬਾਰਾ ਭੇਜੋ]'
     '--allowed-tools[ਇਜਾਜ਼ਤ ਦਿੱਤੇ ਟੂਲ ਨਾਵਾਂ ਦੀ ਕੰਮਾ ਜਾਂ ਸਪੇਸ-ਵਿਭਾਜਿਤ ਸੂਚੀ (ਜਿਵੇਂ, "Bash(git:*) Edit")]:tools:'
     '--allowedTools[ਇਜਾਜ਼ਤ ਦਿੱਤੇ ਟੂਲ ਨਾਵਾਂ ਦੀ ਕੰਮਾ ਜਾਂ ਸਪੇਸ-ਵਿਭਾਜਿਤ ਸੂਚੀ (camelCase ਫਾਰਮੈਟ)]:tools:'
@@ -79,11 +98,14 @@ _claude() {
     '--mcp-config[JSON ਫਾਈਲ ਜਾਂ ਸਤਰ ਤੋਂ MCP ਸਰਵਰ ਲੋਡ ਕਰੋ (ਸਪੇਸ-ਵਿਭਾਜਿਤ)]:configs:'
     '--system-prompt[ਸੈਸ਼ਨ ਲਈ ਵਰਤਣ ਲਈ ਸਿਸਟਮ ਪ੍ਰੌਂਪਟ]:prompt:'
     '--append-system-prompt[ਡਿਫਾਲਟ ਸਿਸਟਮ ਪ੍ਰੌਂਪਟ ਵਿੱਚ ਸਿਸਟਮ ਪ੍ਰੌਂਪਟ ਜੋੜੋ]:prompt:'
-    '--permission-mode[ਸੈਸ਼ਨ ਲਈ ਵਰਤਣ ਲਈ ਇਜਾਜ਼ਤ ਮੋਡ]:mode:(acceptEdits bypassPermissions default dontAsk plan)'
+    '--permission-mode[ਸੈਸ਼ਨ ਲਈ ਵਰਤਣ ਲਈ ਇਜਾਜ਼ਤ ਮੋਡ]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)'
     '(-c --continue)'{-c,--continue}'[ਸਭ ਤੋਂ ਤਾਜ਼ਾ ਗੱਲਬਾਤ ਜਾਰੀ ਰੱਖੋ]'
     '(-r --resume)'{-r,--resume}'[ਇੱਕ ਗੱਲਬਾਤ ਮੁੜ ਸ਼ੁਰੂ ਕਰੋ - ਸੈਸ਼ਨ ID ਦਰਸਾਓ ਜਾਂ ਇੰਟਰਐਕਟਿਵ ਤੌਰ ਤੇ ਚੁਣੋ]:sessionId:_claude_sessions'
     '--fork-session[ਮੁੜ ਸ਼ੁਰੂ ਕਰਨ ਸਮੇਂ ਮੂਲ ਸੈਸ਼ਨ ID ਦੀ ਮੁੜ ਵਰਤੋਂ ਕਰਨ ਦੀ ਬਜਾਏ ਨਵਾਂ ਸੈਸ਼ਨ ID ਬਣਾਓ (--resume ਜਾਂ --continue ਨਾਲ)]'
+    '--no-session-persistence[ਸੈਸ਼ਨ ਸਥਿਰਤਾ ਅਸਮਰੱਥ ਕਰੋ - ਸੈਸ਼ਨ ਸੰਭਾਲੇ ਨਹੀਂ ਜਾਣਗੇ (ਸਿਰਫ਼ --print)]'
     '--model[ਮੌਜੂਦਾ ਸੈਸ਼ਨ ਲਈ ਮਾਡਲ। ਨਵੀਨਤਮ ਮਾਡਲ ਲਈ ਉਪਨਾਮ ਦਰਸਾਓ (ਜਿਵੇਂ, '\''sonnet'\'' ਜਾਂ '\''opus'\'')]:model:'
+    '--agent[ਮੌਜੂਦਾ ਸੈਸ਼ਨ ਲਈ ਏਜੰਟ। '\''agent'\'' ਸੈਟਿੰਗ ਨੂੰ ਓਵਰਰਾਈਡ ਕਰਦਾ ਹੈ]:agent:'
+    '--betas[API ਬੇਨਤੀਆਂ ਵਿੱਚ ਸ਼ਾਮਲ ਕਰਨ ਲਈ ਬੀਟਾ ਹੈਡਰ (ਸਿਰਫ਼ API ਕੁੰਜੀ ਉਪਭੋਗਤਾ)]:betas:'
     '--fallback-model[ਜਦੋਂ ਡਿਫਾਲਟ ਮਾਡਲ ਓਵਰਲੋਡ ਹੋਵੇ ਤਾਂ ਦਰਸਾਏ ਮਾਡਲ ਵਿੱਚ ਸਵੈਚਲਿਤ ਫਾਲਬੈਕ ਸਮਰੱਥ ਕਰੋ (ਸਿਰਫ਼ --print)]:model:'
     '--settings[ਸੈਟਿੰਗਜ਼ JSON ਫਾਈਲ ਜਾਂ ਵਾਧੂ ਸੈਟਿੰਗਜ਼ ਲੋਡ ਕਰਨ ਲਈ JSON ਸਤਰ ਦਾ ਮਾਰਗ]:file-or-json:_files'
     '--add-dir[ਟੂਲ ਐਕਸੈਸ ਦੀ ਇਜਾਜ਼ਤ ਦੇਣ ਲਈ ਵਾਧੂ ਡਾਇਰੈਕਟਰੀਆਂ]:directories:_directories'
@@ -93,13 +115,37 @@ _claude() {
     '--agents[ਕਸਟਮ ਏਜੰਟਾਂ ਨੂੰ ਪਰਿਭਾਸ਼ਿਤ ਕਰਨ ਵਾਲਾ JSON ਆਬਜੈਕਟ]:json:'
     '--setting-sources[ਲੋਡ ਕਰਨ ਲਈ ਸੈਟਿੰਗ ਸਰੋਤਾਂ ਦੀ ਕੰਮਾ-ਵਿਭਾਜਿਤ ਸੂਚੀ (user, project, local)]:sources:'
     '--plugin-dir[ਸਿਰਫ਼ ਇਸ ਸੈਸ਼ਨ ਲਈ ਪਲੱਗਇਨਾਂ ਲੋਡ ਕਰਨ ਲਈ ਡਾਇਰੈਕਟਰੀ (ਦੁਹਰਾਉਣਯੋਗ)]:paths:_directories'
+    '--disable-slash-commands[ਸਾਰੀਆਂ ਸਲੈਸ਼ ਕਮਾਂਡਾਂ ਅਸਮਰੱਥ ਕਰੋ]'
+    '(--bg --background)'{--bg,--background}'[ਸੈਸ਼ਨ ਨੂੰ ਬੈਕਗ੍ਰਾਊਂਡ ਏਜੰਟ ਵਜੋਂ ਸ਼ੁਰੂ ਕਰੋ ਅਤੇ ਤੁਰੰਤ ਵਾਪਸ ਆਓ]'
+    '(-w --worktree)'{-w,--worktree}'[ਇਸ ਸੈਸ਼ਨ ਲਈ ਇੱਕ ਨਵਾਂ git worktree ਬਣਾਓ (ਵਿਕਲਪਿਕ ਤੌਰ ਤੇ ਇੱਕ ਨਾਮ ਦਰਸਾਓ)]::name:'
+    '--tmux[worktree ਲਈ ਇੱਕ tmux ਸੈਸ਼ਨ ਬਣਾਓ (--worktree ਲੋੜੀਂਦਾ ਹੈ)]'
+    '(-n --name)'{-n,--name}'[ਇਸ ਸੈਸ਼ਨ ਲਈ ਇੱਕ ਡਿਸਪਲੇ ਨਾਮ ਸੈੱਟ ਕਰੋ]:name:'
+    '--effort[ਮੌਜੂਦਾ ਸੈਸ਼ਨ ਲਈ ਯਤਨ ਪੱਧਰ]:level:(low medium high xhigh max)'
+    '--debug-file[ਖਾਸ ਫਾਈਲ ਮਾਰਗ ਤੇ ਡੀਬੱਗ ਲੌਗ ਲਿਖੋ (ਸੰਕੇਤਕ ਤੌਰ ਤੇ ਡੀਬੱਗ ਮੋਡ ਸਮਰੱਥ ਕਰਦਾ ਹੈ)]:path:_files'
+    '--from-pr[ਨੰਬਰ/URL ਦੁਆਰਾ ਇੱਕ PR ਨਾਲ ਜੁੜੇ ਸੈਸ਼ਨ ਨੂੰ ਮੁੜ ਸ਼ੁਰੂ ਕਰੋ, ਜਾਂ ਇੰਟਰਐਕਟਿਵ ਚੋਣਕਾਰ ਖੋਲ੍ਹੋ]::value:'
+    '--remote-control[ਰਿਮੋਟ ਕੰਟਰੋਲ ਸਮਰੱਥ ਨਾਲ ਇੱਕ ਇੰਟਰਐਕਟਿਵ ਸੈਸ਼ਨ ਸ਼ੁਰੂ ਕਰੋ (ਵਿਕਲਪਿਕ ਤੌਰ ਤੇ ਨਾਮ ਦਿੱਤਾ)]::name:'
+    '--remote-control-session-name-prefix[ਸਵੈ-ਉਤਪੰਨ ਰਿਮੋਟ ਕੰਟਰੋਲ ਸੈਸ਼ਨ ਨਾਵਾਂ ਲਈ ਅਗੇਤਰ]:prefix:'
+    '--chrome[Chrome ਏਕੀਕਰਨ ਵਿੱਚ Claude ਸਮਰੱਥ ਕਰੋ]'
+    '--no-chrome[Chrome ਏਕੀਕਰਨ ਵਿੱਚ Claude ਅਸਮਰੱਥ ਕਰੋ]'
+    '--plugin-url[ਸਿਰਫ਼ ਇਸ ਸੈਸ਼ਨ ਲਈ ਇੱਕ URL ਤੋਂ ਇੱਕ ਪਲੱਗਇਨ .zip ਪ੍ਰਾਪਤ ਕਰੋ (ਦੁਹਰਾਉਣਯੋਗ)]:url:'
+    '--file[ਸਟਾਰਟਅੱਪ ਤੇ ਡਾਊਨਲੋਡ ਕਰਨ ਲਈ ਫਾਈਲ ਸਰੋਤ (ਫਾਰਮੈਟ: file_id:relative_path)]:specs:'
+    '--prompt-suggestions[ਪ੍ਰੌਂਪਟ ਸੁਝਾਅ ਸਮਰੱਥ ਕਰੋ (print/SDK ਮੋਡ ਵਿੱਚ ਇੱਕ ਭਵਿੱਖਬਾਣੀ ਕੀਤਾ ਅਗਲਾ ਪ੍ਰੌਂਪਟ ਨਿਕਾਸ ਕਰਦਾ ਹੈ)]::value:(true false 1 0 yes no on off)'
+    '--forward-subagent-text[ਸਬਏਜੰਟ ਟੈਕਸਟ ਅਤੇ ਸੋਚ ਬਲਾਕਾਂ ਨੂੰ ਸੰਦੇਸ਼ਾਂ ਵਜੋਂ ਅੱਗੇ ਭੇਜੋ (--print ਅਤੇ stream-json ਨਾਲ)]'
+    '--include-hook-events[ਆਉਟਪੁੱਟ ਸਟ੍ਰੀਮ ਵਿੱਚ ਸਾਰੇ ਹੁੱਕ ਜੀਵਨ-ਚੱਕਰ ਘਟਨਾਵਾਂ ਸ਼ਾਮਲ ਕਰੋ (stream-json ਨਾਲ)]'
+    '--exclude-dynamic-system-prompt-sections[ਪ੍ਰੌਂਪਟ-ਕੈਸ਼ ਮੁੜ ਵਰਤੋਂ ਸੁਧਾਰਨ ਲਈ ਪ੍ਰਤੀ-ਮਸ਼ੀਨ ਭਾਗਾਂ ਨੂੰ ਪਹਿਲੇ ਉਪਭੋਗਤਾ ਸੰਦੇਸ਼ ਵਿੱਚ ਭੇਜੋ]'
+    '--brief[ਏਜੰਟ-ਤੋਂ-ਉਪਭੋਗਤਾ ਸੰਚਾਰ ਲਈ SendUserMessage ਟੂਲ ਸਮਰੱਥ ਕਰੋ]'
+    '--safe-mode[ਸਾਰੇ ਕਸਟਮਾਈਜ਼ੇਸ਼ਨ ਅਸਮਰੱਥ ਨਾਲ ਸ਼ੁਰੂ ਕਰੋ (ਟੁੱਟੀ ਸੰਰਚਨਾ ਦੇ ਨਿਪਟਾਰੇ ਲਈ ਲਾਭਦਾਇਕ)]'
+    '--bare[ਨਿਊਨਤਮ ਮੋਡ: ਹੁੱਕ, LSP, ਪਲੱਗਇਨ ਸਿੰਕ, ਵਿਸ਼ੇਸ਼ਤਾ, ਆਟੋ-ਮੈਮੋਰੀ, ਅਤੇ CLAUDE.md ਆਟੋ-ਖੋਜ ਛੱਡੋ]'
+    '--ax-screen-reader[ਸਕ੍ਰੀਨ-ਰੀਡਰ ਅਨੁਕੂਲ ਆਉਟਪੁੱਟ ਪੇਸ਼ ਕਰੋ (ਸਮਤਲ ਟੈਕਸਟ, ਕੋਈ ਸਜਾਵਟੀ ਬਾਰਡਰ ਜਾਂ ਐਨੀਮੇਸ਼ਨ ਨਹੀਂ)]'
     '(-v --version)'{-v,--version}'[ਸੰਸਕਰਣ ਨੰਬਰ ਆਉਟਪੁੱਟ ਕਰੋ]'
     '(-h --help)'{-h,--help}'[ਕਮਾਂਡ ਲਈ ਮਦਦ ਪ੍ਰਦਰਸ਼ਿਤ ਕਰੋ]'
   )
+
   _arguments -C \
     $main_options \
     '1: :->command' \
     '*::arg:->args'
+
   case $state in
     command)
       _describe -t commands 'claude commands' main_commands
@@ -115,13 +161,32 @@ _claude() {
         install)
           _claude_install
           ;;
+        agents)
+          _claude_agents
+          ;;
+        auth)
+          _claude_auth
+          ;;
+        auto-mode)
+          _claude_auto_mode
+          ;;
+        gateway)
+          _claude_gateway
+          ;;
+        project)
+          _claude_project
+          ;;
+        ultrareview)
+          _claude_ultrareview
+          ;;
         setup-token|doctor|update)
-          _message "no arguments"
+          _message "ਕੋਈ ਆਰਗੂਮੈਂਟ ਨਹੀਂ"
           ;;
       esac
       ;;
   esac
 }
+
 _claude_mcp() {
   local -a mcp_commands
   mcp_commands=(
@@ -133,14 +198,19 @@ _claude_mcp() {
     'add-json:JSON ਸਤਰ ਨਾਲ ਇੱਕ MCP ਸਰਵਰ (stdio ਜਾਂ SSE) ਜੋੜੋ'
     'add-from-claude-desktop:Claude Desktop ਤੋਂ MCP ਸਰਵਰ ਆਯਾਤ ਕਰੋ (ਸਿਰਫ਼ Mac ਅਤੇ WSL)'
     'reset-project-choices:ਇਸ ਪ੍ਰੋਜੈਕਟ ਵਿੱਚ ਸਾਰੇ ਮਨਜ਼ੂਰ/ਅਸਵੀਕਾਰ ਪ੍ਰੋਜੈਕਟ-ਸਕੋਪਡ (.mcp.json) ਸਰਵਰਾਂ ਨੂੰ ਰੀਸੈੱਟ ਕਰੋ'
+    'login:ਇੱਕ MCP ਸਰਵਰ ਨਾਲ ਪ੍ਰਮਾਣਿਤ ਕਰੋ (HTTP, SSE, ਜਾਂ claude.ai ਕਨੈਕਟਰ)'
+    'logout:ਇੱਕ MCP ਸਰਵਰ ਲਈ ਸਟੋਰ ਕੀਤੇ OAuth ਪ੍ਰਮਾਣ ਪੱਤਰ ਸਾਫ਼ ਕਰੋ'
     'help:ਮਦਦ ਪ੍ਰਦਰਸ਼ਿਤ ਕਰੋ'
   )
+
   local curcontext="$curcontext" state line
   typeset -A opt_args
+
   _arguments -C \
     '(-h --help)'{-h,--help}'[ਮਦਦ ਪ੍ਰਦਰਸ਼ਿਤ ਕਰੋ]' \
     '1: :->command' \
     '*::arg:->args'
+
   case $state in
     command)
       _describe -t commands 'mcp commands' mcp_commands
@@ -195,29 +265,45 @@ _claude_mcp() {
           _arguments \
             '(-h --help)'{-h,--help}'[ਮਦਦ ਪ੍ਰਦਰਸ਼ਿਤ ਕਰੋ]'
           ;;
+        login|logout)
+          _arguments \
+            '(-h --help)'{-h,--help}'[ਮਦਦ ਪ੍ਰਦਰਸ਼ਿਤ ਕਰੋ]' \
+            '1:name:_claude_mcp_servers'
+          ;;
       esac
       ;;
   esac
 }
+
 _claude_plugin() {
   local -a plugin_commands
   plugin_commands=(
     'validate:ਇੱਕ ਪਲੱਗਇਨ ਜਾਂ ਮਾਰਕੀਟਪਲੇਸ ਮੈਨੀਫੈਸਟ ਨੂੰ ਪ੍ਰਮਾਣਿਤ ਕਰੋ'
     'marketplace:Claude Code ਮਾਰਕੀਟਪਲੇਸਾਂ ਦਾ ਪ੍ਰਬੰਧਨ ਕਰੋ'
+    'list:ਇੰਸਟਾਲ ਕੀਤੀਆਂ ਪਲੱਗਇਨਾਂ ਦੀ ਸੂਚੀ ਬਣਾਓ'
+    'details:ਇੱਕ ਪਲੱਗਇਨ ਲਈ ਕੰਪੋਨੈਂਟ ਸੂਚੀ ਅਤੇ ਅਨੁਮਾਨਿਤ ਟੋਕਨ ਲਾਗਤ ਦਿਖਾਓ'
     'install:ਉਪਲਬਧ ਮਾਰਕੀਟਪਲੇਸਾਂ ਤੋਂ ਇੱਕ ਪਲੱਗਇਨ ਇੰਸਟਾਲ ਕਰੋ'
     'i:ਉਪਲਬਧ ਮਾਰਕੀਟਪਲੇਸਾਂ ਤੋਂ ਇੱਕ ਪਲੱਗਇਨ ਇੰਸਟਾਲ ਕਰੋ (install ਲਈ ਛੋਟਾ)'
+    'init:ਇੱਕ ਨਵੀਂ ਪਲੱਗਇਨ ਸਕੈਫੋਲਡ ਕਰੋ (ਅਗਲੇ ਸੈਸ਼ਨ ਵਿੱਚ ਆਟੋ-ਲੋਡ ਹੁੰਦੀ ਹੈ)'
     'uninstall:ਇੱਕ ਇੰਸਟਾਲ ਕੀਤੀ ਪਲੱਗਇਨ ਅਨਇੰਸਟਾਲ ਕਰੋ'
     'remove:ਇੱਕ ਇੰਸਟਾਲ ਕੀਤੀ ਪਲੱਗਇਨ ਅਨਇੰਸਟਾਲ ਕਰੋ (uninstall ਲਈ ਉਪਨਾਮ)'
     'enable:ਇੱਕ ਅਸਮਰੱਥ ਪਲੱਗਇਨ ਸਮਰੱਥ ਕਰੋ'
     'disable:ਇੱਕ ਸਮਰੱਥ ਪਲੱਗਇਨ ਅਸਮਰੱਥ ਕਰੋ'
+    'update:ਇੱਕ ਪਲੱਗਇਨ ਨੂੰ ਨਵੀਨਤਮ ਸੰਸਕਰਣ ਵਿੱਚ ਅੱਪਡੇਟ ਕਰੋ'
+    'eval:ਇੱਕ ਪਲੱਗਇਨ ਦੇ ਵਿਰੁੱਧ eval ਕੇਸ ਚਲਾਓ ਅਤੇ ਸਕੋਰ ਕੀਤੇ ਨਤੀਜੇ ਰਿਪੋਰਟ ਕਰੋ'
+    'prune:ਸਵੈ-ਇੰਸਟਾਲ ਕੀਤੀਆਂ ਨਿਰਭਰਤਾਵਾਂ ਹਟਾਓ ਜਿਨ੍ਹਾਂ ਦੀ ਹੁਣ ਲੋੜ ਨਹੀਂ'
+    'tag:ਇੱਕ ਪਲੱਗਇਨ ਰਿਲੀਜ਼ ਲਈ ਇੱਕ {name}--v{version} git ਟੈਗ ਬਣਾਓ'
     'help:ਮਦਦ ਪ੍ਰਦਰਸ਼ਿਤ ਕਰੋ'
   )
+
   local curcontext="$curcontext" state line
   typeset -A opt_args
+
   _arguments -C \
     '(-h --help)'{-h,--help}'[ਮਦਦ ਪ੍ਰਦਰਸ਼ਿਤ ਕਰੋ]' \
     '1: :->command' \
     '*::arg:->args'
+
   case $state in
     command)
       _describe -t commands 'plugin commands' plugin_commands
@@ -234,23 +320,57 @@ _claude_plugin() {
           ;;
         install|i)
           _arguments \
+            '(-s --scope)'{-s,--scope}'[ਇੰਸਟਾਲੇਸ਼ਨ ਸਕੋਪ]:scope:(user project local)' \
             '(-h --help)'{-h,--help}'[ਮਦਦ ਪ੍ਰਦਰਸ਼ਿਤ ਕਰੋ]' \
             '1:plugin:'
           ;;
         uninstall|remove)
           _arguments \
+            '(-s --scope)'{-s,--scope}'[ਇੰਸਟਾਲੇਸ਼ਨ ਸਕੋਪ]:scope:(user project local)' \
             '(-h --help)'{-h,--help}'[ਮਦਦ ਪ੍ਰਦਰਸ਼ਿਤ ਕਰੋ]' \
             '1:plugin:_claude_installed_plugins'
           ;;
         enable|disable)
           _arguments \
+            '(-s --scope)'{-s,--scope}'[ਇੰਸਟਾਲੇਸ਼ਨ ਸਕੋਪ]:scope:(user project local)' \
             '(-h --help)'{-h,--help}'[ਮਦਦ ਪ੍ਰਦਰਸ਼ਿਤ ਕਰੋ]' \
             '1:plugin:_claude_installed_plugins'
+          ;;
+        update)
+          _arguments \
+            '(-s --scope)'{-s,--scope}'[ਇੰਸਟਾਲੇਸ਼ਨ ਸਕੋਪ]:scope:(user project local managed)' \
+            '(-h --help)'{-h,--help}'[ਮਦਦ ਪ੍ਰਦਰਸ਼ਿਤ ਕਰੋ]' \
+            '1:plugin:_claude_installed_plugins'
+          ;;
+        list|prune)
+          _arguments \
+            '(-h --help)'{-h,--help}'[ਮਦਦ ਪ੍ਰਦਰਸ਼ਿਤ ਕਰੋ]'
+          ;;
+        details)
+          _arguments \
+            '(-h --help)'{-h,--help}'[ਮਦਦ ਪ੍ਰਦਰਸ਼ਿਤ ਕਰੋ]' \
+            '1:plugin:_claude_installed_plugins'
+          ;;
+        init)
+          _arguments \
+            '(-h --help)'{-h,--help}'[ਮਦਦ ਪ੍ਰਦਰਸ਼ਿਤ ਕਰੋ]' \
+            '1:name:'
+          ;;
+        eval)
+          _arguments \
+            '(-h --help)'{-h,--help}'[ਮਦਦ ਪ੍ਰਦਰਸ਼ਿਤ ਕਰੋ]' \
+            '1:target:'
+          ;;
+        tag)
+          _arguments \
+            '(-h --help)'{-h,--help}'[ਮਦਦ ਪ੍ਰਦਰਸ਼ਿਤ ਕਰੋ]' \
+            '1:path:_files'
           ;;
       esac
       ;;
   esac
 }
+
 _claude_plugin_marketplace() {
   local -a marketplace_commands
   marketplace_commands=(
@@ -261,12 +381,15 @@ _claude_plugin_marketplace() {
     'update:ਸਰੋਤ ਤੋਂ ਮਾਰਕੀਟਪਲੇਸ ਅੱਪਡੇਟ ਕਰੋ - ਜੇਕਰ ਕੋਈ ਨਾਮ ਦਰਸਾਇਆ ਨਹੀਂ ਗਿਆ ਤਾਂ ਸਾਰੇ ਅੱਪਡੇਟ ਕਰੋ'
     'help:ਮਦਦ ਪ੍ਰਦਰਸ਼ਿਤ ਕਰੋ'
   )
+
   local curcontext="$curcontext" state line
   typeset -A opt_args
+
   _arguments -C \
     '(-h --help)'{-h,--help}'[ਮਦਦ ਪ੍ਰਦਰਸ਼ਿਤ ਕਰੋ]' \
     '1: :->command' \
     '*::arg:->args'
+
   case $state in
     command)
       _describe -t commands 'marketplace commands' marketplace_commands
@@ -296,10 +419,142 @@ _claude_plugin_marketplace() {
       ;;
   esac
 }
+
 _claude_install() {
   _arguments \
     '--force[ਪਹਿਲਾਂ ਤੋਂ ਇੰਸਟਾਲ ਹੋਣ ਦੀ ਸੂਰਤ ਵਿੱਚ ਵੀ ਫੋਰਸ ਇੰਸਟਾਲ ਕਰੋ]' \
     '(-h --help)'{-h,--help}'[ਮਦਦ ਪ੍ਰਦਰਸ਼ਿਤ ਕਰੋ]' \
     '::target:(stable latest)'
 }
+
+_claude_agents() {
+  _arguments \
+    '*--add-dir[ਭੇਜੇ ਗਏ ਸੈਸ਼ਨਾਂ ਵਿੱਚ ਟੂਲ ਐਕਸੈਸ ਦੀ ਇਜਾਜ਼ਤ ਦੇਣ ਲਈ ਵਾਧੂ ਡਾਇਰੈਕਟਰੀ]:directory:_directories' \
+    '--agent[ਏਜੰਟ ਦ੍ਰਿਸ਼ ਤੋਂ ਭੇਜੇ ਗਏ ਸੈਸ਼ਨਾਂ ਲਈ ਡਿਫਾਲਟ ਏਜੰਟ]:agent:' \
+    '--all[--json ਨਾਲ: ਪੂਰੇ ਹੋਏ ਬੈਕਗ੍ਰਾਊਂਡ ਸੈਸ਼ਨ ਵੀ ਸ਼ਾਮਲ ਕਰੋ]' \
+    '--allow-dangerously-skip-permissions[ਭੇਜੇ ਗਏ ਸੈਸ਼ਨਾਂ ਲਈ bypass-permissions ਮੋਡ ਉਪਲਬਧ ਕਰਾਓ]' \
+    '--cwd[ਸਿਰਫ਼ ਮਾਰਗ ਦੇ ਅਧੀਨ ਸ਼ੁਰੂ ਕੀਤੇ ਬੈਕਗ੍ਰਾਊਂਡ ਸੈਸ਼ਨ ਦਿਖਾਓ]:path:_directories' \
+    '--dangerously-skip-permissions[--permission-mode bypassPermissions ਲਈ ਉਪਨਾਮ]' \
+    '--effort[ਭੇਜੇ ਗਏ ਸੈਸ਼ਨਾਂ ਲਈ ਡਿਫਾਲਟ ਯਤਨ ਪੱਧਰ]:level:(low medium high xhigh max)' \
+    '--json[ਸਰਗਰਮ ਸੈਸ਼ਨਾਂ ਨੂੰ JSON ਐਰੇ ਵਜੋਂ ਪ੍ਰਿੰਟ ਕਰੋ ਅਤੇ ਬਾਹਰ ਨਿਕਲੋ]' \
+    '*--mcp-config[ਭੇਜੇ ਗਏ ਸੈਸ਼ਨਾਂ ਤੇ ਲਾਗੂ ਕਰਨ ਲਈ MCP ਸਰਵਰ ਸੰਰਚਨਾ]:config:' \
+    '--model[ਏਜੰਟ ਦ੍ਰਿਸ਼ ਤੋਂ ਭੇਜੇ ਗਏ ਸੈਸ਼ਨਾਂ ਲਈ ਡਿਫਾਲਟ ਮਾਡਲ]:model:' \
+    '--permission-mode[ਭੇਜੇ ਗਏ ਸੈਸ਼ਨਾਂ ਲਈ ਡਿਫਾਲਟ ਇਜਾਜ਼ਤ ਮੋਡ]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)' \
+    '*--plugin-dir[ਏਜੰਟ ਦ੍ਰਿਸ਼ ਅਤੇ ਭੇਜੇ ਗਏ ਸੈਸ਼ਨਾਂ ਲਈ ਡਾਇਰੈਕਟਰੀ ਤੋਂ ਪਲੱਗਇਨ ਲੋਡ ਕਰੋ]:path:_directories' \
+    '--setting-sources[ਲੋਡ ਕਰਨ ਲਈ ਸੈਟਿੰਗ ਸਰੋਤਾਂ ਦੀ ਕੰਮਾ-ਵਿਭਾਜਿਤ ਸੂਚੀ (user, project, local)]:sources:' \
+    '--settings[ਲਾਗੂ ਕਰਨ ਲਈ ਸੈਟਿੰਗਜ਼ ਫਾਈਲ ਜਾਂ JSON ਸਤਰ]:file-or-json:_files' \
+    '--strict-mcp-config[ਭੇਜੇ ਗਏ ਸੈਸ਼ਨਾਂ ਵਿੱਚ ਸਿਰਫ਼ --mcp-config ਤੋਂ MCP ਸਰਵਰ ਵਰਤੋਂ ਕਰੋ]' \
+    '(-h --help)'{-h,--help}'[ਕਮਾਂਡ ਲਈ ਮਦਦ ਪ੍ਰਦਰਸ਼ਿਤ ਕਰੋ]'
+}
+
+_claude_auth() {
+  local -a auth_commands
+  auth_commands=(
+    'login:ਆਪਣੇ Anthropic ਖਾਤੇ ਵਿੱਚ ਸਾਈਨ ਇਨ ਕਰੋ'
+    'logout:ਆਪਣੇ Anthropic ਖਾਤੇ ਤੋਂ ਲੌਗ ਆਊਟ ਕਰੋ'
+    'status:ਪ੍ਰਮਾਣਿਕਤਾ ਸਥਿਤੀ ਦਿਖਾਓ'
+    'help:ਮਦਦ ਪ੍ਰਦਰਸ਼ਿਤ ਕਰੋ'
+  )
+
+  local curcontext="$curcontext" state line
+  typeset -A opt_args
+
+  _arguments -C \
+    '(-h --help)'{-h,--help}'[ਕਮਾਂਡ ਲਈ ਮਦਦ ਪ੍ਰਦਰਸ਼ਿਤ ਕਰੋ]' \
+    '1: :->command' \
+    '*::arg:->args'
+
+  case $state in
+    command)
+      _describe -t commands 'auth commands' auth_commands
+      ;;
+    args)
+      case $words[1] in
+        login|logout|status)
+          _arguments \
+            '(-h --help)'{-h,--help}'[ਕਮਾਂਡ ਲਈ ਮਦਦ ਪ੍ਰਦਰਸ਼ਿਤ ਕਰੋ]'
+          ;;
+      esac
+      ;;
+  esac
+}
+
+_claude_auto_mode() {
+  local -a auto_mode_commands
+  auto_mode_commands=(
+    'config:ਪ੍ਰਭਾਵੀ ਆਟੋ ਮੋਡ ਸੰਰਚਨਾ ਨੂੰ JSON ਵਜੋਂ ਪ੍ਰਿੰਟ ਕਰੋ'
+    'critique:ਆਪਣੇ ਕਸਟਮ ਆਟੋ ਮੋਡ ਨਿਯਮਾਂ ਤੇ AI ਫੀਡਬੈਕ ਪ੍ਰਾਪਤ ਕਰੋ'
+    'defaults:ਡਿਫਾਲਟ ਆਟੋ ਮੋਡ ਨਿਯਮਾਂ ਨੂੰ JSON ਵਜੋਂ ਪ੍ਰਿੰਟ ਕਰੋ'
+    'reset:ਆਟੋ ਮੋਡ ਸੰਰਚਨਾ ਨੂੰ ਭੇਜੇ ਗਏ ਡਿਫਾਲਟਾਂ ਵਿੱਚ ਰੀਸੈੱਟ ਕਰੋ'
+    'help:ਮਦਦ ਪ੍ਰਦਰਸ਼ਿਤ ਕਰੋ'
+  )
+
+  local curcontext="$curcontext" state line
+  typeset -A opt_args
+
+  _arguments -C \
+    '(-h --help)'{-h,--help}'[ਕਮਾਂਡ ਲਈ ਮਦਦ ਪ੍ਰਦਰਸ਼ਿਤ ਕਰੋ]' \
+    '1: :->command' \
+    '*::arg:->args'
+
+  case $state in
+    command)
+      _describe -t commands 'auto-mode commands' auto_mode_commands
+      ;;
+    args)
+      case $words[1] in
+        config|critique|defaults|reset)
+          _arguments \
+            '(-h --help)'{-h,--help}'[ਕਮਾਂਡ ਲਈ ਮਦਦ ਪ੍ਰਦਰਸ਼ਿਤ ਕਰੋ]'
+          ;;
+      esac
+      ;;
+  esac
+}
+
+_claude_gateway() {
+  _arguments \
+    '--config[ਗੇਟਵੇ YAML ਸੰਰਚਨਾ ਦਾ ਮਾਰਗ]:path:_files' \
+    '(-h --help)'{-h,--help}'[ਕਮਾਂਡ ਲਈ ਮਦਦ ਪ੍ਰਦਰਸ਼ਿਤ ਕਰੋ]'
+}
+
+_claude_project() {
+  local -a project_commands
+  project_commands=(
+    'purge:ਇੱਕ ਪ੍ਰੋਜੈਕਟ ਲਈ ਸਾਰੀ Claude Code ਸਥਿਤੀ ਮਿਟਾਓ (ਟ੍ਰਾਂਸਕ੍ਰਿਪਟ, ਟਾਸਕ, ਫਾਈਲ ਇਤਿਹਾਸ, ਸੰਰਚਨਾ ਇੰਦਰਾਜ)'
+    'help:ਮਦਦ ਪ੍ਰਦਰਸ਼ਿਤ ਕਰੋ'
+  )
+
+  local curcontext="$curcontext" state line
+  typeset -A opt_args
+
+  _arguments -C \
+    '(-h --help)'{-h,--help}'[ਕਮਾਂਡ ਲਈ ਮਦਦ ਪ੍ਰਦਰਸ਼ਿਤ ਕਰੋ]' \
+    '1: :->command' \
+    '*::arg:->args'
+
+  case $state in
+    command)
+      _describe -t commands 'project commands' project_commands
+      ;;
+    args)
+      case $words[1] in
+        purge)
+          _arguments \
+            '(-h --help)'{-h,--help}'[ਕਮਾਂਡ ਲਈ ਮਦਦ ਪ੍ਰਦਰਸ਼ਿਤ ਕਰੋ]' \
+            '1:path:_directories'
+          ;;
+      esac
+      ;;
+  esac
+}
+
+_claude_ultrareview() {
+  _arguments \
+    '--json[ਫਾਰਮੈਟ ਕੀਤੇ ਨਤੀਜਿਆਂ ਦੀ ਬਜਾਏ ਕੱਚਾ bugs.json ਪੇਲੋਡ ਪ੍ਰਿੰਟ ਕਰੋ]' \
+    '--timeout[ਸਮੀਖਿਆ ਪੂਰੀ ਹੋਣ ਦੀ ਉਡੀਕ ਲਈ ਵੱਧ ਤੋਂ ਵੱਧ ਮਿੰਟ]:minutes:' \
+    '(-h --help)'{-h,--help}'[ਕਮਾਂਡ ਲਈ ਮਦਦ ਪ੍ਰਦਰਸ਼ਿਤ ਕਰੋ]' \
+    '1:target:'
+}
+
 (( $+_comps[claude] )) || compdef _claude claude

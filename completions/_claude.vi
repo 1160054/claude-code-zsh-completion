@@ -1,4 +1,5 @@
 #compdef claude
+
 # Dynamic completion functions
 _claude_mcp_servers() {
   local config_file
@@ -24,40 +25,57 @@ _claude_mcp_servers() {
 _claude_installed_plugins() {
   local -a plugins
   local config_file plugin_dir
+
   # Check plugin directories directly
   for plugin_dir in ~/.claude/plugins ~/.config/claude/plugins; do
     [[ -d "$plugin_dir" ]] || continue
     plugins+=(${plugin_dir}/*(N:t))
   done
+
   # Remove duplicates
   plugins=(${(u)plugins})
+
   compadd -a plugins
 }
+
 _claude_sessions() {
   local -a sessions
   local session_dir
+
   # Check session directory
   for session_dir in ~/.claude/sessions ~/.config/claude/sessions; do
     [[ -d "$session_dir" ]] || continue
+
     # Extract UUIDs directly from filenames
     sessions+=(${session_dir}/*~*.zwc(N:t:r))
   done
+
   # Filter only valid UUIDs
   sessions=(${(M)sessions:#[0-9a-f](#c8)-[0-9a-f](#c4)-[0-9a-f](#c4)-[0-9a-f](#c4)-[0-9a-f](#c12)})
+
   compadd -a sessions
 }
+
 _claude() {
   local curcontext="$curcontext" state line
   typeset -A opt_args
+
   local -a main_commands
   main_commands=(
     'mcp:Cấu hình và quản lý các MCP server'
     'plugin:Quản lý các plugin của Claude Code'
+    'agents:Quản lý các agent nền'
+    'auth:Quản lý xác thực'
+    'auto-mode:Kiểm tra hoặc đặt lại cấu hình bộ phân loại chế độ tự động'
+    'gateway:Chạy gateway xác thực/telemetry cho doanh nghiệp'
+    'project:Quản lý trạng thái dự án của Claude Code'
+    'ultrareview:Chạy đánh giá mã đa agent lưu trữ trên đám mây và in ra các phát hiện'
     'setup-token:Thiết lập token xác thực dài hạn (yêu cầu đăng ký Claude)'
     'doctor:Kiểm tra sức khỏe cho công cụ tự động cập nhật của Claude Code'
     'update:Kiểm tra và cài đặt các bản cập nhật'
     'install:Cài đặt bản build gốc của Claude Code'
   )
+
   local -a main_options
   main_options=(
     '(-d --debug)'{-d,--debug}'[Bật chế độ gỡ lỗi với tùy chọn lọc theo danh mục (ví dụ: "api,hooks" hoặc "!statsig,!file")]:filter:'
@@ -70,6 +88,7 @@ _claude() {
     '--mcp-debug[\[Không được khuyến nghị. Sử dụng --debug thay thế\] Bật chế độ gỡ lỗi MCP (hiển thị lỗi MCP server)]'
     '--dangerously-skip-permissions[Bỏ qua tất cả các kiểm tra quyền. Chỉ khuyến nghị cho sandbox không có truy cập internet]'
     '--allow-dangerously-skip-permissions[Bật tùy chọn bỏ qua kiểm tra quyền mà không bật theo mặc định]'
+    '--max-budget-usd[Số tiền tối đa (đô la) để chi cho các lệnh gọi API (chỉ --print)]:amount:'
     '--replay-user-messages[Gửi lại tin nhắn người dùng từ stdin trên stdout để xác nhận]'
     '--allowed-tools[Danh sách tên công cụ được phép, phân tách bằng dấu phẩy hoặc khoảng trắng (ví dụ: "Bash(git:*) Edit")]:tools:'
     '--allowedTools[Danh sách tên công cụ được phép (định dạng camelCase)]:tools:'
@@ -79,11 +98,14 @@ _claude() {
     '--mcp-config[Tải MCP server từ file JSON hoặc chuỗi (phân tách bằng khoảng trắng)]:configs:'
     '--system-prompt[System prompt sử dụng cho phiên làm việc]:prompt:'
     '--append-system-prompt[Thêm system prompt vào system prompt mặc định]:prompt:'
-    '--permission-mode[Chế độ quyền sử dụng cho phiên làm việc]:mode:(acceptEdits bypassPermissions default dontAsk plan)'
+    '--permission-mode[Chế độ quyền sử dụng cho phiên làm việc]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)'
     '(-c --continue)'{-c,--continue}'[Tiếp tục cuộc trò chuyện gần nhất]'
     '(-r --resume)'{-r,--resume}'[Tiếp tục một cuộc trò chuyện - chỉ định ID phiên hoặc chọn tương tác]:sessionId:_claude_sessions'
     '--fork-session[Tạo ID phiên mới thay vì sử dụng lại ID phiên gốc khi tiếp tục (với --resume hoặc --continue)]'
+    '--no-session-persistence[Tắt lưu phiên - các phiên sẽ không được lưu (chỉ --print)]'
     '--model[Mô hình cho phiên hiện tại. Chỉ định alias cho mô hình mới nhất (ví dụ: '\''sonnet'\'' hoặc '\''opus'\'')]:model:'
+    '--agent[Agent cho phiên hiện tại. Ghi đè cài đặt '\''agent'\'']:agent:'
+    '--betas[Các header beta để bao gồm trong yêu cầu API (chỉ dành cho người dùng API key)]:betas:'
     '--fallback-model[Bật tự động chuyển sang mô hình được chỉ định khi mô hình mặc định bị quá tải (chỉ --print)]:model:'
     '--settings[Đường dẫn đến file JSON cài đặt hoặc chuỗi JSON để tải các cài đặt bổ sung]:file-or-json:_files'
     '--add-dir[Các thư mục bổ sung để cho phép truy cập công cụ]:directories:_directories'
@@ -93,13 +115,37 @@ _claude() {
     '--agents[Đối tượng JSON định nghĩa các agent tùy chỉnh]:json:'
     '--setting-sources[Danh sách các nguồn cài đặt phân tách bằng dấu phẩy để tải (user, project, local)]:sources:'
     '--plugin-dir[Thư mục để tải plugin chỉ cho phiên này (có thể lặp lại)]:paths:_directories'
+    '--disable-slash-commands[Tắt tất cả các lệnh slash]'
+    '(--bg --background)'{--bg,--background}'[Khởi động phiên như một agent nền và trả về ngay lập tức]'
+    '(-w --worktree)'{-w,--worktree}'[Tạo một git worktree mới cho phiên này (tùy chọn chỉ định tên)]::name:'
+    '--tmux[Tạo một phiên tmux cho worktree (yêu cầu --worktree)]'
+    '(-n --name)'{-n,--name}'[Đặt tên hiển thị cho phiên này]:name:'
+    '--effort[Mức độ nỗ lực cho phiên hiện tại]:level:(low medium high xhigh max)'
+    '--debug-file[Ghi nhật ký gỡ lỗi vào một đường dẫn file cụ thể (ngầm bật chế độ gỡ lỗi)]:path:_files'
+    '--from-pr[Tiếp tục một phiên được liên kết với PR theo số/URL, hoặc mở bộ chọn tương tác]::value:'
+    '--remote-control[Khởi động một phiên tương tác với Remote Control được bật (tùy chọn đặt tên)]::name:'
+    '--remote-control-session-name-prefix[Tiền tố cho tên phiên Remote Control được tạo tự động]:prefix:'
+    '--chrome[Bật tích hợp Claude trong Chrome]'
+    '--no-chrome[Tắt tích hợp Claude trong Chrome]'
+    '--plugin-url[Tải một plugin .zip từ một URL chỉ cho phiên này (có thể lặp lại)]:url:'
+    '--file[Các tài nguyên file để tải xuống khi khởi động (định dạng: file_id:relative_path)]:specs:'
+    '--prompt-suggestions[Bật gợi ý prompt (phát ra một prompt tiếp theo được dự đoán trong chế độ print/SDK)]::value:(true false 1 0 yes no on off)'
+    '--forward-subagent-text[Chuyển tiếp văn bản subagent và các khối suy nghĩ dưới dạng tin nhắn (với --print và stream-json)]'
+    '--include-hook-events[Bao gồm tất cả các sự kiện vòng đời hook trong luồng đầu ra (với stream-json)]'
+    '--exclude-dynamic-system-prompt-sections[Chuyển các phần theo từng máy vào tin nhắn người dùng đầu tiên để cải thiện việc tái sử dụng cache prompt]'
+    '--brief[Bật công cụ SendUserMessage để giao tiếp giữa agent và người dùng]'
+    '--safe-mode[Khởi động với tất cả các tùy chỉnh bị tắt (hữu ích để khắc phục sự cố cấu hình bị hỏng)]'
+    '--bare[Chế độ tối thiểu: bỏ qua hooks, LSP, đồng bộ plugin, ghi công, auto-memory, và tự động khám phá CLAUDE.md]'
+    '--ax-screen-reader[Kết xuất đầu ra thân thiện với trình đọc màn hình (văn bản phẳng, không có đường viền hoặc hoạt ảnh trang trí)]'
     '(-v --version)'{-v,--version}'[Hiển thị số phiên bản]'
     '(-h --help)'{-h,--help}'[Hiển thị trợ giúp cho lệnh]'
   )
+
   _arguments -C \
     $main_options \
     '1: :->command' \
     '*::arg:->args'
+
   case $state in
     command)
       _describe -t commands 'claude commands' main_commands
@@ -115,6 +161,24 @@ _claude() {
         install)
           _claude_install
           ;;
+        agents)
+          _claude_agents
+          ;;
+        auth)
+          _claude_auth
+          ;;
+        auto-mode)
+          _claude_auto_mode
+          ;;
+        gateway)
+          _claude_gateway
+          ;;
+        project)
+          _claude_project
+          ;;
+        ultrareview)
+          _claude_ultrareview
+          ;;
         setup-token|doctor|update)
           _message "no arguments"
           ;;
@@ -122,6 +186,7 @@ _claude() {
       ;;
   esac
 }
+
 _claude_mcp() {
   local -a mcp_commands
   mcp_commands=(
@@ -133,14 +198,19 @@ _claude_mcp() {
     'add-json:Thêm một MCP server (stdio hoặc SSE) bằng chuỗi JSON'
     'add-from-claude-desktop:Nhập MCP server từ Claude Desktop (chỉ dành cho Mac và WSL)'
     'reset-project-choices:Đặt lại tất cả các server phạm vi dự án (.mcp.json) đã được chấp thuận/từ chối trong dự án này'
+    'login:Xác thực với một MCP server (HTTP, SSE, hoặc connector claude.ai)'
+    'logout:Xóa thông tin đăng nhập OAuth đã lưu cho một MCP server'
     'help:Hiển thị trợ giúp'
   )
+
   local curcontext="$curcontext" state line
   typeset -A opt_args
+
   _arguments -C \
     '(-h --help)'{-h,--help}'[Hiển thị trợ giúp]' \
     '1: :->command' \
     '*::arg:->args'
+
   case $state in
     command)
       _describe -t commands 'mcp commands' mcp_commands
@@ -195,29 +265,45 @@ _claude_mcp() {
           _arguments \
             '(-h --help)'{-h,--help}'[Hiển thị trợ giúp]'
           ;;
+        login|logout)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Hiển thị trợ giúp]' \
+            '1:name:_claude_mcp_servers'
+          ;;
       esac
       ;;
   esac
 }
+
 _claude_plugin() {
   local -a plugin_commands
   plugin_commands=(
     'validate:Xác thực một plugin hoặc marketplace manifest'
     'marketplace:Quản lý các marketplace của Claude Code'
+    'list:Liệt kê các plugin đã cài'
+    'details:Hiển thị kho thành phần và chi phí token dự kiến cho một plugin'
     'install:Cài đặt một plugin từ các marketplace có sẵn'
     'i:Cài đặt một plugin từ các marketplace có sẵn (viết tắt của install)'
+    'init:Tạo khung một plugin mới (tự động tải phiên tiếp theo)'
     'uninstall:Gỡ cài đặt một plugin đã cài'
     'remove:Gỡ cài đặt một plugin đã cài (bí danh của uninstall)'
     'enable:Bật một plugin đã tắt'
     'disable:Tắt một plugin đang bật'
+    'update:Cập nhật một plugin lên phiên bản mới nhất'
+    'eval:Chạy các trường hợp eval đối với một plugin và báo cáo kết quả được chấm điểm'
+    'prune:Xóa các phụ thuộc được cài tự động không còn cần thiết'
+    'tag:Tạo một git tag {name}--v{version} cho một bản phát hành plugin'
     'help:Hiển thị trợ giúp'
   )
+
   local curcontext="$curcontext" state line
   typeset -A opt_args
+
   _arguments -C \
     '(-h --help)'{-h,--help}'[Hiển thị trợ giúp]' \
     '1: :->command' \
     '*::arg:->args'
+
   case $state in
     command)
       _describe -t commands 'plugin commands' plugin_commands
@@ -234,23 +320,57 @@ _claude_plugin() {
           ;;
         install|i)
           _arguments \
+            '(-s --scope)'{-s,--scope}'[Phạm vi cài đặt]:scope:(user project local)' \
             '(-h --help)'{-h,--help}'[Hiển thị trợ giúp]' \
             '1:plugin:'
           ;;
         uninstall|remove)
           _arguments \
+            '(-s --scope)'{-s,--scope}'[Phạm vi cài đặt]:scope:(user project local)' \
             '(-h --help)'{-h,--help}'[Hiển thị trợ giúp]' \
             '1:plugin:_claude_installed_plugins'
           ;;
         enable|disable)
           _arguments \
+            '(-s --scope)'{-s,--scope}'[Phạm vi cài đặt]:scope:(user project local)' \
             '(-h --help)'{-h,--help}'[Hiển thị trợ giúp]' \
             '1:plugin:_claude_installed_plugins'
+          ;;
+        update)
+          _arguments \
+            '(-s --scope)'{-s,--scope}'[Phạm vi cài đặt]:scope:(user project local managed)' \
+            '(-h --help)'{-h,--help}'[Hiển thị trợ giúp]' \
+            '1:plugin:_claude_installed_plugins'
+          ;;
+        list|prune)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Hiển thị trợ giúp]'
+          ;;
+        details)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Hiển thị trợ giúp]' \
+            '1:plugin:_claude_installed_plugins'
+          ;;
+        init)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Hiển thị trợ giúp]' \
+            '1:name:'
+          ;;
+        eval)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Hiển thị trợ giúp]' \
+            '1:target:'
+          ;;
+        tag)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Hiển thị trợ giúp]' \
+            '1:path:_files'
           ;;
       esac
       ;;
   esac
 }
+
 _claude_plugin_marketplace() {
   local -a marketplace_commands
   marketplace_commands=(
@@ -261,12 +381,15 @@ _claude_plugin_marketplace() {
     'update:Cập nhật marketplace từ nguồn - cập nhật tất cả nếu không chỉ định tên'
     'help:Hiển thị trợ giúp'
   )
+
   local curcontext="$curcontext" state line
   typeset -A opt_args
+
   _arguments -C \
     '(-h --help)'{-h,--help}'[Hiển thị trợ giúp]' \
     '1: :->command' \
     '*::arg:->args'
+
   case $state in
     command)
       _describe -t commands 'marketplace commands' marketplace_commands
@@ -296,10 +419,142 @@ _claude_plugin_marketplace() {
       ;;
   esac
 }
+
 _claude_install() {
   _arguments \
     '--force[Ép buộc cài đặt ngay cả khi đã được cài đặt]' \
     '(-h --help)'{-h,--help}'[Hiển thị trợ giúp]' \
     '::target:(stable latest)'
 }
+
+_claude_agents() {
+  _arguments \
+    '*--add-dir[Thư mục bổ sung để cho phép truy cập công cụ trong các phiên được điều phối]:directory:_directories' \
+    '--agent[Agent mặc định cho các phiên được điều phối từ chế độ xem agent]:agent:' \
+    '--all[Với --json: cũng bao gồm các phiên nền đã hoàn thành]' \
+    '--allow-dangerously-skip-permissions[Cung cấp chế độ bypass-permissions cho các phiên được điều phối]' \
+    '--cwd[Chỉ hiển thị các phiên nền được khởi động dưới đường dẫn]:path:_directories' \
+    '--dangerously-skip-permissions[Bí danh cho --permission-mode bypassPermissions]' \
+    '--effort[Mức độ nỗ lực mặc định cho các phiên được điều phối]:level:(low medium high xhigh max)' \
+    '--json[In các phiên đang hoạt động dưới dạng mảng JSON và thoát]' \
+    '*--mcp-config[Cấu hình MCP server để áp dụng cho các phiên được điều phối]:config:' \
+    '--model[Mô hình mặc định cho các phiên được điều phối từ chế độ xem agent]:model:' \
+    '--permission-mode[Chế độ quyền mặc định cho các phiên được điều phối]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)' \
+    '*--plugin-dir[Tải plugin từ thư mục cho chế độ xem agent và các phiên được điều phối]:path:_directories' \
+    '--setting-sources[Danh sách các nguồn cài đặt phân tách bằng dấu phẩy để tải (user, project, local)]:sources:' \
+    '--settings[File cài đặt hoặc chuỗi JSON để áp dụng]:file-or-json:_files' \
+    '--strict-mcp-config[Chỉ sử dụng MCP server từ --mcp-config trong các phiên được điều phối]' \
+    '(-h --help)'{-h,--help}'[Hiển thị trợ giúp cho lệnh]'
+}
+
+_claude_auth() {
+  local -a auth_commands
+  auth_commands=(
+    'login:Đăng nhập vào tài khoản Anthropic của bạn'
+    'logout:Đăng xuất khỏi tài khoản Anthropic của bạn'
+    'status:Hiển thị trạng thái xác thực'
+    'help:Hiển thị trợ giúp'
+  )
+
+  local curcontext="$curcontext" state line
+  typeset -A opt_args
+
+  _arguments -C \
+    '(-h --help)'{-h,--help}'[Hiển thị trợ giúp cho lệnh]' \
+    '1: :->command' \
+    '*::arg:->args'
+
+  case $state in
+    command)
+      _describe -t commands 'auth commands' auth_commands
+      ;;
+    args)
+      case $words[1] in
+        login|logout|status)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Hiển thị trợ giúp cho lệnh]'
+          ;;
+      esac
+      ;;
+  esac
+}
+
+_claude_auto_mode() {
+  local -a auto_mode_commands
+  auto_mode_commands=(
+    'config:In cấu hình chế độ tự động hiệu lực dưới dạng JSON'
+    'critique:Nhận phản hồi AI về các quy tắc chế độ tự động tùy chỉnh của bạn'
+    'defaults:In các quy tắc chế độ tự động mặc định dưới dạng JSON'
+    'reset:Đặt lại cấu hình chế độ tự động về mặc định được cung cấp'
+    'help:Hiển thị trợ giúp'
+  )
+
+  local curcontext="$curcontext" state line
+  typeset -A opt_args
+
+  _arguments -C \
+    '(-h --help)'{-h,--help}'[Hiển thị trợ giúp cho lệnh]' \
+    '1: :->command' \
+    '*::arg:->args'
+
+  case $state in
+    command)
+      _describe -t commands 'auto-mode commands' auto_mode_commands
+      ;;
+    args)
+      case $words[1] in
+        config|critique|defaults|reset)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Hiển thị trợ giúp cho lệnh]'
+          ;;
+      esac
+      ;;
+  esac
+}
+
+_claude_gateway() {
+  _arguments \
+    '--config[Đường dẫn đến file cấu hình YAML của gateway]:path:_files' \
+    '(-h --help)'{-h,--help}'[Hiển thị trợ giúp cho lệnh]'
+}
+
+_claude_project() {
+  local -a project_commands
+  project_commands=(
+    'purge:Xóa tất cả trạng thái Claude Code cho một dự án (bản ghi, tác vụ, lịch sử file, mục cấu hình)'
+    'help:Hiển thị trợ giúp'
+  )
+
+  local curcontext="$curcontext" state line
+  typeset -A opt_args
+
+  _arguments -C \
+    '(-h --help)'{-h,--help}'[Hiển thị trợ giúp cho lệnh]' \
+    '1: :->command' \
+    '*::arg:->args'
+
+  case $state in
+    command)
+      _describe -t commands 'project commands' project_commands
+      ;;
+    args)
+      case $words[1] in
+        purge)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Hiển thị trợ giúp cho lệnh]' \
+            '1:path:_directories'
+          ;;
+      esac
+      ;;
+  esac
+}
+
+_claude_ultrareview() {
+  _arguments \
+    '--json[In dữ liệu bugs.json thô thay vì các phát hiện được định dạng]' \
+    '--timeout[Số phút tối đa để chờ đánh giá hoàn thành]:minutes:' \
+    '(-h --help)'{-h,--help}'[Hiển thị trợ giúp cho lệnh]' \
+    '1:target:'
+}
+
 (( $+_comps[claude] )) || compdef _claude claude
