@@ -1,4 +1,5 @@
 #compdef claude
+
 # Dynamic completion functions
 _claude_mcp_servers() {
   local config_file
@@ -24,40 +25,57 @@ _claude_mcp_servers() {
 _claude_installed_plugins() {
   local -a plugins
   local config_file plugin_dir
+
   # Check plugin directories directly
   for plugin_dir in ~/.claude/plugins ~/.config/claude/plugins; do
     [[ -d "$plugin_dir" ]] || continue
     plugins+=(${plugin_dir}/*(N:t))
   done
+
   # Remove duplicates
   plugins=(${(u)plugins})
+
   compadd -a plugins
 }
+
 _claude_sessions() {
   local -a sessions
   local session_dir
+
   # Check session directory
   for session_dir in ~/.claude/sessions ~/.config/claude/sessions; do
     [[ -d "$session_dir" ]] || continue
+
     # Extract UUIDs directly from filenames
     sessions+=(${session_dir}/*~*.zwc(N:t:r))
   done
+
   # Filter only valid UUIDs
   sessions=(${(M)sessions:#[0-9a-f](#c8)-[0-9a-f](#c4)-[0-9a-f](#c4)-[0-9a-f](#c4)-[0-9a-f](#c12)})
+
   compadd -a sessions
 }
+
 _claude() {
   local curcontext="$curcontext" state line
   typeset -A opt_args
+
   local -a main_commands
   main_commands=(
     'mcp:MCP 서버 구성 및 관리'
     'plugin:Claude Code 플러그인 관리'
+    'agents:백그라운드 에이전트 관리'
+    'auth:인증 관리'
+    'auto-mode:자동 모드 분류기 구성 검사 또는 재설정'
+    'gateway:엔터프라이즈 인증/텔레메트리 게이트웨이 실행'
+    'project:Claude Code 프로젝트 상태 관리'
+    'ultrareview:클라우드 호스팅 멀티 에이전트 코드 검토를 실행하고 결과 출력'
     'setup-token:장기 인증 토큰 설정(Claude 구독 필요)'
     'doctor:Claude Code 자동 업데이터 상태 점검'
     'update:업데이트 확인 및 설치'
     'install:Claude Code 네이티브 빌드 설치'
   )
+
   local -a main_options
   main_options=(
     '(-d --debug)'{-d,--debug}'[선택적 카테고리 필터링으로 디버그 모드 활성화(예: "api,hooks" 또는 "!statsig,!file")]:filter:'
@@ -70,6 +88,7 @@ _claude() {
     '--mcp-debug[\[더 이상 사용되지 않음. 대신 --debug 사용\] MCP 디버그 모드 활성화(MCP 서버 오류 표시)]'
     '--dangerously-skip-permissions[모든 권한 확인 우회. 인터넷 액세스가 없는 샌드박스에만 권장]'
     '--allow-dangerously-skip-permissions[기본적으로 활성화하지 않고 권한 확인 우회 옵션 활성화]'
+    '--max-budget-usd[API 호출에 사용할 최대 달러 금액(--print만)]:amount:'
     '--replay-user-messages[확인을 위해 stdin의 사용자 메시지를 stdout으로 재전송]'
     '--allowed-tools[허용되는 도구 이름의 쉼표 또는 공백으로 구분된 목록(예: "Bash(git:*) Edit")]:tools:'
     '--allowedTools[허용되는 도구 이름의 쉼표 또는 공백으로 구분된 목록(camelCase 형식)]:tools:'
@@ -79,11 +98,14 @@ _claude() {
     '--mcp-config[JSON 파일 또는 문자열에서 MCP 서버 로드(공백으로 구분)]:configs:'
     '--system-prompt[세션에 사용할 시스템 프롬프트]:prompt:'
     '--append-system-prompt[기본 시스템 프롬프트에 시스템 프롬프트 추가]:prompt:'
-    '--permission-mode[세션에 사용할 권한 모드]:mode:(acceptEdits bypassPermissions default dontAsk plan)'
+    '--permission-mode[세션에 사용할 권한 모드]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)'
     '(-c --continue)'{-c,--continue}'[가장 최근 대화 계속하기]'
     '(-r --resume)'{-r,--resume}'[대화 재개 - 세션 ID 지정 또는 대화식으로 선택]:sessionId:_claude_sessions'
     '--fork-session[재개 시 원래 세션 ID를 재사용하는 대신 새 세션 ID 생성(--resume 또는 --continue와 함께 사용)]'
+    '--no-session-persistence[세션 지속성 비활성화 - 세션이 저장되지 않음(--print만)]'
     '--model[현재 세션의 모델. 최신 모델의 별칭 지정(예: '\''sonnet'\'' 또는 '\''opus'\'')]:model:'
+    '--agent[현재 세션의 에이전트. '\''agent'\'' 설정을 재정의함]:agent:'
+    '--betas[API 요청에 포함할 베타 헤더(API 키 사용자만)]:betas:'
     '--fallback-model[기본 모델이 과부하 상태일 때 지정된 모델로 자동 폴백 활성화(--print만)]:model:'
     '--settings[설정 JSON 파일 경로 또는 추가 설정을 로드할 JSON 문자열]:file-or-json:_files'
     '--add-dir[도구 액세스를 허용할 추가 디렉토리]:directories:_directories'
@@ -93,13 +115,37 @@ _claude() {
     '--agents[사용자 정의 에이전트를 정의하는 JSON 객체]:json:'
     '--setting-sources[로드할 설정 소스의 쉼표로 구분된 목록(user, project, local)]:sources:'
     '--plugin-dir[이 세션에만 플러그인을 로드할 디렉토리(반복 가능)]:paths:_directories'
+    '--disable-slash-commands[모든 슬래시 명령 비활성화]'
+    '(--bg --background)'{--bg,--background}'[세션을 백그라운드 에이전트로 시작하고 즉시 반환]'
+    '(-w --worktree)'{-w,--worktree}'[이 세션을 위한 새 git worktree 생성(선택적으로 이름 지정)]::name:'
+    '--tmux[worktree를 위한 tmux 세션 생성(--worktree 필요)]'
+    '(-n --name)'{-n,--name}'[이 세션의 표시 이름 설정]:name:'
+    '--effort[현재 세션의 노력 수준]:level:(low medium high xhigh max)'
+    '--debug-file[특정 파일 경로에 디버그 로그 작성(암시적으로 디버그 모드 활성화)]:path:_files'
+    '--from-pr[번호/URL로 PR에 연결된 세션 재개 또는 대화식 선택기 열기]::value:'
+    '--remote-control[Remote Control이 활성화된 대화식 세션 시작(선택적으로 이름 지정)]::name:'
+    '--remote-control-session-name-prefix[자동 생성된 Remote Control 세션 이름의 접두사]:prefix:'
+    '--chrome[Claude in Chrome 통합 활성화]'
+    '--no-chrome[Claude in Chrome 통합 비활성화]'
+    '--plugin-url[이 세션에만 URL에서 플러그인 .zip 가져오기(반복 가능)]:url:'
+    '--file[시작 시 다운로드할 파일 리소스(형식: file_id:relative_path)]:specs:'
+    '--prompt-suggestions[프롬프트 제안 활성화(print/SDK 모드에서 예측된 다음 프롬프트 방출)]::value:(true false 1 0 yes no on off)'
+    '--forward-subagent-text[서브에이전트 텍스트 및 사고 블록을 메시지로 전달(--print 및 stream-json과 함께 사용)]'
+    '--include-hook-events[출력 스트림에 모든 훅 수명 주기 이벤트 포함(stream-json과 함께 사용)]'
+    '--exclude-dynamic-system-prompt-sections[머신별 섹션을 첫 번째 사용자 메시지로 이동하여 프롬프트 캐시 재사용 개선]'
+    '--brief[에이전트-사용자 통신을 위한 SendUserMessage 도구 활성화]'
+    '--safe-mode[모든 사용자 정의를 비활성화하고 시작(손상된 구성 문제 해결에 유용)]'
+    '--bare[최소 모드: 훅, LSP, 플러그인 동기화, 속성, 자동 메모리 및 CLAUDE.md 자동 검색 건너뛰기]'
+    '--ax-screen-reader[스크린 리더 친화적 출력 렌더링(장식용 테두리나 애니메이션 없는 평문 텍스트)]'
     '(-v --version)'{-v,--version}'[버전 번호 출력]'
     '(-h --help)'{-h,--help}'[명령 도움말 표시]'
   )
+
   _arguments -C \
     $main_options \
     '1: :->command' \
     '*::arg:->args'
+
   case $state in
     command)
       _describe -t commands 'claude 명령' main_commands
@@ -115,6 +161,24 @@ _claude() {
         install)
           _claude_install
           ;;
+        agents)
+          _claude_agents
+          ;;
+        auth)
+          _claude_auth
+          ;;
+        auto-mode)
+          _claude_auto_mode
+          ;;
+        gateway)
+          _claude_gateway
+          ;;
+        project)
+          _claude_project
+          ;;
+        ultrareview)
+          _claude_ultrareview
+          ;;
         setup-token|doctor|update)
           _message "인수 없음"
           ;;
@@ -122,6 +186,7 @@ _claude() {
       ;;
   esac
 }
+
 _claude_mcp() {
   local -a mcp_commands
   mcp_commands=(
@@ -133,14 +198,19 @@ _claude_mcp() {
     'add-json:JSON 문자열로 MCP 서버(stdio 또는 SSE) 추가'
     'add-from-claude-desktop:Claude Desktop에서 MCP 서버 가져오기(Mac 및 WSL만)'
     'reset-project-choices:이 프로젝트의 모든 승인/거부된 프로젝트 범위(.mcp.json) 서버 재설정'
+    'login:MCP 서버로 인증(HTTP, SSE 또는 claude.ai 커넥터)'
+    'logout:MCP 서버의 저장된 OAuth 자격 증명 지우기'
     'help:도움말 표시'
   )
+
   local curcontext="$curcontext" state line
   typeset -A opt_args
+
   _arguments -C \
     '(-h --help)'{-h,--help}'[도움말 표시]' \
     '1: :->command' \
     '*::arg:->args'
+
   case $state in
     command)
       _describe -t commands 'mcp 명령' mcp_commands
@@ -195,29 +265,45 @@ _claude_mcp() {
           _arguments \
             '(-h --help)'{-h,--help}'[도움말 표시]'
           ;;
+        login|logout)
+          _arguments \
+            '(-h --help)'{-h,--help}'[도움말 표시]' \
+            '1:name:_claude_mcp_servers'
+          ;;
       esac
       ;;
   esac
 }
+
 _claude_plugin() {
   local -a plugin_commands
   plugin_commands=(
     'validate:플러그인 또는 마켓플레이스 매니페스트 검증'
     'marketplace:Claude Code 마켓플레이스 관리'
+    'list:설치된 플러그인 나열'
+    'details:플러그인의 구성 요소 인벤토리 및 예상 토큰 비용 표시'
     'install:사용 가능한 마켓플레이스에서 플러그인 설치'
     'i:사용 가능한 마켓플레이스에서 플러그인 설치(install의 약어)'
+    'init:새 플러그인 스캐폴딩(다음 세션에 자동 로드)'
     'uninstall:설치된 플러그인 제거'
     'remove:설치된 플러그인 제거(uninstall의 별칭)'
     'enable:비활성화된 플러그인 활성화'
     'disable:활성화된 플러그인 비활성화'
+    'update:플러그인을 최신 버전으로 업데이트'
+    'eval:플러그인에 대해 eval 케이스를 실행하고 채점된 결과 보고'
+    'prune:더 이상 필요하지 않은 자동 설치된 종속성 제거'
+    'tag:플러그인 릴리스를 위한 {name}--v{version} git 태그 생성'
     'help:도움말 표시'
   )
+
   local curcontext="$curcontext" state line
   typeset -A opt_args
+
   _arguments -C \
     '(-h --help)'{-h,--help}'[도움말 표시]' \
     '1: :->command' \
     '*::arg:->args'
+
   case $state in
     command)
       _describe -t commands 'plugin 명령' plugin_commands
@@ -234,23 +320,57 @@ _claude_plugin() {
           ;;
         install|i)
           _arguments \
+            '(-s --scope)'{-s,--scope}'[설치 범위]:scope:(user project local)' \
             '(-h --help)'{-h,--help}'[도움말 표시]' \
-            '1:plugin:_claude_installed_plugins'
+            '1:plugin:'
           ;;
         uninstall|remove)
           _arguments \
+            '(-s --scope)'{-s,--scope}'[설치 범위]:scope:(user project local)' \
             '(-h --help)'{-h,--help}'[도움말 표시]' \
             '1:plugin:_claude_installed_plugins'
           ;;
         enable|disable)
           _arguments \
+            '(-s --scope)'{-s,--scope}'[설치 범위]:scope:(user project local)' \
             '(-h --help)'{-h,--help}'[도움말 표시]' \
             '1:plugin:_claude_installed_plugins'
+          ;;
+        update)
+          _arguments \
+            '(-s --scope)'{-s,--scope}'[설치 범위]:scope:(user project local managed)' \
+            '(-h --help)'{-h,--help}'[도움말 표시]' \
+            '1:plugin:_claude_installed_plugins'
+          ;;
+        list|prune)
+          _arguments \
+            '(-h --help)'{-h,--help}'[도움말 표시]'
+          ;;
+        details)
+          _arguments \
+            '(-h --help)'{-h,--help}'[도움말 표시]' \
+            '1:plugin:_claude_installed_plugins'
+          ;;
+        init)
+          _arguments \
+            '(-h --help)'{-h,--help}'[도움말 표시]' \
+            '1:name:'
+          ;;
+        eval)
+          _arguments \
+            '(-h --help)'{-h,--help}'[도움말 표시]' \
+            '1:target:'
+          ;;
+        tag)
+          _arguments \
+            '(-h --help)'{-h,--help}'[도움말 표시]' \
+            '1:path:_files'
           ;;
       esac
       ;;
   esac
 }
+
 _claude_plugin_marketplace() {
   local -a marketplace_commands
   marketplace_commands=(
@@ -261,12 +381,15 @@ _claude_plugin_marketplace() {
     'update:소스에서 마켓플레이스 업데이트 - 이름을 지정하지 않으면 모두 업데이트'
     'help:도움말 표시'
   )
+
   local curcontext="$curcontext" state line
   typeset -A opt_args
+
   _arguments -C \
     '(-h --help)'{-h,--help}'[도움말 표시]' \
     '1: :->command' \
     '*::arg:->args'
+
   case $state in
     command)
       _describe -t commands 'marketplace 명령' marketplace_commands
@@ -285,7 +408,7 @@ _claude_plugin_marketplace() {
         remove|rm)
           _arguments \
             '(-h --help)'{-h,--help}'[도움말 표시]' \
-            '1:name:_claude_mcp_servers'
+            '1:name:'
           ;;
         update)
           _arguments \
@@ -296,10 +419,142 @@ _claude_plugin_marketplace() {
       ;;
   esac
 }
+
 _claude_install() {
   _arguments \
     '--force[이미 설치된 경우에도 강제 설치]' \
     '(-h --help)'{-h,--help}'[도움말 표시]' \
     '::target:(stable latest)'
 }
+
+_claude_agents() {
+  _arguments \
+    '*--add-dir[디스패치된 세션에서 도구 액세스를 허용할 추가 디렉토리]:directory:_directories' \
+    '--agent[에이전트 뷰에서 디스패치된 세션의 기본 에이전트]:agent:' \
+    '--all[--json과 함께: 완료된 백그라운드 세션도 포함]' \
+    '--allow-dangerously-skip-permissions[디스패치된 세션에서 권한 우회 모드 사용 가능하게 함]' \
+    '--cwd[경로 아래에서 시작된 백그라운드 세션만 표시]:path:_directories' \
+    '--dangerously-skip-permissions[--permission-mode bypassPermissions의 별칭]' \
+    '--effort[디스패치된 세션의 기본 노력 수준]:level:(low medium high xhigh max)' \
+    '--json[활성 세션을 JSON 배열로 출력하고 종료]' \
+    '*--mcp-config[디스패치된 세션에 적용할 MCP 서버 구성]:config:' \
+    '--model[에이전트 뷰에서 디스패치된 세션의 기본 모델]:model:' \
+    '--permission-mode[디스패치된 세션의 기본 권한 모드]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)' \
+    '*--plugin-dir[에이전트 뷰 및 디스패치된 세션을 위해 디렉토리에서 플러그인 로드]:path:_directories' \
+    '--setting-sources[로드할 설정 소스의 쉼표로 구분된 목록(user, project, local)]:sources:' \
+    '--settings[적용할 설정 파일 또는 JSON 문자열]:file-or-json:_files' \
+    '--strict-mcp-config[디스패치된 세션에서 --mcp-config의 MCP 서버만 사용]' \
+    '(-h --help)'{-h,--help}'[명령 도움말 표시]'
+}
+
+_claude_auth() {
+  local -a auth_commands
+  auth_commands=(
+    'login:Anthropic 계정에 로그인'
+    'logout:Anthropic 계정에서 로그아웃'
+    'status:인증 상태 표시'
+    'help:도움말 표시'
+  )
+
+  local curcontext="$curcontext" state line
+  typeset -A opt_args
+
+  _arguments -C \
+    '(-h --help)'{-h,--help}'[명령 도움말 표시]' \
+    '1: :->command' \
+    '*::arg:->args'
+
+  case $state in
+    command)
+      _describe -t commands 'auth 명령' auth_commands
+      ;;
+    args)
+      case $words[1] in
+        login|logout|status)
+          _arguments \
+            '(-h --help)'{-h,--help}'[명령 도움말 표시]'
+          ;;
+      esac
+      ;;
+  esac
+}
+
+_claude_auto_mode() {
+  local -a auto_mode_commands
+  auto_mode_commands=(
+    'config:유효한 자동 모드 구성을 JSON으로 출력'
+    'critique:사용자 정의 자동 모드 규칙에 대한 AI 피드백 받기'
+    'defaults:기본 자동 모드 규칙을 JSON으로 출력'
+    'reset:자동 모드 구성을 기본 제공 기본값으로 재설정'
+    'help:도움말 표시'
+  )
+
+  local curcontext="$curcontext" state line
+  typeset -A opt_args
+
+  _arguments -C \
+    '(-h --help)'{-h,--help}'[명령 도움말 표시]' \
+    '1: :->command' \
+    '*::arg:->args'
+
+  case $state in
+    command)
+      _describe -t commands 'auto-mode 명령' auto_mode_commands
+      ;;
+    args)
+      case $words[1] in
+        config|critique|defaults|reset)
+          _arguments \
+            '(-h --help)'{-h,--help}'[명령 도움말 표시]'
+          ;;
+      esac
+      ;;
+  esac
+}
+
+_claude_gateway() {
+  _arguments \
+    '--config[게이트웨이 YAML 구성 경로]:path:_files' \
+    '(-h --help)'{-h,--help}'[명령 도움말 표시]'
+}
+
+_claude_project() {
+  local -a project_commands
+  project_commands=(
+    'purge:프로젝트의 모든 Claude Code 상태 삭제(트랜스크립트, 작업, 파일 기록, 구성 항목)'
+    'help:도움말 표시'
+  )
+
+  local curcontext="$curcontext" state line
+  typeset -A opt_args
+
+  _arguments -C \
+    '(-h --help)'{-h,--help}'[명령 도움말 표시]' \
+    '1: :->command' \
+    '*::arg:->args'
+
+  case $state in
+    command)
+      _describe -t commands 'project 명령' project_commands
+      ;;
+    args)
+      case $words[1] in
+        purge)
+          _arguments \
+            '(-h --help)'{-h,--help}'[명령 도움말 표시]' \
+            '1:path:_directories'
+          ;;
+      esac
+      ;;
+  esac
+}
+
+_claude_ultrareview() {
+  _arguments \
+    '--json[형식화된 결과 대신 원시 bugs.json 페이로드 출력]' \
+    '--timeout[검토 완료를 기다릴 최대 분]:minutes:' \
+    '(-h --help)'{-h,--help}'[명령 도움말 표시]' \
+    '1:target:'
+}
+
 (( $+_comps[claude] )) || compdef _claude claude

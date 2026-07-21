@@ -1,4 +1,5 @@
 #compdef claude
+
 # Dynamic completion functions
 _claude_mcp_servers() {
   local config_file
@@ -24,40 +25,57 @@ _claude_mcp_servers() {
 _claude_installed_plugins() {
   local -a plugins
   local config_file plugin_dir
+
   # Check plugin directories directly
   for plugin_dir in ~/.claude/plugins ~/.config/claude/plugins; do
     [[ -d "$plugin_dir" ]] || continue
     plugins+=(${plugin_dir}/*(N:t))
   done
+
   # Remove duplicates
   plugins=(${(u)plugins})
+
   compadd -a plugins
 }
+
 _claude_sessions() {
   local -a sessions
   local session_dir
+
   # Check session directory
   for session_dir in ~/.claude/sessions ~/.config/claude/sessions; do
     [[ -d "$session_dir" ]] || continue
+
     # Extract UUIDs directly from filenames
     sessions+=(${session_dir}/*~*.zwc(N:t:r))
   done
+
   # Filter only valid UUIDs
   sessions=(${(M)sessions:#[0-9a-f](#c8)-[0-9a-f](#c4)-[0-9a-f](#c4)-[0-9a-f](#c4)-[0-9a-f](#c12)})
+
   compadd -a sessions
 }
+
 _claude() {
   local curcontext="$curcontext" state line
   typeset -A opt_args
+
   local -a main_commands
   main_commands=(
     'mcp:MCPサーバーの設定と管理'
     'plugin:Claude Codeプラグインの管理'
+    'agents:バックグラウンドエージェントの管理'
+    'auth:認証の管理'
+    'auto-mode:自動モード分類器の設定を確認またはリセット'
+    'gateway:エンタープライズ認証/テレメトリゲートウェイを実行'
+    'project:Claude Codeプロジェクトの状態を管理'
+    'ultrareview:クラウドホスト型のマルチエージェントコードレビューを実行し、指摘結果を出力'
     'setup-token:長期認証トークンの設定（Claude サブスクリプション必要）'
     'doctor:Claude Code自動アップデーターの健全性チェック'
     'update:アップデートの確認とインストール'
     'install:Claude Codeネイティブビルドのインストール'
   )
+
   local -a main_options
   main_options=(
     '(-d --debug)'{-d,--debug}'[オプションのカテゴリフィルタリング付きデバッグモード有効化（例："api,hooks" または "!statsig,!file"）]:filter:'
@@ -70,6 +88,7 @@ _claude() {
     '--mcp-debug[\[非推奨。代わりに--debugを使用\] MCPデバッグモード有効化（MCPサーバーエラーを表示）]'
     '--dangerously-skip-permissions[すべての権限チェックをバイパス。インターネットアクセスのないサンドボックスのみ推奨]'
     '--allow-dangerously-skip-permissions[デフォルトで有効にせず、権限チェックのバイパスをオプションとして有効化]'
+    '--max-budget-usd[API呼び出しに費やす最大金額（ドル）（--printのみ）]:amount:'
     '--replay-user-messages[stdinからのユーザーメッセージをstdoutで確認のため再送信]'
     '--allowed-tools[許可するツール名のカンマまたはスペース区切りリスト（例："Bash(git:*) Edit"）]:tools:'
     '--allowedTools[許可するツール名のカンマまたはスペース区切りリスト（キャメルケース形式）]:tools:'
@@ -79,11 +98,14 @@ _claude() {
     '--mcp-config[JSONファイルまたは文字列からMCPサーバーを読み込む（スペース区切り）]:configs:'
     '--system-prompt[セッションで使用するシステムプロンプト]:prompt:'
     '--append-system-prompt[デフォルトのシステムプロンプトにシステムプロンプトを追加]:prompt:'
-    '--permission-mode[セッションで使用する権限モード]:mode:(acceptEdits bypassPermissions default dontAsk plan)'
+    '--permission-mode[セッションで使用する権限モード]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)'
     '(-c --continue)'{-c,--continue}'[最新の会話を続ける]'
     '(-r --resume)'{-r,--resume}'[会話を再開 - セッションIDを指定するか、対話的に選択]:sessionId:_claude_sessions'
     '--fork-session[再開時、元のセッションIDを再利用せず新しいセッションIDを作成（--resumeまたは--continueと併用）]'
+    '--no-session-persistence[セッションの永続化を無効化 - セッションは保存されない（--printのみ）]'
     '--model[現在のセッション用モデル。最新モデルのエイリアス（例：'\''sonnet'\''または'\''opus'\''）を指定]:model:'
+    '--agent[現在のセッション用エージェント。'\''agent'\''設定を上書き]:agent:'
+    '--betas[APIリクエストに含めるベータヘッダー（APIキーユーザーのみ）]:betas:'
     '--fallback-model[デフォルトモデルが過負荷時に指定モデルへ自動フォールバック有効化（--printのみ）]:model:'
     '--settings[設定JSONファイルへのパスまたは追加設定を読み込むJSON文字列]:file-or-json:_files'
     '--add-dir[ツールアクセスを許可する追加ディレクトリ]:directories:_directories'
@@ -93,13 +115,37 @@ _claude() {
     '--agents[カスタムエージェントを定義するJSONオブジェクト]:json:'
     '--setting-sources[読み込む設定ソースのカンマ区切りリスト（user, project, local）]:sources:'
     '--plugin-dir[このセッションのみプラグインを読み込むディレクトリ（繰り返し可能）]:paths:_directories'
+    '--disable-slash-commands[すべてのスラッシュコマンドを無効化]'
+    '(--bg --background)'{--bg,--background}'[セッションをバックグラウンドエージェントとして開始し、すぐに戻る]'
+    '(-w --worktree)'{-w,--worktree}'[このセッション用に新しいgit worktreeを作成（オプションで名前を指定可能）]::name:'
+    '--tmux[worktree用のtmuxセッションを作成（--worktreeが必要）]'
+    '(-n --name)'{-n,--name}'[このセッションの表示名を設定]:name:'
+    '--effort[現在のセッションの努力レベル]:level:(low medium high xhigh max)'
+    '--debug-file[デバッグログを特定のファイルパスに書き込む（暗黙的にデバッグモードを有効化）]:path:_files'
+    '--from-pr[番号/URLでPRにリンクされたセッションを再開、または対話的なピッカーを開く]::value:'
+    '--remote-control[Remote Controlを有効にした対話セッションを開始（オプションで名前指定可能）]::name:'
+    '--remote-control-session-name-prefix[自動生成されるRemote Controlセッション名のプレフィックス]:prefix:'
+    '--chrome[Claude in Chrome統合を有効化]'
+    '--no-chrome[Claude in Chrome統合を無効化]'
+    '--plugin-url[このセッションのみURLからプラグインの.zipを取得（繰り返し可能）]:url:'
+    '--file[起動時にダウンロードするファイルリソース（形式：file_id:relative_path）]:specs:'
+    '--prompt-suggestions[プロンプト候補を有効化（print/SDKモードで予測される次のプロンプトを出力）]::value:(true false 1 0 yes no on off)'
+    '--forward-subagent-text[サブエージェントのテキストと思考ブロックをメッセージとして転送（--printとstream-jsonと併用）]'
+    '--include-hook-events[すべてのフックライフサイクルイベントを出力ストリームに含める（stream-jsonと併用）]'
+    '--exclude-dynamic-system-prompt-sections[マシンごとのセクションを最初のユーザーメッセージに移動し、プロンプトキャッシュの再利用を改善]'
+    '--brief[エージェントからユーザーへの通信用SendUserMessageツールを有効化]'
+    '--safe-mode[すべてのカスタマイズを無効にして開始（壊れた設定のトラブルシューティングに有用）]'
+    '--bare[最小モード：フック、LSP、プラグイン同期、属性表示、自動メモリ、CLAUDE.md自動検出をスキップ]'
+    '--ax-screen-reader[スクリーンリーダーに適した出力を表示（フラットテキスト、装飾的な枠線やアニメーションなし）]'
     '(-v --version)'{-v,--version}'[バージョン番号を出力]'
     '(-h --help)'{-h,--help}'[コマンドのヘルプを表示]'
   )
+
   _arguments -C \
     $main_options \
     '1: :->command' \
     '*::arg:->args'
+
   case $state in
     command)
       _describe -t commands 'claudeコマンド' main_commands
@@ -115,6 +161,24 @@ _claude() {
         install)
           _claude_install
           ;;
+        agents)
+          _claude_agents
+          ;;
+        auth)
+          _claude_auth
+          ;;
+        auto-mode)
+          _claude_auto_mode
+          ;;
+        gateway)
+          _claude_gateway
+          ;;
+        project)
+          _claude_project
+          ;;
+        ultrareview)
+          _claude_ultrareview
+          ;;
         setup-token|doctor|update)
           _message "引数なし"
           ;;
@@ -122,6 +186,7 @@ _claude() {
       ;;
   esac
 }
+
 _claude_mcp() {
   local -a mcp_commands
   mcp_commands=(
@@ -133,14 +198,19 @@ _claude_mcp() {
     'add-json:JSON文字列でMCPサーバー（stdioまたはSSE）を追加'
     'add-from-claude-desktop:Claude DesktopからMCPサーバーをインポート（MacとWSLのみ）'
     'reset-project-choices:このプロジェクト内のすべての承認済み・拒否済みプロジェクトスコープ（.mcp.json）サーバーをリセット'
+    'login:MCPサーバーで認証（HTTP、SSE、またはclaude.aiコネクタ）'
+    'logout:MCPサーバーの保存済みOAuth認証情報をクリア'
     'help:ヘルプを表示'
   )
+
   local curcontext="$curcontext" state line
   typeset -A opt_args
+
   _arguments -C \
     '(-h --help)'{-h,--help}'[ヘルプを表示]' \
     '1: :->command' \
     '*::arg:->args'
+
   case $state in
     command)
       _describe -t commands 'mcp コマンド' mcp_commands
@@ -195,29 +265,45 @@ _claude_mcp() {
           _arguments \
             '(-h --help)'{-h,--help}'[ヘルプを表示]'
           ;;
+        login|logout)
+          _arguments \
+            '(-h --help)'{-h,--help}'[ヘルプを表示]' \
+            '1:name:_claude_mcp_servers'
+          ;;
       esac
       ;;
   esac
 }
+
 _claude_plugin() {
   local -a plugin_commands
   plugin_commands=(
     'validate:プラグインまたはマーケットプレイスマニフェストを検証'
     'marketplace:Claude Codeマーケットプレイスを管理'
+    'list:インストール済みプラグインを一覧表示'
+    'details:プラグインのコンポーネント一覧と予測トークンコストを表示'
     'install:利用可能なマーケットプレイスからプラグインをインストール'
     'i:利用可能なマーケットプレイスからプラグインをインストール（installの短縮形）'
+    'init:新しいプラグインの雛形を作成（次のセッションで自動読み込み）'
     'uninstall:インストール済みプラグインをアンインストール'
     'remove:インストール済みプラグインをアンインストール（uninstallのエイリアス）'
     'enable:無効化されたプラグインを有効化'
     'disable:有効化されたプラグインを無効化'
+    'update:プラグインを最新バージョンに更新'
+    'eval:プラグインに対してevalケースを実行し、スコア付き結果を報告'
+    'prune:不要になった自動インストール済み依存関係を削除'
+    'tag:プラグインリリース用に{name}--v{version}のgitタグを作成'
     'help:ヘルプを表示'
   )
+
   local curcontext="$curcontext" state line
   typeset -A opt_args
+
   _arguments -C \
     '(-h --help)'{-h,--help}'[ヘルプを表示]' \
     '1: :->command' \
     '*::arg:->args'
+
   case $state in
     command)
       _describe -t commands 'plugin コマンド' plugin_commands
@@ -234,23 +320,57 @@ _claude_plugin() {
           ;;
         install|i)
           _arguments \
+            '(-s --scope)'{-s,--scope}'[インストールスコープ]:scope:(user project local)' \
             '(-h --help)'{-h,--help}'[ヘルプを表示]' \
-            '1:plugin:_claude_installed_plugins'
+            '1:plugin:'
           ;;
         uninstall|remove)
           _arguments \
+            '(-s --scope)'{-s,--scope}'[インストールスコープ]:scope:(user project local)' \
             '(-h --help)'{-h,--help}'[ヘルプを表示]' \
             '1:plugin:_claude_installed_plugins'
           ;;
         enable|disable)
           _arguments \
+            '(-s --scope)'{-s,--scope}'[インストールスコープ]:scope:(user project local)' \
             '(-h --help)'{-h,--help}'[ヘルプを表示]' \
             '1:plugin:_claude_installed_plugins'
+          ;;
+        update)
+          _arguments \
+            '(-s --scope)'{-s,--scope}'[インストールスコープ]:scope:(user project local managed)' \
+            '(-h --help)'{-h,--help}'[ヘルプを表示]' \
+            '1:plugin:_claude_installed_plugins'
+          ;;
+        list|prune)
+          _arguments \
+            '(-h --help)'{-h,--help}'[ヘルプを表示]'
+          ;;
+        details)
+          _arguments \
+            '(-h --help)'{-h,--help}'[ヘルプを表示]' \
+            '1:plugin:_claude_installed_plugins'
+          ;;
+        init)
+          _arguments \
+            '(-h --help)'{-h,--help}'[ヘルプを表示]' \
+            '1:name:'
+          ;;
+        eval)
+          _arguments \
+            '(-h --help)'{-h,--help}'[ヘルプを表示]' \
+            '1:target:'
+          ;;
+        tag)
+          _arguments \
+            '(-h --help)'{-h,--help}'[ヘルプを表示]' \
+            '1:path:_files'
           ;;
       esac
       ;;
   esac
 }
+
 _claude_plugin_marketplace() {
   local -a marketplace_commands
   marketplace_commands=(
@@ -261,12 +381,15 @@ _claude_plugin_marketplace() {
     'update:ソースからマーケットプレイスを更新 - 名前未指定の場合はすべて更新'
     'help:ヘルプを表示'
   )
+
   local curcontext="$curcontext" state line
   typeset -A opt_args
+
   _arguments -C \
     '(-h --help)'{-h,--help}'[ヘルプを表示]' \
     '1: :->command' \
     '*::arg:->args'
+
   case $state in
     command)
       _describe -t commands 'marketplace コマンド' marketplace_commands
@@ -285,7 +408,7 @@ _claude_plugin_marketplace() {
         remove|rm)
           _arguments \
             '(-h --help)'{-h,--help}'[ヘルプを表示]' \
-            '1:name:_claude_mcp_servers'
+            '1:name:'
           ;;
         update)
           _arguments \
@@ -296,10 +419,142 @@ _claude_plugin_marketplace() {
       ;;
   esac
 }
+
 _claude_install() {
   _arguments \
     '--force[すでにインストール済みでも強制的にインストール]' \
     '(-h --help)'{-h,--help}'[ヘルプを表示]' \
     '::target:(stable latest)'
 }
+
+_claude_agents() {
+  _arguments \
+    '*--add-dir[ディスパッチされたセッションでツールアクセスを許可する追加ディレクトリ]:directory:_directories' \
+    '--agent[エージェントビューからディスパッチされるセッションのデフォルトエージェント]:agent:' \
+    '--all[--jsonと併用：完了したバックグラウンドセッションも含める]' \
+    '--allow-dangerously-skip-permissions[ディスパッチされたセッションでbypass-permissionsモードを利用可能にする]' \
+    '--cwd[指定したパス配下で開始されたバックグラウンドセッションのみ表示]:path:_directories' \
+    '--dangerously-skip-permissions[--permission-mode bypassPermissionsのエイリアス]' \
+    '--effort[ディスパッチされたセッションのデフォルト努力レベル]:level:(low medium high xhigh max)' \
+    '--json[アクティブなセッションをJSON配列として出力して終了]' \
+    '*--mcp-config[ディスパッチされたセッションに適用するMCPサーバー設定]:config:' \
+    '--model[エージェントビューからディスパッチされるセッションのデフォルトモデル]:model:' \
+    '--permission-mode[ディスパッチされたセッションのデフォルト権限モード]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)' \
+    '*--plugin-dir[エージェントビューとディスパッチされたセッション用にディレクトリからプラグインを読み込む]:path:_directories' \
+    '--setting-sources[読み込む設定ソースのカンマ区切りリスト（user, project, local）]:sources:' \
+    '--settings[適用する設定ファイルまたはJSON文字列]:file-or-json:_files' \
+    '--strict-mcp-config[ディスパッチされたセッションで--mcp-configのMCPサーバーのみ使用]' \
+    '(-h --help)'{-h,--help}'[コマンドのヘルプを表示]'
+}
+
+_claude_auth() {
+  local -a auth_commands
+  auth_commands=(
+    'login:Anthropicアカウントにサインイン'
+    'logout:Anthropicアカウントからログアウト'
+    'status:認証ステータスを表示'
+    'help:ヘルプを表示'
+  )
+
+  local curcontext="$curcontext" state line
+  typeset -A opt_args
+
+  _arguments -C \
+    '(-h --help)'{-h,--help}'[コマンドのヘルプを表示]' \
+    '1: :->command' \
+    '*::arg:->args'
+
+  case $state in
+    command)
+      _describe -t commands 'auth コマンド' auth_commands
+      ;;
+    args)
+      case $words[1] in
+        login|logout|status)
+          _arguments \
+            '(-h --help)'{-h,--help}'[コマンドのヘルプを表示]'
+          ;;
+      esac
+      ;;
+  esac
+}
+
+_claude_auto_mode() {
+  local -a auto_mode_commands
+  auto_mode_commands=(
+    'config:有効な自動モード設定をJSONとして出力'
+    'critique:カスタム自動モードルールに対するAIフィードバックを取得'
+    'defaults:デフォルトの自動モードルールをJSONとして出力'
+    'reset:自動モード設定を出荷時のデフォルトにリセット'
+    'help:ヘルプを表示'
+  )
+
+  local curcontext="$curcontext" state line
+  typeset -A opt_args
+
+  _arguments -C \
+    '(-h --help)'{-h,--help}'[コマンドのヘルプを表示]' \
+    '1: :->command' \
+    '*::arg:->args'
+
+  case $state in
+    command)
+      _describe -t commands 'auto-mode コマンド' auto_mode_commands
+      ;;
+    args)
+      case $words[1] in
+        config|critique|defaults|reset)
+          _arguments \
+            '(-h --help)'{-h,--help}'[コマンドのヘルプを表示]'
+          ;;
+      esac
+      ;;
+  esac
+}
+
+_claude_gateway() {
+  _arguments \
+    '--config[ゲートウェイYAML設定へのパス]:path:_files' \
+    '(-h --help)'{-h,--help}'[コマンドのヘルプを表示]'
+}
+
+_claude_project() {
+  local -a project_commands
+  project_commands=(
+    'purge:プロジェクトのすべてのClaude Code状態を削除（トランスクリプト、タスク、ファイル履歴、設定エントリ）'
+    'help:ヘルプを表示'
+  )
+
+  local curcontext="$curcontext" state line
+  typeset -A opt_args
+
+  _arguments -C \
+    '(-h --help)'{-h,--help}'[コマンドのヘルプを表示]' \
+    '1: :->command' \
+    '*::arg:->args'
+
+  case $state in
+    command)
+      _describe -t commands 'project コマンド' project_commands
+      ;;
+    args)
+      case $words[1] in
+        purge)
+          _arguments \
+            '(-h --help)'{-h,--help}'[コマンドのヘルプを表示]' \
+            '1:path:_directories'
+          ;;
+      esac
+      ;;
+  esac
+}
+
+_claude_ultrareview() {
+  _arguments \
+    '--json[整形された指摘の代わりに生のbugs.jsonペイロードを出力]' \
+    '--timeout[レビュー完了を待つ最大分数]:minutes:' \
+    '(-h --help)'{-h,--help}'[コマンドのヘルプを表示]' \
+    '1:target:'
+}
+
 (( $+_comps[claude] )) || compdef _claude claude

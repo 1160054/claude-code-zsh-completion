@@ -12,7 +12,7 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@v5
 
     - name: Install zsh
       run: |
@@ -25,9 +25,9 @@ jobs:
         which zsh
 
     - name: Setup Node.js
-      uses: actions/setup-node@v4
+      uses: actions/setup-node@v5
       with:
-        node-version: '20'
+        node-version: '22'
 
     - name: Install Claude CLI
       run: npm install -g @anthropic-ai/claude-code

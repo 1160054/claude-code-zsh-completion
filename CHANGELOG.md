@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.1] - 2026-07-21
+
+### Added
+- Localized the 2.2.0 command and option additions for 12 major languages: Japanese, Korean, Simplified Chinese, Traditional Chinese, Spanish, French, German, Italian, Brazilian Portuguese, Russian, Turkish, and Polish
+
+### Changed
+- CI: bump `actions/checkout` and `actions/setup-node` to v5 and Node.js to 22 (resolves the Node 20 deprecation warning)
+
+> The remaining localized files will be translated in follow-up releases.
+
 ## [2.2.0] - 2026-07-21
 
 ### Added
