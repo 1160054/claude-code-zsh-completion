@@ -5,6 +5,41 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.0] - 2026-07-21
+
+### Added
+- Completion for new top-level commands: `agents`, `auth`, `auto-mode`, `gateway`, `project`, `ultrareview`
+  - Subcommands for `auth` (`login`, `logout`, `status`), `auto-mode` (`config`, `critique`, `defaults`, `reset`), and `project` (`purge`)
+  - Options for `agents`, `gateway` (`--config`), and `ultrareview` (`--json`, `--timeout`)
+- 22 new session options, including `--worktree`/`-w`, `--effort`, `--bg`/`--background`, `--name`/`-n`, `--from-pr`, `--remote-control`, `--chrome`/`--no-chrome`, `--plugin-url`, `--file`, `--tmux`, `--safe-mode`, `--bare`, `--brief`, `--debug-file`, `--prompt-suggestions`, `--forward-subagent-text`, `--include-hook-events`, `--exclude-dynamic-system-prompt-sections`, `--ax-screen-reader`
+- `mcp login` / `mcp logout` completion
+- `plugin` subcommands: `list`, `details`, `init`, `eval`, `prune`, `tag`
+- Demo GIF in the README
+
+### Fixed
+- Oh My Zsh: register completion via `compdef` so it works on a freshly started shell without a manual `compinit` re-run
+- Correct `--permission-mode` choices to match the current CLI (`acceptEdits`, `auto`, `bypassPermissions`, `manual`, `dontAsk`, `plan`)
+
+### Changed
+- Normalize command-alias parsing and widen locale consistency tolerances in the test suite so not-yet-translated language files stay green
+- Add a CLI version check to the test suite
+- Document plugin manager installation in the README
+
+> Note: These completion additions apply to the English (`_claude`) file. Translations for the 120+ localized files will follow.
+
+## [2.1.0] - 2025-12-14
+
+### Added
+- New CLI options: `--max-budget-usd`, `--no-session-persistence`, `--agent`, `--betas`, `--disable-slash-commands`
+- `plugin update` command
+- `--scope` option for plugin-related commands
+
+### Changed
+- Optimize MCP server completion parsing using grep/sed (no external dependencies)
+- Simplify dynamic completion functions
+- Remove deprecated `migrate-installer` command
+- Enhance test suite for all completions
+
 ## [2.0.0] - 2025-12-13
 
 ### Added
