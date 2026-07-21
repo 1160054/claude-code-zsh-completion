@@ -161,6 +161,24 @@ _claude() {
         install)
           _claude_install
           ;;
+        agents)
+          _claude_agents
+          ;;
+        auth)
+          _claude_auth
+          ;;
+        auto-mode)
+          _claude_auto_mode
+          ;;
+        gateway)
+          _claude_gateway
+          ;;
+        project)
+          _claude_project
+          ;;
+        ultrareview)
+          _claude_ultrareview
+          ;;
         setup-token|doctor|update)
           _message "no arguments"
           ;;
@@ -407,6 +425,136 @@ _claude_install() {
     '--force[Force install even if already installed]' \
     '(-h --help)'{-h,--help}'[Display help]' \
     '::target:(stable latest)'
+}
+
+_claude_agents() {
+  _arguments \
+    '*--add-dir[Additional directory to allow tool access to in dispatched sessions]:directory:_directories' \
+    '--agent[Default agent for sessions dispatched from agent view]:agent:' \
+    '--all[With --json: also include completed background sessions]' \
+    '--allow-dangerously-skip-permissions[Make bypass-permissions mode available to dispatched sessions]' \
+    '--cwd[Show only background sessions started under path]:path:_directories' \
+    '--dangerously-skip-permissions[Alias for --permission-mode bypassPermissions]' \
+    '--effort[Default effort level for dispatched sessions]:level:(low medium high xhigh max)' \
+    '--json[Print active sessions as a JSON array and exit]' \
+    '*--mcp-config[MCP server configuration to apply to dispatched sessions]:config:' \
+    '--model[Default model for sessions dispatched from agent view]:model:' \
+    '--permission-mode[Default permission mode for dispatched sessions]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)' \
+    '*--plugin-dir[Load plugins from directory for the agent view and dispatched sessions]:path:_directories' \
+    '--setting-sources[Comma-separated list of setting sources to load (user, project, local)]:sources:' \
+    '--settings[Settings file or JSON string to apply]:file-or-json:_files' \
+    '--strict-mcp-config[Only use MCP servers from --mcp-config in dispatched sessions]' \
+    '(-h --help)'{-h,--help}'[Display help for command]'
+}
+
+_claude_auth() {
+  local -a auth_commands
+  auth_commands=(
+    'login:Sign in to your Anthropic account'
+    'logout:Log out from your Anthropic account'
+    'status:Show authentication status'
+    'help:Display help'
+  )
+
+  local curcontext="$curcontext" state line
+  typeset -A opt_args
+
+  _arguments -C \
+    '(-h --help)'{-h,--help}'[Display help for command]' \
+    '1: :->command' \
+    '*::arg:->args'
+
+  case $state in
+    command)
+      _describe -t commands 'auth commands' auth_commands
+      ;;
+    args)
+      case $words[1] in
+        login|logout|status)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Display help for command]'
+          ;;
+      esac
+      ;;
+  esac
+}
+
+_claude_auto_mode() {
+  local -a auto_mode_commands
+  auto_mode_commands=(
+    'config:Print the effective auto mode config as JSON'
+    'critique:Get AI feedback on your custom auto mode rules'
+    'defaults:Print the default auto mode rules as JSON'
+    'reset:Reset auto mode configuration to the shipped defaults'
+    'help:Display help'
+  )
+
+  local curcontext="$curcontext" state line
+  typeset -A opt_args
+
+  _arguments -C \
+    '(-h --help)'{-h,--help}'[Display help for command]' \
+    '1: :->command' \
+    '*::arg:->args'
+
+  case $state in
+    command)
+      _describe -t commands 'auto-mode commands' auto_mode_commands
+      ;;
+    args)
+      case $words[1] in
+        config|critique|defaults|reset)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Display help for command]'
+          ;;
+      esac
+      ;;
+  esac
+}
+
+_claude_gateway() {
+  _arguments \
+    '--config[Path to gateway YAML config]:path:_files' \
+    '(-h --help)'{-h,--help}'[Display help for command]'
+}
+
+_claude_project() {
+  local -a project_commands
+  project_commands=(
+    'purge:Delete all Claude Code state for a project (transcripts, tasks, file history, config entry)'
+    'help:Display help'
+  )
+
+  local curcontext="$curcontext" state line
+  typeset -A opt_args
+
+  _arguments -C \
+    '(-h --help)'{-h,--help}'[Display help for command]' \
+    '1: :->command' \
+    '*::arg:->args'
+
+  case $state in
+    command)
+      _describe -t commands 'project commands' project_commands
+      ;;
+    args)
+      case $words[1] in
+        purge)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Display help for command]' \
+            '1:path:_directories'
+          ;;
+      esac
+      ;;
+  esac
+}
+
+_claude_ultrareview() {
+  _arguments \
+    '--json[Print the raw bugs.json payload instead of formatted findings]' \
+    '--timeout[Maximum minutes to wait for the review to finish]:minutes:' \
+    '(-h --help)'{-h,--help}'[Display help for command]' \
+    '1:target:'
 }
 
 (( $+_comps[claude] )) || compdef _claude claude
