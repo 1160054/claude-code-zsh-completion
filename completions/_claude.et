@@ -1,5 +1,6 @@
 #compdef claude
-# Dünaamilised automaattäite funktsioonid
+
+# Dynamic completion functions
 _claude_mcp_servers() {
   local config_file
   local -a server_list
@@ -24,40 +25,57 @@ _claude_mcp_servers() {
 _claude_installed_plugins() {
   local -a plugins
   local config_file plugin_dir
+
   # Check plugin directories directly
   for plugin_dir in ~/.claude/plugins ~/.config/claude/plugins; do
     [[ -d "$plugin_dir" ]] || continue
     plugins+=(${plugin_dir}/*(N:t))
   done
+
   # Remove duplicates
   plugins=(${(u)plugins})
+
   compadd -a plugins
 }
+
 _claude_sessions() {
   local -a sessions
   local session_dir
+
   # Check session directory
   for session_dir in ~/.claude/sessions ~/.config/claude/sessions; do
     [[ -d "$session_dir" ]] || continue
+
     # Extract UUIDs directly from filenames
     sessions+=(${session_dir}/*~*.zwc(N:t:r))
   done
+
   # Filter only valid UUIDs
   sessions=(${(M)sessions:#[0-9a-f](#c8)-[0-9a-f](#c4)-[0-9a-f](#c4)-[0-9a-f](#c4)-[0-9a-f](#c12)})
+
   compadd -a sessions
 }
+
 _claude() {
   local curcontext="$curcontext" state line
   typeset -A opt_args
+
   local -a main_commands
   main_commands=(
     'mcp:Konfigureeri ja halda MCP servereid'
     'plugin:Halda Claude Code pluginaid'
+    'agents:Halda taustaagente'
+    'auth:Halda autentimist'
+    'auto-mode:Kontrolli või lähtesta automaatrežiimi klassifikaatori konfiguratsioon'
+    'gateway:Käivita ettevõtte autentimise/telemeetria lüüs'
+    'project:Halda Claude Code projekti olekut'
+    'ultrareview:Käivita pilves majutatud mitmeagendiline koodiülevaatus ja prindi leiud'
     'setup-token:Seadista pikaajaline autentimismärk (nõuab Claude tellingut)'
     'doctor:Kontrolli Claude Code automaatse uuendamise süsteemi tervist'
     'update:Kontrolli ja installi uuendused'
     'install:Installi Claude Code natiivne versioon'
   )
+
   local -a main_options
   main_options=(
     '(-d --debug)'{-d,--debug}'[Lülita sisse silumisrežiim valikulise kategooriate filtreerimisega (nt "api,hooks" või "!statsig,!file")]:filter:'
@@ -70,6 +88,7 @@ _claude() {
     '--mcp-debug[\[Aegunud. Kasuta selle asemel --debug\] Lülita sisse MCP silumisrežiim (näitab MCP serveri vigu)]'
     '--dangerously-skip-permissions[Mööduge kõigist loarekontrollidest. Soovitatav ainult liivakastidele ilma internetiühenduseta]'
     '--allow-dangerously-skip-permissions[Võimalda loarekontrollide möödumise valik ilma vaikimisi lubamiseta]'
+    '--max-budget-usd[Maksimaalne dollarisumma API-kutsetele kulutamiseks (ainult --print)]:amount:'
     '--replay-user-messages[Saada kasutaja sõnumid uuesti stdin-ist stdout-i kinnitamiseks]'
     '--allowed-tools[Lubatud tööriistanimed komadega või tühikutega eraldatuna (nt "Bash(git:*) Edit")]:tools:'
     '--allowedTools[Lubatud tööriistanimed komadega või tühikutega eraldatuna (camelCase formaat)]:tools:'
@@ -79,11 +98,14 @@ _claude() {
     '--mcp-config[Laadi MCP serverid JSON failist või stringist (tühikutega eraldatud)]:configs:'
     '--system-prompt[Süsteemipäring sessioonis kasutamiseks]:prompt:'
     '--append-system-prompt[Lisa süsteemipäring vaikimisi süsteemipäringule]:prompt:'
-    '--permission-mode[Loarežiim sessioonis kasutamiseks]:mode:(acceptEdits bypassPermissions default dontAsk plan)'
+    '--permission-mode[Loarežiim sessioonis kasutamiseks]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)'
     '(-c --continue)'{-c,--continue}'[Jätka viimasest vestlusest]'
     '(-r --resume)'{-r,--resume}'[Jätka vestlust - määra sessiooni identifikaator või vali interaktiivselt]:sessionId:_claude_sessions'
     '--fork-session[Loo uus sessiooni identifikaator jätkamisel originaali taaskasutamise asemel (koos --resume või --continue)]'
+    '--no-session-persistence[Keela sessiooni püsivus - sessioone ei salvestata (ainult --print)]'
     '--model[Mudel praeguseks sessiooniks. Määra hüüdnimi uusimale mudelile (nt '\''sonnet'\'' või '\''opus'\'')]:model:'
+    '--agent[Agent praeguseks sessiooniks. Kirjutab üle '\''agent'\'' seade]:agent:'
+    '--betas[Beeta päised API päringutesse kaasamiseks (ainult API võtme kasutajad)]:betas:'
     '--fallback-model[Võimalda automaatne üleminek määratud mudelile, kui vaikemudel on ülekoormatud (ainult --print)]:model:'
     '--settings[Tee JSON seadete failini või JSON string lisaseadete laadimiseks]:file-or-json:_files'
     '--add-dir[Lisaks kataloogid tööriistadele juurdepääsu võimaldamiseks]:directories:_directories'
@@ -93,13 +115,37 @@ _claude() {
     '--agents[JSON objekt, mis määratleb kohandatud agendid]:json:'
     '--setting-sources[Seadete allikate loend komadega eraldatuna laadimiseks (user, project, local)]:sources:'
     '--plugin-dir[Kataloog pluginate laadimiseks ainult selle sessiooni jaoks (võib korda korda)]:paths:_directories'
+    '--disable-slash-commands[Keela kõik kaldkriipsukäsud]'
+    '(--bg --background)'{--bg,--background}'[Käivita sessioon taustaagendina ja naase kohe]'
+    '(-w --worktree)'{-w,--worktree}'[Loo selle sessiooni jaoks uus git worktree (valikuliselt määra nimi)]::name:'
+    '--tmux[Loo worktree jaoks tmux sessioon (nõuab --worktree)]'
+    '(-n --name)'{-n,--name}'[Määra selle sessiooni kuvatav nimi]:name:'
+    '--effort[Pingutuse tase praeguseks sessiooniks]:level:(low medium high xhigh max)'
+    '--debug-file[Kirjuta silumislogid konkreetsesse failiteesse (lubab kaudselt silumisrežiimi)]:path:_files'
+    '--from-pr[Jätka PR-iga seotud sessioon numbri/URL-i järgi või ava interaktiivne valija]::value:'
+    '--remote-control[Käivita interaktiivne sessioon lubatud kaugjuhtimisega (valikuliselt nimega)]::name:'
+    '--remote-control-session-name-prefix[Eesliide automaatselt genereeritud kaugjuhtimise sessiooninimedele]:prefix:'
+    '--chrome[Luba Claude Chrome'\''i integratsioon]'
+    '--no-chrome[Keela Claude Chrome'\''i integratsioon]'
+    '--plugin-url[Hangi plugina .zip URL-ist ainult selle sessiooni jaoks (korratav)]:url:'
+    '--file[Failiressursid käivitamisel allalaadimiseks (formaat: file_id:relative_path)]:specs:'
+    '--prompt-suggestions[Luba päringu soovitused (väljastab prognoositud järgmise päringu print/SDK režiimis)]::value:(true false 1 0 yes no on off)'
+    '--forward-subagent-text[Edasta alamagendi tekst ja mõtlemisplokid sõnumitena (koos --print ja stream-json)]'
+    '--include-hook-events[Kaasa kõik hooki elutsükli sündmused väljundvoogu (koos stream-json)]'
+    '--exclude-dynamic-system-prompt-sections[Teisalda masinapõhised sektsioonid esimesse kasutaja sõnumisse, et parandada päringu vahemälu taaskasutust]'
+    '--brief[Luba SendUserMessage tööriist agendi-kasutaja suhtluseks]'
+    '--safe-mode[Käivita kõigi kohanduste keelatuna (kasulik katkise konfiguratsiooni tõrkeotsinguks)]'
+    '--bare[Minimaalne režiim: jäta vahele hookid, LSP, plugina sünkroonimine, omistamine, automaatmälu ja CLAUDE.md automaatavastus]'
+    '--ax-screen-reader[Renderda ekraanilugejasõbralik väljund (lameda tekst, ilma dekoratiivsete äärte või animatsioonideta)]'
     '(-v --version)'{-v,--version}'[Väljasta versiooninumber]'
     '(-h --help)'{-h,--help}'[Kuva abi käsule]'
   )
+
   _arguments -C \
     $main_options \
     '1: :->command' \
     '*::arg:->args'
+
   case $state in
     command)
       _describe -t commands 'claude käsud' main_commands
@@ -115,6 +161,24 @@ _claude() {
         install)
           _claude_install
           ;;
+        agents)
+          _claude_agents
+          ;;
+        auth)
+          _claude_auth
+          ;;
+        auto-mode)
+          _claude_auto_mode
+          ;;
+        gateway)
+          _claude_gateway
+          ;;
+        project)
+          _claude_project
+          ;;
+        ultrareview)
+          _claude_ultrareview
+          ;;
         setup-token|doctor|update)
           _message "argumentideta"
           ;;
@@ -122,6 +186,7 @@ _claude() {
       ;;
   esac
 }
+
 _claude_mcp() {
   local -a mcp_commands
   mcp_commands=(
@@ -133,14 +198,19 @@ _claude_mcp() {
     'add-json:Lisa MCP server (stdio või SSE) JSON stringiga'
     'add-from-claude-desktop:Impordi MCP serverid Claude Desktopist (ainult Mac ja WSL)'
     'reset-project-choices:Lähtesta kõik heaks kiidetud/tagasi lükatud projekti ulatusega (.mcp.json) serverid selles projektis'
+    'login:Autendi MCP serveriga (HTTP, SSE või claude.ai konnektor)'
+    'logout:Kustuta MCP serveri salvestatud OAuth mandaadid'
     'help:Kuva abi'
   )
+
   local curcontext="$curcontext" state line
   typeset -A opt_args
+
   _arguments -C \
     '(-h --help)'{-h,--help}'[Kuva abi]' \
     '1: :->command' \
     '*::arg:->args'
+
   case $state in
     command)
       _describe -t commands 'mcp käsud' mcp_commands
@@ -195,29 +265,45 @@ _claude_mcp() {
           _arguments \
             '(-h --help)'{-h,--help}'[Kuva abi]'
           ;;
+        login|logout)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Kuva abi]' \
+            '1:name:_claude_mcp_servers'
+          ;;
       esac
       ;;
   esac
 }
+
 _claude_plugin() {
   local -a plugin_commands
   plugin_commands=(
     'validate:Valideeri plugin või turuplatsimanigest'
     'marketplace:Halda Claude Code turuplatse'
+    'list:Kuva installitud pluginate loend'
+    'details:Näita plugina komponentide loendit ja prognoositud tokenikulu'
     'install:Installi plugin saadaolevatelt turuplatsdelt'
     'i:Installi plugin saadaolevatelt turuplatsdelt (install lühend)'
+    'init:Genereeri uue plugina alusstruktuur (laadib automaatselt järgmisel sessioonil)'
     'uninstall:Eemalda installitud plugin'
     'remove:Eemalda installitud plugin (uninstall sünonüüm)'
     'enable:Luba keelatud plugin'
     'disable:Keela lubatud plugin'
+    'update:Uuenda plugin uusimale versioonile'
+    'eval:Käivita plugina hindamisjuhtumid ja raporteeri hinnatud tulemused'
+    'prune:Eemalda automaatselt installitud sõltuvused, mida enam ei vajata'
+    'tag:Loo plugina väljalaske jaoks {name}--v{version} git silt'
     'help:Kuva abi'
   )
+
   local curcontext="$curcontext" state line
   typeset -A opt_args
+
   _arguments -C \
     '(-h --help)'{-h,--help}'[Kuva abi]' \
     '1: :->command' \
     '*::arg:->args'
+
   case $state in
     command)
       _describe -t commands 'plugin käsud' plugin_commands
@@ -234,23 +320,57 @@ _claude_plugin() {
           ;;
         install|i)
           _arguments \
+            '(-s --scope)'{-s,--scope}'[Installimise ulatus]:scope:(user project local)' \
             '(-h --help)'{-h,--help}'[Kuva abi]' \
             '1:plugin:'
           ;;
         uninstall|remove)
           _arguments \
+            '(-s --scope)'{-s,--scope}'[Installimise ulatus]:scope:(user project local)' \
             '(-h --help)'{-h,--help}'[Kuva abi]' \
             '1:plugin:_claude_installed_plugins'
           ;;
         enable|disable)
           _arguments \
+            '(-s --scope)'{-s,--scope}'[Installimise ulatus]:scope:(user project local)' \
             '(-h --help)'{-h,--help}'[Kuva abi]' \
             '1:plugin:_claude_installed_plugins'
+          ;;
+        update)
+          _arguments \
+            '(-s --scope)'{-s,--scope}'[Installimise ulatus]:scope:(user project local managed)' \
+            '(-h --help)'{-h,--help}'[Kuva abi]' \
+            '1:plugin:_claude_installed_plugins'
+          ;;
+        list|prune)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Kuva abi]'
+          ;;
+        details)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Kuva abi]' \
+            '1:plugin:_claude_installed_plugins'
+          ;;
+        init)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Kuva abi]' \
+            '1:name:'
+          ;;
+        eval)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Kuva abi]' \
+            '1:target:'
+          ;;
+        tag)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Kuva abi]' \
+            '1:path:_files'
           ;;
       esac
       ;;
   esac
 }
+
 _claude_plugin_marketplace() {
   local -a marketplace_commands
   marketplace_commands=(
@@ -261,12 +381,15 @@ _claude_plugin_marketplace() {
     'update:Uuenda turuplats allikast - uuenda kõiki, kui nimi on määramata'
     'help:Kuva abi'
   )
+
   local curcontext="$curcontext" state line
   typeset -A opt_args
+
   _arguments -C \
     '(-h --help)'{-h,--help}'[Kuva abi]' \
     '1: :->command' \
     '*::arg:->args'
+
   case $state in
     command)
       _describe -t commands 'marketplace käsud' marketplace_commands
@@ -296,10 +419,142 @@ _claude_plugin_marketplace() {
       ;;
   esac
 }
+
 _claude_install() {
   _arguments \
     '--force[Sunniviisiline installimine isegi kui juba installitud]' \
     '(-h --help)'{-h,--help}'[Kuva abi]' \
     '::target:(stable latest)'
 }
+
+_claude_agents() {
+  _arguments \
+    '*--add-dir[Lisakataloog tööriistade juurdepääsu võimaldamiseks lähetatud sessioonides]:directory:_directories' \
+    '--agent[Vaikeagent agendivaatest lähetatud sessioonidele]:agent:' \
+    '--all[Koos --json: kaasa ka lõpetatud taustsessioonid]' \
+    '--allow-dangerously-skip-permissions[Tee loarekontrollide möödumise režiim kättesaadavaks lähetatud sessioonidele]' \
+    '--cwd[Näita ainult tee all alustatud taustsessioone]:path:_directories' \
+    '--dangerously-skip-permissions[--permission-mode bypassPermissions sünonüüm]' \
+    '--effort[Vaikimisi pingutuse tase lähetatud sessioonidele]:level:(low medium high xhigh max)' \
+    '--json[Prindi aktiivsed sessioonid JSON massiivina ja välju]' \
+    '*--mcp-config[MCP serveri konfiguratsioon lähetatud sessioonidele rakendamiseks]:config:' \
+    '--model[Vaikemudel agendivaatest lähetatud sessioonidele]:model:' \
+    '--permission-mode[Vaikimisi loarežiim lähetatud sessioonidele]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)' \
+    '*--plugin-dir[Laadi pluginad kataloogist agendivaatele ja lähetatud sessioonidele]:path:_directories' \
+    '--setting-sources[Seadete allikate loend komadega eraldatuna laadimiseks (user, project, local)]:sources:' \
+    '--settings[Rakendatav seadete fail või JSON string]:file-or-json:_files' \
+    '--strict-mcp-config[Kasuta lähetatud sessioonides ainult MCP servereid --mcp-config-ist]' \
+    '(-h --help)'{-h,--help}'[Kuva abi käsule]'
+}
+
+_claude_auth() {
+  local -a auth_commands
+  auth_commands=(
+    'login:Logi sisse oma Anthropic kontole'
+    'logout:Logi välja oma Anthropic kontolt'
+    'status:Näita autentimise olekut'
+    'help:Kuva abi'
+  )
+
+  local curcontext="$curcontext" state line
+  typeset -A opt_args
+
+  _arguments -C \
+    '(-h --help)'{-h,--help}'[Kuva abi käsule]' \
+    '1: :->command' \
+    '*::arg:->args'
+
+  case $state in
+    command)
+      _describe -t commands 'auth käsud' auth_commands
+      ;;
+    args)
+      case $words[1] in
+        login|logout|status)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Kuva abi käsule]'
+          ;;
+      esac
+      ;;
+  esac
+}
+
+_claude_auto_mode() {
+  local -a auto_mode_commands
+  auto_mode_commands=(
+    'config:Prindi kehtiv automaatrežiimi konfiguratsioon JSON-ina'
+    'critique:Saa AI tagasiside oma kohandatud automaatrežiimi reeglitele'
+    'defaults:Prindi vaikimisi automaatrežiimi reeglid JSON-ina'
+    'reset:Lähtesta automaatrežiimi konfiguratsioon tarnitud vaikeväärtustele'
+    'help:Kuva abi'
+  )
+
+  local curcontext="$curcontext" state line
+  typeset -A opt_args
+
+  _arguments -C \
+    '(-h --help)'{-h,--help}'[Kuva abi käsule]' \
+    '1: :->command' \
+    '*::arg:->args'
+
+  case $state in
+    command)
+      _describe -t commands 'auto-mode käsud' auto_mode_commands
+      ;;
+    args)
+      case $words[1] in
+        config|critique|defaults|reset)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Kuva abi käsule]'
+          ;;
+      esac
+      ;;
+  esac
+}
+
+_claude_gateway() {
+  _arguments \
+    '--config[Tee lüüsi YAML konfiguratsioonini]:path:_files' \
+    '(-h --help)'{-h,--help}'[Kuva abi käsule]'
+}
+
+_claude_project() {
+  local -a project_commands
+  project_commands=(
+    'purge:Kustuta projekti kogu Claude Code olek (transkriptsioonid, ülesanded, failiajalugu, konfiguratsioonikirje)'
+    'help:Kuva abi'
+  )
+
+  local curcontext="$curcontext" state line
+  typeset -A opt_args
+
+  _arguments -C \
+    '(-h --help)'{-h,--help}'[Kuva abi käsule]' \
+    '1: :->command' \
+    '*::arg:->args'
+
+  case $state in
+    command)
+      _describe -t commands 'project käsud' project_commands
+      ;;
+    args)
+      case $words[1] in
+        purge)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Kuva abi käsule]' \
+            '1:path:_directories'
+          ;;
+      esac
+      ;;
+  esac
+}
+
+_claude_ultrareview() {
+  _arguments \
+    '--json[Prindi töötlemata bugs.json andmed vormindatud leidude asemel]' \
+    '--timeout[Maksimaalne minutite arv ülevaatuse lõppemise ootamiseks]:minutes:' \
+    '(-h --help)'{-h,--help}'[Kuva abi käsule]' \
+    '1:target:'
+}
+
 (( $+_comps[claude] )) || compdef _claude claude

@@ -1,4 +1,5 @@
 #compdef claude
+
 # Dinamičke funkcije automatskog dopunjavanja
 _claude_mcp_servers() {
   local config_file
@@ -24,40 +25,57 @@ _claude_mcp_servers() {
 _claude_installed_plugins() {
   local -a plugins
   local config_file plugin_dir
+
   # Check plugin directories directly
   for plugin_dir in ~/.claude/plugins ~/.config/claude/plugins; do
     [[ -d "$plugin_dir" ]] || continue
     plugins+=(${plugin_dir}/*(N:t))
   done
+
   # Remove duplicates
   plugins=(${(u)plugins})
+
   compadd -a plugins
 }
+
 _claude_sessions() {
   local -a sessions
   local session_dir
+
   # Check session directory
   for session_dir in ~/.claude/sessions ~/.config/claude/sessions; do
     [[ -d "$session_dir" ]] || continue
+
     # Extract UUIDs directly from filenames
     sessions+=(${session_dir}/*~*.zwc(N:t:r))
   done
+
   # Filter only valid UUIDs
   sessions=(${(M)sessions:#[0-9a-f](#c8)-[0-9a-f](#c4)-[0-9a-f](#c4)-[0-9a-f](#c4)-[0-9a-f](#c12)})
+
   compadd -a sessions
 }
+
 _claude() {
   local curcontext="$curcontext" state line
   typeset -A opt_args
+
   local -a main_commands
   main_commands=(
     'mcp:Konfiguriranje i upravljanje MCP poslužiteljima'
     'plugin:Upravljanje dodacima Claude Code'
+    'agents:Upravljanje pozadinskim agentima'
+    'auth:Upravljanje autentifikacijom'
+    'auto-mode:Pregledaj ili resetiraj konfiguraciju klasifikatora automatskog načina'
+    'gateway:Pokreni enterprise pristupnik za autentifikaciju/telemetriju'
+    'project:Upravljanje stanjem projekta Claude Code'
+    'ultrareview:Pokreni višeagentski pregled koda u oblaku i ispiši nalaze'
     'setup-token:Postavljanje tokena za dugotrajnu autentifikaciju (zahtijeva Claude pretplatu)'
     'doctor:Provjera zdravlja sustava automatskih ažuriranja Claude Code'
     'update:Provjera i instalacija ažuriranja'
     'install:Instalacija izvorne verzije Claude Code'
   )
+
   local -a main_options
   main_options=(
     '(-d --debug)'{-d,--debug}'[Uključi način otklanjanja pogrešaka s opcionalnim filtriranjem kategorija (npr. "api,hooks" ili "!statsig,!file")]:filter:'
@@ -70,6 +88,7 @@ _claude() {
     '--mcp-debug[\[Zastarjelo. Koristite --debug umjesto toga\] Uključi način otklanjanja pogrešaka MCP (prikazuje greške MCP poslužitelja)]'
     '--dangerously-skip-permissions[Zaobiđi sve provjere dozvola. Preporučeno samo za sandbox okruženja bez pristupa internetu]'
     '--allow-dangerously-skip-permissions[Omogući opciju zaobilaženja provjera dozvola bez omogućavanja po zadanom]'
+    '--max-budget-usd[Maksimalni iznos u dolarima za potrošnju na API pozive (samo --print)]:amount:'
     '--replay-user-messages[Ponovno pošalji korisničke poruke iz stdin na stdout za potvrdu]'
     '--allowed-tools[Popis dopuštenih imena alata odvojenih zarezom ili razmakom (npr. "Bash(git:*) Edit")]:tools:'
     '--allowedTools[Popis dopuštenih imena alata odvojenih zarezom ili razmakom (format camelCase)]:tools:'
@@ -79,11 +98,14 @@ _claude() {
     '--mcp-config[Učitaj MCP poslužitelje iz JSON datoteke ili niza (odvojeni razmacima)]:configs:'
     '--system-prompt[Sistemski prompt za korištenje u sesiji]:prompt:'
     '--append-system-prompt[Dodaj sistemski prompt zadanom sistemskom promptu]:prompt:'
-    '--permission-mode[Način dozvola za korištenje u sesiji]:mode:(acceptEdits bypassPermissions default dontAsk plan)'
+    '--permission-mode[Način dozvola za korištenje u sesiji]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)'
     '(-c --continue)'{-c,--continue}'[Nastavi zadnji razgovor]'
     '(-r --resume)'{-r,--resume}'[Nastavi razgovor - navedite identifikator sesije ili odaberite interaktivno]:sessionId:_claude_sessions'
     '--fork-session[Stvori novi identifikator sesije umjesto ponovne uporabe izvornog prilikom nastavka (s --resume ili --continue)]'
+    '--no-session-persistence[Onemogući trajnost sesija - sesije se neće spremati (samo --print)]'
     '--model[Model za trenutnu sesiju. Navedite nadimak za najnoviji model (npr. '\''sonnet'\'' ili '\''opus'\'')]:model:'
+    '--agent[Agent za trenutnu sesiju. Nadjačava postavku '\''agent'\'']:agent:'
+    '--betas[Beta zaglavlja za uključivanje u API zahtjeve (samo za korisnike API ključa)]:betas:'
     '--fallback-model[Omogući automatsko prebacivanje na navedeni model kada je zadani model preopterećen (samo --print)]:model:'
     '--settings[Put do JSON datoteke s postavkama ili JSON niz za učitavanje dodatnih postavki]:file-or-json:_files'
     '--add-dir[Dodatni direktoriji za pružanje pristupa alatima]:directories:_directories'
@@ -93,13 +115,37 @@ _claude() {
     '--agents[JSON objekt koji definira prilagođene agente]:json:'
     '--setting-sources[Popis izvora postavki odvojenih zarezom za učitavanje (user, project, local)]:sources:'
     '--plugin-dir[Direktorij za učitavanje dodataka samo za ovu sesiju (može se ponavljati)]:paths:_directories'
+    '--disable-slash-commands[Onemogući sve slash naredbe]'
+    '(--bg --background)'{--bg,--background}'[Pokreni sesiju kao pozadinski agent i odmah se vrati]'
+    '(-w --worktree)'{-w,--worktree}'[Stvori novo git radno stablo za ovu sesiju (opcionalno navedite ime)]::name:'
+    '--tmux[Stvori tmux sesiju za radno stablo (zahtijeva --worktree)]'
+    '(-n --name)'{-n,--name}'[Postavi prikazano ime za ovu sesiju]:name:'
+    '--effort[Razina truda za trenutnu sesiju]:level:(low medium high xhigh max)'
+    '--debug-file[Zapiši dnevnike otklanjanja pogrešaka u određenu datoteku (implicitno omogućuje način otklanjanja pogrešaka)]:path:_files'
+    '--from-pr[Nastavi sesiju povezanu s PR-om po broju/URL-u ili otvori interaktivni izbornik]::value:'
+    '--remote-control[Pokreni interaktivnu sesiju s omogućenim daljinskim upravljanjem (opcionalno imenovanu)]::name:'
+    '--remote-control-session-name-prefix[Prefiks za automatski generirana imena sesija daljinskog upravljanja]:prefix:'
+    '--chrome[Omogući integraciju Claude u Chrome]'
+    '--no-chrome[Onemogući integraciju Claude u Chrome]'
+    '--plugin-url[Dohvati .zip dodatka s URL-a samo za ovu sesiju (može se ponavljati)]:url:'
+    '--file[Datotečni resursi za preuzimanje pri pokretanju (format: file_id:relative_path)]:specs:'
+    '--prompt-suggestions[Omogući prijedloge promptova (emitira predviđeni sljedeći prompt u print/SDK načinu)]::value:(true false 1 0 yes no on off)'
+    '--forward-subagent-text[Proslijedi tekst i blokove razmišljanja podagenta kao poruke (s --print i stream-json)]'
+    '--include-hook-events[Uključi sve događaje životnog ciklusa hookova u izlazni tok (s stream-json)]'
+    '--exclude-dynamic-system-prompt-sections[Premjesti odjeljke specifične za pojedini stroj u prvu korisničku poruku radi boljeg ponovnog korištenja predmemorije prompta]'
+    '--brief[Omogući alat SendUserMessage za komunikaciju agenta s korisnikom]'
+    '--safe-mode[Pokreni sa svim onemogućenim prilagodbama (korisno za rješavanje problema neispravne konfiguracije)]'
+    '--bare[Minimalni način: preskoči hookove, LSP, sinkronizaciju dodataka, atribuciju, automatsko pamćenje i automatsko otkrivanje CLAUDE.md]'
+    '--ax-screen-reader[Prikaži izlaz prilagođen čitačima zaslona (ravni tekst, bez dekorativnih obruba ili animacija)]'
     '(-v --version)'{-v,--version}'[Ispiši broj verzije]'
     '(-h --help)'{-h,--help}'[Prikaži pomoć za naredbu]'
   )
+
   _arguments -C \
     $main_options \
     '1: :->command' \
     '*::arg:->args'
+
   case $state in
     command)
       _describe -t commands 'naredbe claude' main_commands
@@ -115,6 +161,24 @@ _claude() {
         install)
           _claude_install
           ;;
+        agents)
+          _claude_agents
+          ;;
+        auth)
+          _claude_auth
+          ;;
+        auto-mode)
+          _claude_auto_mode
+          ;;
+        gateway)
+          _claude_gateway
+          ;;
+        project)
+          _claude_project
+          ;;
+        ultrareview)
+          _claude_ultrareview
+          ;;
         setup-token|doctor|update)
           _message "bez argumenata"
           ;;
@@ -122,6 +186,7 @@ _claude() {
       ;;
   esac
 }
+
 _claude_mcp() {
   local -a mcp_commands
   mcp_commands=(
@@ -133,14 +198,19 @@ _claude_mcp() {
     'add-json:Dodaj MCP poslužitelj (stdio ili SSE) s JSON nizom'
     'add-from-claude-desktop:Uvezi MCP poslužitelje iz Claude Desktop (samo Mac i WSL)'
     'reset-project-choices:Resetiraj sve odobrene/odbijene poslužitelje s opsegom projekta (.mcp.json) u ovom projektu'
+    'login:Autentificiraj se s MCP poslužiteljem (HTTP, SSE ili claude.ai konektor)'
+    'logout:Obriši pohranjene OAuth vjerodajnice za MCP poslužitelj'
     'help:Prikaži pomoć'
   )
+
   local curcontext="$curcontext" state line
   typeset -A opt_args
+
   _arguments -C \
     '(-h --help)'{-h,--help}'[Prikaži pomoć]' \
     '1: :->command' \
     '*::arg:->args'
+
   case $state in
     command)
       _describe -t commands 'naredbe mcp' mcp_commands
@@ -195,29 +265,45 @@ _claude_mcp() {
           _arguments \
             '(-h --help)'{-h,--help}'[Prikaži pomoć]'
           ;;
+        login|logout)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Prikaži pomoć]' \
+            '1:name:_claude_mcp_servers'
+          ;;
       esac
       ;;
   esac
 }
+
 _claude_plugin() {
   local -a plugin_commands
   plugin_commands=(
     'validate:Validiraj dodatak ili manifest tržišta'
     'marketplace:Upravljanje tržištima Claude Code'
+    'list:Prikaži popis instaliranih dodataka'
+    'details:Prikaži inventar komponenti i procijenjeni trošak tokena za dodatak'
     'install:Instaliraj dodatak iz dostupnih tržišta'
     'i:Instaliraj dodatak iz dostupnih tržišta (kratica za install)'
+    'init:Izradi kostur novog dodatka (automatski se učitava u sljedećoj sesiji)'
     'uninstall:Deinstaliraj instalirani dodatak'
     'remove:Deinstaliraj instalirani dodatak (nadimak za uninstall)'
     'enable:Omogući onemogućeni dodatak'
     'disable:Onemogući omogućeni dodatak'
+    'update:Ažuriraj dodatak na najnoviju verziju'
+    'eval:Pokreni eval slučajeve nad dodatkom i prijavi ocijenjene rezultate'
+    'prune:Ukloni automatski instalirane ovisnosti koje više nisu potrebne'
+    'tag:Stvori git oznaku {name}--v{version} za izdanje dodatka'
     'help:Prikaži pomoć'
   )
+
   local curcontext="$curcontext" state line
   typeset -A opt_args
+
   _arguments -C \
     '(-h --help)'{-h,--help}'[Prikaži pomoć]' \
     '1: :->command' \
     '*::arg:->args'
+
   case $state in
     command)
       _describe -t commands 'naredbe plugin' plugin_commands
@@ -234,23 +320,57 @@ _claude_plugin() {
           ;;
         install|i)
           _arguments \
+            '(-s --scope)'{-s,--scope}'[Opseg instalacije]:scope:(user project local)' \
             '(-h --help)'{-h,--help}'[Prikaži pomoć]' \
             '1:plugin:'
           ;;
         uninstall|remove)
           _arguments \
+            '(-s --scope)'{-s,--scope}'[Opseg instalacije]:scope:(user project local)' \
             '(-h --help)'{-h,--help}'[Prikaži pomoć]' \
             '1:plugin:_claude_installed_plugins'
           ;;
         enable|disable)
           _arguments \
+            '(-s --scope)'{-s,--scope}'[Opseg instalacije]:scope:(user project local)' \
             '(-h --help)'{-h,--help}'[Prikaži pomoć]' \
             '1:plugin:_claude_installed_plugins'
+          ;;
+        update)
+          _arguments \
+            '(-s --scope)'{-s,--scope}'[Opseg instalacije]:scope:(user project local managed)' \
+            '(-h --help)'{-h,--help}'[Prikaži pomoć]' \
+            '1:plugin:_claude_installed_plugins'
+          ;;
+        list|prune)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Prikaži pomoć]'
+          ;;
+        details)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Prikaži pomoć]' \
+            '1:plugin:_claude_installed_plugins'
+          ;;
+        init)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Prikaži pomoć]' \
+            '1:name:'
+          ;;
+        eval)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Prikaži pomoć]' \
+            '1:target:'
+          ;;
+        tag)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Prikaži pomoć]' \
+            '1:path:_files'
           ;;
       esac
       ;;
   esac
 }
+
 _claude_plugin_marketplace() {
   local -a marketplace_commands
   marketplace_commands=(
@@ -261,12 +381,15 @@ _claude_plugin_marketplace() {
     'update:Ažuriraj tržište iz izvora - ažuriraj sve ako ime nije navedeno'
     'help:Prikaži pomoć'
   )
+
   local curcontext="$curcontext" state line
   typeset -A opt_args
+
   _arguments -C \
     '(-h --help)'{-h,--help}'[Prikaži pomoć]' \
     '1: :->command' \
     '*::arg:->args'
+
   case $state in
     command)
       _describe -t commands 'naredbe marketplace' marketplace_commands
@@ -296,10 +419,142 @@ _claude_plugin_marketplace() {
       ;;
   esac
 }
+
 _claude_install() {
   _arguments \
     '--force[Prisilna instalacija čak i ako je već instalirano]' \
     '(-h --help)'{-h,--help}'[Prikaži pomoć]' \
     '::target:(stable latest)'
 }
+
+_claude_agents() {
+  _arguments \
+    '*--add-dir[Dodatni direktorij za pružanje pristupa alatima u dispečiranim sesijama]:directory:_directories' \
+    '--agent[Zadani agent za sesije dispečirane iz prikaza agenata]:agent:' \
+    '--all[Uz --json: uključi i dovršene pozadinske sesije]' \
+    '--allow-dangerously-skip-permissions[Učini način zaobilaženja dozvola dostupnim dispečiranim sesijama]' \
+    '--cwd[Prikaži samo pozadinske sesije pokrenute pod putanjom]:path:_directories' \
+    '--dangerously-skip-permissions[Nadimak za --permission-mode bypassPermissions]' \
+    '--effort[Zadana razina truda za dispečirane sesije]:level:(low medium high xhigh max)' \
+    '--json[Ispiši aktivne sesije kao JSON polje i izađi]' \
+    '*--mcp-config[Konfiguracija MCP poslužitelja za primjenu na dispečirane sesije]:config:' \
+    '--model[Zadani model za sesije dispečirane iz prikaza agenata]:model:' \
+    '--permission-mode[Zadani način dozvola za dispečirane sesije]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)' \
+    '*--plugin-dir[Učitaj dodatke iz direktorija za prikaz agenata i dispečirane sesije]:path:_directories' \
+    '--setting-sources[Popis izvora postavki odvojenih zarezom za učitavanje (user, project, local)]:sources:' \
+    '--settings[Datoteka postavki ili JSON niz za primjenu]:file-or-json:_files' \
+    '--strict-mcp-config[Koristi samo MCP poslužitelje iz --mcp-config u dispečiranim sesijama]' \
+    '(-h --help)'{-h,--help}'[Prikaži pomoć za naredbu]'
+}
+
+_claude_auth() {
+  local -a auth_commands
+  auth_commands=(
+    'login:Prijavi se u svoj Anthropic račun'
+    'logout:Odjavi se iz svog Anthropic računa'
+    'status:Prikaži status autentifikacije'
+    'help:Prikaži pomoć'
+  )
+
+  local curcontext="$curcontext" state line
+  typeset -A opt_args
+
+  _arguments -C \
+    '(-h --help)'{-h,--help}'[Prikaži pomoć za naredbu]' \
+    '1: :->command' \
+    '*::arg:->args'
+
+  case $state in
+    command)
+      _describe -t commands 'naredbe auth' auth_commands
+      ;;
+    args)
+      case $words[1] in
+        login|logout|status)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Prikaži pomoć za naredbu]'
+          ;;
+      esac
+      ;;
+  esac
+}
+
+_claude_auto_mode() {
+  local -a auto_mode_commands
+  auto_mode_commands=(
+    'config:Ispiši efektivnu konfiguraciju automatskog načina kao JSON'
+    'critique:Dobij AI povratnu informaciju o svojim prilagođenim pravilima automatskog načina'
+    'defaults:Ispiši zadana pravila automatskog načina kao JSON'
+    'reset:Resetiraj konfiguraciju automatskog načina na isporučene zadane vrijednosti'
+    'help:Prikaži pomoć'
+  )
+
+  local curcontext="$curcontext" state line
+  typeset -A opt_args
+
+  _arguments -C \
+    '(-h --help)'{-h,--help}'[Prikaži pomoć za naredbu]' \
+    '1: :->command' \
+    '*::arg:->args'
+
+  case $state in
+    command)
+      _describe -t commands 'naredbe auto-mode' auto_mode_commands
+      ;;
+    args)
+      case $words[1] in
+        config|critique|defaults|reset)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Prikaži pomoć za naredbu]'
+          ;;
+      esac
+      ;;
+  esac
+}
+
+_claude_gateway() {
+  _arguments \
+    '--config[Put do YAML konfiguracije pristupnika]:path:_files' \
+    '(-h --help)'{-h,--help}'[Prikaži pomoć za naredbu]'
+}
+
+_claude_project() {
+  local -a project_commands
+  project_commands=(
+    'purge:Izbriši sve stanje Claude Code za projekt (transkripti, zadaci, povijest datoteka, unos konfiguracije)'
+    'help:Prikaži pomoć'
+  )
+
+  local curcontext="$curcontext" state line
+  typeset -A opt_args
+
+  _arguments -C \
+    '(-h --help)'{-h,--help}'[Prikaži pomoć za naredbu]' \
+    '1: :->command' \
+    '*::arg:->args'
+
+  case $state in
+    command)
+      _describe -t commands 'naredbe project' project_commands
+      ;;
+    args)
+      case $words[1] in
+        purge)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Prikaži pomoć za naredbu]' \
+            '1:path:_directories'
+          ;;
+      esac
+      ;;
+  esac
+}
+
+_claude_ultrareview() {
+  _arguments \
+    '--json[Ispiši sirovi bugs.json sadržaj umjesto formatiranih nalaza]' \
+    '--timeout[Maksimalan broj minuta za čekanje na dovršetak pregleda]:minutes:' \
+    '(-h --help)'{-h,--help}'[Prikaži pomoć za naredbu]' \
+    '1:target:'
+}
+
 (( $+_comps[claude] )) || compdef _claude claude

@@ -1,4 +1,5 @@
 #compdef claude
+
 # Dynamic completion functions
 _claude_mcp_servers() {
   local config_file
@@ -24,82 +25,127 @@ _claude_mcp_servers() {
 _claude_installed_plugins() {
   local -a plugins
   local config_file plugin_dir
+
   # Check plugin directories directly
   for plugin_dir in ~/.claude/plugins ~/.config/claude/plugins; do
     [[ -d "$plugin_dir" ]] || continue
     plugins+=(${plugin_dir}/*(N:t))
   done
+
   # Remove duplicates
   plugins=(${(u)plugins})
+
   compadd -a plugins
 }
+
 _claude_sessions() {
   local -a sessions
   local session_dir
+
   # Check session directory
   for session_dir in ~/.claude/sessions ~/.config/claude/sessions; do
     [[ -d "$session_dir" ]] || continue
+
     # Extract UUIDs directly from filenames
     sessions+=(${session_dir}/*~*.zwc(N:t:r))
   done
+
   # Filter only valid UUIDs
   sessions=(${(M)sessions:#[0-9a-f](#c8)-[0-9a-f](#c4)-[0-9a-f](#c4)-[0-9a-f](#c4)-[0-9a-f](#c12)})
+
   compadd -a sessions
 }
+
 _claude() {
   local curcontext="$curcontext" state line
   typeset -A opt_args
+
   local -a main_commands
   main_commands=(
-    'mcp:Configure and manage MCP servers'
-    'plugin:Manage Claude Code plugins'
-    'setup-token:Set up long-term authentication token (requires Claude subscription)'
-    'doctor:Health check for Claude Code auto-updater'
-    'update:Check for and install updates'
-    'install:Install Claude Code native build'
+    'mcp:MCP སར་བར་ཚུ་རིམ་སྒྲིག་དང་འཛིན་སྐྱོང་འབད'
+    'plugin:Claude Code པ་ལག་ཚུ་འཛིན་སྐྱོང་འབད'
+    'agents:རྒྱབ་གཞིའི་ལས་བྱེད་ཚུ་འཛིན་སྐྱོང་འབད'
+    'auth:བདེན་དཔྱད་འཛིན་སྐྱོང་འབད'
+    'auto-mode:རང་བཞིན་ཐབས་ལམ་དབྱེ་བྱེད་ཀྱི་རིམ་སྒྲིག་ཞིབ་དཔྱད་ཡང་ན་སླར་སྒྲིག་འབད'
+    'gateway:ཚོང་ལས་ཀྱི་བདེན་དཔྱད/telemetry gateway གཡོག་བཀོལ'
+    'project:Claude Code ལས་འགུལ་གྱི་གནས་སྟངས་འཛིན་སྐྱོང་འབད'
+    'ultrareview:སྤྲིན་ནང་ལུ་བཞག་པའི་ལས་བྱེད་མང་གི་ཀོཌ་བསྐྱར་ཞིབ་གཡོག་བཀོལ་ཞིནམ་ལས་ཐོབ་གྲུབ་ཚུ་དཔར་བསྐྲུན་འབད'
+    'setup-token:ཡུན་རིང་བདེན་དཔྱད་ཀྱི་token སྒྲིག་བཀོད་འབད (Claude མངགས་ཉོ་དགོ)'
+    'doctor:Claude Code རང་བཞིན་དུས་མཐུན་བཟོ་མིའི་བདེ་ཐང་ཞིབ་དཔྱད'
+    'update:དུས་མཐུན་ཚུ་ཞིབ་དཔྱད་དང་སྒྲིག་བཞག་འབད'
+    'install:Claude Code native build སྒྲིག་བཞག་འབད'
   )
+
   local -a main_options
   main_options=(
-    '(-d --debug)'{-d,--debug}'[Enable debug mode with optional category filtering (e.g., "api,hooks" or "!statsig,!file")]:filter:'
-    '--verbose[Override verbose mode setting from config file]'
-    '(-p --print)'{-p,--print}'[Print response and exit (for use with pipes). Note: use only in trusted directories]'
-    '--output-format[Output format (with --print): "text" (default), "json" (single result), or "stream-json" (real-time streaming)]:format:(text json stream-json)'
-    '--json-schema[JSON schema for structured output validation]:schema:'
-    '--include-partial-messages[Include partial message chunks as they arrive (with --print and --output-format=stream-json)]'
-    '--input-format[Input format (with --print): "text" (default) or "stream-json" (real-time streaming input)]:format:(text stream-json)'
-    '--mcp-debug[\[Deprecated. Use --debug instead\] Enable MCP debug mode (shows MCP server errors)]'
-    '--dangerously-skip-permissions[Bypass all permission checks. Recommended only for sandboxes without internet access]'
-    '--allow-dangerously-skip-permissions[Enable option to bypass permission checks without enabling by default]'
-    '--replay-user-messages[Re-send user messages from stdin on stdout for confirmation]'
-    '--allowed-tools[Comma or space-separated list of allowed tool names (e.g., "Bash(git:*) Edit")]:tools:'
-    '--allowedTools[Comma or space-separated list of allowed tool names (camelCase format)]:tools:'
-    '--tools[Specify list of available tools from built-in set. Print mode only]:tools:'
-    '--disallowed-tools[Comma or space-separated list of disallowed tool names (e.g., "Bash(git:*) Edit")]:tools:'
-    '--disallowedTools[Comma or space-separated list of disallowed tool names (camelCase format)]:tools:'
-    '--mcp-config[Load MCP servers from JSON file or string (space-separated)]:configs:'
-    '--system-prompt[System prompt to use for session]:prompt:'
-    '--append-system-prompt[Append system prompt to default system prompt]:prompt:'
-    '--permission-mode[Permission mode to use for session]:mode:(acceptEdits bypassPermissions default dontAsk plan)'
-    '(-c --continue)'{-c,--continue}'[Continue the most recent conversation]'
-    '(-r --resume)'{-r,--resume}'[Resume a conversation - specify session ID or select interactively]:sessionId:_claude_sessions'
-    '--fork-session[Create new session ID instead of reusing original session ID when resuming (with --resume or --continue)]'
-    '--model[Model for current session. Specify alias for latest model (e.g., '\''sonnet'\'' or '\''opus'\'')]:model:'
-    '--fallback-model[Enable automatic fallback to specified model when default model is overloaded (--print only)]:model:'
-    '--settings[Path to settings JSON file or JSON string to load additional settings]:file-or-json:_files'
-    '--add-dir[Additional directories to allow tool access]:directories:_directories'
-    '--ide[Auto-connect to IDE on startup if exactly one valid IDE is available]'
-    '--strict-mcp-config[Use only MCP servers from --mcp-config and ignore all other MCP settings]'
-    '--session-id[Specific session ID to use for conversation (must be valid UUID)]:uuid:'
-    '--agents[JSON object defining custom agents]:json:'
-    '--setting-sources[Comma-separated list of setting sources to load (user, project, local)]:sources:'
-    '--plugin-dir[Directory to load plugins from for this session only (repeatable)]:paths:_directories'
-    '(-v --version)'{-v,--version}'[Output version number]'
-    '(-h --help)'{-h,--help}'[Display help for command]'
+    '(-d --debug)'{-d,--debug}'[དབྱེ་རིགས་ཚགས་མའི་གདམ་ཁ་དང་བཅས་རྙོག་སེལ་ཐབས་ལམ་ལྕོགས་ཅན་བཟོ (དཔེར་ན, "api,hooks" ཡང་ན "!statsig,!file")]:filter:'
+    '--verbose[རིམ་སྒྲིག་ཡིག་ཆ་ནང་ལས་ཞིབ་ཕྲའི་ཐབས་ལམ་སྒྲིག་སྟངས་ཚབ་བཙུགས]'
+    '(-p --print)'{-p,--print}'[ལན་དཔར་བསྐྲུན་འབད་ཞིནམ་ལས་ཕྱིར་ཐོན (pipes དང་གཅིག་ཁར་ལག་ལེན་གྱི་དོན་ལུ)། དྲན་གསོ: ཡིད་ཆེས་ཅན་གྱི་ཡིག་སྣོད་ནང་རྐྱངམ་ཅིག་ལག་ལེན་འཐབ]'
+    '--output-format[ཐོན་སྐྱེད་རྣམ་གཞག (--print དང་གཅིག་ཁར): "text" (སྔོན་སྒྲིག), "json" (གྲུབ་འབྲས་གཅིག), ཡང་ན "stream-json" (དུས་ཐོག་streaming)]:format:(text json stream-json)'
+    '--json-schema[གཞི་བཀོད་ཅན་གྱི་ཐོན་སྐྱེད་ར་སྤྲོད་ཀྱི་དོན་ལུ་JSON schema]:schema:'
+    '--include-partial-messages[འཕྲིན་དོན་གྱི་ཆ་ཤས་ཚུ་འབྱོར་བའི་སྐབས་ཚུད་བཅུག (--print དང་ --output-format=stream-json དང་གཅིག་ཁར)]'
+    '--input-format[ནང་བསྐྱོད་རྣམ་གཞག (--print དང་གཅིག་ཁར): "text" (སྔོན་སྒྲིག) ཡང་ན "stream-json" (དུས་ཐོག་streaming ནང་བསྐྱོད)]:format:(text stream-json)'
+    '--mcp-debug[\[ཕྱིར་བཀོལ། ཚབ་ལུ་ --debug ལག་ལེན་འཐབ\] MCP རྙོག་སེལ་ཐབས་ལམ་ལྕོགས་ཅན་བཟོ (MCP སར་བར་གྱི་འཛོལ་བ་སྟོན)]'
+    '--dangerously-skip-permissions[གནང་བའི་ཞིབ་དཔྱད་ཆ་མཉམ་ཟུར་བཤོལ། ཨིན་ཊར་ནེཊ་མེད་པའི་sandbox ཚུ་གི་དོན་ལུ་རྐྱངམ་ཅིག་འོས་སྦྱོར་འབད]'
+    '--allow-dangerously-skip-permissions[སྔོན་སྒྲིག་ཐོག་ལས་ལྕོགས་ཅན་མ་བཟོ་བར་གནང་བའི་ཞིབ་དཔྱད་ཟུར་བཤོལ་གྱི་གདམ་ཁ་ལྕོགས་ཅན་བཟོ]'
+    '--max-budget-usd[API call ཚུ་གུ་བཏང་ནིའི་ཌོ་ལར་གྱི་བསྡོམས་མང་མཐའ (--print རྐྱངམ་ཅིག)]:amount:'
+    '--replay-user-messages[ངེས་བརྟན་གྱི་དོན་ལུ་stdin ནང་ལས་ལག་ལེན་པའི་འཕྲིན་དོན་ཚུ་stdout གུ་སླར་གཏང]'
+    '--allowed-tools[ཆོག་པའི་ལག་ཆས་མིང་གི་ཐོ་ཡིག་comma ཡང་ན་བར་སྟོང་གིས་སོ་སོར་བཀོད (དཔེར་ན, "Bash(git:*) Edit")]:tools:'
+    '--allowedTools[ཆོག་པའི་ལག་ཆས་མིང་གི་ཐོ་ཡིག་comma ཡང་ན་བར་སྟོང་གིས་སོ་སོར་བཀོད (camelCase རྣམ་གཞག)]:tools:'
+    '--tools[ནང་འཁོད་set ནང་ལས་འཐོབ་ཚུགས་པའི་ལག་ཆས་ཀྱི་ཐོ་ཡིག་གསལ་བཀོད་འབད། Print ཐབས་ལམ་རྐྱངམ་ཅིག]:tools:'
+    '--disallowed-tools[ཆོག་མིན་ལག་ཆས་མིང་གི་ཐོ་ཡིག་comma ཡང་ན་བར་སྟོང་གིས་སོ་སོར་བཀོད (དཔེར་ན, "Bash(git:*) Edit")]:tools:'
+    '--disallowedTools[ཆོག་མིན་ལག་ཆས་མིང་གི་ཐོ་ཡིག་comma ཡང་ན་བར་སྟོང་གིས་སོ་སོར་བཀོད (camelCase རྣམ་གཞག)]:tools:'
+    '--mcp-config[JSON ཡིག་ཆ་ཡང་ན་string ནང་ལས་MCP སར་བར་ཚུ་མངོན་གསལ་འབད (བར་སྟོང་གིས་སོ་སོར)]:configs:'
+    '--system-prompt[ལས་ཐེངས་ཀྱི་དོན་ལུ་ལག་ལེན་འཐབ་ནིའི་རིམ་ལུགས་prompt]:prompt:'
+    '--append-system-prompt[སྔོན་སྒྲིག་རིམ་ལུགས་prompt ལུ་རིམ་ལུགས་prompt ཁ་སྐོང]:prompt:'
+    '--permission-mode[ལས་ཐེངས་ཀྱི་དོན་ལུ་ལག་ལེན་འཐབ་ནིའི་གནང་བའི་ཐབས་ལམ]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)'
+    '(-c --continue)'{-c,--continue}'[ཉེ་ཤོས་ཀྱི་གྲོས་གླེང་མུ་མཐུད]'
+    '(-r --resume)'{-r,--resume}'[གྲོས་གླེང་སླར་འགོ་བཙུགས - ལས་ཐེངས་ID གསལ་བཀོད་འབད་ཡང་ན་ཕན་ཚུན་འབྲེལ་ལམ་ཐོག་སེལ་འཐུ་འབད]:sessionId:_claude_sessions'
+    '--fork-session[སླར་འགོ་བཙུགས་པའི་སྐབས་ལས་ཐེངས་ID ཐོག་མ་སླར་ལག་ལེན་གྱི་ཚབ་ལུ་ལས་ཐེངས་ID གསརཔ་གསར་བསྐྲུན་འབད (--resume ཡང་ན་ --continue དང་གཅིག་ཁར)]'
+    '--no-session-persistence[ལས་ཐེངས་མུ་མཐུད་ལྕོགས་མེད་བཟོ - ལས་ཐེངས་ཚུ་སྲུང་བཞག་མི་འབད (--print རྐྱངམ་ཅིག)]'
+    '--model[ད་ལྟོའི་ལས་ཐེངས་ཀྱི་དོན་ལུ་དཔེ་གཞི། དཔེ་གཞི་ཨ་རྟག་ཤོས་ཀྱི་དོན་ལུ་མིང་ཚབ་གསལ་བཀོད་འབད (དཔེར་ན, '\''sonnet'\'' ཡང་ན་ '\''opus'\'')]:model:'
+    '--agent[ད་ལྟོའི་ལས་ཐེངས་ཀྱི་དོན་ལུ་ལས་བྱེད། '\''agent'\'' སྒྲིག་སྟངས་ཚབ་བཙུགས]:agent:'
+    '--betas[API ཞུ་བ་ཚུ་ནང་ཚུད་བཅུག་ནིའི་Beta header ཚུ (API key ལག་ལེན་པ་རྐྱངམ་ཅིག)]:betas:'
+    '--fallback-model[སྔོན་སྒྲིག་དཔེ་གཞི་ལུ་ཁུར་ཆ་ལྷག་པའི་སྐབས་གསལ་བཀོད་འབད་མི་དཔེ་གཞི་ལུ་རང་བཞིན་fallback ལྕོགས་ཅན་བཟོ (--print རྐྱངམ་ཅིག)]:model:'
+    '--settings[སྒྲིག་སྟངས་ཁ་སྐོང་མངོན་གསལ་འབད་ནིའི་སྒྲིག་སྟངས་JSON ཡིག་ཆ་ཡང་ན་JSON string གྱི་འགྲོ་ལམ]:file-or-json:_files'
+    '--add-dir[ལག་ཆས་འཛུལ་སྤྱོད་ཆོག་ནིའི་ཡིག་སྣོད་ཁ་སྐོང]:directories:_directories'
+    '--ide[ནུས་ཅན་IDE གཅིག་རྐྱངམ་ཅིག་འཐོབ་ཚུགས་པ་ཅིན་འགོ་བཙུགས་སྐབས་IDE ལུ་རང་བཞིན་མཐུད]'
+    '--strict-mcp-config[--mcp-config ནང་ལས་MCP སར་བར་རྐྱངམ་ཅིག་ལག་ལེན་འཐབ་ཞིནམ་ལས་MCP སྒྲིག་སྟངས་གཞན་ཆ་མཉམ་སྣང་མེད་བཞག]'
+    '--session-id[གྲོས་གླེང་གི་དོན་ལུ་ལག་ལེན་འཐབ་ནིའི་ལས་ཐེངས་ID དམིགས་བསལ (ནུས་ཅན་UUID དགོ)]:uuid:'
+    '--agents[སྲོལ་སྒྲིག་ལས་བྱེད་ཚུ་ངེས་འཛིན་འབད་མིའི་JSON object]:json:'
+    '--setting-sources[མངོན་གསལ་འབད་ནིའི་སྒྲིག་སྟངས་འབྱུང་ཁུངས་ཀྱི་ཐོ་ཡིག་comma གིས་སོ་སོར (user, project, local)]:sources:'
+    '--plugin-dir[ལས་ཐེངས་འདི་གི་དོན་ལུ་རྐྱངམ་ཅིག་པ་ལག་མངོན་གསལ་འབད་ནིའི་ཡིག་སྣོད (ཡང་བསྐྱར་བཏུབ)]:paths:_directories'
+    '--disable-slash-commands[slash བརྡ་བཀོད་ཆ་མཉམ་ལྕོགས་མེད་བཟོ]'
+    '(--bg --background)'{--bg,--background}'[ལས་ཐེངས་རྒྱབ་གཞིའི་ལས་བྱེད་སྦེ་འགོ་བཙུགས་ཞིནམ་ལས་འཕྲལ་ལས་ལོག]'
+    '(-w --worktree)'{-w,--worktree}'[ལས་ཐེངས་འདི་གི་དོན་ལུ་git worktree གསརཔ་གསར་བསྐྲུན་འབད (གདམ་ཁ་ཅན་སྦེ་མིང་གསལ་བཀོད་འབད)]::name:'
+    '--tmux[worktree གི་དོན་ལུ་tmux ལས་ཐེངས་གསར་བསྐྲུན་འབད (--worktree དགོ)]'
+    '(-n --name)'{-n,--name}'[ལས་ཐེངས་འདི་གི་དོན་ལུ་བཀྲམ་སྟོན་མིང་སྒྲིག]:name:'
+    '--effort[ད་ལྟོའི་ལས་ཐེངས་ཀྱི་དོན་ལུ་འབད་བརྩོན་གྱི་གནས་རིམ]:level:(low medium high xhigh max)'
+    '--debug-file[རྙོག་སེལ་log ཚུ་ཡིག་ཆ་འགྲོ་ལམ་དམིགས་བསལ་ཅིག་ལུ་བྲིས (ཤུགས་ཀྱིས་རྙོག་སེལ་ཐབས་ལམ་ལྕོགས་ཅན་བཟོ)]:path:_files'
+    '--from-pr[ཨང་གྲངས/URL གྱིས་PR ལུ་འབྲེལ་མཐུད་འབད་མི་ལས་ཐེངས་སླར་འགོ་བཙུགས, ཡང་ན་ཕན་ཚུན་འབྲེལ་ལམ་སེལ་འཐུ་པ་ཁ་ཕྱེ]::value:'
+    '--remote-control[Remote Control ལྕོགས་ཅན་བཟོ་སྟེ་ཕན་ཚུན་འབྲེལ་ལམ་ལས་ཐེངས་འགོ་བཙུགས (གདམ་ཁ་ཅན་སྦེ་མིང་བཏགས)]::name:'
+    '--remote-control-session-name-prefix[རང་བཞིན་བཟོ་མིའི་Remote Control ལས་ཐེངས་མིང་གི་དོན་ལུ་སྔོན་ཚིག]:prefix:'
+    '--chrome[Chrome ནང་Claude ཟླ་སྒྲིལ་ལྕོགས་ཅན་བཟོ]'
+    '--no-chrome[Chrome ནང་Claude ཟླ་སྒྲིལ་ལྕོགས་མེད་བཟོ]'
+    '--plugin-url[ལས་ཐེངས་འདི་གི་དོན་ལུ་རྐྱངམ་ཅིག་URL ནང་ལས་པ་ལག་.zip ལེན (ཡང་བསྐྱར་བཏུབ)]:url:'
+    '--file[འགོ་བཙུགས་སྐབས་ཕབ་ལེན་འབད་ནིའི་ཡིག་ཆའི་ཐོན་ཁུངས (རྣམ་གཞག: file_id:relative_path)]:specs:'
+    '--prompt-suggestions[prompt བསམ་འཆར་ལྕོགས་ཅན་བཟོ (print/SDK ཐབས་ལམ་ནང་སྔོན་དཔག་འབད་མི་prompt ཤུལ་མམ་སྟོན)]::value:(true false 1 0 yes no on off)'
+    '--forward-subagent-text[subagent ཚིག་ཡིག་དང་བསམ་བློའི་block ཚུ་འཕྲིན་དོན་སྦེ་གདོང་བསྐྱོད (--print དང་stream-json དང་གཅིག་ཁར)]'
+    '--include-hook-events[ཐོན་སྐྱེད་stream ནང་hook ཚེ་སྲོག་གི་བྱུང་ལས་ཆ་མཉམ་ཚུད་བཅུག (stream-json དང་གཅིག་ཁར)]'
+    '--exclude-dynamic-system-prompt-sections[prompt-cache སླར་ལག་ལེན་ཡར་དྲག་གཏང་ནིའི་དོན་ལུ་འཕྲུལ་ཆས་རེ་རེའི་དབྱེ་ཚན་ཚུ་ལག་ལེན་པའི་འཕྲིན་དོན་དང་པའི་ནང་སྤོ]'
+    '--brief[ལས་བྱེད་ལས་ལག་ལེན་པ་ལུ་བརྒྱུད་འབྲེལ་གྱི་དོན་ལུ་SendUserMessage ལག་ཆས་ལྕོགས་ཅན་བཟོ]'
+    '--safe-mode[སྲོལ་སྒྲིག་ཆ་མཉམ་ལྕོགས་མེད་བཟོ་སྟེ་འགོ་བཙུགས (རིམ་སྒྲིག་ཆག་པ་ཅིག་གི་དཀའ་ངལ་སེལ་ནིའི་དོན་ལུ་ཕན་ཐོགས)]'
+    '--bare[ཉུང་མཐའི་ཐབས་ལམ: hooks, LSP, པ་ལག་sync, attribution, auto-memory, དང་CLAUDE.md རང་བཞིན་འཚོལ་རྙེད་ཚུ་གནས་སྐབས་བཞག]'
+    '--ax-screen-reader[screen-reader ལུ་མཐུན་པའི་ཐོན་སྐྱེད་སྟོན (ཚིག་ཡིག་ལེབ་ཏོག་ཏོ, མཛེས་རྒྱན་མཐའ་མཚམས་ཡང་ན་འགུལ་བསྐྱོད་མེད)]'
+    '(-v --version)'{-v,--version}'[ཐོན་རིམ་ཨང་གྲངས་ཐོན་སྐྱེད]'
+    '(-h --help)'{-h,--help}'[བརྡ་བཀོད་ཀྱི་དོན་ལུ་རོགས་རམ་སྟོན]'
   )
+
   _arguments -C \
     $main_options \
     '1: :->command' \
     '*::arg:->args'
+
   case $state in
     command)
       _describe -t commands 'claude བརྡ་བཀོད' main_commands
@@ -115,6 +161,24 @@ _claude() {
         install)
           _claude_install
           ;;
+        agents)
+          _claude_agents
+          ;;
+        auth)
+          _claude_auth
+          ;;
+        auto-mode)
+          _claude_auto_mode
+          ;;
+        gateway)
+          _claude_gateway
+          ;;
+        project)
+          _claude_project
+          ;;
+        ultrareview)
+          _claude_ultrareview
+          ;;
         setup-token|doctor|update)
           _message "སྒྲུབ་རྟགས་མེད"
           ;;
@@ -122,25 +186,31 @@ _claude() {
       ;;
   esac
 }
+
 _claude_mcp() {
   local -a mcp_commands
   mcp_commands=(
-    'serve:Start a Claude Code MCP server'
-    'add:Add an MCP server to Claude Code'
-    'remove:Remove an MCP server'
-    'list:List configured MCP servers'
-    'get:Get MCP server details'
-    'add-json:Add an MCP server (stdio or SSE) with JSON string'
-    'add-from-claude-desktop:Import MCP servers from Claude Desktop (Mac and WSL only)'
-    'reset-project-choices:Reset all approved/rejected project-scoped (.mcp.json) servers in this project'
-    'help:Display help'
+    'serve:Claude Code MCP སར་བར་འགོ་བཙུགས'
+    'add:Claude Code ལུ་MCP སར་བར་ཅིག་ཁ་སྐོང'
+    'remove:MCP སར་བར་ཅིག་རྩ་བསྐྲད་གཏང'
+    'list:རིམ་སྒྲིག་འབད་མི་MCP སར་བར་ཚུ་ཐོ་བཀོད'
+    'get:MCP སར་བར་གྱི་རྒྱས་བཤད་ལེན'
+    'add-json:JSON string དང་གཅིག་ཁར་MCP སར་བར་ཅིག་ཁ་སྐོང (stdio ཡང་ན་SSE)'
+    'add-from-claude-desktop:Claude Desktop ནང་ལས་MCP སར་བར་ཚུ་ནང་འདྲེན་འབད (Mac དང་WSL རྐྱངམ་ཅིག)'
+    'reset-project-choices:ལས་འགུལ་འདི་ནང་གནང་བ/ངོས་ལེན་མ་འབད་མི་project-scoped (.mcp.json) སར་བར་ཆ་མཉམ་སླར་སྒྲིག་འབད'
+    'login:MCP སར་བར་ཅིག་དང་གཅིག་ཁར་བདེན་དཔྱད་འབད (HTTP, SSE, ཡང་ན་claude.ai connector)'
+    'logout:MCP སར་བར་ཅིག་གི་དོན་ལུ་བསག་བཞག་པའི་OAuth ཡིད་ཆེས་ལག་ཁྱེར་ཚུ་བསལ'
+    'help:རོགས་རམ་སྟོན'
   )
+
   local curcontext="$curcontext" state line
   typeset -A opt_args
+
   _arguments -C \
-    '(-h --help)'{-h,--help}'[Display help]' \
+    '(-h --help)'{-h,--help}'[རོགས་རམ་སྟོན]' \
     '1: :->command' \
     '*::arg:->args'
+
   case $state in
     command)
       _describe -t commands 'mcp བརྡ་བཀོད' mcp_commands
@@ -149,75 +219,91 @@ _claude_mcp() {
       case $words[1] in
         serve)
           _arguments \
-            '(-d --debug)'{-d,--debug}'[Enable debug mode]' \
-            '--verbose[Override verbose mode setting from config file]' \
-            '(-h --help)'{-h,--help}'[Display help]'
+            '(-d --debug)'{-d,--debug}'[རྙོག་སེལ་ཐབས་ལམ་ལྕོགས་ཅན་བཟོ]' \
+            '--verbose[རིམ་སྒྲིག་ཡིག་ཆ་ནང་ལས་ཞིབ་ཕྲའི་ཐབས་ལམ་སྒྲིག་སྟངས་ཚབ་བཙུགས]' \
+            '(-h --help)'{-h,--help}'[རོགས་རམ་སྟོན]'
           ;;
         add)
           _arguments \
-            '(-s --scope)'{-s,--scope}'[Config scope (local, user, project)]:scope:(local user project)' \
-            '(-t --transport)'{-t,--transport}'[Transport type (stdio, sse, http)]:transport:(stdio sse http)' \
-            '(-e --env)'{-e,--env}'[Set environment variable (e.g., -e KEY=value)]:env:' \
-            '(-H --header)'{-H,--header}'[Set WebSocket header]:header:' \
-            '(-h --help)'{-h,--help}'[Display help]' \
+            '(-s --scope)'{-s,--scope}'[རིམ་སྒྲིག་ཁྱབ་ཚད (local, user, project)]:scope:(local user project)' \
+            '(-t --transport)'{-t,--transport}'[སྐྱེལ་འདྲེན་དབྱེ་བ (stdio, sse, http)]:transport:(stdio sse http)' \
+            '(-e --env)'{-e,--env}'[མཐའ་འཁོར་གྱི་འགྱུར་ཅན་སྒྲིག (དཔེར་ན, -e KEY=value)]:env:' \
+            '(-H --header)'{-H,--header}'[WebSocket header སྒྲིག]:header:' \
+            '(-h --help)'{-h,--help}'[རོགས་རམ་སྟོན]' \
             '1:name:' \
             '2:commandOrUrl:' \
             '*:args:'
           ;;
         remove)
           _arguments \
-            '(-s --scope)'{-s,--scope}'[Config scope (local, user, project) - remove from existing scope if unspecified]:scope:(local user project)' \
-            '(-h --help)'{-h,--help}'[Display help]' \
+            '(-s --scope)'{-s,--scope}'[རིམ་སྒྲིག་ཁྱབ་ཚད (local, user, project) - གསལ་བཀོད་མ་འབད་བ་ཅིན་ད་ལྟོ་ཡོད་པའི་ཁྱབ་ཚད་ནང་ལས་རྩ་བསྐྲད་གཏང]:scope:(local user project)' \
+            '(-h --help)'{-h,--help}'[རོགས་རམ་སྟོན]' \
             '1:name:_claude_mcp_servers'
           ;;
         list)
           _arguments \
-            '(-h --help)'{-h,--help}'[Display help]'
+            '(-h --help)'{-h,--help}'[རོགས་རམ་སྟོན]'
           ;;
         get)
           _arguments \
-            '(-h --help)'{-h,--help}'[Display help]' \
+            '(-h --help)'{-h,--help}'[རོགས་རམ་སྟོན]' \
             '1:name:_claude_mcp_servers'
           ;;
         add-json)
           _arguments \
-            '(-s --scope)'{-s,--scope}'[Config scope (local, user, project)]:scope:(local user project)' \
-            '(-h --help)'{-h,--help}'[Display help]' \
+            '(-s --scope)'{-s,--scope}'[རིམ་སྒྲིག་ཁྱབ་ཚད (local, user, project)]:scope:(local user project)' \
+            '(-h --help)'{-h,--help}'[རོགས་རམ་སྟོན]' \
             '1:name:' \
             '2:json:'
           ;;
         add-from-claude-desktop)
           _arguments \
-            '(-s --scope)'{-s,--scope}'[Config scope (local, user, project)]:scope:(local user project)' \
-            '(-h --help)'{-h,--help}'[Display help]'
+            '(-s --scope)'{-s,--scope}'[རིམ་སྒྲིག་ཁྱབ་ཚད (local, user, project)]:scope:(local user project)' \
+            '(-h --help)'{-h,--help}'[རོགས་རམ་སྟོན]'
           ;;
         reset-project-choices)
           _arguments \
-            '(-h --help)'{-h,--help}'[Display help]'
+            '(-h --help)'{-h,--help}'[རོགས་རམ་སྟོན]'
+          ;;
+        login|logout)
+          _arguments \
+            '(-h --help)'{-h,--help}'[རོགས་རམ་སྟོན]' \
+            '1:name:_claude_mcp_servers'
           ;;
       esac
       ;;
   esac
 }
+
 _claude_plugin() {
   local -a plugin_commands
   plugin_commands=(
-    'validate:Validate a plugin or marketplace manifest'
-    'marketplace:Manage Claude Code marketplaces'
-    'install:Install a plugin from available marketplaces'
-    'i:Install a plugin from available marketplaces (short for install)'
-    'uninstall:Uninstall an installed plugin'
-    'remove:Uninstall an installed plugin (alias for uninstall)'
-    'enable:Enable a disabled plugin'
-    'disable:Disable an enabled plugin'
-    'help:Display help'
+    'validate:པ་ལག་ཡང་ན་ཚོང་ཁང་གི་manifest ར་སྤྲོད་འབད'
+    'marketplace:Claude Code ཚོང་ཁང་ཚུ་འཛིན་སྐྱོང་འབད'
+    'list:སྒྲིག་བཞག་འབད་མི་པ་ལག་ཚུ་ཐོ་བཀོད'
+    'details:པ་ལག་ཅིག་གི་དོན་ལུ་ཆ་ཤས་ཀྱི་ཐོ་དེབ་དང་སྔོན་རྩིས་token གོང་ཚད་སྟོན'
+    'install:འཐོབ་ཚུགས་པའི་ཚོང་ཁང་ཚུ་ནང་ལས་པ་ལག་ཅིག་སྒྲིག་བཞག་འབད'
+    'i:འཐོབ་ཚུགས་པའི་ཚོང་ཁང་ཚུ་ནང་ལས་པ་ལག་ཅིག་སྒྲིག་བཞག་འབད (install གྱི་ཐུང་ཀུ)'
+    'init:པ་ལག་གསརཔ་ཅིག་བཟོ་བཀོད་འབད (ལས་ཐེངས་ཤུལ་མམ་རང་བཞིན་མངོན་གསལ)'
+    'uninstall:སྒྲིག་བཞག་འབད་མི་པ་ལག་ཅིག་ཕྱིར་བཤུ'
+    'remove:སྒྲིག་བཞག་འབད་མི་པ་ལག་ཅིག་ཕྱིར་བཤུ (uninstall གྱི་མིང་ཚབ)'
+    'enable:ལྕོགས་མེད་བཟོ་མི་པ་ལག་ཅིག་ལྕོགས་ཅན་བཟོ'
+    'disable:ལྕོགས་ཅན་བཟོ་མི་པ་ལག་ཅིག་ལྕོགས་མེད་བཟོ'
+    'update:པ་ལག་ཅིག་ཐོན་རིམ་ཨ་རྟག་ཤོས་ལུ་དུས་མཐུན་བཟོ'
+    'eval:པ་ལག་ཅིག་ལུ་eval case ཚུ་གཡོག་བཀོལ་ཞིནམ་ལས་སྐུགས་ཐོབ་གྲུབ་འབྲས་ཚུ་སྙན་ཞུ་འབད'
+    'prune:ད་ལས་ཕར་མི་དགོ་པའི་རང་བཞིན་སྒྲིག་བཞག་བརྟེན་ཁུངས་ཚུ་རྩ་བསྐྲད་གཏང'
+    'tag:པ་ལག་འགྲེམ་སྤེལ་གྱི་དོན་ལུ་{name}--v{version} git tag ཅིག་གསར་བསྐྲུན་འབད'
+    'help:རོགས་རམ་སྟོན'
   )
+
   local curcontext="$curcontext" state line
   typeset -A opt_args
+
   _arguments -C \
-    '(-h --help)'{-h,--help}'[Display help]' \
+    '(-h --help)'{-h,--help}'[རོགས་རམ་སྟོན]' \
     '1: :->command' \
     '*::arg:->args'
+
   case $state in
     command)
       _describe -t commands 'པ་ལག་བརྡ་བཀོད' plugin_commands
@@ -226,7 +312,7 @@ _claude_plugin() {
       case $words[1] in
         validate)
           _arguments \
-            '(-h --help)'{-h,--help}'[Display help]' \
+            '(-h --help)'{-h,--help}'[རོགས་རམ་སྟོན]' \
             '1:path:_files'
           ;;
         marketplace)
@@ -234,39 +320,76 @@ _claude_plugin() {
           ;;
         install|i)
           _arguments \
-            '(-h --help)'{-h,--help}'[Display help]' \
+            '(-s --scope)'{-s,--scope}'[སྒྲིག་བཞག་ཁྱབ་ཚད]:scope:(user project local)' \
+            '(-h --help)'{-h,--help}'[རོགས་རམ་སྟོན]' \
             '1:plugin:'
           ;;
         uninstall|remove)
           _arguments \
-            '(-h --help)'{-h,--help}'[Display help]' \
+            '(-s --scope)'{-s,--scope}'[སྒྲིག་བཞག་ཁྱབ་ཚད]:scope:(user project local)' \
+            '(-h --help)'{-h,--help}'[རོགས་རམ་སྟོན]' \
             '1:plugin:_claude_installed_plugins'
           ;;
         enable|disable)
           _arguments \
-            '(-h --help)'{-h,--help}'[Display help]' \
+            '(-s --scope)'{-s,--scope}'[སྒྲིག་བཞག་ཁྱབ་ཚད]:scope:(user project local)' \
+            '(-h --help)'{-h,--help}'[རོགས་རམ་སྟོན]' \
             '1:plugin:_claude_installed_plugins'
+          ;;
+        update)
+          _arguments \
+            '(-s --scope)'{-s,--scope}'[སྒྲིག་བཞག་ཁྱབ་ཚད]:scope:(user project local managed)' \
+            '(-h --help)'{-h,--help}'[རོགས་རམ་སྟོན]' \
+            '1:plugin:_claude_installed_plugins'
+          ;;
+        list|prune)
+          _arguments \
+            '(-h --help)'{-h,--help}'[རོགས་རམ་སྟོན]'
+          ;;
+        details)
+          _arguments \
+            '(-h --help)'{-h,--help}'[རོགས་རམ་སྟོན]' \
+            '1:plugin:_claude_installed_plugins'
+          ;;
+        init)
+          _arguments \
+            '(-h --help)'{-h,--help}'[རོགས་རམ་སྟོན]' \
+            '1:name:'
+          ;;
+        eval)
+          _arguments \
+            '(-h --help)'{-h,--help}'[རོགས་རམ་སྟོན]' \
+            '1:target:'
+          ;;
+        tag)
+          _arguments \
+            '(-h --help)'{-h,--help}'[རོགས་རམ་སྟོན]' \
+            '1:path:_files'
           ;;
       esac
       ;;
   esac
 }
+
 _claude_plugin_marketplace() {
   local -a marketplace_commands
   marketplace_commands=(
-    'add:Add a marketplace from URL, path, or GitHub repository'
-    'list:List configured marketplaces'
-    'remove:Remove a configured marketplace'
-    'rm:Remove a configured marketplace (alias for remove)'
-    'update:Update marketplace from source - update all if no name specified'
-    'help:Display help'
+    'add:URL, འགྲོ་ལམ, ཡང་ན་GitHub repository ནང་ལས་ཚོང་ཁང་ཅིག་ཁ་སྐོང'
+    'list:རིམ་སྒྲིག་འབད་མི་ཚོང་ཁང་ཚུ་ཐོ་བཀོད'
+    'remove:རིམ་སྒྲིག་འབད་མི་ཚོང་ཁང་ཅིག་རྩ་བསྐྲད་གཏང'
+    'rm:རིམ་སྒྲིག་འབད་མི་ཚོང་ཁང་ཅིག་རྩ་བསྐྲད་གཏང (remove གྱི་མིང་ཚབ)'
+    'update:འབྱུང་ཁུངས་ནང་ལས་ཚོང་ཁང་དུས་མཐུན་བཟོ - མིང་གསལ་བཀོད་མ་འབད་བ་ཅིན་ཆ་མཉམ་དུས་མཐུན་བཟོ'
+    'help:རོགས་རམ་སྟོན'
   )
+
   local curcontext="$curcontext" state line
   typeset -A opt_args
+
   _arguments -C \
-    '(-h --help)'{-h,--help}'[Display help]' \
+    '(-h --help)'{-h,--help}'[རོགས་རམ་སྟོན]' \
     '1: :->command' \
     '*::arg:->args'
+
   case $state in
     command)
       _describe -t commands 'ཚོང་ཁང་བརྡ་བཀོད' marketplace_commands
@@ -275,31 +398,163 @@ _claude_plugin_marketplace() {
       case $words[1] in
         add)
           _arguments \
-            '(-h --help)'{-h,--help}'[Display help]' \
+            '(-h --help)'{-h,--help}'[རོགས་རམ་སྟོན]' \
             '1:source:'
           ;;
         list)
           _arguments \
-            '(-h --help)'{-h,--help}'[Display help]'
+            '(-h --help)'{-h,--help}'[རོགས་རམ་སྟོན]'
           ;;
         remove|rm)
           _arguments \
-            '(-h --help)'{-h,--help}'[Display help]' \
+            '(-h --help)'{-h,--help}'[རོགས་རམ་སྟོན]' \
             '1:name:'
           ;;
         update)
           _arguments \
-            '(-h --help)'{-h,--help}'[Display help]' \
+            '(-h --help)'{-h,--help}'[རོགས་རམ་སྟོན]' \
             '::name:'
           ;;
       esac
       ;;
   esac
 }
+
 _claude_install() {
   _arguments \
-    '--force[Force install even if already installed]' \
-    '(-h --help)'{-h,--help}'[Display help]' \
+    '--force[ཧེ་མ་ལས་སྒྲིག་བཞག་འབད་ཡོད་རུང་བཙན་གྱིས་སྒྲིག་བཞག་འབད]' \
+    '(-h --help)'{-h,--help}'[རོགས་རམ་སྟོན]' \
     '::target:(stable latest)'
 }
+
+_claude_agents() {
+  _arguments \
+    '*--add-dir[གཏང་བའི་ལས་ཐེངས་ཚུ་ནང་ལག་ཆས་འཛུལ་སྤྱོད་ཆོག་ནིའི་ཡིག་སྣོད་ཁ་སྐོང]:directory:_directories' \
+    '--agent[ལས་བྱེད་མཐོང་སྣང་ནང་ལས་གཏང་བའི་ལས་ཐེངས་ཚུ་གི་དོན་ལུ་སྔོན་སྒྲིག་ལས་བྱེད]:agent:' \
+    '--all[--json དང་གཅིག་ཁར: མཇུག་བསྡུ་བའི་རྒྱབ་གཞིའི་ལས་ཐེངས་ཚུ་ཡང་ཚུད་བཅུག]' \
+    '--allow-dangerously-skip-permissions[གཏང་བའི་ལས་ཐེངས་ཚུ་ལུ་bypass-permissions ཐབས་ལམ་འཐོབ་ཚུགས་བཟོ]' \
+    '--cwd[འགྲོ་ལམ་འོག་ལུ་འགོ་བཙུགས་མི་རྒྱབ་གཞིའི་ལས་ཐེངས་ཚུ་རྐྱངམ་ཅིག་སྟོན]:path:_directories' \
+    '--dangerously-skip-permissions[--permission-mode bypassPermissions གྱི་མིང་ཚབ]' \
+    '--effort[གཏང་བའི་ལས་ཐེངས་ཚུ་གི་དོན་ལུ་སྔོན་སྒྲིག་འབད་བརྩོན་གནས་རིམ]:level:(low medium high xhigh max)' \
+    '--json[ལས་ཐེངས་ཤུགས་ལྡན་ཚུ་JSON array སྦེ་དཔར་བསྐྲུན་འབད་ཞིནམ་ལས་ཕྱིར་ཐོན]' \
+    '*--mcp-config[གཏང་བའི་ལས་ཐེངས་ཚུ་ལུ་འཇུག་སྤྱོད་འབད་ནིའི་MCP སར་བར་རིམ་སྒྲིག]:config:' \
+    '--model[ལས་བྱེད་མཐོང་སྣང་ནང་ལས་གཏང་བའི་ལས་ཐེངས་ཚུ་གི་དོན་ལུ་སྔོན་སྒྲིག་དཔེ་གཞི]:model:' \
+    '--permission-mode[གཏང་བའི་ལས་ཐེངས་ཚུ་གི་དོན་ལུ་སྔོན་སྒྲིག་གནང་བའི་ཐབས་ལམ]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)' \
+    '*--plugin-dir[ལས་བྱེད་མཐོང་སྣང་དང་གཏང་བའི་ལས་ཐེངས་ཚུ་གི་དོན་ལུ་ཡིག་སྣོད་ནང་ལས་པ་ལག་ཚུ་མངོན་གསལ་འབད]:path:_directories' \
+    '--setting-sources[མངོན་གསལ་འབད་ནིའི་སྒྲིག་སྟངས་འབྱུང་ཁུངས་ཀྱི་ཐོ་ཡིག་comma གིས་སོ་སོར (user, project, local)]:sources:' \
+    '--settings[འཇུག་སྤྱོད་འབད་ནིའི་སྒྲིག་སྟངས་ཡིག་ཆ་ཡང་ན་JSON string]:file-or-json:_files' \
+    '--strict-mcp-config[གཏང་བའི་ལས་ཐེངས་ཚུ་ནང་--mcp-config ནང་ལས་MCP སར་བར་རྐྱངམ་ཅིག་ལག་ལེན་འཐབ]' \
+    '(-h --help)'{-h,--help}'[བརྡ་བཀོད་ཀྱི་དོན་ལུ་རོགས་རམ་སྟོན]'
+}
+
+_claude_auth() {
+  local -a auth_commands
+  auth_commands=(
+    'login:ཁྱོད་ཀྱི་Anthropic account ནང་ཐོ་བཀོད་འབད'
+    'logout:ཁྱོད་ཀྱི་Anthropic account ནང་ལས་ཕྱིར་བསྐྱོད'
+    'status:བདེན་དཔྱད་ཀྱི་གནས་སྟངས་སྟོན'
+    'help:རོགས་རམ་སྟོན'
+  )
+
+  local curcontext="$curcontext" state line
+  typeset -A opt_args
+
+  _arguments -C \
+    '(-h --help)'{-h,--help}'[བརྡ་བཀོད་ཀྱི་དོན་ལུ་རོགས་རམ་སྟོན]' \
+    '1: :->command' \
+    '*::arg:->args'
+
+  case $state in
+    command)
+      _describe -t commands 'auth བརྡ་བཀོད' auth_commands
+      ;;
+    args)
+      case $words[1] in
+        login|logout|status)
+          _arguments \
+            '(-h --help)'{-h,--help}'[བརྡ་བཀོད་ཀྱི་དོན་ལུ་རོགས་རམ་སྟོན]'
+          ;;
+      esac
+      ;;
+  esac
+}
+
+_claude_auto_mode() {
+  local -a auto_mode_commands
+  auto_mode_commands=(
+    'config:ནུས་ལྡན་རང་བཞིན་ཐབས་ལམ་config JSON སྦེ་དཔར་བསྐྲུན་འབད'
+    'critique:ཁྱོད་ཀྱི་སྲོལ་སྒྲིག་རང་བཞིན་ཐབས་ལམ་གྱི་ལམ་ལུགས་ཚུ་གུ་AI གི་བསམ་ལན་ལེན'
+    'defaults:སྔོན་སྒྲིག་རང་བཞིན་ཐབས་ལམ་གྱི་ལམ་ལུགས་ཚུ་JSON སྦེ་དཔར་བསྐྲུན་འབད'
+    'reset:རང་བཞིན་ཐབས་ལམ་རིམ་སྒྲིག་སྔོན་སྒྲིག་ཚུ་ལུ་སླར་སྒྲིག་འབད'
+    'help:རོགས་རམ་སྟོན'
+  )
+
+  local curcontext="$curcontext" state line
+  typeset -A opt_args
+
+  _arguments -C \
+    '(-h --help)'{-h,--help}'[བརྡ་བཀོད་ཀྱི་དོན་ལུ་རོགས་རམ་སྟོན]' \
+    '1: :->command' \
+    '*::arg:->args'
+
+  case $state in
+    command)
+      _describe -t commands 'auto-mode བརྡ་བཀོད' auto_mode_commands
+      ;;
+    args)
+      case $words[1] in
+        config|critique|defaults|reset)
+          _arguments \
+            '(-h --help)'{-h,--help}'[བརྡ་བཀོད་ཀྱི་དོན་ལུ་རོགས་རམ་སྟོན]'
+          ;;
+      esac
+      ;;
+  esac
+}
+
+_claude_gateway() {
+  _arguments \
+    '--config[gateway YAML config གྱི་འགྲོ་ལམ]:path:_files' \
+    '(-h --help)'{-h,--help}'[བརྡ་བཀོད་ཀྱི་དོན་ལུ་རོགས་རམ་སྟོན]'
+}
+
+_claude_project() {
+  local -a project_commands
+  project_commands=(
+    'purge:ལས་འགུལ་ཅིག་གི་དོན་ལུ་Claude Code གནས་སྟངས་ཆ་མཉམ་བཏོན་གཏང (transcripts, tasks, ཡིག་ཆའི་ལོ་རྒྱུས, config entry)'
+    'help:རོགས་རམ་སྟོན'
+  )
+
+  local curcontext="$curcontext" state line
+  typeset -A opt_args
+
+  _arguments -C \
+    '(-h --help)'{-h,--help}'[བརྡ་བཀོད་ཀྱི་དོན་ལུ་རོགས་རམ་སྟོན]' \
+    '1: :->command' \
+    '*::arg:->args'
+
+  case $state in
+    command)
+      _describe -t commands 'project བརྡ་བཀོད' project_commands
+      ;;
+    args)
+      case $words[1] in
+        purge)
+          _arguments \
+            '(-h --help)'{-h,--help}'[བརྡ་བཀོད་ཀྱི་དོན་ལུ་རོགས་རམ་སྟོན]' \
+            '1:path:_directories'
+          ;;
+      esac
+      ;;
+  esac
+}
+
+_claude_ultrareview() {
+  _arguments \
+    '--json[རྣམ་གཞག་བཟོ་མི་ཐོབ་གྲུབ་ཚུ་གི་ཚབ་ལུ་bugs.json payload རགས་པ་དཔར་བསྐྲུན་འབད]' \
+    '--timeout[བསྐྱར་ཞིབ་མཇུག་བསྡུ་ནི་ལུ་བསྒུག་ནིའི་སྐར་མ་མང་མཐའ]:minutes:' \
+    '(-h --help)'{-h,--help}'[བརྡ་བཀོད་ཀྱི་དོན་ལུ་རོགས་རམ་སྟོན]' \
+    '1:target:'
+}
+
 (( $+_comps[claude] )) || compdef _claude claude

@@ -1,4 +1,5 @@
 #compdef claude
+
 # Dynamic completion functions
 _claude_mcp_servers() {
   local config_file
@@ -24,40 +25,57 @@ _claude_mcp_servers() {
 _claude_installed_plugins() {
   local -a plugins
   local config_file plugin_dir
+
   # Check plugin directories directly
   for plugin_dir in ~/.claude/plugins ~/.config/claude/plugins; do
     [[ -d "$plugin_dir" ]] || continue
     plugins+=(${plugin_dir}/*(N:t))
   done
+
   # Remove duplicates
   plugins=(${(u)plugins})
+
   compadd -a plugins
 }
+
 _claude_sessions() {
   local -a sessions
   local session_dir
+
   # Check session directory
   for session_dir in ~/.claude/sessions ~/.config/claude/sessions; do
     [[ -d "$session_dir" ]] || continue
+
     # Extract UUIDs directly from filenames
     sessions+=(${session_dir}/*~*.zwc(N:t:r))
   done
+
   # Filter only valid UUIDs
   sessions=(${(M)sessions:#[0-9a-f](#c8)-[0-9a-f](#c4)-[0-9a-f](#c4)-[0-9a-f](#c4)-[0-9a-f](#c12)})
+
   compadd -a sessions
 }
+
 _claude() {
   local curcontext="$curcontext" state line
   typeset -A opt_args
+
   local -a main_commands
   main_commands=(
     'mcp:MCP серверүүдийг тохируулах ба удирдах'
     'plugin:Claude Code нэмэлт програмуудыг удирдах'
+    'agents:Фон дахь агентуудыг удирдах'
+    'auth:Баталгаажуулалтыг удирдах'
+    'auto-mode:Авто горимын ангилагчийн тохиргоог шалгах эсвэл дахин тохируулах'
+    'gateway:Байгууллагын баталгаажуулалт/телеметрийн gateway ажиллуулах'
+    'project:Claude Code төслийн төлөвийг удирдах'
+    'ultrareview:Үүлэн дэх олон агентын кодын хяналт ажиллуулж, үр дүнг хэвлэх'
     'setup-token:Урт хугацааны баталгаажуулалтын токен тохируулах (Claude захиалга шаардлагатай)'
     'doctor:Claude Code автомат шинэчлэлийн эрүүл мэндийн шалгалт'
     'update:Шинэчлэлтийг шалгах ба суулгах'
     'install:Claude Code төрөлх бүтээгдэхүүнийг суулгах'
   )
+
   local -a main_options
   main_options=(
     '(-d --debug)'{-d,--debug}'[Дебаг горимыг идэвхжүүлэх, сонголттой ангилал шүүлтүүр (жишээ нь "api,hooks" эсвэл "!statsig,!file")]:filter:'
@@ -67,9 +85,10 @@ _claude() {
     '--json-schema[Бүтэцлэгдсэн гаралтын баталгаажуулалтын JSON схем]:schema:'
     '--include-partial-messages[Хэсэгчилсэн мессежийн хэсгүүдийг оруулах (--print болон --output-format=stream-json-тэй хамт)]'
     '--input-format[Оролтын формат (--print-тэй хамт): "text" (үндсэн) эсвэл "stream-json" (бодит цаг хугацааны урсгалын оролт)]:format:(text stream-json)'
-    '--mcp-debug[【Хуучирсан. --debug ашиглана уу】 MCP дебаг горимыг идэвхжүүлэх (MCP серверийн алдаануудыг харуулах)]'
+    '--mcp-debug[\[Хуучирсан. --debug ашиглана уу\] MCP дебаг горимыг идэвхжүүлэх (MCP серверийн алдаануудыг харуулах)]'
     '--dangerously-skip-permissions[Бүх зөвшөөрлийн шалгалтыг алгасах. Зөвхөн интернет нэвтрэх эрхгүй sandbox-д зориулагдсан]'
     '--allow-dangerously-skip-permissions[Зөвшөөрлийн шалгалтыг алгасах сонголтыг идэвхжүүлэх, гэхдээ үндсэн утга биш]'
+    '--max-budget-usd[API дуудлагад зарцуулах дээд доллар (зөвхөн --print)]:amount:'
     '--replay-user-messages[Баталгаажуулалтын тулд stdin-ээс хэрэглэгчийн мессежүүдийг stdout-д дахин илгээх]'
     '--allowed-tools[Зөвшөөрөгдсөн багажийн нэрийн жагсаалт (таслал эсвэл зайгаар тусгаарлагдсан, жишээ нь "Bash(git:*) Edit")]:tools:'
     '--allowedTools[Зөвшөөрөгдсөн багажийн нэрийн жагсаалт (camelCase формат)]:tools:'
@@ -79,11 +98,14 @@ _claude() {
     '--mcp-config[MCP серверүүдийг JSON файл эсвэл мөрөөс ачаалах (зайгаар тусгаарлагдсан)]:configs:'
     '--system-prompt[Сессид ашиглах системийн дохио]:prompt:'
     '--append-system-prompt[Системийн дохиог үндсэн системийн дохионд нэмэх]:prompt:'
-    '--permission-mode[Сессид ашиглах зөвшөөрлийн горим]:mode:(acceptEdits bypassPermissions default dontAsk plan)'
+    '--permission-mode[Сессид ашиглах зөвшөөрлийн горим]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)'
     '(-c --continue)'{-c,--continue}'[Хамгийн сүүлийн ярианы үргэлжлүүлэх]'
     '(-r --resume)'{-r,--resume}'[Ярианы үргэлжлүүлэх - сессийн ID заах эсвэл интерактив сонгох]:sessionId:_claude_sessions'
     '--fork-session[Үргэлжлүүлэхэд анхны сессийн ID дахин ашиглахын оронд шинэ сессийн ID үүсгэх (--resume эсвэл --continue-тэй хамт)]'
+    '--no-session-persistence[Сессийн хадгалалтыг идэвхгүй болгох - сессүүд хадгалагдахгүй (зөвхөн --print)]'
     '--model[Одоогийн сессийн загвар. Хамгийн сүүлийн загварын нэрийг зааж өгөх (жишээ нь '\''sonnet'\'' эсвэл '\''opus'\'')]:model:'
+    '--agent[Одоогийн сессийн агент. '\''agent'\'' тохиргоог дарж бичнэ]:agent:'
+    '--betas[API хүсэлтэд оруулах бета толгойнууд (зөвхөн API түлхүүр хэрэглэгчид)]:betas:'
     '--fallback-model[Үндсэн загвар ачаалалтай үед заасан загвар руу автоматаар буцах (зөвхөн --print)]:model:'
     '--settings[Нэмэлт тохиргоо ачаалах JSON файлын зам эсвэл JSON мөр]:file-or-json:_files'
     '--add-dir[Багажийн хандалтыг зөвшөөрөх нэмэлт лавлахууд]:directories:_directories'
@@ -93,13 +115,37 @@ _claude() {
     '--agents[Өөрчилсөн агентуудыг тодорхойлох JSON объект]:json:'
     '--setting-sources[Ачаалах тохиргооны эх үүсвэрийн жагсаалт (таслалаар тусгаарлагдсан: user, project, local)]:sources:'
     '--plugin-dir[Зөвхөн энэ сессид нэмэлт програм ачаалах лавлах (давтагдах боломжтой)]:paths:_directories'
+    '--disable-slash-commands[Бүх слаш командыг идэвхгүй болгох]'
+    '(--bg --background)'{--bg,--background}'[Сессийг фон агент болгон эхлүүлж, шууд буцах]'
+    '(-w --worktree)'{-w,--worktree}'[Энэ сессид зориулж шинэ git worktree үүсгэх (сонголтоор нэр зааж болно)]::name:'
+    '--tmux[worktree-д зориулж tmux сесс үүсгэх (--worktree шаардлагатай)]'
+    '(-n --name)'{-n,--name}'[Энэ сессид харагдах нэр тохируулах]:name:'
+    '--effort[Одоогийн сессийн хүчин чармайлтын түвшин]:level:(low medium high xhigh max)'
+    '--debug-file[Дебаг лог-ыг тодорхой файлын замд бичих (дебаг горимыг далд идэвхжүүлнэ)]:path:_files'
+    '--from-pr[Дугаар/URL-ээр PR-тэй холбогдсон сессийг үргэлжлүүлэх, эсвэл интерактив сонгогч нээх]::value:'
+    '--remote-control[Remote Control идэвхжүүлсэн интерактив сесс эхлүүлэх (сонголтоор нэрлэж болно)]::name:'
+    '--remote-control-session-name-prefix[Автоматаар үүсгэсэн Remote Control сессийн нэрийн угтвар]:prefix:'
+    '--chrome[Chrome дахь Claude интеграцийг идэвхжүүлэх]'
+    '--no-chrome[Chrome дахь Claude интеграцийг идэвхгүй болгох]'
+    '--plugin-url[Зөвхөн энэ сессид URL-ээс нэмэлт програмын .zip татах (давтагдах боломжтой)]:url:'
+    '--file[Эхлэхэд татах файлын нөөцүүд (формат: file_id:relative_path)]:specs:'
+    '--prompt-suggestions[Дохионы саналуудыг идэвхжүүлэх (print/SDK горимд дараагийн таамагласан дохиог гаргана)]::value:(true false 1 0 yes no on off)'
+    '--forward-subagent-text[Дэд агентын текст ба сэтгэлгээний блокуудыг мессеж болгон дамжуулах (--print болон stream-json-тэй хамт)]'
+    '--include-hook-events[Гаралтын урсгалд бүх hook-ийн амьдралын мөчлөгийн үйл явдлуудыг оруулах (stream-json-тэй хамт)]'
+    '--exclude-dynamic-system-prompt-sections[Машин тус бүрийн хэсгүүдийг эхний хэрэглэгчийн мессеж рүү зөөж, дохионы кэшийн дахин ашиглалтыг сайжруулах]'
+    '--brief[Агентаас хэрэглэгч рүү харилцах SendUserMessage багажийг идэвхжүүлэх]'
+    '--safe-mode[Бүх өөрчлөлтийг идэвхгүй болгож эхлүүлэх (эвдэрсэн тохиргоог засахад тустай)]'
+    '--bare[Хамгийн бага горим: hook, LSP, нэмэлт програмын синк, атрибуци, авто-санах ой, CLAUDE.md автомат илрүүлэлтийг алгасах]'
+    '--ax-screen-reader[Дэлгэц уншигчид ээлтэй гаралт гаргах (хавтгай текст, чимэглэлийн хүрээ эсвэл анимацгүй)]'
     '(-v --version)'{-v,--version}'[Хувилбарын дугаарыг гаргах]'
     '(-h --help)'{-h,--help}'[Командын тусламжийг харуулах]'
   )
+
   _arguments -C \
     $main_options \
     '1: :->command' \
     '*::arg:->args'
+
   case $state in
     command)
       _describe -t commands 'claude commands' main_commands
@@ -115,13 +161,32 @@ _claude() {
         install)
           _claude_install
           ;;
+        agents)
+          _claude_agents
+          ;;
+        auth)
+          _claude_auth
+          ;;
+        auto-mode)
+          _claude_auto_mode
+          ;;
+        gateway)
+          _claude_gateway
+          ;;
+        project)
+          _claude_project
+          ;;
+        ultrareview)
+          _claude_ultrareview
+          ;;
         setup-token|doctor|update)
-          _message "no arguments"
+          _message "аргумент байхгүй"
           ;;
       esac
       ;;
   esac
 }
+
 _claude_mcp() {
   local -a mcp_commands
   mcp_commands=(
@@ -133,14 +198,19 @@ _claude_mcp() {
     'add-json:JSON мөрөөр MCP сервер нэмэх (stdio эсвэл SSE)'
     'add-from-claude-desktop:Claude Desktop-оос MCP серверүүдийг импортлох (зөвхөн Mac ба WSL)'
     'reset-project-choices:Энэ төсөлд баталсан/татгалзсан төслийн хүрээтэй (.mcp.json) бүх серверүүдийг дахин тохируулах'
+    'login:MCP серверт баталгаажих (HTTP, SSE эсвэл claude.ai коннектор)'
+    'logout:MCP серверийн хадгалагдсан OAuth итгэмжлэлийг цэвэрлэх'
     'help:Тусламж харуулах'
   )
+
   local curcontext="$curcontext" state line
   typeset -A opt_args
+
   _arguments -C \
     '(-h --help)'{-h,--help}'[Тусламж харуулах]' \
     '1: :->command' \
     '*::arg:->args'
+
   case $state in
     command)
       _describe -t commands 'mcp commands' mcp_commands
@@ -195,29 +265,45 @@ _claude_mcp() {
           _arguments \
             '(-h --help)'{-h,--help}'[Тусламж харуулах]'
           ;;
+        login|logout)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Тусламж харуулах]' \
+            '1:name:_claude_mcp_servers'
+          ;;
       esac
       ;;
   esac
 }
+
 _claude_plugin() {
   local -a plugin_commands
   plugin_commands=(
     'validate:Нэмэлт програм эсвэл маркетын манифестийг баталгаажуулах'
     'marketplace:Claude Code маркетуудыг удирдах'
+    'list:Суулгасан нэмэлт програмуудыг жагсаах'
+    'details:Нэмэлт програмын бүрэлдэхүүн хэсгийн жагсаалт ба төлөвлөсөн токены зардлыг харуулах'
     'install:Боломжтой маркетуудаас нэмэлт програм суулгах'
     'i:Боломжтой маркетуудаас нэмэлт програм суулгах (install-ын богино хэлбэр)'
+    'init:Шинэ нэмэлт програмын суурь үүсгэх (дараагийн сессид автоматаар ачаална)'
     'uninstall:Суулгасан нэмэлт программыг устгах'
     'remove:Суулгасан нэмэлт программыг устгах (uninstall-ын өөр нэр)'
     'enable:Идэвхгүй болгосон нэмэлт программыг идэвхжүүлэх'
     'disable:Идэвхтэй нэмэлт программыг идэвхгүй болгох'
+    'update:Нэмэлт програмыг хамгийн сүүлийн хувилбар руу шинэчлэх'
+    'eval:Нэмэлт програмын эсрэг eval тохиолдлуудыг ажиллуулж, оноолсон үр дүнг тайлагнах'
+    'prune:Шаардлагагүй болсон автоматаар суулгасан хамаарлуудыг устгах'
+    'tag:Нэмэлт програмын хувилбарт {name}--v{version} git тэг үүсгэх'
     'help:Тусламж харуулах'
   )
+
   local curcontext="$curcontext" state line
   typeset -A opt_args
+
   _arguments -C \
     '(-h --help)'{-h,--help}'[Тусламж харуулах]' \
     '1: :->command' \
     '*::arg:->args'
+
   case $state in
     command)
       _describe -t commands 'plugin commands' plugin_commands
@@ -234,23 +320,57 @@ _claude_plugin() {
           ;;
         install|i)
           _arguments \
+            '(-s --scope)'{-s,--scope}'[Суулгах хүрээ]:scope:(user project local)' \
             '(-h --help)'{-h,--help}'[Тусламж харуулах]' \
             '1:plugin:'
           ;;
         uninstall|remove)
           _arguments \
+            '(-s --scope)'{-s,--scope}'[Суулгах хүрээ]:scope:(user project local)' \
             '(-h --help)'{-h,--help}'[Тусламж харуулах]' \
             '1:plugin:_claude_installed_plugins'
           ;;
         enable|disable)
           _arguments \
+            '(-s --scope)'{-s,--scope}'[Суулгах хүрээ]:scope:(user project local)' \
             '(-h --help)'{-h,--help}'[Тусламж харуулах]' \
             '1:plugin:_claude_installed_plugins'
+          ;;
+        update)
+          _arguments \
+            '(-s --scope)'{-s,--scope}'[Суулгах хүрээ]:scope:(user project local managed)' \
+            '(-h --help)'{-h,--help}'[Тусламж харуулах]' \
+            '1:plugin:_claude_installed_plugins'
+          ;;
+        list|prune)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Тусламж харуулах]'
+          ;;
+        details)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Тусламж харуулах]' \
+            '1:plugin:_claude_installed_plugins'
+          ;;
+        init)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Тусламж харуулах]' \
+            '1:name:'
+          ;;
+        eval)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Тусламж харуулах]' \
+            '1:target:'
+          ;;
+        tag)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Тусламж харуулах]' \
+            '1:path:_files'
           ;;
       esac
       ;;
   esac
 }
+
 _claude_plugin_marketplace() {
   local -a marketplace_commands
   marketplace_commands=(
@@ -261,12 +381,15 @@ _claude_plugin_marketplace() {
     'update:Эх үүсвэрээс маркетийг шинэчлэх - нэр заагаагүй бол бүгдийг шинэчлэх'
     'help:Тусламж харуулах'
   )
+
   local curcontext="$curcontext" state line
   typeset -A opt_args
+
   _arguments -C \
     '(-h --help)'{-h,--help}'[Тусламж харуулах]' \
     '1: :->command' \
     '*::arg:->args'
+
   case $state in
     command)
       _describe -t commands 'marketplace commands' marketplace_commands
@@ -296,10 +419,142 @@ _claude_plugin_marketplace() {
       ;;
   esac
 }
+
 _claude_install() {
   _arguments \
     '--force[Аль хэдийн суулгасан байсан ч албадан суулгах]' \
     '(-h --help)'{-h,--help}'[Тусламж харуулах]' \
     '::target:(stable latest)'
 }
+
+_claude_agents() {
+  _arguments \
+    '*--add-dir[Илгээгдсэн сессүүдэд багажийн хандалтыг зөвшөөрөх нэмэлт лавлах]:directory:_directories' \
+    '--agent[Агент харагдацаас илгээгдсэн сессүүдэд зориулсан үндсэн агент]:agent:' \
+    '--all[--json-тэй: дууссан фон сессүүдийг мөн оруулах]' \
+    '--allow-dangerously-skip-permissions[Илгээгдсэн сессүүдэд bypass-permissions горимыг ашиглах боломжтой болгох]' \
+    '--cwd[Зөвхөн замын дор эхэлсэн фон сессүүдийг харуулах]:path:_directories' \
+    '--dangerously-skip-permissions[--permission-mode bypassPermissions-ийн өөр нэр]' \
+    '--effort[Илгээгдсэн сессүүдийн үндсэн хүчин чармайлтын түвшин]:level:(low medium high xhigh max)' \
+    '--json[Идэвхтэй сессүүдийг JSON массив болгон хэвлээд гарах]' \
+    '*--mcp-config[Илгээгдсэн сессүүдэд хэрэглэх MCP серверийн тохиргоо]:config:' \
+    '--model[Агент харагдацаас илгээгдсэн сессүүдэд зориулсан үндсэн загвар]:model:' \
+    '--permission-mode[Илгээгдсэн сессүүдийн үндсэн зөвшөөрлийн горим]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)' \
+    '*--plugin-dir[Агент харагдац ба илгээгдсэн сессүүдэд лавлахаас нэмэлт програм ачаалах]:path:_directories' \
+    '--setting-sources[Ачаалах тохиргооны эх үүсвэрийн жагсаалт (таслалаар тусгаарлагдсан: user, project, local)]:sources:' \
+    '--settings[Хэрэглэх тохиргооны файл эсвэл JSON мөр]:file-or-json:_files' \
+    '--strict-mcp-config[Илгээгдсэн сессүүдэд зөвхөн --mcp-config дотор байгаа MCP серверүүдийг ашиглах]' \
+    '(-h --help)'{-h,--help}'[Командын тусламжийг харуулах]'
+}
+
+_claude_auth() {
+  local -a auth_commands
+  auth_commands=(
+    'login:Anthropic данс руугаа нэвтрэх'
+    'logout:Anthropic дансаасаа гарах'
+    'status:Баталгаажуулалтын төлөвийг харуулах'
+    'help:Тусламж харуулах'
+  )
+
+  local curcontext="$curcontext" state line
+  typeset -A opt_args
+
+  _arguments -C \
+    '(-h --help)'{-h,--help}'[Командын тусламжийг харуулах]' \
+    '1: :->command' \
+    '*::arg:->args'
+
+  case $state in
+    command)
+      _describe -t commands 'auth commands' auth_commands
+      ;;
+    args)
+      case $words[1] in
+        login|logout|status)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Командын тусламжийг харуулах]'
+          ;;
+      esac
+      ;;
+  esac
+}
+
+_claude_auto_mode() {
+  local -a auto_mode_commands
+  auto_mode_commands=(
+    'config:Хүчинтэй авто горимын тохиргоог JSON байдлаар хэвлэх'
+    'critique:Өөрийн авто горимын дүрмүүдэд AI санал авах'
+    'defaults:Авто горимын үндсэн дүрмүүдийг JSON байдлаар хэвлэх'
+    'reset:Авто горимын тохиргоог нийлүүлсэн үндсэн утга руу дахин тохируулах'
+    'help:Тусламж харуулах'
+  )
+
+  local curcontext="$curcontext" state line
+  typeset -A opt_args
+
+  _arguments -C \
+    '(-h --help)'{-h,--help}'[Командын тусламжийг харуулах]' \
+    '1: :->command' \
+    '*::arg:->args'
+
+  case $state in
+    command)
+      _describe -t commands 'auto-mode commands' auto_mode_commands
+      ;;
+    args)
+      case $words[1] in
+        config|critique|defaults|reset)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Командын тусламжийг харуулах]'
+          ;;
+      esac
+      ;;
+  esac
+}
+
+_claude_gateway() {
+  _arguments \
+    '--config[Gateway YAML тохиргооны зам]:path:_files' \
+    '(-h --help)'{-h,--help}'[Командын тусламжийг харуулах]'
+}
+
+_claude_project() {
+  local -a project_commands
+  project_commands=(
+    'purge:Төслийн бүх Claude Code төлөвийг устгах (транскрипт, даалгавар, файлын түүх, тохиргооны бичлэг)'
+    'help:Тусламж харуулах'
+  )
+
+  local curcontext="$curcontext" state line
+  typeset -A opt_args
+
+  _arguments -C \
+    '(-h --help)'{-h,--help}'[Командын тусламжийг харуулах]' \
+    '1: :->command' \
+    '*::arg:->args'
+
+  case $state in
+    command)
+      _describe -t commands 'project commands' project_commands
+      ;;
+    args)
+      case $words[1] in
+        purge)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Командын тусламжийг харуулах]' \
+            '1:path:_directories'
+          ;;
+      esac
+      ;;
+  esac
+}
+
+_claude_ultrareview() {
+  _arguments \
+    '--json[Форматлагдсан үр дүнгийн оронд түүхий bugs.json ачааллыг хэвлэх]' \
+    '--timeout[Хяналт дуусахыг хүлээх дээд минут]:minutes:' \
+    '(-h --help)'{-h,--help}'[Командын тусламжийг харуулах]' \
+    '1:target:'
+}
+
 (( $+_comps[claude] )) || compdef _claude claude

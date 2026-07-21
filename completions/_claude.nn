@@ -1,4 +1,5 @@
 #compdef claude
+
 # Dynamic completion functions
 _claude_mcp_servers() {
   local config_file
@@ -24,40 +25,57 @@ _claude_mcp_servers() {
 _claude_installed_plugins() {
   local -a plugins
   local config_file plugin_dir
+
   # Check plugin directories directly
   for plugin_dir in ~/.claude/plugins ~/.config/claude/plugins; do
     [[ -d "$plugin_dir" ]] || continue
     plugins+=(${plugin_dir}/*(N:t))
   done
+
   # Remove duplicates
   plugins=(${(u)plugins})
+
   compadd -a plugins
 }
+
 _claude_sessions() {
   local -a sessions
   local session_dir
+
   # Check session directory
   for session_dir in ~/.claude/sessions ~/.config/claude/sessions; do
     [[ -d "$session_dir" ]] || continue
+
     # Extract UUIDs directly from filenames
     sessions+=(${session_dir}/*~*.zwc(N:t:r))
   done
+
   # Filter only valid UUIDs
   sessions=(${(M)sessions:#[0-9a-f](#c8)-[0-9a-f](#c4)-[0-9a-f](#c4)-[0-9a-f](#c4)-[0-9a-f](#c12)})
+
   compadd -a sessions
 }
+
 _claude() {
   local curcontext="$curcontext" state line
   typeset -A opt_args
+
   local -a main_commands
   main_commands=(
     'mcp:Konfigurer og administrer MCP-tenarar'
     'plugin:Administrer Claude Code-tillegg'
+    'agents:Administrer bakgrunnsagentar'
+    'auth:Administrer autentisering'
+    'auto-mode:Inspiser eller tilbakestill konfigurasjon for auto-modus-klassifisering'
+    'gateway:Køyr autentiserings-/telemetrigatewayen for verksemd'
+    'project:Administrer Claude Code-prosjekttilstand'
+    'ultrareview:Køyr ein skybasert kodegjennomgang med fleire agentar og skriv ut funna'
     'setup-token:Konfigurer langsiktig autentiseringstoken (krev Claude-abonnement)'
     'doctor:Helsekontroll for Claude Code automatisk oppdatering'
     'update:Søk etter og installer oppdateringar'
     'install:Installer Claude Code native build'
   )
+
   local -a main_options
   main_options=(
     '(-d --debug)'{-d,--debug}'[Aktiver feilsøkingsmodus med valfri kategorifiltrering (t.d. "api,hooks" eller "!statsig,!file")]:filter:'
@@ -70,6 +88,7 @@ _claude() {
     '--mcp-debug[\[Forelda. Bruk --debug i staden\] Aktiver MCP-feilsøkingsmodus (viser MCP-tenarar feil)]'
     '--dangerously-skip-permissions[Omgå alle tillatelseskontrollar. Tilrådd berre for sandkasser utan internettilgang]'
     '--allow-dangerously-skip-permissions[Aktiver moglegheit for å omgå tillatelseskontrollar utan å aktivere som standard]'
+    '--max-budget-usd[Maksimalt dollarbeløp å bruke på API-kall (berre --print)]:amount:'
     '--replay-user-messages[Send brukarmeldingar frå stdin på stdout for stadfesting]'
     '--allowed-tools[Komma- eller mellomromseparert liste over tillatne verktøynamn (t.d. "Bash(git:*) Edit")]:tools:'
     '--allowedTools[Komma- eller mellomromseparert liste over tillatne verktøynamn (camelCase-format)]:tools:'
@@ -79,11 +98,14 @@ _claude() {
     '--mcp-config[Last inn MCP-tenarar frå JSON-fil eller streng (mellomromseparert)]:configs:'
     '--system-prompt[Systemprompt å bruke for økt]:prompt:'
     '--append-system-prompt[Legg til systemprompt til standard systemprompt]:prompt:'
-    '--permission-mode[Tillatelsesmodus å bruke for økt]:mode:(acceptEdits bypassPermissions default dontAsk plan)'
+    '--permission-mode[Tillatelsesmodus å bruke for økt]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)'
     '(-c --continue)'{-c,--continue}'[Hald fram den siste samtalen]'
     '(-r --resume)'{-r,--resume}'[Gjenoppta ei samtale - angi økt-ID eller vel interaktivt]:sessionId:_claude_sessions'
     '--fork-session[Opprett ny økt-ID i staden for å gjenbruke original økt-ID ved gjenopptak (med --resume eller --continue)]'
+    '--no-session-persistence[Deaktiver øktpersistens - økter vert ikkje lagra (berre --print)]'
     '--model[Modell for gjeldande økt. Angi alias for nyaste modell (t.d. '\''sonnet'\'' eller '\''opus'\'')]:model:'
+    '--agent[Agent for gjeldande økt. Overstyrer '\''agent'\''-innstillinga]:agent:'
+    '--betas[Beta-headerar å inkludere i API-førespurnader (berre API-nøkkelbrukarar)]:betas:'
     '--fallback-model[Aktiver automatisk tilbakefall til angitt modell når standardmodellen er overbelasta (berre --print)]:model:'
     '--settings[Sti til innstillingar JSON-fil eller JSON-streng for å laste ytterlegare innstillingar]:file-or-json:_files'
     '--add-dir[Ytterlegare mapper å tillate verktøytilgang]:directories:_directories'
@@ -93,13 +115,37 @@ _claude() {
     '--agents[JSON-objekt som definerer tilpassa agentar]:json:'
     '--setting-sources[Kommaseparert liste over innstillingskjelder å laste (user, project, local)]:sources:'
     '--plugin-dir[Mappe å laste tillegg frå berre for denne økta (kan gjentakast)]:paths:_directories'
+    '--disable-slash-commands[Deaktiver alle skråstrekkommandoar]'
+    '(--bg --background)'{--bg,--background}'[Start økta som ein bakgrunnsagent og returner umiddelbart]'
+    '(-w --worktree)'{-w,--worktree}'[Opprett eit nytt git-arbeidstre for denne økta (angi eventuelt eit namn)]::name:'
+    '--tmux[Opprett ei tmux-økt for arbeidstreet (krev --worktree)]'
+    '(-n --name)'{-n,--name}'[Set eit visingsnamn for denne økta]:name:'
+    '--effort[Innsatsnivå for gjeldande økt]:level:(low medium high xhigh max)'
+    '--debug-file[Skriv feilsøkingsloggar til ein spesifikk filsti (aktiverer implisitt feilsøkingsmodus)]:path:_files'
+    '--from-pr[Gjenoppta ei økt kopla til ein PR via nummer/URL, eller opne interaktiv veljar]::value:'
+    '--remote-control[Start ei interaktiv økt med Fjernstyring aktivert (eventuelt namngitt)]::name:'
+    '--remote-control-session-name-prefix[Prefiks for automatisk genererte Fjernstyring-øktnamn]:prefix:'
+    '--chrome[Aktiver Claude i Chrome-integrasjon]'
+    '--no-chrome[Deaktiver Claude i Chrome-integrasjon]'
+    '--plugin-url[Hent eit tillegg .zip frå ein URL berre for denne økta (kan gjentakast)]:url:'
+    '--file[Filressursar å laste ned ved oppstart (format: file_id:relative_path)]:specs:'
+    '--prompt-suggestions[Aktiver promptforslag (sender ut ein forventa neste prompt i print-/SDK-modus)]::value:(true false 1 0 yes no on off)'
+    '--forward-subagent-text[Vidaresend delagenttekst og tenkeblokker som meldingar (med --print og stream-json)]'
+    '--include-hook-events[Inkluder alle hook-livssyklushendingar i utdatastraumen (med stream-json)]'
+    '--exclude-dynamic-system-prompt-sections[Flytt maskinspesifikke seksjonar inn i den første brukarmeldinga for å forbetre gjenbruk av promptcache]'
+    '--brief[Aktiver SendUserMessage-verktøyet for kommunikasjon frå agent til brukar]'
+    '--safe-mode[Start med alle tilpassingar deaktiverte (nyttig for feilsøking av ein øydelagd konfigurasjon)]'
+    '--bare[Minimal modus: hopp over hooks, LSP, tilleggssynkronisering, attribusjon, auto-minne og CLAUDE.md-autooppdaging]'
+    '--ax-screen-reader[Vis skjermlesarvenleg utdata (flat tekst, ingen dekorative kantar eller animasjonar)]'
     '(-v --version)'{-v,--version}'[Vis versjonsnummer]'
     '(-h --help)'{-h,--help}'[Vis hjelp for kommando]'
   )
+
   _arguments -C \
     $main_options \
     '1: :->command' \
     '*::arg:->args'
+
   case $state in
     command)
       _describe -t commands 'claude-kommandoar' main_commands
@@ -115,6 +161,24 @@ _claude() {
         install)
           _claude_install
           ;;
+        agents)
+          _claude_agents
+          ;;
+        auth)
+          _claude_auth
+          ;;
+        auto-mode)
+          _claude_auto_mode
+          ;;
+        gateway)
+          _claude_gateway
+          ;;
+        project)
+          _claude_project
+          ;;
+        ultrareview)
+          _claude_ultrareview
+          ;;
         setup-token|doctor|update)
           _message "ingen argument"
           ;;
@@ -122,6 +186,7 @@ _claude() {
       ;;
   esac
 }
+
 _claude_mcp() {
   local -a mcp_commands
   mcp_commands=(
@@ -133,14 +198,19 @@ _claude_mcp() {
     'add-json:Legg til ein MCP-tenar (stdio eller SSE) med JSON-streng'
     'add-from-claude-desktop:Importer MCP-tenarar frå Claude Desktop (berre Mac og WSL)'
     'reset-project-choices:Tilbakestill alle godkjende/avviste prosjektomfattande (.mcp.json) tenarar i dette prosjektet'
+    'login:Autentiser med ein MCP-tenar (HTTP, SSE eller claude.ai-koplar)'
+    'logout:Fjern lagra OAuth-legitimasjon for ein MCP-tenar'
     'help:Vis hjelp'
   )
+
   local curcontext="$curcontext" state line
   typeset -A opt_args
+
   _arguments -C \
     '(-h --help)'{-h,--help}'[Vis hjelp]' \
     '1: :->command' \
     '*::arg:->args'
+
   case $state in
     command)
       _describe -t commands 'mcp-kommandoar' mcp_commands
@@ -195,29 +265,45 @@ _claude_mcp() {
           _arguments \
             '(-h --help)'{-h,--help}'[Vis hjelp]'
           ;;
+        login|logout)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Vis hjelp]' \
+            '1:name:_claude_mcp_servers'
+          ;;
       esac
       ;;
   esac
 }
+
 _claude_plugin() {
   local -a plugin_commands
   plugin_commands=(
     'validate:Valider eit tillegg eller marknadsplassmanifest'
     'marketplace:Administrer Claude Code-marknadsplassar'
+    'list:Vis installerte tillegg'
+    'details:Vis komponentoversikt og forventa tokenkostnad for eit tillegg'
     'install:Installer eit tillegg frå tilgjengelege marknadsplassar'
     'i:Installer eit tillegg frå tilgjengelege marknadsplassar (kort for install)'
+    'init:Lag stillas for eit nytt tillegg (autolastar neste økt)'
     'uninstall:Avinstaller eit installert tillegg'
     'remove:Avinstaller eit installert tillegg (alias for uninstall)'
     'enable:Aktiver eit deaktivert tillegg'
     'disable:Deaktiver eit aktivert tillegg'
+    'update:Oppdater eit tillegg til nyaste versjon'
+    'eval:Køyr evalueringstilfelle mot eit tillegg og rapporter poengsette resultat'
+    'prune:Fjern autoinstallerte avhengigheiter som ikkje lenger trengst'
+    'tag:Opprett ein {name}--v{version} git-tag for ei tilleggsutgjeving'
     'help:Vis hjelp'
   )
+
   local curcontext="$curcontext" state line
   typeset -A opt_args
+
   _arguments -C \
     '(-h --help)'{-h,--help}'[Vis hjelp]' \
     '1: :->command' \
     '*::arg:->args'
+
   case $state in
     command)
       _describe -t commands 'plugin-kommandoar' plugin_commands
@@ -234,23 +320,57 @@ _claude_plugin() {
           ;;
         install|i)
           _arguments \
+            '(-s --scope)'{-s,--scope}'[Installasjonsomfang]:scope:(user project local)' \
             '(-h --help)'{-h,--help}'[Vis hjelp]' \
             '1:plugin:'
           ;;
         uninstall|remove)
           _arguments \
+            '(-s --scope)'{-s,--scope}'[Installasjonsomfang]:scope:(user project local)' \
             '(-h --help)'{-h,--help}'[Vis hjelp]' \
             '1:plugin:_claude_installed_plugins'
           ;;
         enable|disable)
           _arguments \
+            '(-s --scope)'{-s,--scope}'[Installasjonsomfang]:scope:(user project local)' \
             '(-h --help)'{-h,--help}'[Vis hjelp]' \
             '1:plugin:_claude_installed_plugins'
+          ;;
+        update)
+          _arguments \
+            '(-s --scope)'{-s,--scope}'[Installasjonsomfang]:scope:(user project local managed)' \
+            '(-h --help)'{-h,--help}'[Vis hjelp]' \
+            '1:plugin:_claude_installed_plugins'
+          ;;
+        list|prune)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Vis hjelp]'
+          ;;
+        details)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Vis hjelp]' \
+            '1:plugin:_claude_installed_plugins'
+          ;;
+        init)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Vis hjelp]' \
+            '1:name:'
+          ;;
+        eval)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Vis hjelp]' \
+            '1:target:'
+          ;;
+        tag)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Vis hjelp]' \
+            '1:path:_files'
           ;;
       esac
       ;;
   esac
 }
+
 _claude_plugin_marketplace() {
   local -a marketplace_commands
   marketplace_commands=(
@@ -261,12 +381,15 @@ _claude_plugin_marketplace() {
     'update:Oppdater marknadsplassfrå kjelde - oppdater alle dersom intet namn er angitt'
     'help:Vis hjelp'
   )
+
   local curcontext="$curcontext" state line
   typeset -A opt_args
+
   _arguments -C \
     '(-h --help)'{-h,--help}'[Vis hjelp]' \
     '1: :->command' \
     '*::arg:->args'
+
   case $state in
     command)
       _describe -t commands 'marketplace-kommandoar' marketplace_commands
@@ -296,10 +419,142 @@ _claude_plugin_marketplace() {
       ;;
   esac
 }
+
 _claude_install() {
   _arguments \
     '--force[Tving installasjon sjølv om allereie installert]' \
     '(-h --help)'{-h,--help}'[Vis hjelp]' \
     '::target:(stable latest)'
 }
+
+_claude_agents() {
+  _arguments \
+    '*--add-dir[Ytterlegare mappe å tillate verktøytilgang til i utsende økter]:directory:_directories' \
+    '--agent[Standardagent for økter utsende frå agentvisinga]:agent:' \
+    '--all[Med --json: inkluder òg fullførte bakgrunnsøkter]' \
+    '--allow-dangerously-skip-permissions[Gjer omgå-tillatelsar-modus tilgjengeleg for utsende økter]' \
+    '--cwd[Vis berre bakgrunnsøkter starta under sti]:path:_directories' \
+    '--dangerously-skip-permissions[Alias for --permission-mode bypassPermissions]' \
+    '--effort[Standard innsatsnivå for utsende økter]:level:(low medium high xhigh max)' \
+    '--json[Skriv ut aktive økter som ein JSON-array og avslutt]' \
+    '*--mcp-config[MCP-tenarkonfigurasjon å bruke på utsende økter]:config:' \
+    '--model[Standardmodell for økter utsende frå agentvisinga]:model:' \
+    '--permission-mode[Standard tillatelsesmodus for utsende økter]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)' \
+    '*--plugin-dir[Last tillegg frå mappe for agentvisinga og utsende økter]:path:_directories' \
+    '--setting-sources[Kommaseparert liste over innstillingskjelder å laste (user, project, local)]:sources:' \
+    '--settings[Innstillingsfil eller JSON-streng å bruke]:file-or-json:_files' \
+    '--strict-mcp-config[Bruk berre MCP-tenarar frå --mcp-config i utsende økter]' \
+    '(-h --help)'{-h,--help}'[Vis hjelp for kommando]'
+}
+
+_claude_auth() {
+  local -a auth_commands
+  auth_commands=(
+    'login:Logg inn på Anthropic-kontoen din'
+    'logout:Logg ut frå Anthropic-kontoen din'
+    'status:Vis autentiseringsstatus'
+    'help:Vis hjelp'
+  )
+
+  local curcontext="$curcontext" state line
+  typeset -A opt_args
+
+  _arguments -C \
+    '(-h --help)'{-h,--help}'[Vis hjelp for kommando]' \
+    '1: :->command' \
+    '*::arg:->args'
+
+  case $state in
+    command)
+      _describe -t commands 'auth-kommandoar' auth_commands
+      ;;
+    args)
+      case $words[1] in
+        login|logout|status)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Vis hjelp for kommando]'
+          ;;
+      esac
+      ;;
+  esac
+}
+
+_claude_auto_mode() {
+  local -a auto_mode_commands
+  auto_mode_commands=(
+    'config:Skriv ut den effektive auto-modus-konfigurasjonen som JSON'
+    'critique:Få AI-tilbakemelding på dei tilpassa auto-modus-reglane dine'
+    'defaults:Skriv ut standard auto-modus-reglar som JSON'
+    'reset:Tilbakestill auto-modus-konfigurasjon til dei leverte standardane'
+    'help:Vis hjelp'
+  )
+
+  local curcontext="$curcontext" state line
+  typeset -A opt_args
+
+  _arguments -C \
+    '(-h --help)'{-h,--help}'[Vis hjelp for kommando]' \
+    '1: :->command' \
+    '*::arg:->args'
+
+  case $state in
+    command)
+      _describe -t commands 'auto-mode-kommandoar' auto_mode_commands
+      ;;
+    args)
+      case $words[1] in
+        config|critique|defaults|reset)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Vis hjelp for kommando]'
+          ;;
+      esac
+      ;;
+  esac
+}
+
+_claude_gateway() {
+  _arguments \
+    '--config[Sti til gateway YAML-konfigurasjon]:path:_files' \
+    '(-h --help)'{-h,--help}'[Vis hjelp for kommando]'
+}
+
+_claude_project() {
+  local -a project_commands
+  project_commands=(
+    'purge:Slett all Claude Code-tilstand for eit prosjekt (transkripsjonar, oppgåver, filhistorikk, konfigurasjonsoppføring)'
+    'help:Vis hjelp'
+  )
+
+  local curcontext="$curcontext" state line
+  typeset -A opt_args
+
+  _arguments -C \
+    '(-h --help)'{-h,--help}'[Vis hjelp for kommando]' \
+    '1: :->command' \
+    '*::arg:->args'
+
+  case $state in
+    command)
+      _describe -t commands 'project-kommandoar' project_commands
+      ;;
+    args)
+      case $words[1] in
+        purge)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Vis hjelp for kommando]' \
+            '1:path:_directories'
+          ;;
+      esac
+      ;;
+  esac
+}
+
+_claude_ultrareview() {
+  _arguments \
+    '--json[Skriv ut den rå bugs.json-nyttelasta i staden for formaterte funn]' \
+    '--timeout[Maksimalt tal minutt å vente på at gjennomgangen skal fullførast]:minutes:' \
+    '(-h --help)'{-h,--help}'[Vis hjelp for kommando]' \
+    '1:target:'
+}
+
 (( $+_comps[claude] )) || compdef _claude claude

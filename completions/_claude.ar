@@ -1,4 +1,5 @@
 #compdef claude
+
 # Dynamic completion functions
 _claude_mcp_servers() {
   local config_file
@@ -24,40 +25,57 @@ _claude_mcp_servers() {
 _claude_installed_plugins() {
   local -a plugins
   local config_file plugin_dir
+
   # Check plugin directories directly
   for plugin_dir in ~/.claude/plugins ~/.config/claude/plugins; do
     [[ -d "$plugin_dir" ]] || continue
     plugins+=(${plugin_dir}/*(N:t))
   done
+
   # Remove duplicates
   plugins=(${(u)plugins})
+
   compadd -a plugins
 }
+
 _claude_sessions() {
   local -a sessions
   local session_dir
+
   # Check session directory
   for session_dir in ~/.claude/sessions ~/.config/claude/sessions; do
     [[ -d "$session_dir" ]] || continue
+
     # Extract UUIDs directly from filenames
     sessions+=(${session_dir}/*~*.zwc(N:t:r))
   done
+
   # Filter only valid UUIDs
   sessions=(${(M)sessions:#[0-9a-f](#c8)-[0-9a-f](#c4)-[0-9a-f](#c4)-[0-9a-f](#c4)-[0-9a-f](#c12)})
+
   compadd -a sessions
 }
+
 _claude() {
   local curcontext="$curcontext" state line
   typeset -A opt_args
+
   local -a main_commands
   main_commands=(
     'mcp:تكوين وإدارة خوادم MCP'
     'plugin:إدارة إضافات Claude Code'
+    'agents:إدارة الوكلاء في الخلفية'
+    'auth:إدارة المصادقة'
+    'auto-mode:فحص أو إعادة تعيين تكوين مصنف الوضع التلقائي'
+    'gateway:تشغيل بوابة المصادقة/القياس عن بُعد للمؤسسات'
+    'project:إدارة حالة مشروع Claude Code'
+    'ultrareview:تشغيل مراجعة كود متعددة الوكلاء مستضافة سحابياً وطباعة النتائج'
     'setup-token:إعداد رمز المصادقة طويل الأمد (يتطلب اشتراك Claude)'
     'doctor:فحص صحة أداة التحديث التلقائي لـ Claude Code'
     'update:التحقق من التحديثات وتثبيتها'
     'install:تثبيت البناء الأصلي لـ Claude Code'
   )
+
   local -a main_options
   main_options=(
     '(-d --debug)'{-d,--debug}'[تمكين وضع التصحيح مع إمكانية تصفية الفئات (مثل "api,hooks" أو "!statsig,!file")]:filter:'
@@ -70,6 +88,7 @@ _claude() {
     '--mcp-debug[\[مهمل. استخدم --debug بدلاً منه\] تمكين وضع تصحيح MCP (يعرض أخطاء خادم MCP)]'
     '--dangerously-skip-permissions[تجاوز جميع فحوصات الأذونات. يوصى به فقط لصناديق العزل بدون اتصال بالإنترنت]'
     '--allow-dangerously-skip-permissions[تمكين خيار تجاوز فحوصات الأذونات دون التمكين افتراضياً]'
+    '--max-budget-usd[المبلغ الأقصى بالدولار للإنفاق على استدعاءات API (--print فقط)]:amount:'
     '--replay-user-messages[إعادة إرسال رسائل المستخدم من stdin على stdout للتأكيد]'
     '--allowed-tools[قائمة مفصولة بفواصل أو مسافات لأسماء الأدوات المسموحة (مثل "Bash(git:*) Edit")]:tools:'
     '--allowedTools[قائمة مفصولة بفواصل أو مسافات لأسماء الأدوات المسموحة (تنسيق camelCase)]:tools:'
@@ -79,11 +98,14 @@ _claude() {
     '--mcp-config[تحميل خوادم MCP من ملف JSON أو سلسلة نصية (مفصولة بمسافات)]:configs:'
     '--system-prompt[موجه النظام المستخدم للجلسة]:prompt:'
     '--append-system-prompt[إلحاق موجه النظام بموجه النظام الافتراضي]:prompt:'
-    '--permission-mode[وضع الأذونات المستخدم للجلسة]:mode:(acceptEdits bypassPermissions default dontAsk plan)'
+    '--permission-mode[وضع الأذونات المستخدم للجلسة]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)'
     '(-c --continue)'{-c,--continue}'[متابعة المحادثة الأحدث]'
     '(-r --resume)'{-r,--resume}'[استئناف محادثة - حدد معرف الجلسة أو اختر تفاعلياً]:sessionId:_claude_sessions'
     '--fork-session[إنشاء معرف جلسة جديد بدلاً من إعادة استخدام معرف الجلسة الأصلي عند الاستئناف (مع --resume أو --continue)]'
+    '--no-session-persistence[تعطيل استمرارية الجلسة - لن يتم حفظ الجلسات (--print فقط)]'
     '--model[النموذج للجلسة الحالية. حدد اسماً مستعاراً لأحدث نموذج (مثل '\''sonnet'\'' أو '\''opus'\'')]:model:'
+    '--agent[الوكيل للجلسة الحالية. يتجاوز إعداد '\''agent'\'']:agent:'
+    '--betas[رؤوس Beta لتضمينها في طلبات API (مستخدمو مفتاح API فقط)]:betas:'
     '--fallback-model[تمكين الرجوع التلقائي إلى النموذج المحدد عند تحميل النموذج الافتراضي زائد (--print فقط)]:model:'
     '--settings[مسار ملف JSON للإعدادات أو سلسلة JSON لتحميل إعدادات إضافية]:file-or-json:_files'
     '--add-dir[دلائل إضافية للسماح بالوصول للأدوات]:directories:_directories'
@@ -93,13 +115,37 @@ _claude() {
     '--agents[كائن JSON يحدد وكلاء مخصصين]:json:'
     '--setting-sources[قائمة مفصولة بفواصل لمصادر الإعدادات المراد تحميلها (user, project, local)]:sources:'
     '--plugin-dir[دليل لتحميل الإضافات منه لهذه الجلسة فقط (قابل للتكرار)]:paths:_directories'
+    '--disable-slash-commands[تعطيل جميع أوامر الشرطة المائلة]'
+    '(--bg --background)'{--bg,--background}'[بدء الجلسة كوكيل في الخلفية والعودة فوراً]'
+    '(-w --worktree)'{-w,--worktree}'[إنشاء worktree جديد في git لهذه الجلسة (يمكن تحديد اسم اختيارياً)]::name:'
+    '--tmux[إنشاء جلسة tmux لـ worktree (يتطلب --worktree)]'
+    '(-n --name)'{-n,--name}'[تعيين اسم عرض لهذه الجلسة]:name:'
+    '--effort[مستوى الجهد للجلسة الحالية]:level:(low medium high xhigh max)'
+    '--debug-file[كتابة سجلات التصحيح إلى مسار ملف محدد (يمكّن وضع التصحيح ضمنياً)]:path:_files'
+    '--from-pr[استئناف جلسة مرتبطة بـ PR بالرقم/URL، أو فتح المنتقي التفاعلي]::value:'
+    '--remote-control[بدء جلسة تفاعلية مع تمكين التحكم عن بُعد (يمكن تسميتها اختيارياً)]::name:'
+    '--remote-control-session-name-prefix[بادئة لأسماء جلسات التحكم عن بُعد المولدة تلقائياً]:prefix:'
+    '--chrome[تمكين تكامل Claude في Chrome]'
+    '--no-chrome[تعطيل تكامل Claude في Chrome]'
+    '--plugin-url[جلب ملف .zip لإضافة من URL لهذه الجلسة فقط (قابل للتكرار)]:url:'
+    '--file[موارد الملفات المراد تنزيلها عند بدء التشغيل (التنسيق: file_id:relative_path)]:specs:'
+    '--prompt-suggestions[تمكين اقتراحات الموجهات (يصدر موجهاً تالياً متوقعاً في وضع الطباعة/SDK)]::value:(true false 1 0 yes no on off)'
+    '--forward-subagent-text[إعادة توجيه نص الوكيل الفرعي وكتل التفكير كرسائل (مع --print و stream-json)]'
+    '--include-hook-events[تضمين جميع أحداث دورة حياة الخطافات في تدفق الإخراج (مع stream-json)]'
+    '--exclude-dynamic-system-prompt-sections[نقل الأقسام الخاصة بكل جهاز إلى أول رسالة مستخدم لتحسين إعادة استخدام ذاكرة التخزين المؤقت للموجه]'
+    '--brief[تمكين أداة SendUserMessage للتواصل من الوكيل إلى المستخدم]'
+    '--safe-mode[البدء مع تعطيل جميع التخصيصات (مفيد لاستكشاف أخطاء تكوين معطل)]'
+    '--bare[الوضع الأدنى: تخطي الخطافات وLSP ومزامنة الإضافات والإسناد والذاكرة التلقائية واكتشاف CLAUDE.md التلقائي]'
+    '--ax-screen-reader[عرض إخراج ملائم لقارئ الشاشة (نص مسطح، بدون حدود زخرفية أو رسوم متحركة)]'
     '(-v --version)'{-v,--version}'[عرض رقم الإصدار]'
     '(-h --help)'{-h,--help}'[عرض المساعدة للأمر]'
   )
+
   _arguments -C \
     $main_options \
     '1: :->command' \
     '*::arg:->args'
+
   case $state in
     command)
       _describe -t commands 'claude commands' main_commands
@@ -115,13 +161,32 @@ _claude() {
         install)
           _claude_install
           ;;
+        agents)
+          _claude_agents
+          ;;
+        auth)
+          _claude_auth
+          ;;
+        auto-mode)
+          _claude_auto_mode
+          ;;
+        gateway)
+          _claude_gateway
+          ;;
+        project)
+          _claude_project
+          ;;
+        ultrareview)
+          _claude_ultrareview
+          ;;
         setup-token|doctor|update)
-          _message "no arguments"
+          _message "لا توجد وسائط"
           ;;
       esac
       ;;
   esac
 }
+
 _claude_mcp() {
   local -a mcp_commands
   mcp_commands=(
@@ -133,14 +198,19 @@ _claude_mcp() {
     'add-json:إضافة خادم MCP (stdio أو SSE) بسلسلة JSON'
     'add-from-claude-desktop:استيراد خوادم MCP من Claude Desktop (Mac و WSL فقط)'
     'reset-project-choices:إعادة تعيين جميع خوادم نطاق المشروع (.mcp.json) المعتمدة/المرفوضة في هذا المشروع'
+    'login:المصادقة مع خادم MCP (HTTP أو SSE أو موصل claude.ai)'
+    'logout:مسح بيانات اعتماد OAuth المخزنة لخادم MCP'
     'help:عرض المساعدة'
   )
+
   local curcontext="$curcontext" state line
   typeset -A opt_args
+
   _arguments -C \
     '(-h --help)'{-h,--help}'[عرض المساعدة]' \
     '1: :->command' \
     '*::arg:->args'
+
   case $state in
     command)
       _describe -t commands 'mcp commands' mcp_commands
@@ -195,29 +265,45 @@ _claude_mcp() {
           _arguments \
             '(-h --help)'{-h,--help}'[عرض المساعدة]'
           ;;
+        login|logout)
+          _arguments \
+            '(-h --help)'{-h,--help}'[عرض المساعدة]' \
+            '1:name:_claude_mcp_servers'
+          ;;
       esac
       ;;
   esac
 }
+
 _claude_plugin() {
   local -a plugin_commands
   plugin_commands=(
     'validate:التحقق من صحة إضافة أو بيان سوق'
     'marketplace:إدارة أسواق Claude Code'
+    'list:عرض قائمة الإضافات المثبتة'
+    'details:عرض جرد المكونات وتكلفة الرموز المتوقعة لإضافة'
     'install:تثبيت إضافة من الأسواق المتاحة'
     'i:تثبيت إضافة من الأسواق المتاحة (اختصار لـ install)'
+    'init:إنشاء هيكل إضافة جديدة (يتم تحميلها تلقائياً في الجلسة التالية)'
     'uninstall:إلغاء تثبيت إضافة مثبتة'
     'remove:إلغاء تثبيت إضافة مثبتة (مرادف لـ uninstall)'
     'enable:تمكين إضافة معطلة'
     'disable:تعطيل إضافة ممكنة'
+    'update:تحديث إضافة إلى أحدث إصدار'
+    'eval:تشغيل حالات التقييم على إضافة والإبلاغ عن النتائج المسجلة'
+    'prune:إزالة التبعيات المثبتة تلقائياً التي لم تعد مطلوبة'
+    'tag:إنشاء علامة git بصيغة {name}--v{version} لإصدار إضافة'
     'help:عرض المساعدة'
   )
+
   local curcontext="$curcontext" state line
   typeset -A opt_args
+
   _arguments -C \
     '(-h --help)'{-h,--help}'[عرض المساعدة]' \
     '1: :->command' \
     '*::arg:->args'
+
   case $state in
     command)
       _describe -t commands 'plugin commands' plugin_commands
@@ -234,23 +320,57 @@ _claude_plugin() {
           ;;
         install|i)
           _arguments \
+            '(-s --scope)'{-s,--scope}'[نطاق التثبيت]:scope:(user project local)' \
             '(-h --help)'{-h,--help}'[عرض المساعدة]' \
             '1:plugin:'
           ;;
         uninstall|remove)
           _arguments \
+            '(-s --scope)'{-s,--scope}'[نطاق التثبيت]:scope:(user project local)' \
             '(-h --help)'{-h,--help}'[عرض المساعدة]' \
             '1:plugin:_claude_installed_plugins'
           ;;
         enable|disable)
           _arguments \
+            '(-s --scope)'{-s,--scope}'[نطاق التثبيت]:scope:(user project local)' \
             '(-h --help)'{-h,--help}'[عرض المساعدة]' \
             '1:plugin:_claude_installed_plugins'
+          ;;
+        update)
+          _arguments \
+            '(-s --scope)'{-s,--scope}'[نطاق التثبيت]:scope:(user project local managed)' \
+            '(-h --help)'{-h,--help}'[عرض المساعدة]' \
+            '1:plugin:_claude_installed_plugins'
+          ;;
+        list|prune)
+          _arguments \
+            '(-h --help)'{-h,--help}'[عرض المساعدة]'
+          ;;
+        details)
+          _arguments \
+            '(-h --help)'{-h,--help}'[عرض المساعدة]' \
+            '1:plugin:_claude_installed_plugins'
+          ;;
+        init)
+          _arguments \
+            '(-h --help)'{-h,--help}'[عرض المساعدة]' \
+            '1:name:'
+          ;;
+        eval)
+          _arguments \
+            '(-h --help)'{-h,--help}'[عرض المساعدة]' \
+            '1:target:'
+          ;;
+        tag)
+          _arguments \
+            '(-h --help)'{-h,--help}'[عرض المساعدة]' \
+            '1:path:_files'
           ;;
       esac
       ;;
   esac
 }
+
 _claude_plugin_marketplace() {
   local -a marketplace_commands
   marketplace_commands=(
@@ -261,12 +381,15 @@ _claude_plugin_marketplace() {
     'update:تحديث السوق من المصدر - تحديث الكل إذا لم يحدد اسم'
     'help:عرض المساعدة'
   )
+
   local curcontext="$curcontext" state line
   typeset -A opt_args
+
   _arguments -C \
     '(-h --help)'{-h,--help}'[عرض المساعدة]' \
     '1: :->command' \
     '*::arg:->args'
+
   case $state in
     command)
       _describe -t commands 'marketplace commands' marketplace_commands
@@ -296,10 +419,142 @@ _claude_plugin_marketplace() {
       ;;
   esac
 }
+
 _claude_install() {
   _arguments \
     '--force[فرض التثبيت حتى إذا كان مثبتاً بالفعل]' \
     '(-h --help)'{-h,--help}'[عرض المساعدة]' \
     '::target:(stable latest)'
 }
+
+_claude_agents() {
+  _arguments \
+    '*--add-dir[دليل إضافي للسماح بوصول الأدوات في الجلسات المرسلة]:directory:_directories' \
+    '--agent[الوكيل الافتراضي للجلسات المرسلة من عرض الوكيل]:agent:' \
+    '--all[مع --json: تضمين جلسات الخلفية المكتملة أيضاً]' \
+    '--allow-dangerously-skip-permissions[جعل وضع تجاوز الأذونات متاحاً للجلسات المرسلة]' \
+    '--cwd[عرض جلسات الخلفية التي بدأت ضمن المسار فقط]:path:_directories' \
+    '--dangerously-skip-permissions[مرادف لـ --permission-mode bypassPermissions]' \
+    '--effort[مستوى الجهد الافتراضي للجلسات المرسلة]:level:(low medium high xhigh max)' \
+    '--json[طباعة الجلسات النشطة كمصفوفة JSON والخروج]' \
+    '*--mcp-config[تكوين خادم MCP لتطبيقه على الجلسات المرسلة]:config:' \
+    '--model[النموذج الافتراضي للجلسات المرسلة من عرض الوكيل]:model:' \
+    '--permission-mode[وضع الأذونات الافتراضي للجلسات المرسلة]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)' \
+    '*--plugin-dir[تحميل الإضافات من دليل لعرض الوكيل والجلسات المرسلة]:path:_directories' \
+    '--setting-sources[قائمة مفصولة بفواصل لمصادر الإعدادات المراد تحميلها (user, project, local)]:sources:' \
+    '--settings[ملف الإعدادات أو سلسلة JSON لتطبيقها]:file-or-json:_files' \
+    '--strict-mcp-config[استخدام خوادم MCP من --mcp-config فقط في الجلسات المرسلة]' \
+    '(-h --help)'{-h,--help}'[عرض المساعدة للأمر]'
+}
+
+_claude_auth() {
+  local -a auth_commands
+  auth_commands=(
+    'login:تسجيل الدخول إلى حساب Anthropic الخاص بك'
+    'logout:تسجيل الخروج من حساب Anthropic الخاص بك'
+    'status:عرض حالة المصادقة'
+    'help:عرض المساعدة'
+  )
+
+  local curcontext="$curcontext" state line
+  typeset -A opt_args
+
+  _arguments -C \
+    '(-h --help)'{-h,--help}'[عرض المساعدة للأمر]' \
+    '1: :->command' \
+    '*::arg:->args'
+
+  case $state in
+    command)
+      _describe -t commands 'auth commands' auth_commands
+      ;;
+    args)
+      case $words[1] in
+        login|logout|status)
+          _arguments \
+            '(-h --help)'{-h,--help}'[عرض المساعدة للأمر]'
+          ;;
+      esac
+      ;;
+  esac
+}
+
+_claude_auto_mode() {
+  local -a auto_mode_commands
+  auto_mode_commands=(
+    'config:طباعة تكوين الوضع التلقائي الفعّال بصيغة JSON'
+    'critique:الحصول على ملاحظات الذكاء الاصطناعي على قواعد الوضع التلقائي المخصصة'
+    'defaults:طباعة قواعد الوضع التلقائي الافتراضية بصيغة JSON'
+    'reset:إعادة تعيين تكوين الوضع التلقائي إلى الإعدادات الافتراضية المشحونة'
+    'help:عرض المساعدة'
+  )
+
+  local curcontext="$curcontext" state line
+  typeset -A opt_args
+
+  _arguments -C \
+    '(-h --help)'{-h,--help}'[عرض المساعدة للأمر]' \
+    '1: :->command' \
+    '*::arg:->args'
+
+  case $state in
+    command)
+      _describe -t commands 'auto-mode commands' auto_mode_commands
+      ;;
+    args)
+      case $words[1] in
+        config|critique|defaults|reset)
+          _arguments \
+            '(-h --help)'{-h,--help}'[عرض المساعدة للأمر]'
+          ;;
+      esac
+      ;;
+  esac
+}
+
+_claude_gateway() {
+  _arguments \
+    '--config[مسار تكوين YAML للبوابة]:path:_files' \
+    '(-h --help)'{-h,--help}'[عرض المساعدة للأمر]'
+}
+
+_claude_project() {
+  local -a project_commands
+  project_commands=(
+    'purge:حذف جميع حالات Claude Code لمشروع (النصوص والمهام وسجل الملفات وإدخال التكوين)'
+    'help:عرض المساعدة'
+  )
+
+  local curcontext="$curcontext" state line
+  typeset -A opt_args
+
+  _arguments -C \
+    '(-h --help)'{-h,--help}'[عرض المساعدة للأمر]' \
+    '1: :->command' \
+    '*::arg:->args'
+
+  case $state in
+    command)
+      _describe -t commands 'project commands' project_commands
+      ;;
+    args)
+      case $words[1] in
+        purge)
+          _arguments \
+            '(-h --help)'{-h,--help}'[عرض المساعدة للأمر]' \
+            '1:path:_directories'
+          ;;
+      esac
+      ;;
+  esac
+}
+
+_claude_ultrareview() {
+  _arguments \
+    '--json[طباعة حمولة bugs.json الخام بدلاً من النتائج المنسقة]' \
+    '--timeout[الحد الأقصى للدقائق للانتظار حتى انتهاء المراجعة]:minutes:' \
+    '(-h --help)'{-h,--help}'[عرض المساعدة للأمر]' \
+    '1:target:'
+}
+
 (( $+_comps[claude] )) || compdef _claude claude

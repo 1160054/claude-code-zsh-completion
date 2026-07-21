@@ -1,4 +1,5 @@
 #compdef claude
+
 # Dynamic completion functions
 _claude_mcp_servers() {
   local config_file
@@ -24,40 +25,57 @@ _claude_mcp_servers() {
 _claude_installed_plugins() {
   local -a plugins
   local config_file plugin_dir
+
   # Check plugin directories directly
   for plugin_dir in ~/.claude/plugins ~/.config/claude/plugins; do
     [[ -d "$plugin_dir" ]] || continue
     plugins+=(${plugin_dir}/*(N:t))
   done
+
   # Remove duplicates
   plugins=(${(u)plugins})
+
   compadd -a plugins
 }
+
 _claude_sessions() {
   local -a sessions
   local session_dir
+
   # Check session directory
   for session_dir in ~/.claude/sessions ~/.config/claude/sessions; do
     [[ -d "$session_dir" ]] || continue
+
     # Extract UUIDs directly from filenames
     sessions+=(${session_dir}/*~*.zwc(N:t:r))
   done
+
   # Filter only valid UUIDs
   sessions=(${(M)sessions:#[0-9a-f](#c8)-[0-9a-f](#c4)-[0-9a-f](#c4)-[0-9a-f](#c4)-[0-9a-f](#c12)})
+
   compadd -a sessions
 }
+
 _claude() {
   local curcontext="$curcontext" state line
   typeset -A opt_args
+
   local -a main_commands
   main_commands=(
     'mcp:Configurâ e gjestî i servidôrs MCP'
     'plugin:Gjestî i plugin di Claude Code'
+    'agents:Gjestî i agjents in sotfont'
+    'auth:Gjestî la autenticazion'
+    'auto-mode:Ispezionâ o ristabilî la configurazion dal classificadôr de modalitât automatiche'
+    'gateway:Eseguî il gateway di autenticazion/telemetrie enterprise'
+    'project:Gjestî il stât dal progjet di Claude Code'
+    'ultrareview:Eseguî une revision dal codiç multi-agjent ospitade in cloud e stampâ i risultâts'
     'setup-token:Configurâ il token di autenticazion a lungje scjadince (al covente un abonament Claude)'
     'doctor:Control di santâri pal inzornament automatic di Claude Code'
     'update:Verificâ e instalâ i inzornaments'
     'install:Instalâ la compilazion nativie di Claude Code'
   )
+
   local -a main_options
   main_options=(
     '(-d --debug)'{-d,--debug}'[Ativâ la modalitât di debug cun filtrament opzionâl par categorie (es: "api,hooks" o "!statsig,!file")]:filter:'
@@ -70,7 +88,8 @@ _claude() {
     '--mcp-debug[\[Deplorât. Doprâ --debug invezit\] Ativâ la modalitât di debug MCP (mostre i erôrs dal servidôr MCP)]'
     '--dangerously-skip-permissions[Saltâ dutis lis verificazions di permès. Conseât dome pai sandbox cence acès a internet]'
     '--allow-dangerously-skip-permissions[Ativâ la opzion di saltâ lis verificazions di permès cence ativâle in automatic]'
-    '--replay-user-messages[Tornâ a mandâ i messaçs utent di stdin a stdout parconfermâ]'
+    '--max-budget-usd[Impuart massim in dolars di spindi pes clamadis API (dome --print)]:amount:'
+    '--replay-user-messages[Tornâ a mandâ i messaçs utent di stdin a stdout par confermâ]'
     '--allowed-tools[Liste separade di virgulis o spazis dai nons dai struments permetûts (es: "Bash(git:*) Edit")]:tools:'
     '--allowedTools[Liste separade di virgulis o spazis dai nons dai struments permetûts (formât camelCase)]:tools:'
     '--tools[Specificâ la liste dai struments disponibii dal insiemi integrât. Modalitât di stampe dome]:tools:'
@@ -79,11 +98,14 @@ _claude() {
     '--mcp-config[Cjariâ i servidôrs MCP di un file JSON o une stringhe (separâts di spazis)]:configs:'
     '--system-prompt[Prompt di sisteme di doprâ pe session]:prompt:'
     '--append-system-prompt[Zontâ un prompt di sisteme al prompt di sisteme predefinît]:prompt:'
-    '--permission-mode[Modalitât di permès di doprâ pe session]:mode:(acceptEdits bypassPermissions default dontAsk plan)'
+    '--permission-mode[Modalitât di permès di doprâ pe session]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)'
     '(-c --continue)'{-c,--continue}'[Continuâ la conversazion plui resinte]'
     '(-r --resume)'{-r,--resume}'[Ripristinâ une conversazion - specificâ l'\''ID di session o sielzi in mût interatîf]:sessionId:_claude_sessions'
     '--fork-session[Creâ un gnûf ID di session invezit di tornâ a doprâ l'\''ID di session origjinâl cuant che si ripristine (cun --resume o --continue)]'
+    '--no-session-persistence[Disativâ la persistence de session - lis session no vegnin salvadis (dome --print)]'
     '--model[Model pe session atuâl. Specificâ un alias pal model plui resint (es: '\''sonnet'\'' o '\''opus'\'')]:model:'
+    '--agent[Agjent pe session atuâl. Al sostituìs la impostazion '\''agent'\'']:agent:'
+    '--betas[Intestazions beta di includi tes richiestis API (dome utents cun clâf API)]:betas:'
     '--fallback-model[Ativâ il passaç automatic al model specificât cuant che il model predefinît al è sovracjariât (dome --print)]:model:'
     '--settings[Percors a un file JSON di impostazions o une stringhe JSON par cjariâ impostazions adizionâls]:file-or-json:_files'
     '--add-dir[Diretoriis adizionâi par permetê l'\''acès ai struments]:directories:_directories'
@@ -93,13 +115,37 @@ _claude() {
     '--agents[Ogjet JSON che al definìs agjents personalizâts]:json:'
     '--setting-sources[Liste separade di virgulis di fonts di impostazions di cjariâ (user, project, local)]:sources:'
     '--plugin-dir[Diretori par cjariâ i plugin dome par cheste session (ripetibil)]:paths:_directories'
+    '--disable-slash-commands[Disativâ ducj i comants slash]'
+    '(--bg --background)'{--bg,--background}'[Inviâ la session come agjent in sotfont e tornâ daurman]'
+    '(-w --worktree)'{-w,--worktree}'[Creâ un gnûf git worktree par cheste session (opzionalmentri specificâ un non)]::name:'
+    '--tmux[Creâ une session tmux pal worktree (al covente --worktree)]'
+    '(-n --name)'{-n,--name}'[Stabilî un non di visualizazion par cheste session]:name:'
+    '--effort[Nivel di sfuarç pe session atuâl]:level:(low medium high xhigh max)'
+    '--debug-file[Scrivi i regjistris di debug suntun percors di file specific (al ative implicitementri la modalitât di debug)]:path:_files'
+    '--from-pr[Ripristinâ une session leade a une PR par numar/URL, o vierzi il seletôr interatîf]::value:'
+    '--remote-control[Inviâ une session interative cul Control Rimot ativât (opzionalmentri cun non)]::name:'
+    '--remote-control-session-name-prefix[Prefìs pai nons di session dal Control Rimot gjenerâts in automatic]:prefix:'
+    '--chrome[Ativâ la integrazion di Claude in Chrome]'
+    '--no-chrome[Disativâ la integrazion di Claude in Chrome]'
+    '--plugin-url[Recuperâ un .zip di plugin di une URL dome par cheste session (ripetibil)]:url:'
+    '--file[Risorsis di file di discjariâ al inviament (formât: file_id:percors_relatîf)]:specs:'
+    '--prompt-suggestions[Ativâ i sugjeriments di prompt (al emet un prompt sucessîf previodût in modalitât print/SDK)]::value:(true false 1 0 yes no on off)'
+    '--forward-subagent-text[Mandâ indenant il test e i blocs di pinsîr dal sot-agjent come messaçs (cun --print e stream-json)]'
+    '--include-hook-events[Includi ducj i events dal cicli di vite dai hook tal flus di jessude (cun stream-json)]'
+    '--exclude-dynamic-system-prompt-sections[Spostâ lis sezions par machine tal prin messaç utent par miorâ il torna-doprâ de cache dal prompt]'
+    '--brief[Ativâ il strument SendUserMessage pe comunicazion agjent-utent]'
+    '--safe-mode[Inviâ cun dutis lis personalizazions disativadis (util par risolvi une configurazion rote)]'
+    '--bare[Modalitât minime: saltâ hooks, LSP, sincronizazion plugin, atribuzion, auto-memorie e la scuvierte automatiche di CLAUDE.md]'
+    '--ax-screen-reader[Gjenerâ une jessude compatibile cui letôrs di schermi (test plat, cence ôrs decoratîfs o animazions)]'
     '(-v --version)'{-v,--version}'[Mostrâ il numar di version]'
     '(-h --help)'{-h,--help}'[Mostrâ jutori pal comant]'
   )
+
   _arguments -C \
     $main_options \
     '1: :->command' \
     '*::arg:->args'
+
   case $state in
     command)
       _describe -t commands 'comants claude' main_commands
@@ -115,6 +161,24 @@ _claude() {
         install)
           _claude_install
           ;;
+        agents)
+          _claude_agents
+          ;;
+        auth)
+          _claude_auth
+          ;;
+        auto-mode)
+          _claude_auto_mode
+          ;;
+        gateway)
+          _claude_gateway
+          ;;
+        project)
+          _claude_project
+          ;;
+        ultrareview)
+          _claude_ultrareview
+          ;;
         setup-token|doctor|update)
           _message "nissun argoment"
           ;;
@@ -122,6 +186,7 @@ _claude() {
       ;;
   esac
 }
+
 _claude_mcp() {
   local -a mcp_commands
   mcp_commands=(
@@ -133,14 +198,19 @@ _claude_mcp() {
     'add-json:Zontâ un servidôr MCP (stdio o SSE) cuntune stringhe JSON'
     'add-from-claude-desktop:Impuartâ i servidôrs MCP di Claude Desktop (dome Mac e WSL)'
     'reset-project-choices:Ristabilî ducj i servidôrs di ambit dal progjet (.mcp.json) aprovâts/refudâts in chest progjet'
+    'login:Autenticâsi cuntun servidôr MCP (HTTP, SSE o conetôr claude.ai)'
+    'logout:Netâ lis credenziâls OAuth memorizadis par un servidôr MCP'
     'help:Mostrâ jutori'
   )
+
   local curcontext="$curcontext" state line
   typeset -A opt_args
+
   _arguments -C \
     '(-h --help)'{-h,--help}'[Mostrâ jutori]' \
     '1: :->command' \
     '*::arg:->args'
+
   case $state in
     command)
       _describe -t commands 'comants mcp' mcp_commands
@@ -195,29 +265,45 @@ _claude_mcp() {
           _arguments \
             '(-h --help)'{-h,--help}'[Mostrâ jutori]'
           ;;
+        login|logout)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Mostrâ jutori]' \
+            '1:name:_claude_mcp_servers'
+          ;;
       esac
       ;;
   esac
 }
+
 _claude_plugin() {
   local -a plugin_commands
   plugin_commands=(
     'validate:Validâ un plugin o un manifest di marcjât'
     'marketplace:Gjestî i marcjâts di Claude Code'
+    'list:Listâ i plugin instalâts'
+    'details:Mostrâ l'\''inventari dai components e il cost previodût in token par un plugin'
     'install:Instalâ un plugin dai marcjâts disponibii'
     'i:Instalâ un plugin dai marcjâts disponibii (forme curte di install)'
+    'init:Impostâ un gnûf plugin (al ven cjariât in automatic te prossime session)'
     'uninstall:Disinstalâ un plugin instalât'
     'remove:Disinstalâ un plugin instalât (alias par uninstall)'
     'enable:Ativâ un plugin disativât'
     'disable:Disativâ un plugin ativât'
+    'update:Inzornâ un plugin ae ultime version'
+    'eval:Eseguî i câs di eval cuintri di un plugin e riferî i risultâts valutâts'
+    'prune:Gjavâ lis dipendencis instaladis in automatic che no coventin plui'
+    'tag:Creâ un git tag {name}--v{version} par une publicazion di plugin'
     'help:Mostrâ jutori'
   )
+
   local curcontext="$curcontext" state line
   typeset -A opt_args
+
   _arguments -C \
     '(-h --help)'{-h,--help}'[Mostrâ jutori]' \
     '1: :->command' \
     '*::arg:->args'
+
   case $state in
     command)
       _describe -t commands 'comants di plugin' plugin_commands
@@ -234,23 +320,57 @@ _claude_plugin() {
           ;;
         install|i)
           _arguments \
+            '(-s --scope)'{-s,--scope}'[Ambit di instalazion]:scope:(user project local)' \
             '(-h --help)'{-h,--help}'[Mostrâ jutori]' \
             '1:plugin:'
           ;;
         uninstall|remove)
           _arguments \
+            '(-s --scope)'{-s,--scope}'[Ambit di instalazion]:scope:(user project local)' \
             '(-h --help)'{-h,--help}'[Mostrâ jutori]' \
             '1:plugin:_claude_installed_plugins'
           ;;
         enable|disable)
           _arguments \
+            '(-s --scope)'{-s,--scope}'[Ambit di instalazion]:scope:(user project local)' \
             '(-h --help)'{-h,--help}'[Mostrâ jutori]' \
             '1:plugin:_claude_installed_plugins'
+          ;;
+        update)
+          _arguments \
+            '(-s --scope)'{-s,--scope}'[Ambit di instalazion]:scope:(user project local managed)' \
+            '(-h --help)'{-h,--help}'[Mostrâ jutori]' \
+            '1:plugin:_claude_installed_plugins'
+          ;;
+        list|prune)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Mostrâ jutori]'
+          ;;
+        details)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Mostrâ jutori]' \
+            '1:plugin:_claude_installed_plugins'
+          ;;
+        init)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Mostrâ jutori]' \
+            '1:name:'
+          ;;
+        eval)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Mostrâ jutori]' \
+            '1:target:'
+          ;;
+        tag)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Mostrâ jutori]' \
+            '1:path:_files'
           ;;
       esac
       ;;
   esac
 }
+
 _claude_plugin_marketplace() {
   local -a marketplace_commands
   marketplace_commands=(
@@ -261,12 +381,15 @@ _claude_plugin_marketplace() {
     'update:Inzornâ il marcjât de sorzint - inzornâ ducj se nissun non specificât'
     'help:Mostrâ jutori'
   )
+
   local curcontext="$curcontext" state line
   typeset -A opt_args
+
   _arguments -C \
     '(-h --help)'{-h,--help}'[Mostrâ jutori]' \
     '1: :->command' \
     '*::arg:->args'
+
   case $state in
     command)
       _describe -t commands 'comants di marcjât' marketplace_commands
@@ -296,10 +419,142 @@ _claude_plugin_marketplace() {
       ;;
   esac
 }
+
 _claude_install() {
   _arguments \
     '--force[Sfuarçâ la instalazion ancje se al è za instalât]' \
     '(-h --help)'{-h,--help}'[Mostrâ jutori]' \
     '::target:(stable latest)'
 }
+
+_claude_agents() {
+  _arguments \
+    '*--add-dir[Diretori adizionâl par permetê l'\''acès ai struments tes session inviadis]:directory:_directories' \
+    '--agent[Agjent predefinît pes session inviadis de viodude agjents]:agent:' \
+    '--all[Cun --json: includi ancje lis session in sotfont completadis]' \
+    '--allow-dangerously-skip-permissions[Rindi disponibile la modalitât bypass-permissions pes session inviadis]' \
+    '--cwd[Mostrâ dome lis session in sotfont inviadis sot il percors]:path:_directories' \
+    '--dangerously-skip-permissions[Alias par --permission-mode bypassPermissions]' \
+    '--effort[Nivel di sfuarç predefinît pes session inviadis]:level:(low medium high xhigh max)' \
+    '--json[Stampâ lis session ativis come array JSON e jessî]' \
+    '*--mcp-config[Configurazion dal servidôr MCP di aplicâ aes session inviadis]:config:' \
+    '--model[Model predefinît pes session inviadis de viodude agjents]:model:' \
+    '--permission-mode[Modalitât di permès predefinide pes session inviadis]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)' \
+    '*--plugin-dir[Cjariâ i plugin dal diretori pe viodude agjents e lis session inviadis]:path:_directories' \
+    '--setting-sources[Liste separade di virgulis di fonts di impostazions di cjariâ (user, project, local)]:sources:' \
+    '--settings[File di impostazions o stringhe JSON di aplicâ]:file-or-json:_files' \
+    '--strict-mcp-config[Doprâ dome i servidôrs MCP di --mcp-config tes session inviadis]' \
+    '(-h --help)'{-h,--help}'[Mostrâ jutori pal comant]'
+}
+
+_claude_auth() {
+  local -a auth_commands
+  auth_commands=(
+    'login:Jentrâ tal to account Anthropic'
+    'logout:Jessî dal to account Anthropic'
+    'status:Mostrâ il stât de autenticazion'
+    'help:Mostrâ jutori'
+  )
+
+  local curcontext="$curcontext" state line
+  typeset -A opt_args
+
+  _arguments -C \
+    '(-h --help)'{-h,--help}'[Mostrâ jutori pal comant]' \
+    '1: :->command' \
+    '*::arg:->args'
+
+  case $state in
+    command)
+      _describe -t commands 'comants auth' auth_commands
+      ;;
+    args)
+      case $words[1] in
+        login|logout|status)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Mostrâ jutori pal comant]'
+          ;;
+      esac
+      ;;
+  esac
+}
+
+_claude_auto_mode() {
+  local -a auto_mode_commands
+  auto_mode_commands=(
+    'config:Stampâ la configurazion efetive de modalitât automatiche come JSON'
+    'critique:Otignî feedback de IA su lis tôs regulis personalizadis de modalitât automatiche'
+    'defaults:Stampâ lis regulis predefinidis de modalitât automatiche come JSON'
+    'reset:Ristabilî la configurazion de modalitât automatiche ai valôrs predefinîts di fabriche'
+    'help:Mostrâ jutori'
+  )
+
+  local curcontext="$curcontext" state line
+  typeset -A opt_args
+
+  _arguments -C \
+    '(-h --help)'{-h,--help}'[Mostrâ jutori pal comant]' \
+    '1: :->command' \
+    '*::arg:->args'
+
+  case $state in
+    command)
+      _describe -t commands 'comants auto-mode' auto_mode_commands
+      ;;
+    args)
+      case $words[1] in
+        config|critique|defaults|reset)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Mostrâ jutori pal comant]'
+          ;;
+      esac
+      ;;
+  esac
+}
+
+_claude_gateway() {
+  _arguments \
+    '--config[Percors ae configurazion YAML dal gateway]:path:_files' \
+    '(-h --help)'{-h,--help}'[Mostrâ jutori pal comant]'
+}
+
+_claude_project() {
+  local -a project_commands
+  project_commands=(
+    'purge:Eliminâ dut il stât di Claude Code par un progjet (trascrizions, ativitâts, storic dai file, vôs di configurazion)'
+    'help:Mostrâ jutori'
+  )
+
+  local curcontext="$curcontext" state line
+  typeset -A opt_args
+
+  _arguments -C \
+    '(-h --help)'{-h,--help}'[Mostrâ jutori pal comant]' \
+    '1: :->command' \
+    '*::arg:->args'
+
+  case $state in
+    command)
+      _describe -t commands 'comants project' project_commands
+      ;;
+    args)
+      case $words[1] in
+        purge)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Mostrâ jutori pal comant]' \
+            '1:path:_directories'
+          ;;
+      esac
+      ;;
+  esac
+}
+
+_claude_ultrareview() {
+  _arguments \
+    '--json[Stampâ il payload grês bugs.json invezit dai risultâts formatâts]' \
+    '--timeout[Minûts massims di spietâ che la revision e finissi]:minutes:' \
+    '(-h --help)'{-h,--help}'[Mostrâ jutori pal comant]' \
+    '1:target:'
+}
+
 (( $+_comps[claude] )) || compdef _claude claude

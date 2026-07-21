@@ -1,4 +1,5 @@
 #compdef claude
+
 # Dynamic completion functions
 _claude_mcp_servers() {
   local config_file
@@ -24,40 +25,57 @@ _claude_mcp_servers() {
 _claude_installed_plugins() {
   local -a plugins
   local config_file plugin_dir
+
   # Check plugin directories directly
   for plugin_dir in ~/.claude/plugins ~/.config/claude/plugins; do
     [[ -d "$plugin_dir" ]] || continue
     plugins+=(${plugin_dir}/*(N:t))
   done
+
   # Remove duplicates
   plugins=(${(u)plugins})
+
   compadd -a plugins
 }
+
 _claude_sessions() {
   local -a sessions
   local session_dir
+
   # Check session directory
   for session_dir in ~/.claude/sessions ~/.config/claude/sessions; do
     [[ -d "$session_dir" ]] || continue
+
     # Extract UUIDs directly from filenames
     sessions+=(${session_dir}/*~*.zwc(N:t:r))
   done
+
   # Filter only valid UUIDs
   sessions=(${(M)sessions:#[0-9a-f](#c8)-[0-9a-f](#c4)-[0-9a-f](#c4)-[0-9a-f](#c4)-[0-9a-f](#c12)})
+
   compadd -a sessions
 }
+
 _claude() {
   local curcontext="$curcontext" state line
   typeset -A opt_args
+
   local -a main_commands
   main_commands=(
     'mcp:設定同管理 MCP 伺服器'
     'plugin:管理 Claude Code 插件'
+    'agents:管理背景代理'
+    'auth:管理認證'
+    'auto-mode:檢查或重設自動模式分類器設定'
+    'gateway:執行企業認證/遙測閘道'
+    'project:管理 Claude Code 專案狀態'
+    'ultrareview:執行雲端託管嘅多代理程式碼審查並列印結果'
     'setup-token:設定長期認證令牌（需要 Claude 訂閱）'
     'doctor:Claude Code 自動更新程式嘅健康檢查'
     'update:檢查同安裝更新'
     'install:安裝 Claude Code 原生建置版本'
   )
+
   local -a main_options
   main_options=(
     '(-d --debug)'{-d,--debug}'[啟用除錯模式，可選類別篩選（例如 "api,hooks" 或 "!statsig,!file"）]:filter:'
@@ -70,6 +88,7 @@ _claude() {
     '--mcp-debug[【已棄用。請改用 --debug】啟用 MCP 除錯模式（顯示 MCP 伺服器錯誤）]'
     '--dangerously-skip-permissions[略過所有權限檢查。僅建議用於無網絡存取嘅沙盒環境]'
     '--allow-dangerously-skip-permissions[啟用略過權限檢查嘅選項，但唔會預設啟用]'
+    '--max-budget-usd[花喺 API 呼叫上嘅美元金額上限（僅限 --print）]:amount:'
     '--replay-user-messages[喺 stdout 重新發送由 stdin 輸入嘅用戶訊息以進行確認]'
     '--allowed-tools[以逗號或空格分隔嘅允許工具名稱列表（例如 "Bash(git:*) Edit"）]:tools:'
     '--allowedTools[以逗號或空格分隔嘅允許工具名稱列表（駝峰式格式）]:tools:'
@@ -79,11 +98,14 @@ _claude() {
     '--mcp-config[由 JSON 檔案或字串載入 MCP 伺服器（以空格分隔）]:configs:'
     '--system-prompt[會話使用嘅系統提示]:prompt:'
     '--append-system-prompt[將系統提示附加到預設系統提示]:prompt:'
-    '--permission-mode[會話使用嘅權限模式]:mode:(acceptEdits bypassPermissions default dontAsk plan)'
+    '--permission-mode[會話使用嘅權限模式]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)'
     '(-c --continue)'{-c,--continue}'[繼續最近嘅對話]'
     '(-r --resume)'{-r,--resume}'[恢復對話 - 指定會話 ID 或互動式選擇]:sessionId:_claude_sessions'
     '--fork-session[喺恢復時建立新嘅會話 ID，而唔係重用原有會話 ID（配合 --resume 或 --continue）]'
+    '--no-session-persistence[停用會話持續性 - 會話將唔會儲存（僅限 --print）]'
     '--model[目前會話嘅模型。指定最新模型嘅別名（例如 '\''sonnet'\'' 或 '\''opus'\''）]:model:'
+    '--agent[目前會話嘅代理。覆寫 '\''agent'\'' 設定]:agent:'
+    '--betas[要包含喺 API 請求中嘅 Beta 標頭（僅限 API 金鑰用戶）]:betas:'
     '--fallback-model[當預設模型負載過重時自動後備到指定模型（僅限 --print）]:model:'
     '--settings[設定 JSON 檔案路徑或 JSON 字串以載入額外設定]:file-or-json:_files'
     '--add-dir[允許工具存取嘅額外目錄]:directories:_directories'
@@ -93,13 +115,37 @@ _claude() {
     '--agents[定義自訂代理嘅 JSON 物件]:json:'
     '--setting-sources[以逗號分隔嘅要載入嘅設定來源列表（user、project、local）]:sources:'
     '--plugin-dir[僅為呢個會話載入插件嘅目錄（可重複）]:paths:_directories'
+    '--disable-slash-commands[停用所有斜線命令]'
+    '(--bg --background)'{--bg,--background}'[以背景代理啟動會話並立即返回]'
+    '(-w --worktree)'{-w,--worktree}'[為呢個會話建立新嘅 git 工作樹（可選擇指定名稱）]::name:'
+    '--tmux[為工作樹建立 tmux 會話（需要 --worktree）]'
+    '(-n --name)'{-n,--name}'[為呢個會話設定顯示名稱]:name:'
+    '--effort[目前會話嘅努力程度]:level:(low medium high xhigh max)'
+    '--debug-file[將除錯記錄寫入特定檔案路徑（隱含啟用除錯模式）]:path:_files'
+    '--from-pr[恢復依編號/URL 連結至 PR 嘅會話，或開啟互動式選擇器]::value:'
+    '--remote-control[啟動已啟用遠端控制嘅互動式會話（可選擇命名）]::name:'
+    '--remote-control-session-name-prefix[自動產生嘅遠端控制會話名稱嘅前綴]:prefix:'
+    '--chrome[啟用 Claude in Chrome 整合]'
+    '--no-chrome[停用 Claude in Chrome 整合]'
+    '--plugin-url[僅為呢個會話由 URL 擷取插件 .zip（可重複）]:url:'
+    '--file[啟動時要下載嘅檔案資源（格式：file_id:relative_path）]:specs:'
+    '--prompt-suggestions[啟用提示建議（喺列印/SDK 模式下發出預測嘅下一個提示）]::value:(true false 1 0 yes no on off)'
+    '--forward-subagent-text[將子代理文字同思考區塊轉發為訊息（配合 --print 同 stream-json）]'
+    '--include-hook-events[喺輸出串流中包含所有 hook 生命週期事件（配合 stream-json）]'
+    '--exclude-dynamic-system-prompt-sections[將每台機器嘅區段移至第一則用戶訊息以改善提示快取重用]'
+    '--brief[啟用 SendUserMessage 工具以進行代理對用戶嘅通訊]'
+    '--safe-mode[啟動時停用所有自訂項目（適合疑難排解損毀嘅設定）]'
+    '--bare[最小模式：略過 hooks、LSP、插件同步、屬性標示、自動記憶同 CLAUDE.md 自動探索]'
+    '--ax-screen-reader[呈現螢幕助讀程式友善嘅輸出（純文字，無裝飾性邊框或動畫）]'
     '(-v --version)'{-v,--version}'[輸出版本號]'
     '(-h --help)'{-h,--help}'[顯示命令說明]'
   )
+
   _arguments -C \
     $main_options \
     '1: :->command' \
     '*::arg:->args'
+
   case $state in
     command)
       _describe -t commands 'claude commands' main_commands
@@ -115,6 +161,24 @@ _claude() {
         install)
           _claude_install
           ;;
+        agents)
+          _claude_agents
+          ;;
+        auth)
+          _claude_auth
+          ;;
+        auto-mode)
+          _claude_auto_mode
+          ;;
+        gateway)
+          _claude_gateway
+          ;;
+        project)
+          _claude_project
+          ;;
+        ultrareview)
+          _claude_ultrareview
+          ;;
         setup-token|doctor|update)
           _message "no arguments"
           ;;
@@ -122,6 +186,7 @@ _claude() {
       ;;
   esac
 }
+
 _claude_mcp() {
   local -a mcp_commands
   mcp_commands=(
@@ -133,14 +198,19 @@ _claude_mcp() {
     'add-json:使用 JSON 字串添加 MCP 伺服器（stdio 或 SSE）'
     'add-from-claude-desktop:由 Claude Desktop 匯入 MCP 伺服器（僅限 Mac 同 WSL）'
     'reset-project-choices:重設呢個專案中所有已批准/已拒絕嘅專案範圍（.mcp.json）伺服器'
+    'login:向 MCP 伺服器認證（HTTP、SSE 或 claude.ai 連接器）'
+    'logout:清除 MCP 伺服器嘅已儲存 OAuth 認證資訊'
     'help:顯示說明'
   )
+
   local curcontext="$curcontext" state line
   typeset -A opt_args
+
   _arguments -C \
     '(-h --help)'{-h,--help}'[顯示說明]' \
     '1: :->command' \
     '*::arg:->args'
+
   case $state in
     command)
       _describe -t commands 'mcp commands' mcp_commands
@@ -195,29 +265,45 @@ _claude_mcp() {
           _arguments \
             '(-h --help)'{-h,--help}'[顯示說明]'
           ;;
+        login|logout)
+          _arguments \
+            '(-h --help)'{-h,--help}'[顯示說明]' \
+            '1:name:_claude_mcp_servers'
+          ;;
       esac
       ;;
   esac
 }
+
 _claude_plugin() {
   local -a plugin_commands
   plugin_commands=(
     'validate:驗證插件或市集清單'
     'marketplace:管理 Claude Code 市集'
+    'list:列出已安裝嘅插件'
+    'details:顯示插件嘅元件清單同預估令牌成本'
     'install:由可用市集安裝插件'
     'i:由可用市集安裝插件（install 嘅簡寫）'
+    'init:建立新插件嘅骨架（下次會話自動載入）'
     'uninstall:解除安裝已安裝嘅插件'
     'remove:解除安裝已安裝嘅插件（uninstall 嘅別名）'
     'enable:啟用已停用嘅插件'
     'disable:停用已啟用嘅插件'
+    'update:將插件更新至最新版本'
+    'eval:對插件執行評估案例並回報評分結果'
+    'prune:移除唔再需要嘅自動安裝相依項目'
+    'tag:為插件版本建立 {name}--v{version} git 標籤'
     'help:顯示說明'
   )
+
   local curcontext="$curcontext" state line
   typeset -A opt_args
+
   _arguments -C \
     '(-h --help)'{-h,--help}'[顯示說明]' \
     '1: :->command' \
     '*::arg:->args'
+
   case $state in
     command)
       _describe -t commands 'plugin commands' plugin_commands
@@ -234,23 +320,57 @@ _claude_plugin() {
           ;;
         install|i)
           _arguments \
+            '(-s --scope)'{-s,--scope}'[安裝範圍]:scope:(user project local)' \
             '(-h --help)'{-h,--help}'[顯示說明]' \
             '1:plugin:'
           ;;
         uninstall|remove)
           _arguments \
+            '(-s --scope)'{-s,--scope}'[安裝範圍]:scope:(user project local)' \
             '(-h --help)'{-h,--help}'[顯示說明]' \
             '1:plugin:_claude_installed_plugins'
           ;;
         enable|disable)
           _arguments \
+            '(-s --scope)'{-s,--scope}'[安裝範圍]:scope:(user project local)' \
             '(-h --help)'{-h,--help}'[顯示說明]' \
             '1:plugin:_claude_installed_plugins'
+          ;;
+        update)
+          _arguments \
+            '(-s --scope)'{-s,--scope}'[安裝範圍]:scope:(user project local managed)' \
+            '(-h --help)'{-h,--help}'[顯示說明]' \
+            '1:plugin:_claude_installed_plugins'
+          ;;
+        list|prune)
+          _arguments \
+            '(-h --help)'{-h,--help}'[顯示說明]'
+          ;;
+        details)
+          _arguments \
+            '(-h --help)'{-h,--help}'[顯示說明]' \
+            '1:plugin:_claude_installed_plugins'
+          ;;
+        init)
+          _arguments \
+            '(-h --help)'{-h,--help}'[顯示說明]' \
+            '1:name:'
+          ;;
+        eval)
+          _arguments \
+            '(-h --help)'{-h,--help}'[顯示說明]' \
+            '1:target:'
+          ;;
+        tag)
+          _arguments \
+            '(-h --help)'{-h,--help}'[顯示說明]' \
+            '1:path:_files'
           ;;
       esac
       ;;
   esac
 }
+
 _claude_plugin_marketplace() {
   local -a marketplace_commands
   marketplace_commands=(
@@ -261,12 +381,15 @@ _claude_plugin_marketplace() {
     'update:由來源更新市集 - 如未指定名稱則更新所有'
     'help:顯示說明'
   )
+
   local curcontext="$curcontext" state line
   typeset -A opt_args
+
   _arguments -C \
     '(-h --help)'{-h,--help}'[顯示說明]' \
     '1: :->command' \
     '*::arg:->args'
+
   case $state in
     command)
       _describe -t commands 'marketplace commands' marketplace_commands
@@ -296,10 +419,142 @@ _claude_plugin_marketplace() {
       ;;
   esac
 }
+
 _claude_install() {
   _arguments \
     '--force[即使已安裝都強制安裝]' \
     '(-h --help)'{-h,--help}'[顯示說明]' \
     '::target:(stable latest)'
 }
+
+_claude_agents() {
+  _arguments \
+    '*--add-dir[喺派發嘅會話中允許工具存取嘅額外目錄]:directory:_directories' \
+    '--agent[由代理檢視派發嘅會話嘅預設代理]:agent:' \
+    '--all[配合 --json：同時包含已完成嘅背景會話]' \
+    '--allow-dangerously-skip-permissions[讓派發嘅會話可使用略過權限模式]' \
+    '--cwd[只顯示喺路徑下啟動嘅背景會話]:path:_directories' \
+    '--dangerously-skip-permissions[--permission-mode bypassPermissions 嘅別名]' \
+    '--effort[派發嘅會話嘅預設努力程度]:level:(low medium high xhigh max)' \
+    '--json[將作用中會話列印為 JSON 陣列並結束]' \
+    '*--mcp-config[要套用至派發嘅會話嘅 MCP 伺服器設定]:config:' \
+    '--model[由代理檢視派發嘅會話嘅預設模型]:model:' \
+    '--permission-mode[派發嘅會話嘅預設權限模式]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)' \
+    '*--plugin-dir[為代理檢視同派發嘅會話由目錄載入插件]:path:_directories' \
+    '--setting-sources[以逗號分隔嘅要載入嘅設定來源列表（user、project、local）]:sources:' \
+    '--settings[要套用嘅設定檔或 JSON 字串]:file-or-json:_files' \
+    '--strict-mcp-config[喺派發嘅會話中只使用 --mcp-config 中嘅 MCP 伺服器]' \
+    '(-h --help)'{-h,--help}'[顯示命令說明]'
+}
+
+_claude_auth() {
+  local -a auth_commands
+  auth_commands=(
+    'login:登入你嘅 Anthropic 帳戶'
+    'logout:登出你嘅 Anthropic 帳戶'
+    'status:顯示認證狀態'
+    'help:顯示說明'
+  )
+
+  local curcontext="$curcontext" state line
+  typeset -A opt_args
+
+  _arguments -C \
+    '(-h --help)'{-h,--help}'[顯示命令說明]' \
+    '1: :->command' \
+    '*::arg:->args'
+
+  case $state in
+    command)
+      _describe -t commands 'auth commands' auth_commands
+      ;;
+    args)
+      case $words[1] in
+        login|logout|status)
+          _arguments \
+            '(-h --help)'{-h,--help}'[顯示命令說明]'
+          ;;
+      esac
+      ;;
+  esac
+}
+
+_claude_auto_mode() {
+  local -a auto_mode_commands
+  auto_mode_commands=(
+    'config:將有效嘅自動模式設定列印為 JSON'
+    'critique:取得 AI 對你嘅自訂自動模式規則嘅回饋'
+    'defaults:將預設嘅自動模式規則列印為 JSON'
+    'reset:將自動模式設定重設為出廠預設值'
+    'help:顯示說明'
+  )
+
+  local curcontext="$curcontext" state line
+  typeset -A opt_args
+
+  _arguments -C \
+    '(-h --help)'{-h,--help}'[顯示命令說明]' \
+    '1: :->command' \
+    '*::arg:->args'
+
+  case $state in
+    command)
+      _describe -t commands 'auto-mode commands' auto_mode_commands
+      ;;
+    args)
+      case $words[1] in
+        config|critique|defaults|reset)
+          _arguments \
+            '(-h --help)'{-h,--help}'[顯示命令說明]'
+          ;;
+      esac
+      ;;
+  esac
+}
+
+_claude_gateway() {
+  _arguments \
+    '--config[閘道 YAML 設定嘅路徑]:path:_files' \
+    '(-h --help)'{-h,--help}'[顯示命令說明]'
+}
+
+_claude_project() {
+  local -a project_commands
+  project_commands=(
+    'purge:刪除專案嘅所有 Claude Code 狀態（記錄稿、工作、檔案歷程記錄、設定項目）'
+    'help:顯示說明'
+  )
+
+  local curcontext="$curcontext" state line
+  typeset -A opt_args
+
+  _arguments -C \
+    '(-h --help)'{-h,--help}'[顯示命令說明]' \
+    '1: :->command' \
+    '*::arg:->args'
+
+  case $state in
+    command)
+      _describe -t commands 'project commands' project_commands
+      ;;
+    args)
+      case $words[1] in
+        purge)
+          _arguments \
+            '(-h --help)'{-h,--help}'[顯示命令說明]' \
+            '1:path:_directories'
+          ;;
+      esac
+      ;;
+  esac
+}
+
+_claude_ultrareview() {
+  _arguments \
+    '--json[列印原始 bugs.json 承載而非格式化嘅結果]' \
+    '--timeout[等待審查完成嘅最長分鐘數]:minutes:' \
+    '(-h --help)'{-h,--help}'[顯示命令說明]' \
+    '1:target:'
+}
+
 (( $+_comps[claude] )) || compdef _claude claude

@@ -1,4 +1,5 @@
 #compdef claude
+
 # Dynamic completion functions
 _claude_mcp_servers() {
   local config_file
@@ -24,40 +25,57 @@ _claude_mcp_servers() {
 _claude_installed_plugins() {
   local -a plugins
   local config_file plugin_dir
+
   # Check plugin directories directly
   for plugin_dir in ~/.claude/plugins ~/.config/claude/plugins; do
     [[ -d "$plugin_dir" ]] || continue
     plugins+=(${plugin_dir}/*(N:t))
   done
+
   # Remove duplicates
   plugins=(${(u)plugins})
+
   compadd -a plugins
 }
+
 _claude_sessions() {
   local -a sessions
   local session_dir
+
   # Check session directory
   for session_dir in ~/.claude/sessions ~/.config/claude/sessions; do
     [[ -d "$session_dir" ]] || continue
+
     # Extract UUIDs directly from filenames
     sessions+=(${session_dir}/*~*.zwc(N:t:r))
   done
+
   # Filter only valid UUIDs
   sessions=(${(M)sessions:#[0-9a-f](#c8)-[0-9a-f](#c4)-[0-9a-f](#c4)-[0-9a-f](#c4)-[0-9a-f](#c12)})
+
   compadd -a sessions
 }
+
 _claude() {
   local curcontext="$curcontext" state line
   typeset -A opt_args
+
   local -a main_commands
   main_commands=(
     'mcp:MCP مۇلازىمېتىرلىرىنى سەپلەش ۋە باشقۇرۇش'
     'plugin:Claude Code قىستۇرمىلىرىنى باشقۇرۇش'
+    'agents:ئارقا سۇپا ۋاكالەتچىلىرىنى باشقۇرۇش'
+    'auth:دەلىللەشنى باشقۇرۇش'
+    'auto-mode:ئاپتوماتىك ھالەت تۈرگە ئايرىغۇچ سەپلىمىسىنى تەكشۈرۈش ياكى ئەسلىگە قايتۇرۇش'
+    'gateway:كارخانا دەلىللەش/تېلېمېترىيە ئۆتكىلىنى ئىجرا قىلىش'
+    'project:Claude Code تۈر ھالىتىنى باشقۇرۇش'
+    'ultrareview:بۇلۇتتا جايلاشقان كۆپ ۋاكالەتچىلىك كود تەكشۈرۈشىنى ئىجرا قىلىش ۋە بايقاشلارنى بېسىپ چىقىرىش'
     'setup-token:ئۇزۇن مۇددەتلىك دەلىللەش بەلگىسىنى تەڭشەش (Claude تەلەپنامىسى زۆرۈر)'
     'doctor:Claude Code ئاپتوماتىك يېڭىلانمىسى ئۈچۈن ساغلاملىق تەكشۈرۈش'
     'update:يېڭىلانمىلارنى تەكشۈرۈش ۋە ئورنىتىش'
     'install:Claude Code يەرلىك قۇرۇلمىسىنى ئورنىتىش'
   )
+
   local -a main_options
   main_options=(
     '(-d --debug)'{-d,--debug}'[تۈر سۈزگۈچى بىلەن سازلاش ھالىتىنى قوزغىتىش (مەسىلەن، "api,hooks" ياكى "!statsig,!file")]:filter:'
@@ -67,9 +85,10 @@ _claude() {
     '--json-schema[قۇرۇلمىلىق چىقىرىشنى دەلىللەش ئۈچۈن JSON لايىھىسى]:schema:'
     '--include-partial-messages[كەلگەندە قىسمەن ئۇچۇر پارچىلىرىنى قوشۇش (--print ۋە --output-format=stream-json بىلەن)]'
     '--input-format[كىرگۈزۈش فورماتى (--print بىلەن): "text" (سۈكۈتتىكى) ياكى "stream-json" (ھەقىقىي ۋاقىت ئېقىمى كىرگۈزۈشى)]:format:(text stream-json)'
-    '--mcp-debug[ۋاقتى ئۆتكەن. ئۇنىڭ ئورنىغا --debug ئىشلىتىڭ] MCP سازلاش ھالىتىنى قوزغىتىش (MCP مۇلازىمېتىر خاتالىقلىرىنى كۆرسىتىدۇ)]'
+    '--mcp-debug[\[ۋاقتى ئۆتكەن. ئۇنىڭ ئورنىغا --debug ئىشلىتىڭ\] MCP سازلاش ھالىتىنى قوزغىتىش (MCP مۇلازىمېتىر خاتالىقلىرىنى كۆرسىتىدۇ)]'
     '--dangerously-skip-permissions[بارلىق ئىجازەت تەكشۈرۈشلىرىنى ئاتلاش. پەقەت تورغا كىرىش ھوقۇقى يوق ساندۇق مۇھىتى ئۈچۈن تەۋسىيە قىلىنىدۇ]'
     '--allow-dangerously-skip-permissions[سۈكۈتتە قوزغاتماي ئىجازەت تەكشۈرۈشنى ئاتلاش تاللانمىسىنى قوزغىتىش]'
+    '--max-budget-usd[API چاقىرىقلىرىغا سەرپ قىلىدىغان ئەڭ يۇقىرى دوللار مىقدارى (پەقەت --print)]:amount:'
     '--replay-user-messages[تەستىقلاش ئۈچۈن stdin دىن stdout غا ئىشلەتكۈچى ئۇچۇرلىرىنى قايتا يوللاش]'
     '--allowed-tools[پەش ياكى بوشلۇق بىلەن ئايرىلغان ئىجازەت بېرىلگەن قورال ئىسىملىرىنىڭ تىزىملىكى (مەسىلەن، "Bash(git:*) Edit")]:tools:'
     '--allowedTools[پەش ياكى بوشلۇق بىلەن ئايرىلغان ئىجازەت بېرىلگەن قورال ئىسىملىرىنىڭ تىزىملىكى (camelCase فورماتى)]:tools:'
@@ -79,11 +98,14 @@ _claude() {
     '--mcp-config[JSON ھۆججىتى ياكى تىزمىدىن MCP مۇلازىمېتىرلىرىنى يۈكلەش (بوشلۇق بىلەن ئايرىلغان)]:configs:'
     '--system-prompt[يىغىن ئۈچۈن سىستېما چاقىرىقى]:prompt:'
     '--append-system-prompt[سۈكۈتتىكى سىستېما چاقىرىقىغا سىستېما چاقىرىقىنى قوشۇش]:prompt:'
-    '--permission-mode[يىغىن ئۈچۈن ئىجازەت ھالىتى]:mode:(acceptEdits bypassPermissions default dontAsk plan)'
+    '--permission-mode[يىغىن ئۈچۈن ئىجازەت ھالىتى]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)'
     '(-c --continue)'{-c,--continue}'[ئەڭ يېڭى سۆھبەتنى داۋاملاشتۇرۇش]'
     '(-r --resume)'{-r,--resume}'[سۆھبەتنى داۋاملاشتۇرۇش - يىغىن كىملىكىنى بەلگىلەڭ ياكى ئۆز-ئارا تاللاڭ]:sessionId:_claude_sessions'
     '--fork-session[داۋاملاشتۇرغاندا ئەسلى يىغىن كىملىكىنى قايتا ئىشلىتىشنىڭ ئورنىغا يېڭى يىغىن كىملىكى ياساش (--resume ياكى --continue بىلەن)]'
+    '--no-session-persistence[يىغىن ساقلاشنى چەكلەش - يىغىنلار ساقلانمايدۇ (پەقەت --print)]'
     '--model[ھازىرقى يىغىن ئۈچۈن مودېل. ئەڭ يېڭى مودېل ئۈچۈن لەقەب بەلگىلەڭ (مەسىلەن، '\''sonnet'\'' ياكى '\''opus'\'')]:model:'
+    '--agent[ھازىرقى يىغىن ئۈچۈن ۋاكالەتچى. '\''agent'\'' تەڭشىكىنى بىكار قىلىدۇ]:agent:'
+    '--betas[API ئىلتىماسلىرىغا قوشۇلىدىغان Beta باشلىرى (پەقەت API ئاچقۇچ ئىشلەتكۈچىلىرى)]:betas:'
     '--fallback-model[سۈكۈتتىكى مودېل ئارتۇق يۈكلەنگەندە بەلگىلەنگەن مودېلغا ئاپتوماتىك قايتىشنى قوزغىتىش (پەقەت --print)]:model:'
     '--settings[قوشۇمچە تەڭشەكلەرنى يۈكلەش ئۈچۈن تەڭشەك JSON ھۆججىتى ياكى JSON تىزما يولى]:file-or-json:_files'
     '--add-dir[قورال كىرىشىگە ئىجازەت بېرىش ئۈچۈن قوشۇمچە مۇندەرىجىلەر]:directories:_directories'
@@ -93,13 +115,37 @@ _claude() {
     '--agents[خاسلاشتۇرۇلغان ۋاكالەتچىلەرنى بەلگىلەيدىغان JSON ئوبيېكتى]:json:'
     '--setting-sources[يۈكلەش ئۈچۈن پەش بىلەن ئايرىلغان تەڭشەك مەنبەلىرىنىڭ تىزىملىكى (user, project, local)]:sources:'
     '--plugin-dir[پەقەت بۇ يىغىن ئۈچۈن قىستۇرمىلارنى يۈكلەش ئۈچۈن مۇندەرىجە (تەكرارلىنىشچان)]:paths:_directories'
+    '--disable-slash-commands[بارلىق يانتۇ سىزىق بۇيرۇقلىرىنى چەكلەش]'
+    '(--bg --background)'{--bg,--background}'[يىغىننى ئارقا سۇپا ۋاكالەتچىسى سۈپىتىدە قوزغىتىش ۋە دەرھال قايتىش]'
+    '(-w --worktree)'{-w,--worktree}'[بۇ يىغىن ئۈچۈن يېڭى git worktree قۇرۇش (ئىختىيارىي ھالدا ئىسىم بەلگىلەڭ)]::name:'
+    '--tmux[worktree ئۈچۈن tmux يىغىنى قۇرۇش (--worktree زۆرۈر)]'
+    '(-n --name)'{-n,--name}'[بۇ يىغىن ئۈچۈن كۆرسىتىش ئىسمى بەلگىلەش]:name:'
+    '--effort[ھازىرقى يىغىن ئۈچۈن كۈچ سەرپ قىلىش دەرىجىسى]:level:(low medium high xhigh max)'
+    '--debug-file[سازلاش خاتىرىلىرىنى مەلۇم ھۆججەت يولىغا يېزىش (سازلاش ھالىتىنى ئۆز-ئۆزىدىن قوزغىتىدۇ)]:path:_files'
+    '--from-pr[نومۇر/URL بويىچە PR غا باغلانغان يىغىننى داۋاملاشتۇرۇش، ياكى ئۆز-ئارا تاللىغۇچنى ئېچىش]::value:'
+    '--remote-control[يىراقتىن كونترول قوزغىتىلغان ئۆز-ئارا يىغىننى باشلاش (ئىختىيارىي ھالدا ئىسىم بەلگىلەش)]::name:'
+    '--remote-control-session-name-prefix[ئاپتوماتىك ھاسىل قىلىنغان يىراقتىن كونترول يىغىن ئىسىملىرى ئۈچۈن ئالدى قوشۇلغۇچى]:prefix:'
+    '--chrome[Chrome دىكى Claude بىرلەشتۈرۈشىنى قوزغىتىش]'
+    '--no-chrome[Chrome دىكى Claude بىرلەشتۈرۈشىنى چەكلەش]'
+    '--plugin-url[پەقەت بۇ يىغىن ئۈچۈن URL دىن قىستۇرما .zip نى ئېلىش (تەكرارلىنىشچان)]:url:'
+    '--file[قوزغىتىلغاندا چۈشۈرۈلىدىغان ھۆججەت مەنبەلىرى (فورمات: file_id:relative_path)]:specs:'
+    '--prompt-suggestions[چاقىرىق تەۋسىيەلىرىنى قوزغىتىش (بېسىپ چىقىرىش/SDK ھالىتىدە مۆلچەرلەنگەن كېيىنكى چاقىرىقنى چىقىرىدۇ)]::value:(true false 1 0 yes no on off)'
+    '--forward-subagent-text[تارماق ۋاكالەتچى تېكىستى ۋە ئويلىنىش بۆلەكلىرىنى ئۇچۇر سۈپىتىدە يۆتكەش (--print ۋە stream-json بىلەن)]'
+    '--include-hook-events[بارلىق ھۇك ھايات دەۋرى ھادىسىلىرىنى چىقىرىش ئېقىمىغا قوشۇش (stream-json بىلەن)]'
+    '--exclude-dynamic-system-prompt-sections[ھەر ماشىنىلىق بۆلەكلەرنى تۇنجى ئىشلەتكۈچى ئۇچۇرىغا يۆتكەپ چاقىرىق غەملەك قايتا ئىشلىتىشنى ياخشىلاش]'
+    '--brief[ۋاكالەتچى-ئىشلەتكۈچى ئالاقىسى ئۈچۈن SendUserMessage قورالىنى قوزغىتىش]'
+    '--safe-mode[بارلىق خاسلاشتۇرۇشلار چەكلەنگەن ھالدا باشلاش (بۇزۇلغان سەپلىمىنى تەكشۈرۈشتە پايدىلىق)]'
+    '--bare[ئەڭ ئاز ھالەت: ھۇكلار، LSP، قىستۇرما ماسلاشتۇرۇش، مەنسۇپلۇق، ئاپتو-ئەسلەك ۋە CLAUDE.md ئاپتوماتىك بايقاشنى ئاتلاش]'
+    '--ax-screen-reader[ئېكران ئوقۇغۇچقا دوستانە چىقىرىش (تەكشى تېكىست، زىننەتلىك گىرۋەك ياكى ھەرىكەت يوق)]'
     '(-v --version)'{-v,--version}'[نۇسخا نومۇرىنى چىقىرىش]'
     '(-h --help)'{-h,--help}'[بۇيرۇق ئۈچۈن ياردەم كۆرسىتىش]'
   )
+
   _arguments -C \
     $main_options \
     '1: :->command' \
     '*::arg:->args'
+
   case $state in
     command)
       _describe -t commands 'claude commands' main_commands
@@ -115,13 +161,32 @@ _claude() {
         install)
           _claude_install
           ;;
+        agents)
+          _claude_agents
+          ;;
+        auth)
+          _claude_auth
+          ;;
+        auto-mode)
+          _claude_auto_mode
+          ;;
+        gateway)
+          _claude_gateway
+          ;;
+        project)
+          _claude_project
+          ;;
+        ultrareview)
+          _claude_ultrareview
+          ;;
         setup-token|doctor|update)
-          _message "no arguments"
+          _message "ئارگۇمېنت يوق"
           ;;
       esac
       ;;
   esac
 }
+
 _claude_mcp() {
   local -a mcp_commands
   mcp_commands=(
@@ -133,14 +198,19 @@ _claude_mcp() {
     'add-json:JSON تىزمىسى بىلەن MCP مۇلازىمېتىرى قوشۇش (stdio ياكى SSE)'
     'add-from-claude-desktop:Claude Desktop دىن MCP مۇلازىمېتىرلىرىنى ئەكىرىش (پەقەت Mac ۋە WSL)'
     'reset-project-choices:بۇ تۈردىكى بارلىق تەستىقلانغان/رەت قىلىنغان تۈر دائىرىسىدىكى (.mcp.json) مۇلازىمېتىرلارنى ئەسلىگە قايتۇرۇش'
+    'login:MCP مۇلازىمېتىرى بىلەن دەلىللىنىش (HTTP، SSE، ياكى claude.ai ئۇلىغۇچ)'
+    'logout:MCP مۇلازىمېتىرى ئۈچۈن ساقلانغان OAuth دەلىلنامىلىرىنى تازىلاش'
     'help:ياردەم كۆرسىتىش'
   )
+
   local curcontext="$curcontext" state line
   typeset -A opt_args
+
   _arguments -C \
     '(-h --help)'{-h,--help}'[ياردەم كۆرسىتىش]' \
     '1: :->command' \
     '*::arg:->args'
+
   case $state in
     command)
       _describe -t commands 'mcp commands' mcp_commands
@@ -195,29 +265,45 @@ _claude_mcp() {
           _arguments \
             '(-h --help)'{-h,--help}'[ياردەم كۆرسىتىش]'
           ;;
+        login|logout)
+          _arguments \
+            '(-h --help)'{-h,--help}'[ياردەم كۆرسىتىش]' \
+            '1:name:_claude_mcp_servers'
+          ;;
       esac
       ;;
   esac
 }
+
 _claude_plugin() {
   local -a plugin_commands
   plugin_commands=(
     'validate:قىستۇرما ياكى بازار خاتىرىسىنى دەلىللەش'
     'marketplace:Claude Code بازارلىرىنى باشقۇرۇش'
+    'list:ئورنىتىلغان قىستۇرمىلارنىڭ تىزىملىكى'
+    'details:قىستۇرمىنىڭ بۆلەك تىزىملىكى ۋە مۆلچەرلەنگەن توكېن خامىتىنى كۆرسىتىش'
     'install:بار بازارلاردىن قىستۇرما ئورنىتىش'
     'i:بار بازارلاردىن قىستۇرما ئورنىتىش (install نىڭ قىسقارتىلمىسى)'
+    'init:يېڭى قىستۇرما قۇرۇش (كېيىنكى يىغىندا ئاپتوماتىك يۈكلىنىدۇ)'
     'uninstall:ئورنىتىلغان قىستۇرمىنى ئۆچۈرۈش'
     'remove:ئورنىتىلغان قىستۇرمىنى ئۆچۈرۈش (uninstall نىڭ لەقىمى)'
     'enable:تاقالغان قىستۇرمىنى قوزغىتىش'
     'disable:قوزغىتىلغان قىستۇرمىنى تاقاش'
+    'update:قىستۇرمىنى ئەڭ يېڭى نۇسخىغا يېڭىلاش'
+    'eval:قىستۇرمىغا قارىتا باھالاش ئەھۋاللىرىنى ئىجرا قىلىش ۋە نومۇرلانغان نەتىجىلەرنى مەلۇم قىلىش'
+    'prune:ئېھتىياج قالمىغان ئاپتوماتىك ئورنىتىلغان بېقىنمىلارنى ئۆچۈرۈش'
+    'tag:قىستۇرما تارقىتىش ئۈچۈن {name}--v{version} git بەلگىسى قۇرۇش'
     'help:ياردەم كۆرسىتىش'
   )
+
   local curcontext="$curcontext" state line
   typeset -A opt_args
+
   _arguments -C \
     '(-h --help)'{-h,--help}'[ياردەم كۆرسىتىش]' \
     '1: :->command' \
     '*::arg:->args'
+
   case $state in
     command)
       _describe -t commands 'plugin commands' plugin_commands
@@ -234,23 +320,57 @@ _claude_plugin() {
           ;;
         install|i)
           _arguments \
+            '(-s --scope)'{-s,--scope}'[ئورنىتىش دائىرىسى]:scope:(user project local)' \
             '(-h --help)'{-h,--help}'[ياردەم كۆرسىتىش]' \
             '1:plugin:'
           ;;
         uninstall|remove)
           _arguments \
+            '(-s --scope)'{-s,--scope}'[ئورنىتىش دائىرىسى]:scope:(user project local)' \
             '(-h --help)'{-h,--help}'[ياردەم كۆرسىتىش]' \
             '1:plugin:_claude_installed_plugins'
           ;;
         enable|disable)
           _arguments \
+            '(-s --scope)'{-s,--scope}'[ئورنىتىش دائىرىسى]:scope:(user project local)' \
             '(-h --help)'{-h,--help}'[ياردەم كۆرسىتىش]' \
             '1:plugin:_claude_installed_plugins'
+          ;;
+        update)
+          _arguments \
+            '(-s --scope)'{-s,--scope}'[ئورنىتىش دائىرىسى]:scope:(user project local managed)' \
+            '(-h --help)'{-h,--help}'[ياردەم كۆرسىتىش]' \
+            '1:plugin:_claude_installed_plugins'
+          ;;
+        list|prune)
+          _arguments \
+            '(-h --help)'{-h,--help}'[ياردەم كۆرسىتىش]'
+          ;;
+        details)
+          _arguments \
+            '(-h --help)'{-h,--help}'[ياردەم كۆرسىتىش]' \
+            '1:plugin:_claude_installed_plugins'
+          ;;
+        init)
+          _arguments \
+            '(-h --help)'{-h,--help}'[ياردەم كۆرسىتىش]' \
+            '1:name:'
+          ;;
+        eval)
+          _arguments \
+            '(-h --help)'{-h,--help}'[ياردەم كۆرسىتىش]' \
+            '1:target:'
+          ;;
+        tag)
+          _arguments \
+            '(-h --help)'{-h,--help}'[ياردەم كۆرسىتىش]' \
+            '1:path:_files'
           ;;
       esac
       ;;
   esac
 }
+
 _claude_plugin_marketplace() {
   local -a marketplace_commands
   marketplace_commands=(
@@ -261,12 +381,15 @@ _claude_plugin_marketplace() {
     'update:مەنبەدىن بازارنى يېڭىلاش - ئىسمى بەلگىلەنمىسە ھەممىنى يېڭىلاش'
     'help:ياردەم كۆرسىتىش'
   )
+
   local curcontext="$curcontext" state line
   typeset -A opt_args
+
   _arguments -C \
     '(-h --help)'{-h,--help}'[ياردەم كۆرسىتىش]' \
     '1: :->command' \
     '*::arg:->args'
+
   case $state in
     command)
       _describe -t commands 'marketplace commands' marketplace_commands
@@ -296,10 +419,142 @@ _claude_plugin_marketplace() {
       ;;
   esac
 }
+
 _claude_install() {
   _arguments \
     '--force[ئاللىبۇرۇن ئورنىتىلغان بولسىمۇ مەجبۇرىي ئورنىتىش]' \
     '(-h --help)'{-h,--help}'[ياردەم كۆرسىتىش]' \
     '::target:(stable latest)'
 }
+
+_claude_agents() {
+  _arguments \
+    '*--add-dir[ئەۋەتىلگەن يىغىنلاردا قورال كىرىشىگە ئىجازەت بېرىدىغان قوشۇمچە مۇندەرىجە]:directory:_directories' \
+    '--agent[ۋاكالەتچى كۆرۈنۈشىدىن ئەۋەتىلگەن يىغىنلار ئۈچۈن سۈكۈتتىكى ۋاكالەتچى]:agent:' \
+    '--all[--json بىلەن: تاماملانغان ئارقا سۇپا يىغىنلىرىنىمۇ ئۆز ئىچىگە ئالىدۇ]' \
+    '--allow-dangerously-skip-permissions[ئىجازەت ئاتلاش ھالىتىنى ئەۋەتىلگەن يىغىنلارغا ئىشلىتىشچان قىلىش]' \
+    '--cwd[پەقەت يول ئاستىدا باشلانغان ئارقا سۇپا يىغىنلىرىنى كۆرسىتىش]:path:_directories' \
+    '--dangerously-skip-permissions[--permission-mode bypassPermissions نىڭ لەقىمى]' \
+    '--effort[ئەۋەتىلگەن يىغىنلار ئۈچۈن سۈكۈتتىكى كۈچ سەرپ قىلىش دەرىجىسى]:level:(low medium high xhigh max)' \
+    '--json[ئاكتىپ يىغىنلارنى JSON قاتارى سۈپىتىدە بېسىپ چىقىرىش ۋە چېكىنىش]' \
+    '*--mcp-config[ئەۋەتىلگەن يىغىنلارغا قوللىنىدىغان MCP مۇلازىمېتىر سەپلىمىسى]:config:' \
+    '--model[ۋاكالەتچى كۆرۈنۈشىدىن ئەۋەتىلگەن يىغىنلار ئۈچۈن سۈكۈتتىكى مودېل]:model:' \
+    '--permission-mode[ئەۋەتىلگەن يىغىنلار ئۈچۈن سۈكۈتتىكى ئىجازەت ھالىتى]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)' \
+    '*--plugin-dir[ۋاكالەتچى كۆرۈنۈشى ۋە ئەۋەتىلگەن يىغىنلار ئۈچۈن مۇندەرىجىدىن قىستۇرمىلارنى يۈكلەش]:path:_directories' \
+    '--setting-sources[يۈكلەش ئۈچۈن پەش بىلەن ئايرىلغان تەڭشەك مەنبەلىرىنىڭ تىزىملىكى (user, project, local)]:sources:' \
+    '--settings[قوللىنىدىغان تەڭشەك ھۆججىتى ياكى JSON تىزمىسى]:file-or-json:_files' \
+    '--strict-mcp-config[ئەۋەتىلگەن يىغىنلاردا پەقەت --mcp-config دىكى MCP مۇلازىمېتىرلىرىنى ئىشلىتىش]' \
+    '(-h --help)'{-h,--help}'[بۇيرۇق ئۈچۈن ياردەم كۆرسىتىش]'
+}
+
+_claude_auth() {
+  local -a auth_commands
+  auth_commands=(
+    'login:Anthropic ھېساباتىڭىزغا كىرىش'
+    'logout:Anthropic ھېساباتىڭىزدىن چېكىنىش'
+    'status:دەلىللەش ھالىتىنى كۆرسىتىش'
+    'help:ياردەم كۆرسىتىش'
+  )
+
+  local curcontext="$curcontext" state line
+  typeset -A opt_args
+
+  _arguments -C \
+    '(-h --help)'{-h,--help}'[بۇيرۇق ئۈچۈن ياردەم كۆرسىتىش]' \
+    '1: :->command' \
+    '*::arg:->args'
+
+  case $state in
+    command)
+      _describe -t commands 'auth commands' auth_commands
+      ;;
+    args)
+      case $words[1] in
+        login|logout|status)
+          _arguments \
+            '(-h --help)'{-h,--help}'[بۇيرۇق ئۈچۈن ياردەم كۆرسىتىش]'
+          ;;
+      esac
+      ;;
+  esac
+}
+
+_claude_auto_mode() {
+  local -a auto_mode_commands
+  auto_mode_commands=(
+    'config:ئۈنۈملۈك ئاپتوماتىك ھالەت سەپلىمىسىنى JSON سۈپىتىدە بېسىپ چىقىرىش'
+    'critique:خاسلاشتۇرۇلغان ئاپتوماتىك ھالەت قائىدىلىرىڭىزگە AI ئىنكاسى ئېلىش'
+    'defaults:سۈكۈتتىكى ئاپتوماتىك ھالەت قائىدىلىرىنى JSON سۈپىتىدە بېسىپ چىقىرىش'
+    'reset:ئاپتوماتىك ھالەت سەپلىمىسىنى تارقىتىلغان سۈكۈتتىكى ھالەتكە ئەسلىگە قايتۇرۇش'
+    'help:ياردەم كۆرسىتىش'
+  )
+
+  local curcontext="$curcontext" state line
+  typeset -A opt_args
+
+  _arguments -C \
+    '(-h --help)'{-h,--help}'[بۇيرۇق ئۈچۈن ياردەم كۆرسىتىش]' \
+    '1: :->command' \
+    '*::arg:->args'
+
+  case $state in
+    command)
+      _describe -t commands 'auto-mode commands' auto_mode_commands
+      ;;
+    args)
+      case $words[1] in
+        config|critique|defaults|reset)
+          _arguments \
+            '(-h --help)'{-h,--help}'[بۇيرۇق ئۈچۈن ياردەم كۆرسىتىش]'
+          ;;
+      esac
+      ;;
+  esac
+}
+
+_claude_gateway() {
+  _arguments \
+    '--config[ئۆتكەل YAML سەپلىمىسىنىڭ يولى]:path:_files' \
+    '(-h --help)'{-h,--help}'[بۇيرۇق ئۈچۈن ياردەم كۆرسىتىش]'
+}
+
+_claude_project() {
+  local -a project_commands
+  project_commands=(
+    'purge:تۈر ئۈچۈن بارلىق Claude Code ھالىتىنى ئۆچۈرۈش (سۆزلەشمىلەر، ۋەزىپىلەر، ھۆججەت تارىخى، سەپلىمە تۈرى)'
+    'help:ياردەم كۆرسىتىش'
+  )
+
+  local curcontext="$curcontext" state line
+  typeset -A opt_args
+
+  _arguments -C \
+    '(-h --help)'{-h,--help}'[بۇيرۇق ئۈچۈن ياردەم كۆرسىتىش]' \
+    '1: :->command' \
+    '*::arg:->args'
+
+  case $state in
+    command)
+      _describe -t commands 'project commands' project_commands
+      ;;
+    args)
+      case $words[1] in
+        purge)
+          _arguments \
+            '(-h --help)'{-h,--help}'[بۇيرۇق ئۈچۈن ياردەم كۆرسىتىش]' \
+            '1:path:_directories'
+          ;;
+      esac
+      ;;
+  esac
+}
+
+_claude_ultrareview() {
+  _arguments \
+    '--json[فورماتلانغان بايقاشلارنىڭ ئورنىغا خام bugs.json يۈكىنى بېسىپ چىقىرىش]' \
+    '--timeout[تەكشۈرۈشنىڭ تاماملىنىشىنى كۈتىدىغان ئەڭ كۆپ مىنۇت]:minutes:' \
+    '(-h --help)'{-h,--help}'[بۇيرۇق ئۈچۈن ياردەم كۆرسىتىش]' \
+    '1:target:'
+}
+
 (( $+_comps[claude] )) || compdef _claude claude

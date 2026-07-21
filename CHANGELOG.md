@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.0] - 2026-07-22
+
+### Added
+- **Full localization** — all remaining locale files are now in sync with the current CLI, completing the translation catch-up started in 2.2.1. Every one of the 119 localized completions now covers the new commands (`agents`, `auth`, `auto-mode`, `gateway`, `project`, `ultrareview` and their subcommands), `mcp login`/`logout`, the new `plugin` subcommands, and the ~23 new session options.
+  - English regional variants (`en-*`) mirror the base English completion; `sv-FI`/`sv-SE` mirror `sv`.
+  - Minority and constructed languages were translated on a best-effort basis.
+
 ## [2.2.1] - 2026-07-21
 
 ### Added

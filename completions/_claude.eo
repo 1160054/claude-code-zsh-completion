@@ -1,4 +1,5 @@
 #compdef claude
+
 # Dynamic completion functions
 _claude_mcp_servers() {
   local config_file
@@ -24,40 +25,57 @@ _claude_mcp_servers() {
 _claude_installed_plugins() {
   local -a plugins
   local config_file plugin_dir
+
   # Check plugin directories directly
   for plugin_dir in ~/.claude/plugins ~/.config/claude/plugins; do
     [[ -d "$plugin_dir" ]] || continue
     plugins+=(${plugin_dir}/*(N:t))
   done
+
   # Remove duplicates
   plugins=(${(u)plugins})
+
   compadd -a plugins
 }
+
 _claude_sessions() {
   local -a sessions
   local session_dir
+
   # Check session directory
   for session_dir in ~/.claude/sessions ~/.config/claude/sessions; do
     [[ -d "$session_dir" ]] || continue
+
     # Extract UUIDs directly from filenames
     sessions+=(${session_dir}/*~*.zwc(N:t:r))
   done
+
   # Filter only valid UUIDs
   sessions=(${(M)sessions:#[0-9a-f](#c8)-[0-9a-f](#c4)-[0-9a-f](#c4)-[0-9a-f](#c4)-[0-9a-f](#c12)})
+
   compadd -a sessions
 }
+
 _claude() {
   local curcontext="$curcontext" state line
   typeset -A opt_args
+
   local -a main_commands
   main_commands=(
     'mcp:Agordi kaj administri MCP-servilojn'
     'plugin:Administri Claude Code kromaĵojn'
+    'agents:Administri fonajn agentojn'
+    'auth:Administri aŭtentikigon'
+    'auto-mode:Inspekti aŭ reagordi la agordon de la aŭtomatreĝima klasigilo'
+    'gateway:Ruli la enterprezan aŭtentikigan/telemetrian kluzon'
+    'project:Administri Claude Code projekt-staton'
+    'ultrareview:Ruli nube-gastigitan pluragentan kod-revizion kaj presi la trovojn'
     'setup-token:Agordi longdaŭran aŭtentikigan ĵetonon (bezonas Claude-abonon)'
     'doctor:Sankontrolo por Claude Code aŭtomata ĝisdatigilo'
     'update:Kontroli kaj instali ĝisdatigojn'
     'install:Instali Claude Code denaskan kompilitan version'
   )
+
   local -a main_options
   main_options=(
     '(-d --debug)'{-d,--debug}'[Ŝalti erarserĉan reĝimon kun opcia kategoria filtrado (ekz., "api,hooks" aŭ "!statsig,!file")]:filtrilo:'
@@ -70,6 +88,7 @@ _claude() {
     '--mcp-debug[\[Malrekomendita. Uzu --debug anstataŭe\] Ŝalti MCP erarserĉan reĝimon (montras MCP-servil-erarojn)]'
     '--dangerously-skip-permissions[Preterpasi ĉiujn permesajn kontrolojn. Rekomendata nur por sablujeloj sen interreta aliro]'
     '--allow-dangerously-skip-permissions[Ebligi opcion por preterpasi permesajn kontrolojn sen ebligi defaŭlte]'
+    '--max-budget-usd[Maksimuma dolar-sumo por elspezi je API-vokoj (--print nur)]:sumo:'
     '--replay-user-messages[Resendi uzant-mesaĝojn de stdin al stdout por konfirmo]'
     '--allowed-tools[Komo- aŭ spac-apartigita listo de permesitaj ilnomoj (ekz., "Bash(git:*) Edit")]:iloj:'
     '--allowedTools[Komo- aŭ spac-apartigita listo de permesitaj ilnomoj (camelCase-formato)]:iloj:'
@@ -79,11 +98,14 @@ _claude() {
     '--mcp-config[Ŝargi MCP-servilojn el JSON-dosiero aŭ ĉeno (spac-apartigita)]:agordoj:'
     '--system-prompt[Sistema invito por uzi en seanco]:invito:'
     '--append-system-prompt[Aldoni sisteman inviton al defaŭlta sistema invito]:invito:'
-    '--permission-mode[Permesa reĝimo por uzi en seanco]:reĝimo:(acceptEdits bypassPermissions default dontAsk plan)'
+    '--permission-mode[Permesa reĝimo por uzi en seanco]:reĝimo:(acceptEdits auto bypassPermissions manual dontAsk plan)'
     '(-c --continue)'{-c,--continue}'[Daŭrigi la plej freŝan konversacion]'
     '(-r --resume)'{-r,--resume}'[Rekomenci konversacion - specifi seanc-identigilon aŭ elekti interaktive]:seancID:_claude_sessions'
     '--fork-session[Krei novan seanc-identigilon anstataŭ reuzi originalan seanc-identigilon dum rekomencado (kun --resume aŭ --continue)]'
+    '--no-session-persistence[Malŝalti seanc-persiston - seancoj ne estos konservitaj (--print nur)]'
     '--model[Modelo por nuna seanco. Specifi kromnomon por plej freŝa modelo (ekz., '\''sonnet'\'' aŭ '\''opus'\'')]:modelo:'
+    '--agent[Agento por la nuna seanco. Anstataŭigas la '\''agent'\'' agordon]:agento:'
+    '--betas[Beta-kapoj por inkluzivi en API-petoj (nur uzantoj de API-ŝlosilo)]:betaoj:'
     '--fallback-model[Ebligi aŭtomatan retropaŝon al specifita modelo kiam defaŭlta modelo estas tro ŝarĝita (--print nur)]:modelo:'
     '--settings[Vojo al agorda JSON-dosiero aŭ JSON-ĉeno por ŝargi pliajn agordojn]:dosiero-aŭ-json:_files'
     '--add-dir[Pliaj dosierujoj por permesi ilan aliron]:dosierujoj:_directories'
@@ -93,13 +115,37 @@ _claude() {
     '--agents[JSON-objekto difinanta proprajn agentojn]:json:'
     '--setting-sources[Komo-apartigita listo de agord-fontoj por ŝargi (user, project, local)]:fontoj:'
     '--plugin-dir[Dosierujo por ŝargi kromaĵojn nur por ĉi tiu seanco (ripetebla)]:vojoj:_directories'
+    '--disable-slash-commands[Malŝalti ĉiujn oblikvostrekajn komandojn]'
+    '(--bg --background)'{--bg,--background}'[Startigi la seancon kiel fonan agenton kaj tuj reveni]'
+    '(-w --worktree)'{-w,--worktree}'[Krei novan git-laborarbon por ĉi tiu seanco (opcie specifi nomon)]::nomo:'
+    '--tmux[Krei tmux-seancon por la laborarbo (bezonas --worktree)]'
+    '(-n --name)'{-n,--name}'[Agordi montran nomon por ĉi tiu seanco]:nomo:'
+    '--effort[Klopod-nivelo por la nuna seanco]:nivelo:(low medium high xhigh max)'
+    '--debug-file[Skribi erarserĉajn protokolojn al specifa dosiervojo (implicite ŝaltas erarserĉan reĝimon)]:vojo:_files'
+    '--from-pr[Rekomenci seancon ligitan al PR laŭ numero/URL, aŭ malfermi interaktivan elektilon]::valoro:'
+    '--remote-control[Startigi interaktivan seancon kun Fora Regado ŝaltita (opcie nomita)]::nomo:'
+    '--remote-control-session-name-prefix[Prefikso por aŭtomate generitaj Fora Regado seanc-nomoj]:prefikso:'
+    '--chrome[Ŝalti Claude en Chrome integriĝon]'
+    '--no-chrome[Malŝalti Claude en Chrome integriĝon]'
+    '--plugin-url[Havigi kromaĵan .zip el URL nur por ĉi tiu seanco (ripetebla)]:url:'
+    '--file[Dosier-rimedoj por elŝuti dum startigo (formato: file_id:relative_path)]:specifoj:'
+    '--prompt-suggestions[Ŝalti invit-sugestojn (eligas antaŭdiritan sekvan inviton en presa/SDK-reĝimo)]::valoro:(true false 1 0 yes no on off)'
+    '--forward-subagent-text[Plusendi subagentan tekston kaj pens-blokojn kiel mesaĝojn (kun --print kaj stream-json)]'
+    '--include-hook-events[Inkluzivi ĉiujn hok-vivociklajn eventojn en la elir-fluo (kun stream-json)]'
+    '--exclude-dynamic-system-prompt-sections[Movi po-maŝinajn sekciojn en la unuan uzant-mesaĝon por plibonigi invit-kaŝmemoran reuzon]'
+    '--brief[Ŝalti SendUserMessage ilon por agent-al-uzanto komunikado]'
+    '--safe-mode[Startigi kun ĉiuj personigoj malŝaltitaj (utila por problemsolvado de rompita agordo)]'
+    '--bare[Minimuma reĝimo: preterlasi hokojn, LSP, kromaĵ-sinkronigon, atribuon, aŭtomatan memoron, kaj CLAUDE.md aŭtomatan malkovron]'
+    '--ax-screen-reader[Prezenti ekranleg-amikeman eligon (plata teksto, sen ornamaj randoj aŭ animacioj)]'
     '(-v --version)'{-v,--version}'[Eligi version-numeron]'
     '(-h --help)'{-h,--help}'[Montri helpon por komando]'
   )
+
   _arguments -C \
     $main_options \
     '1: :->command' \
     '*::arg:->args'
+
   case $state in
     command)
       _describe -t commands 'claude-komandoj' main_commands
@@ -115,6 +161,24 @@ _claude() {
         install)
           _claude_install
           ;;
+        agents)
+          _claude_agents
+          ;;
+        auth)
+          _claude_auth
+          ;;
+        auto-mode)
+          _claude_auto_mode
+          ;;
+        gateway)
+          _claude_gateway
+          ;;
+        project)
+          _claude_project
+          ;;
+        ultrareview)
+          _claude_ultrareview
+          ;;
         setup-token|doctor|update)
           _message "neniuj argumentoj"
           ;;
@@ -122,6 +186,7 @@ _claude() {
       ;;
   esac
 }
+
 _claude_mcp() {
   local -a mcp_commands
   mcp_commands=(
@@ -133,14 +198,19 @@ _claude_mcp() {
     'add-json:Aldoni MCP-servilon (stdio aŭ SSE) kun JSON-ĉeno'
     'add-from-claude-desktop:Importi MCP-servilojn el Claude Desktop (nur Mac kaj WSL)'
     'reset-project-choices:Reagordi ĉiujn aprobitan/malakceptitan projekt-ampleksan (.mcp.json) servilojn en ĉi tiu projekto'
+    'login:Aŭtentikigi kun MCP-servilo (HTTP, SSE, aŭ claude.ai konektilo)'
+    'logout:Forviŝi konservitajn OAuth-akreditaĵojn por MCP-servilo'
     'help:Montri helpon'
   )
+
   local curcontext="$curcontext" state line
   typeset -A opt_args
+
   _arguments -C \
     '(-h --help)'{-h,--help}'[Montri helpon]' \
     '1: :->command' \
     '*::arg:->args'
+
   case $state in
     command)
       _describe -t commands 'mcp-komandoj' mcp_commands
@@ -195,29 +265,45 @@ _claude_mcp() {
           _arguments \
             '(-h --help)'{-h,--help}'[Montri helpon]'
           ;;
+        login|logout)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Montri helpon]' \
+            '1:nomo:_claude_mcp_servers'
+          ;;
       esac
       ;;
   esac
 }
+
 _claude_plugin() {
   local -a plugin_commands
   plugin_commands=(
     'validate:Validigi kromaĵon aŭ merkat-manifeston'
     'marketplace:Administri Claude Code merkatojn'
+    'list:Listigi instalitajn kromaĵojn'
+    'details:Montri komponant-inventaron kaj projekciitan ĵeton-koston por kromaĵo'
     'install:Instali kromaĵon el disponeblaj merkatoj'
     'i:Instali kromaĵon el disponeblaj merkatoj (mallongigo por install)'
+    'init:Skafaldi novan kromaĵon (aŭtomate ŝargiĝas en sekva seanco)'
     'uninstall:Malinstali instalitan kromaĵon'
     'remove:Malinstali instalitan kromaĵon (kromnomo por uninstall)'
     'enable:Ŝalti malŝaltitan kromaĵon'
     'disable:Malŝalti ŝaltitan kromaĵon'
+    'update:Ĝisdatigi kromaĵon al la plej freŝa versio'
+    'eval:Ruli taks-kazojn kontraŭ kromaĵo kaj raporti poentitajn rezultojn'
+    'prune:Forigi aŭtomate instalitajn dependecojn kiuj ne plu bezonatas'
+    'tag:Krei {name}--v{version} git-etikedon por kromaĵ-eldono'
     'help:Montri helpon'
   )
+
   local curcontext="$curcontext" state line
   typeset -A opt_args
+
   _arguments -C \
     '(-h --help)'{-h,--help}'[Montri helpon]' \
     '1: :->command' \
     '*::arg:->args'
+
   case $state in
     command)
       _describe -t commands 'plugin-komandoj' plugin_commands
@@ -234,23 +320,57 @@ _claude_plugin() {
           ;;
         install|i)
           _arguments \
+            '(-s --scope)'{-s,--scope}'[Instal-amplekso]:amplekso:(user project local)' \
             '(-h --help)'{-h,--help}'[Montri helpon]' \
             '1:kromaĵo:'
           ;;
         uninstall|remove)
           _arguments \
+            '(-s --scope)'{-s,--scope}'[Instal-amplekso]:amplekso:(user project local)' \
             '(-h --help)'{-h,--help}'[Montri helpon]' \
             '1:kromaĵo:_claude_installed_plugins'
           ;;
         enable|disable)
           _arguments \
+            '(-s --scope)'{-s,--scope}'[Instal-amplekso]:amplekso:(user project local)' \
             '(-h --help)'{-h,--help}'[Montri helpon]' \
             '1:kromaĵo:_claude_installed_plugins'
+          ;;
+        update)
+          _arguments \
+            '(-s --scope)'{-s,--scope}'[Instal-amplekso]:amplekso:(user project local managed)' \
+            '(-h --help)'{-h,--help}'[Montri helpon]' \
+            '1:kromaĵo:_claude_installed_plugins'
+          ;;
+        list|prune)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Montri helpon]'
+          ;;
+        details)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Montri helpon]' \
+            '1:kromaĵo:_claude_installed_plugins'
+          ;;
+        init)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Montri helpon]' \
+            '1:nomo:'
+          ;;
+        eval)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Montri helpon]' \
+            '1:celo:'
+          ;;
+        tag)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Montri helpon]' \
+            '1:vojo:_files'
           ;;
       esac
       ;;
   esac
 }
+
 _claude_plugin_marketplace() {
   local -a marketplace_commands
   marketplace_commands=(
@@ -261,12 +381,15 @@ _claude_plugin_marketplace() {
     'update:Ĝisdatigi merkaton el fonto - ĝisdatigi ĉion se neniu nomo specifita'
     'help:Montri helpon'
   )
+
   local curcontext="$curcontext" state line
   typeset -A opt_args
+
   _arguments -C \
     '(-h --help)'{-h,--help}'[Montri helpon]' \
     '1: :->command' \
     '*::arg:->args'
+
   case $state in
     command)
       _describe -t commands 'marketplace-komandoj' marketplace_commands
@@ -296,10 +419,142 @@ _claude_plugin_marketplace() {
       ;;
   esac
 }
+
 _claude_install() {
   _arguments \
     '--force[Devigi instalon eĉ se jam instalita]' \
     '(-h --help)'{-h,--help}'[Montri helpon]' \
     '::celo:(stable latest)'
 }
+
+_claude_agents() {
+  _arguments \
+    '*--add-dir[Aldona dosierujo por permesi ilan aliron en senditaj seancoj]:dosierujo:_directories' \
+    '--agent[Defaŭlta agento por seancoj senditaj el agent-vido]:agento:' \
+    '--all[Kun --json: ankaŭ inkluzivi finitajn fonajn seancojn]' \
+    '--allow-dangerously-skip-permissions[Disponebligi preterpas-permesan reĝimon al senditaj seancoj]' \
+    '--cwd[Montri nur fonajn seancojn startigitajn sub vojo]:vojo:_directories' \
+    '--dangerously-skip-permissions[Kromnomo por --permission-mode bypassPermissions]' \
+    '--effort[Defaŭlta klopod-nivelo por senditaj seancoj]:nivelo:(low medium high xhigh max)' \
+    '--json[Presi aktivajn seancojn kiel JSON-tabelon kaj eliri]' \
+    '*--mcp-config[MCP-servila agordo por apliki al senditaj seancoj]:agordo:' \
+    '--model[Defaŭlta modelo por seancoj senditaj el agent-vido]:modelo:' \
+    '--permission-mode[Defaŭlta permesa reĝimo por senditaj seancoj]:reĝimo:(acceptEdits auto bypassPermissions manual dontAsk plan)' \
+    '*--plugin-dir[Ŝargi kromaĵojn el dosierujo por la agent-vido kaj senditaj seancoj]:vojo:_directories' \
+    '--setting-sources[Komo-apartigita listo de agord-fontoj por ŝargi (user, project, local)]:fontoj:' \
+    '--settings[Agorda dosiero aŭ JSON-ĉeno por apliki]:dosiero-aŭ-json:_files' \
+    '--strict-mcp-config[Uzi nur MCP-servilojn el --mcp-config en senditaj seancoj]' \
+    '(-h --help)'{-h,--help}'[Montri helpon por komando]'
+}
+
+_claude_auth() {
+  local -a auth_commands
+  auth_commands=(
+    'login:Ensaluti al via Anthropic-konto'
+    'logout:Elsaluti el via Anthropic-konto'
+    'status:Montri aŭtentikig-staton'
+    'help:Montri helpon'
+  )
+
+  local curcontext="$curcontext" state line
+  typeset -A opt_args
+
+  _arguments -C \
+    '(-h --help)'{-h,--help}'[Montri helpon por komando]' \
+    '1: :->command' \
+    '*::arg:->args'
+
+  case $state in
+    command)
+      _describe -t commands 'auth-komandoj' auth_commands
+      ;;
+    args)
+      case $words[1] in
+        login|logout|status)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Montri helpon por komando]'
+          ;;
+      esac
+      ;;
+  esac
+}
+
+_claude_auto_mode() {
+  local -a auto_mode_commands
+  auto_mode_commands=(
+    'config:Presi la efektivan aŭtomatreĝiman agordon kiel JSON'
+    'critique:Akiri AI-reagon pri viaj propraj aŭtomatreĝimaj reguloj'
+    'defaults:Presi la defaŭltajn aŭtomatreĝimajn regulojn kiel JSON'
+    'reset:Reagordi aŭtomatreĝiman agordon al la liveritaj defaŭltoj'
+    'help:Montri helpon'
+  )
+
+  local curcontext="$curcontext" state line
+  typeset -A opt_args
+
+  _arguments -C \
+    '(-h --help)'{-h,--help}'[Montri helpon por komando]' \
+    '1: :->command' \
+    '*::arg:->args'
+
+  case $state in
+    command)
+      _describe -t commands 'auto-mode-komandoj' auto_mode_commands
+      ;;
+    args)
+      case $words[1] in
+        config|critique|defaults|reset)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Montri helpon por komando]'
+          ;;
+      esac
+      ;;
+  esac
+}
+
+_claude_gateway() {
+  _arguments \
+    '--config[Vojo al kluza YAML-agordo]:vojo:_files' \
+    '(-h --help)'{-h,--help}'[Montri helpon por komando]'
+}
+
+_claude_project() {
+  local -a project_commands
+  project_commands=(
+    'purge:Forigi ĉian Claude Code staton por projekto (transskriboj, taskoj, dosier-historio, agord-enigo)'
+    'help:Montri helpon'
+  )
+
+  local curcontext="$curcontext" state line
+  typeset -A opt_args
+
+  _arguments -C \
+    '(-h --help)'{-h,--help}'[Montri helpon por komando]' \
+    '1: :->command' \
+    '*::arg:->args'
+
+  case $state in
+    command)
+      _describe -t commands 'project-komandoj' project_commands
+      ;;
+    args)
+      case $words[1] in
+        purge)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Montri helpon por komando]' \
+            '1:vojo:_directories'
+          ;;
+      esac
+      ;;
+  esac
+}
+
+_claude_ultrareview() {
+  _arguments \
+    '--json[Presi la krudan bugs.json ŝarĝon anstataŭ formatitaj trovoj]' \
+    '--timeout[Maksimumaj minutoj por atendi ke la revizio finiĝu]:minutoj:' \
+    '(-h --help)'{-h,--help}'[Montri helpon por komando]' \
+    '1:celo:'
+}
+
 (( $+_comps[claude] )) || compdef _claude claude

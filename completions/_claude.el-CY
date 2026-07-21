@@ -1,4 +1,5 @@
 #compdef claude
+
 # Dynamic completion functions
 _claude_mcp_servers() {
   local config_file
@@ -24,40 +25,57 @@ _claude_mcp_servers() {
 _claude_installed_plugins() {
   local -a plugins
   local config_file plugin_dir
+
   # Check plugin directories directly
   for plugin_dir in ~/.claude/plugins ~/.config/claude/plugins; do
     [[ -d "$plugin_dir" ]] || continue
     plugins+=(${plugin_dir}/*(N:t))
   done
+
   # Remove duplicates
   plugins=(${(u)plugins})
+
   compadd -a plugins
 }
+
 _claude_sessions() {
   local -a sessions
   local session_dir
+
   # Check session directory
   for session_dir in ~/.claude/sessions ~/.config/claude/sessions; do
     [[ -d "$session_dir" ]] || continue
+
     # Extract UUIDs directly from filenames
     sessions+=(${session_dir}/*~*.zwc(N:t:r))
   done
+
   # Filter only valid UUIDs
   sessions=(${(M)sessions:#[0-9a-f](#c8)-[0-9a-f](#c4)-[0-9a-f](#c4)-[0-9a-f](#c4)-[0-9a-f](#c12)})
+
   compadd -a sessions
 }
+
 _claude() {
   local curcontext="$curcontext" state line
   typeset -A opt_args
+
   local -a main_commands
   main_commands=(
     'mcp:Διαμόρφωσην και διαχείρισην διακομιστών MCP'
     'plugin:Διαχείρισην πρόσθετων Claude Code'
+    'agents:Διαχείρισην πρακτόρων παρασκηνίου'
+    'auth:Διαχείρισην ελέγχου ταυτότητος'
+    'auto-mode:Επιθεώρησην ή επαναφοράν διαμορφώσεως ταξινομητού αυτομάτης λειτουργίας'
+    'gateway:Εκτέλεσην της εταιρικής πύλης ελέγχου ταυτότητος/τηλεμετρίας'
+    'project:Διαχείρισην καταστάσεως έργου Claude Code'
+    'ultrareview:Εκτέλεσην αξιολογήσεως κώδικος πολλαπλών πρακτόρων φιλοξενουμένης εις το cloud και εκτύπωσην των ευρημάτων'
     'setup-token:Ρύθμισην μακροπρόθεσμου διακριτικού ελέγχου ταυτότητος (απαιτεί συνδρομήν Claude)'
     'doctor:Έλεγχον υγείας δια το αυτόματον ενημερωτικόν του Claude Code'
     'update:Έλεγχον και εγκατάστασην ενημερώσεων'
     'install:Εγκατάστασην εγγενούς εκδόσεως Claude Code'
   )
+
   local -a main_options
   main_options=(
     '(-d --debug)'{-d,--debug}'[Ενεργοποίησην λειτουργίας αποσφαλματώσεως με προαιρετικόν φιλτράρισμα κατηγοριών (π.χ. "api,hooks" ή "!statsig,!file")]:filter:'
@@ -67,9 +85,10 @@ _claude() {
     '--json-schema[Σχήμα JSON δια επικύρωσην δομημένης εξόδου]:schema:'
     '--include-partial-messages[Συμπερίληψην τμημάτων μερικών μηνυμάτων καθώς φθάνουσιν (με --print και --output-format=stream-json)]'
     '--input-format[Μορφήν εισόδου (με --print): "text" (προεπιλογή) ή "stream-json" (είσοδον ροής εις πραγματικόν χρόνον)]:format:(text stream-json)'
-    '--mcp-debug[Παρωχημένον. Χρησιμοποιήσατε --debug αντί τούτου] Ενεργοποίησην λειτουργίας αποσφαλματώσεως MCP (εμφανίζει σφάλματα διακομιστού MCP)]'
+    '--mcp-debug[\[Παρωχημένον. Χρησιμοποιήσατε --debug αντί τούτου\] Ενεργοποίησην λειτουργίας αποσφαλματώσεως MCP (εμφανίζει σφάλματα διακομιστού MCP)]'
     '--dangerously-skip-permissions[Παράκαμψην πάντων των ελέγχων αδειών. Συνιστάται μόνον δια απομονωμένα περιβάλλοντα άνευ προσβάσεως εις το διαδίκτυον]'
     '--allow-dangerously-skip-permissions[Ενεργοποίησην επιλογής παρακάμψεως ελέγχων αδειών άνευ ενεργοποιήσεως από προεπιλογήν]'
+    '--max-budget-usd[Μέγιστον ποσόν εις δολάρια δια δαπάνην εις κλήσεις API (μόνον --print)]:amount:'
     '--replay-user-messages[Επαναποστολήν μηνυμάτων χρήστου από stdin εις stdout δια επιβεβαίωσην]'
     '--allowed-tools[Κατάλογον διαχωρισμένον με κόμματα ή κενά με ονόμασιν επιτρεπομένων εργαλείων (π.χ. "Bash(git:*) Edit")]:tools:'
     '--allowedTools[Κατάλογον διαχωρισμένον με κόμματα ή κενά με ονόμασιν επιτρεπομένων εργαλείων (μορφήν camelCase)]:tools:'
@@ -79,11 +98,14 @@ _claude() {
     '--mcp-config[Φόρτωσην διακομιστών MCP από αρχείον JSON ή συμβολοσειράν (διαχωρισμένα με κενά)]:configs:'
     '--system-prompt[Προτροπήν συστήματος δια χρήσην εις την συνεδρίαν]:prompt:'
     '--append-system-prompt[Προσάρτησην προτροπής συστήματος εις την προεπιλεγμένην προτροπήν συστήματος]:prompt:'
-    '--permission-mode[Λειτουργίαν αδειών δια χρήσην εις την συνεδρίαν]:mode:(acceptEdits bypassPermissions default dontAsk plan)'
+    '--permission-mode[Λειτουργίαν αδειών δια χρήσην εις την συνεδρίαν]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)'
     '(-c --continue)'{-c,--continue}'[Συνέχισην της πλέον προσφάτου συνομιλίας]'
     '(-r --resume)'{-r,--resume}'[Συνέχισην συνομιλίας - καθορίσατε αναγνωριστικόν συνεδρίας ή επιλέξατε διαδραστικώς]:sessionId:_claude_sessions'
     '--fork-session[Δημιουργίαν νέου αναγνωριστικού συνεδρίας αντί επαναχρησιμοποιήσεως του αρχικού κατά την συνέχισην (με --resume ή --continue)]'
+    '--no-session-persistence[Απενεργοποίησην διατηρήσεως συνεδρίας - αι συνεδρίαι δεν θα αποθηκεύωνται (μόνον --print)]'
     '--model[Μοντέλον δια την τρέχουσαν συνεδρίαν. Καθορίσατε ψευδώνυμον δια το πλέον πρόσφατον μοντέλον (π.χ. '\''sonnet'\'' ή '\''opus'\'')]:model:'
+    '--agent[Πράκτορα δια την τρέχουσαν συνεδρίαν. Παρακάμπτει την ρύθμισιν '\''agent'\'']:agent:'
+    '--betas[Κεφαλίδας beta δια συμπερίληψην εις αιτήματα API (μόνον χρήσται κλειδιού API)]:betas:'
     '--fallback-model[Ενεργοποίησην αυτομάτης εναλλακτικής λύσεως εις καθορισμένον μοντέλον όταν το προεπιλεγμένον μοντέλον είναι υπερφορτωμένον (μόνον --print)]:model:'
     '--settings[Διαδρομήν εις αρχείον JSON ρυθμίσεων ή συμβολοσειράν JSON δια φόρτωσην προσθέτων ρυθμίσεων]:file-or-json:_files'
     '--add-dir[Πρόσθετοι κατάλογοι δια επιτρεπομένην πρόσβασην εργαλείων]:directories:_directories'
@@ -93,13 +115,37 @@ _claude() {
     '--agents[Αντικείμενον JSON το οποίον ορίζει προσαρμοσμένους πράκτορας]:json:'
     '--setting-sources[Κατάλογον διαχωρισμένον με κόμματα από πηγάς ρυθμίσεων δια φόρτωσην (user, project, local)]:sources:'
     '--plugin-dir[Κατάλογον δια φόρτωσην προσθέτων μόνον δια ταύτην την συνεδρίαν (επαναλαμβανόμενον)]:paths:_directories'
+    '--disable-slash-commands[Απενεργοποίησην πάντων των εντολών slash]'
+    '(--bg --background)'{--bg,--background}'[Εκκίνησην της συνεδρίας ως πράκτορος παρασκηνίου και άμεσον επιστροφήν]'
+    '(-w --worktree)'{-w,--worktree}'[Δημιουργίαν νέου git worktree δια ταύτην την συνεδρίαν (προαιρετικώς καθορίσατε όνομα)]::name:'
+    '--tmux[Δημιουργίαν συνεδρίας tmux δια το worktree (απαιτεί --worktree)]'
+    '(-n --name)'{-n,--name}'[Ορισμόν εμφανιζομένου ονόματος δια ταύτην την συνεδρίαν]:name:'
+    '--effort[Επίπεδον προσπαθείας δια την τρέχουσαν συνεδρίαν]:level:(low medium high xhigh max)'
+    '--debug-file[Εγγραφήν αρχείων καταγραφής αποσφαλματώσεως εις συγκεκριμένην διαδρομήν αρχείου (ενεργοποιεί εμμέσως την λειτουργίαν αποσφαλματώσεως)]:path:_files'
+    '--from-pr[Συνέχισην συνεδρίας συνδεδεμένης με PR βάσει αριθμού/URL, ή άνοιγμα διαδραστικού επιλογέως]::value:'
+    '--remote-control[Εκκίνησην διαδραστικής συνεδρίας με ενεργοποιημένον τον Απομακρυσμένον Έλεγχον (προαιρετικώς με όνομα)]::name:'
+    '--remote-control-session-name-prefix[Πρόθεμα δια αυτομάτως δημιουργούμενα ονόματα συνεδριών Απομακρυσμένου Ελέγχου]:prefix:'
+    '--chrome[Ενεργοποίησην ενσωματώσεως Claude εις το Chrome]'
+    '--no-chrome[Απενεργοποίησην ενσωματώσεως Claude εις το Chrome]'
+    '--plugin-url[Λήψην .zip προσθέτου από URL μόνον δια ταύτην την συνεδρίαν (επαναλαμβανόμενον)]:url:'
+    '--file[Πόρους αρχείων δια λήψην κατά την εκκίνησην (μορφήν: file_id:relative_path)]:specs:'
+    '--prompt-suggestions[Ενεργοποίησην προτάσεων προτροπής (εκπέμπει μίαν προβλεπομένην επομένην προτροπήν εις λειτουργίαν print/SDK)]::value:(true false 1 0 yes no on off)'
+    '--forward-subagent-text[Προώθησην κειμένου υποπράκτορος και μπλοκ σκέψεως ως μηνύματα (με --print και stream-json)]'
+    '--include-hook-events[Συμπερίληψην πάντων των συμβάντων κύκλου ζωής hook εις την ροήν εξόδου (με stream-json)]'
+    '--exclude-dynamic-system-prompt-sections[Μετακίνησην ενοτήτων ανά μηχάνημα εις το πρώτον μήνυμα χρήστου δια βελτίωσην επαναχρησιμοποιήσεως της κρυφής μνήμης προτροπής]'
+    '--brief[Ενεργοποίησην εργαλείου SendUserMessage δια επικοινωνίαν πράκτορος-προς-χρήστην]'
+    '--safe-mode[Εκκίνησην με πάσας τας προσαρμογάς απενεργοποιημένας (χρήσιμον δια αντιμετώπισην προβλημάτων κατεστραμμένης διαμορφώσεως)]'
+    '--bare[Ελαχίστη λειτουργία: παράλειψην hooks, LSP, συγχρονισμού προσθέτων, αποδόσεως, αυτομάτης μνήμης και αυτομάτης ανακαλύψεως CLAUDE.md]'
+    '--ax-screen-reader[Απόδοσην εξόδου φιλικής προς αναγνώστας οθόνης (επίπεδον κείμενον, άνευ διακοσμητικών περιγραμμάτων ή κινουμένων σχεδίων)]'
     '(-v --version)'{-v,--version}'[Εμφάνισην αριθμού εκδόσεως]'
     '(-h --help)'{-h,--help}'[Εμφάνισην βοηθείας δια εντολήν]'
   )
+
   _arguments -C \
     $main_options \
     '1: :->command' \
     '*::arg:->args'
+
   case $state in
     command)
       _describe -t commands 'claude commands' main_commands
@@ -115,13 +161,32 @@ _claude() {
         install)
           _claude_install
           ;;
+        agents)
+          _claude_agents
+          ;;
+        auth)
+          _claude_auth
+          ;;
+        auto-mode)
+          _claude_auto_mode
+          ;;
+        gateway)
+          _claude_gateway
+          ;;
+        project)
+          _claude_project
+          ;;
+        ultrareview)
+          _claude_ultrareview
+          ;;
         setup-token|doctor|update)
-          _message "no arguments"
+          _message "άνευ ορισμάτων"
           ;;
       esac
       ;;
   esac
 }
+
 _claude_mcp() {
   local -a mcp_commands
   mcp_commands=(
@@ -133,14 +198,19 @@ _claude_mcp() {
     'add-json:Προσθήκην διακομιστού MCP (stdio ή SSE) με συμβολοσειράν JSON'
     'add-from-claude-desktop:Εισαγωγήν διακομιστών MCP από το Claude Desktop (μόνον Mac και WSL)'
     'reset-project-choices:Επαναφοράν πάντων των εγκεκριμένων/απορριφθέντων διακομιστών εμβελείας έργου (.mcp.json) εις τούτο το έργον'
+    'login:Έλεγχον ταυτότητος με διακομιστήν MCP (HTTP, SSE ή σύνδεσμον claude.ai)'
+    'logout:Εκκαθάρισην αποθηκευμένων διαπιστευτηρίων OAuth δια διακομιστήν MCP'
     'help:Εμφάνισην βοηθείας'
   )
+
   local curcontext="$curcontext" state line
   typeset -A opt_args
+
   _arguments -C \
     '(-h --help)'{-h,--help}'[Εμφάνισην βοηθείας]' \
     '1: :->command' \
     '*::arg:->args'
+
   case $state in
     command)
       _describe -t commands 'mcp commands' mcp_commands
@@ -195,29 +265,45 @@ _claude_mcp() {
           _arguments \
             '(-h --help)'{-h,--help}'[Εμφάνισην βοηθείας]'
           ;;
+        login|logout)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Εμφάνισην βοηθείας]' \
+            '1:name:_claude_mcp_servers'
+          ;;
       esac
       ;;
   esac
 }
+
 _claude_plugin() {
   local -a plugin_commands
   plugin_commands=(
     'validate:Επικύρωσην προσθέτου ή δηλώσεως αγοράς'
     'marketplace:Διαχείρισην αγορών Claude Code'
+    'list:Κατάλογον εγκατεστημένων προσθέτων'
+    'details:Εμφάνισην απογραφής στοιχείων και προβλεπομένου κόστους token δια ένα πρόσθετον'
     'install:Εγκατάστασην προσθέτου από διαθεσίμας αγοράς'
     'i:Εγκατάστασην προσθέτου από διαθεσίμας αγοράς (σύντομον μορφήν του install)'
+    'init:Δημιουργίαν σκελετού νέου προσθέτου (φορτώνεται αυτομάτως εις την επομένην συνεδρίαν)'
     'uninstall:Απεγκατάστασην εγκατεστημένου προσθέτου'
     'remove:Απεγκατάστασην εγκατεστημένου προσθέτου (ψευδώνυμον του uninstall)'
     'enable:Ενεργοποίησην απενεργοποιημένου προσθέτου'
     'disable:Απενεργοποίησην ενεργοποιημένου προσθέτου'
+    'update:Ενημέρωσην προσθέτου εις την πλέον πρόσφατον έκδοσιν'
+    'eval:Εκτέλεσην περιπτώσεων eval εις ένα πρόσθετον και αναφοράν βαθμολογημένων αποτελεσμάτων'
+    'prune:Αφαίρεσην αυτομάτως εγκατεστημένων εξαρτήσεων αι οποίαι δεν χρειάζονται πλέον'
+    'tag:Δημιουργίαν git tag {name}--v{version} δια κυκλοφορίαν προσθέτου'
     'help:Εμφάνισην βοηθείας'
   )
+
   local curcontext="$curcontext" state line
   typeset -A opt_args
+
   _arguments -C \
     '(-h --help)'{-h,--help}'[Εμφάνισην βοηθείας]' \
     '1: :->command' \
     '*::arg:->args'
+
   case $state in
     command)
       _describe -t commands 'plugin commands' plugin_commands
@@ -234,23 +320,57 @@ _claude_plugin() {
           ;;
         install|i)
           _arguments \
+            '(-s --scope)'{-s,--scope}'[Εμβέλειαν εγκαταστάσεως]:scope:(user project local)' \
             '(-h --help)'{-h,--help}'[Εμφάνισην βοηθείας]' \
             '1:plugin:'
           ;;
         uninstall|remove)
           _arguments \
+            '(-s --scope)'{-s,--scope}'[Εμβέλειαν εγκαταστάσεως]:scope:(user project local)' \
             '(-h --help)'{-h,--help}'[Εμφάνισην βοηθείας]' \
             '1:plugin:_claude_installed_plugins'
           ;;
         enable|disable)
           _arguments \
+            '(-s --scope)'{-s,--scope}'[Εμβέλειαν εγκαταστάσεως]:scope:(user project local)' \
             '(-h --help)'{-h,--help}'[Εμφάνισην βοηθείας]' \
             '1:plugin:_claude_installed_plugins'
+          ;;
+        update)
+          _arguments \
+            '(-s --scope)'{-s,--scope}'[Εμβέλειαν εγκαταστάσεως]:scope:(user project local managed)' \
+            '(-h --help)'{-h,--help}'[Εμφάνισην βοηθείας]' \
+            '1:plugin:_claude_installed_plugins'
+          ;;
+        list|prune)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Εμφάνισην βοηθείας]'
+          ;;
+        details)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Εμφάνισην βοηθείας]' \
+            '1:plugin:_claude_installed_plugins'
+          ;;
+        init)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Εμφάνισην βοηθείας]' \
+            '1:name:'
+          ;;
+        eval)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Εμφάνισην βοηθείας]' \
+            '1:target:'
+          ;;
+        tag)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Εμφάνισην βοηθείας]' \
+            '1:path:_files'
           ;;
       esac
       ;;
   esac
 }
+
 _claude_plugin_marketplace() {
   local -a marketplace_commands
   marketplace_commands=(
@@ -261,12 +381,15 @@ _claude_plugin_marketplace() {
     'update:Ενημέρωσην αγοράς από την πηγήν - ενημέρωσην πάντων εάν δεν καθορισθή όνομα'
     'help:Εμφάνισην βοηθείας'
   )
+
   local curcontext="$curcontext" state line
   typeset -A opt_args
+
   _arguments -C \
     '(-h --help)'{-h,--help}'[Εμφάνισην βοηθείας]' \
     '1: :->command' \
     '*::arg:->args'
+
   case $state in
     command)
       _describe -t commands 'marketplace commands' marketplace_commands
@@ -296,10 +419,142 @@ _claude_plugin_marketplace() {
       ;;
   esac
 }
+
 _claude_install() {
   _arguments \
     '--force[Εξαναγκασμόν εγκαταστάσεως ακόμη κι αν είναι ήδη εγκατεστημένον]' \
     '(-h --help)'{-h,--help}'[Εμφάνισην βοηθείας]' \
     '::target:(stable latest)'
 }
+
+_claude_agents() {
+  _arguments \
+    '*--add-dir[Πρόσθετον κατάλογον δια επιτρεπομένην πρόσβασην εργαλείων εις αποσταλμένας συνεδρίας]:directory:_directories' \
+    '--agent[Προεπιλεγμένον πράκτορα δια συνεδρίας αι οποίαι αποστέλλονται από την προβολήν πρακτόρων]:agent:' \
+    '--all[Με --json: συμπερίληψην επίσης ολοκληρωμένων συνεδριών παρασκηνίου]' \
+    '--allow-dangerously-skip-permissions[Διαθεσιμότητα λειτουργίας παρακάμψεως αδειών εις αποσταλμένας συνεδρίας]' \
+    '--cwd[Εμφάνισην μόνον συνεδριών παρασκηνίου αι οποίαι ξεκίνησαν κάτω από την διαδρομήν]:path:_directories' \
+    '--dangerously-skip-permissions[Ψευδώνυμον δια --permission-mode bypassPermissions]' \
+    '--effort[Προεπιλεγμένον επίπεδον προσπαθείας δια αποσταλμένας συνεδρίας]:level:(low medium high xhigh max)' \
+    '--json[Εκτύπωσην ενεργών συνεδριών ως πίνακα JSON και έξοδον]' \
+    '*--mcp-config[Διαμόρφωσην διακομιστού MCP δια εφαρμογήν εις αποσταλμένας συνεδρίας]:config:' \
+    '--model[Προεπιλεγμένον μοντέλον δια συνεδρίας αι οποίαι αποστέλλονται από την προβολήν πρακτόρων]:model:' \
+    '--permission-mode[Προεπιλεγμένην λειτουργίαν αδειών δια αποσταλμένας συνεδρίας]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)' \
+    '*--plugin-dir[Φόρτωσην προσθέτων από κατάλογον δια την προβολήν πρακτόρων και αποσταλμένας συνεδρίας]:path:_directories' \
+    '--setting-sources[Κατάλογον διαχωρισμένον με κόμματα από πηγάς ρυθμίσεων δια φόρτωσην (user, project, local)]:sources:' \
+    '--settings[Αρχείον ρυθμίσεων ή συμβολοσειράν JSON δια εφαρμογήν]:file-or-json:_files' \
+    '--strict-mcp-config[Χρήσην μόνον διακομιστών MCP από --mcp-config εις αποσταλμένας συνεδρίας]' \
+    '(-h --help)'{-h,--help}'[Εμφάνισην βοηθείας δια εντολήν]'
+}
+
+_claude_auth() {
+  local -a auth_commands
+  auth_commands=(
+    'login:Σύνδεσην εις τον λογαριασμόν σας Anthropic'
+    'logout:Αποσύνδεσην από τον λογαριασμόν σας Anthropic'
+    'status:Εμφάνισην καταστάσεως ελέγχου ταυτότητος'
+    'help:Εμφάνισην βοηθείας'
+  )
+
+  local curcontext="$curcontext" state line
+  typeset -A opt_args
+
+  _arguments -C \
+    '(-h --help)'{-h,--help}'[Εμφάνισην βοηθείας δια εντολήν]' \
+    '1: :->command' \
+    '*::arg:->args'
+
+  case $state in
+    command)
+      _describe -t commands 'auth commands' auth_commands
+      ;;
+    args)
+      case $words[1] in
+        login|logout|status)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Εμφάνισην βοηθείας δια εντολήν]'
+          ;;
+      esac
+      ;;
+  esac
+}
+
+_claude_auto_mode() {
+  local -a auto_mode_commands
+  auto_mode_commands=(
+    'config:Εκτύπωσην της ισχυούσης διαμορφώσεως αυτομάτης λειτουργίας ως JSON'
+    'critique:Λήψην σχολίων AI δια τους προσαρμοσμένους κανόνας αυτομάτης λειτουργίας σας'
+    'defaults:Εκτύπωσην των προεπιλεγμένων κανόνων αυτομάτης λειτουργίας ως JSON'
+    'reset:Επαναφοράν διαμορφώσεως αυτομάτης λειτουργίας εις τας προεπιλογάς αποστολής'
+    'help:Εμφάνισην βοηθείας'
+  )
+
+  local curcontext="$curcontext" state line
+  typeset -A opt_args
+
+  _arguments -C \
+    '(-h --help)'{-h,--help}'[Εμφάνισην βοηθείας δια εντολήν]' \
+    '1: :->command' \
+    '*::arg:->args'
+
+  case $state in
+    command)
+      _describe -t commands 'auto-mode commands' auto_mode_commands
+      ;;
+    args)
+      case $words[1] in
+        config|critique|defaults|reset)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Εμφάνισην βοηθείας δια εντολήν]'
+          ;;
+      esac
+      ;;
+  esac
+}
+
+_claude_gateway() {
+  _arguments \
+    '--config[Διαδρομήν εις διαμόρφωσιν YAML πύλης]:path:_files' \
+    '(-h --help)'{-h,--help}'[Εμφάνισην βοηθείας δια εντολήν]'
+}
+
+_claude_project() {
+  local -a project_commands
+  project_commands=(
+    'purge:Διαγραφήν πάσης της καταστάσεως Claude Code δια ένα έργον (απομαγνητοφωνήσεις, εργασίας, ιστορικόν αρχείων, καταχώρησιν διαμορφώσεως)'
+    'help:Εμφάνισην βοηθείας'
+  )
+
+  local curcontext="$curcontext" state line
+  typeset -A opt_args
+
+  _arguments -C \
+    '(-h --help)'{-h,--help}'[Εμφάνισην βοηθείας δια εντολήν]' \
+    '1: :->command' \
+    '*::arg:->args'
+
+  case $state in
+    command)
+      _describe -t commands 'project commands' project_commands
+      ;;
+    args)
+      case $words[1] in
+        purge)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Εμφάνισην βοηθείας δια εντολήν]' \
+            '1:path:_directories'
+          ;;
+      esac
+      ;;
+  esac
+}
+
+_claude_ultrareview() {
+  _arguments \
+    '--json[Εκτύπωσην του ακατεργάστου φορτίου bugs.json αντί δια μορφοποιημένα ευρήματα]' \
+    '--timeout[Μέγιστα λεπτά αναμονής δια την ολοκλήρωσιν της αξιολογήσεως]:minutes:' \
+    '(-h --help)'{-h,--help}'[Εμφάνισην βοηθείας δια εντολήν]' \
+    '1:target:'
+}
+
 (( $+_comps[claude] )) || compdef _claude claude
