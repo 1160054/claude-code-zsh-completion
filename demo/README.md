@@ -5,16 +5,23 @@ Scripts for generating the demo GIF shown in the main README.
 ## Requirements
 
 ```bash
-brew install charmbracelet/tap/vhs ttyd ffmpeg
+brew install charmbracelet/tap/vhs ttyd ffmpeg gifsicle
 ```
 
 ## Generate Demo GIF
 
 ```bash
-cd demo && vhs demo.tape
+cd demo && vhs demo.tape && gifsicle -O3 --lossy=30 -o ../demo.gif ../demo.gif
 ```
 
 This will generate `demo.gif` in the project root.
+
+The `gifsicle` pass is part of the procedure, not an optional extra: VHS writes
+every frame at the full framerate, and since the demo is mostly a static screen
+waiting for the next keystroke, collapsing the identical frames takes the file
+from ~400 KB to ~310 KB with no visible quality loss (the duration and every
+scene stay exactly the same). Please run it before committing a new recording -
+the GIF is loaded by everyone who opens the README.
 
 ## Files
 
