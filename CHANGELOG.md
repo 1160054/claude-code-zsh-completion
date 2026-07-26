@@ -5,13 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [2.4.0] - 2026-07-26
 
 ### Added
 - Dynamic completion for `--agent` / `--model` (and `--fallback-model`), in all 120 completion files
   - `_claude_agent_names` reads agent definitions from `~/.claude/agents`, `~/.config/claude/agents` and the project's `.claude/agents`, preferring the `name:` in the front matter over the filename
   - `_claude_model_names` offers the aliases (`default`, `fable`, `opus`, `sonnet`, `haiku`) plus any full model names configured in `~/.claude/settings.json`, `~/.claude/settings.local.json` or `~/.claude.json`
 - Scheduled drift check: a weekly workflow compares `claude --help` against `completions/_claude` and opens (or comments on) an issue when the completion falls behind
+- Test coverage for `claude-code.plugin.zsh`: the suite now checks that the Oh My Zsh bootstrap registers the completion when sourced after `compinit`, stays a no-op when `compdef` is not available yet, and puts the completions directory on `fpath`
 - Test: no completion file may define the same function twice
 
 ### Fixed
@@ -19,9 +20,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - Demo GIF compressed with `gifsicle` (401 KB → 312 KB, same 22.2s duration and identical scenes); the pass is now part of the documented recording procedure
-
-### Added
-- Test coverage for `claude-code.plugin.zsh`: the suite now checks that the Oh My Zsh bootstrap registers the completion when sourced after `compinit`, stays a no-op when `compdef` is not available yet, and puts the completions directory on `fpath`
 
 ## [2.3.1] - 2026-07-26
 
