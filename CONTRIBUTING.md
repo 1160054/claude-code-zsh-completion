@@ -20,6 +20,15 @@ Thank you for your interest in contributing to claude-code-zsh-completion!
 4. Update `CHANGELOG.md` with your changes
 5. Submit a Pull Request
 
+## Demo GIF
+
+`demo.gif` records the **English** completion only, so language PRs never need to
+touch it. Please leave it alone unless your change affects what the demo shows -
+new top-level commands, renamed subcommands, or changed option values - since
+every re-recording adds another copy of the binary to the repository history.
+
+When it does need updating, see [demo/README.md](demo/README.md).
+
 ## Reporting Bugs
 
 Please use the GitHub issue tracker to report bugs. Include:

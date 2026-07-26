@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+- Demo GIF re-recorded against the current completions — it now shows all top-level commands (including `agents`, `auth`, `auto-mode`, `gateway`, `project`, `ultrareview`), option filtering, `--permission-mode` values, and the dynamic MCP server / session completions
+- Recording now runs with `demo/fixtures/home` as `$HOME`, so the dynamic completions always show fixture data instead of the recorder's own MCP servers and session IDs
+
 ## [2.3.0] - 2026-07-22
 
 ### Added
