@@ -1,3 +1,12 @@
 # Zsh cache
 .zcompdump*
 *.zwc
+
+# The demo fixtures deliberately ship a .claude directory. Ignoring .claude/ is
+# common in a global gitignore, and that would quietly leave the fixtures out of
+# the repository - the recording would then only work on the machine that made
+# them.
+!demo/fixtures/home/.claude/
+
+# Written by demo.tape at recording time, from demo/fixtures/sessions
+demo/fixtures/home/.claude/projects/

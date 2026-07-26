@@ -1,0 +1,26 @@
+{
+  "version": 2,
+  "plugins": {
+    "code-review@claude-plugins-official": [
+      {
+        "scope": "user",
+        "installPath": "~/.claude/plugins/cache/claude-plugins-official/code-review/1.2.0",
+        "version": "1.2.0"
+      }
+    ],
+    "git-tools@claude-plugins-official": [
+      {
+        "scope": "user",
+        "installPath": "~/.claude/plugins/cache/claude-plugins-official/git-tools/0.4.1",
+        "version": "0.4.1"
+      }
+    ],
+    "notion-sync@community": [
+      {
+        "scope": "user",
+        "installPath": "~/.claude/plugins/cache/community/notion-sync/2.0.0",
+        "version": "2.0.0"
+      }
+    ]
+  }
+}

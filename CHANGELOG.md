@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+- README leads with the configuration-driven completion — `claude --resume <TAB>` and the descriptions it now carries — rather than the language count, and Usage opens with that section instead of ending on it
+- Demo re-recorded with `--resume` as the opening scene, and the fixtures rebuilt to match the layout the completion actually reads: sessions under `projects/`, plugins from `installed_plugins.json`. The recording clears `CLAUDE_CONFIG_DIR`, which would otherwise point it at the recorder's real configuration
+
+### Fixed
+- The demo fixtures under `demo/fixtures/home/.claude` were never committed — ignoring `.claude/` is common in a global gitignore, and that quietly swallowed them, so the recording only worked on the machine that made them. The repository's `.gitignore` un-ignores that path now
+
 ## [2.5.0] - 2026-07-27
 
 ### Fixed
