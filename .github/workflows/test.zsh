@@ -252,7 +252,9 @@ test_cli_options_coverage() {
     # Skip deprecated options
     [[ "$opt" == "--mcp-debug" ]] && continue
 
-    if ! grep -qF -- "$opt" "$file"; then
+    # Match on a word boundary: a plain substring search reports --foo as
+    # present when the file only declares --foo-bar.
+    if ! grep -qE -- "$opt([^a-zA-Z0-9-]|\$)" "$file"; then
       missing_options+=("$opt")
     fi
   done
@@ -533,6 +535,53 @@ run_tests_for_file() {
   fi
 }
 
+# Drift check: only compare the English completion against the installed CLI.
+#
+# The full suite runs this too (tests 13 and 14), but it only runs on push and
+# pull requests - so a CLI release goes unnoticed until somebody happens to
+# push. The scheduled workflow calls this mode instead, and turns a non-zero
+# exit into an issue.
+run_drift_check() {
+  echo "╔════════════════════════════════════════════════════════════╗"
+  echo "║     Completion Drift Check                                 ║"
+  echo "╚════════════════════════════════════════════════════════════╝"
+  echo ""
+
+  if ! command -v claude &>/dev/null; then
+    echo "${RED}claude CLI not found${NC} - cannot check for drift" >&2
+    exit 2
+  fi
+
+  echo "Claude CLI:  $(claude --version 2>&1)"
+  echo "Completion:  ${ENGLISH_FILE:t}"
+  echo ""
+
+  local drifted=false
+
+  if test_cli_options_coverage "$ENGLISH_FILE" 2>&1; then
+    echo "${GREEN}✓${NC} Every option in \`claude --help\` is completed"
+  else
+    echo "${RED}✗${NC} Options are missing from the completion"
+    drifted=true
+  fi
+
+  if test_cli_commands_coverage "$ENGLISH_FILE" 2>&1; then
+    echo "${GREEN}✓${NC} Every command in \`claude --help\` is completed"
+  else
+    echo "${RED}✗${NC} Commands are missing from the completion"
+    drifted=true
+  fi
+
+  echo ""
+  if [[ $drifted == true ]]; then
+    echo "${RED}Drift detected.${NC} Update completions/_claude, then propagate to the locale files."
+    exit 1
+  fi
+
+  echo "${GREEN}No drift.${NC}"
+  exit 0
+}
+
 # Main execution
 main() {
   echo "╔════════════════════════════════════════════════════════════╗"
@@ -583,5 +632,9 @@ main() {
     exit 0
   fi
 }
+
+if [[ "$1" == "--drift-only" ]]; then
+  run_drift_check
+fi
 
 main "$@"
