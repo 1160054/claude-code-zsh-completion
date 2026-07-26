@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- Homebrew formula: `brew tap 1160054/claude https://github.com/1160054/claude-code-zsh-completion && brew install claude-code-zsh-completion` installs the English completion into Homebrew's `site-functions` (already on `fpath`, so no `.zshrc` changes) and keeps all 120 localized files available for switching
+- Homebrew formula: `brew tap 1160054/claude <repo-url>`, `brew trust 1160054/claude`, then `brew install claude-code-zsh-completion` installs the English completion into Homebrew's `site-functions` (already on `fpath`, so no `.zshrc` changes) and keeps all 120 localized files available for switching
 - Release automation: publishing a release opens a PR pointing the formula at the new tag and checksum
 
 ## [2.4.0] - 2026-07-26

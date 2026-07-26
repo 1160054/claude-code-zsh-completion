@@ -31,8 +31,12 @@
 
 ```bash
 brew tap 1160054/claude https://github.com/1160054/claude-code-zsh-completion
+brew trust 1160054/claude
 brew install claude-code-zsh-completion
 ```
+
+Homebrew 6 refuses to load formulae from a third-party tap until you trust it,
+hence the middle step.
 
 No `~/.zshrc` changes are needed — Homebrew's `site-functions` directory is
 already on your `fpath`. `brew upgrade` keeps the completion current.
