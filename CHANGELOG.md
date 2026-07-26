@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Demo GIF compressed with `gifsicle` (401 KB → 312 KB, same 22.2s duration and identical scenes); the pass is now part of the documented recording procedure
+
 ### Added
 - Test coverage for `claude-code.plugin.zsh`: the suite now checks that the Oh My Zsh bootstrap registers the completion when sourced after `compinit`, stays a no-op when `compdef` is not available yet, and puts the completions directory on `fpath`
 
