@@ -56,6 +56,46 @@ _claude_sessions() {
   compadd -a sessions
 }
 
+_claude_agent_names() {
+  local -a agents
+  local agent_dir agent_file name
+
+  # User-level and project-level agent definitions
+  for agent_dir in ~/.claude/agents ~/.config/claude/agents .claude/agents; do
+    [[ -d "$agent_dir" ]] || continue
+
+    for agent_file in ${agent_dir}/*.md(N); do
+      # Prefer the name declared in the front matter, fall back to the filename
+      name=$(sed -n '1,10{s/^name:[[:space:]]*\([^[:space:]]*\).*/\1/p;}' "$agent_file" 2>/dev/null | head -1)
+      agents+=(${name:-${agent_file:t:r}})
+    done
+  done
+
+  agents=(${(u)agents})
+
+  compadd -a agents
+}
+
+_claude_model_names() {
+  local -a models
+  local config_file
+
+  # Aliases always resolve to the latest model of that family
+  models=(default fable opus sonnet haiku)
+
+  # Full model names the user has already configured
+  for config_file in ~/.claude/settings.json ~/.claude/settings.local.json ~/.claude.json; do
+    [[ -f "$config_file" ]] || continue
+    models+=(${(f)"$(grep -oE '"(model|fallbackModel)"[[:space:]]*:[[:space:]]*"[^"]+"' "$config_file" 2>/dev/null | \
+      sed 's/.*:[[:space:]]*"\([^"]*\)"/\1/')"})
+  done
+
+  # Remove duplicates
+  models=(${(u)models})
+
+  compadd -a models
+}
+
 _claude() {
   local curcontext="$curcontext" state line
   typeset -A opt_args
@@ -103,10 +143,10 @@ _claude() {
     '(-r --resume)'{-r,--resume}'[Reanudar una conversación - especificar ID de sesión o seleccionar interactivamente]:sessionId:_claude_sessions'
     '--fork-session[Crear nuevo ID de sesión en lugar de reutilizar ID de sesión original al reanudar (con --resume o --continue)]'
     '--no-session-persistence[Deshabilitar la persistencia de sesión - las sesiones no se guardarán (solo --print)]'
-    '--model[Modelo para la sesión actual. Especificar alias para el último modelo (ej., '\''sonnet'\'' o '\''opus'\'')]:model:'
-    '--agent[Agente para la sesión actual. Sobrescribe la configuración '\''agent'\'']:agent:'
+    '--model[Modelo para la sesión actual. Especificar alias para el último modelo (ej., '\''sonnet'\'' o '\''opus'\'')]:model:_claude_model_names'
+    '--agent[Agente para la sesión actual. Sobrescribe la configuración '\''agent'\'']:agent:_claude_agent_names'
     '--betas[Encabezados beta a incluir en las solicitudes de la API (solo usuarios con clave de API)]:betas:'
-    '--fallback-model[Habilitar alternativa automática al modelo especificado cuando el modelo predeterminado está sobrecargado (solo --print)]:model:'
+    '--fallback-model[Habilitar alternativa automática al modelo especificado cuando el modelo predeterminado está sobrecargado (solo --print)]:model:_claude_model_names'
     '--settings[Ruta a archivo JSON de configuración o cadena JSON para cargar configuraciones adicionales]:file-or-json:_files'
     '--add-dir[Directorios adicionales para permitir acceso de herramientas]:directories:_directories'
     '--ide[Conectar automáticamente a IDE al iniciar si hay exactamente un IDE válido disponible]'
@@ -430,7 +470,7 @@ _claude_install() {
 _claude_agents() {
   _arguments \
     '*--add-dir[Directorio adicional para permitir acceso de herramientas en sesiones despachadas]:directory:_directories' \
-    '--agent[Agente predeterminado para sesiones despachadas desde la vista de agentes]:agent:' \
+    '--agent[Agente predeterminado para sesiones despachadas desde la vista de agentes]:agent:_claude_agent_names' \
     '--all[Con --json: incluir también sesiones en segundo plano completadas]' \
     '--allow-dangerously-skip-permissions[Hacer disponible el modo de omisión de permisos para sesiones despachadas]' \
     '--cwd[Mostrar solo sesiones en segundo plano iniciadas bajo la ruta]:path:_directories' \
@@ -438,7 +478,7 @@ _claude_agents() {
     '--effort[Nivel de esfuerzo predeterminado para sesiones despachadas]:level:(low medium high xhigh max)' \
     '--json[Imprimir sesiones activas como un array JSON y salir]' \
     '*--mcp-config[Configuración de servidor MCP a aplicar a las sesiones despachadas]:config:' \
-    '--model[Modelo predeterminado para sesiones despachadas desde la vista de agentes]:model:' \
+    '--model[Modelo predeterminado para sesiones despachadas desde la vista de agentes]:model:_claude_model_names' \
     '--permission-mode[Modo de permisos predeterminado para sesiones despachadas]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)' \
     '*--plugin-dir[Cargar plugins desde el directorio para la vista de agentes y las sesiones despachadas]:path:_directories' \
     '--setting-sources[Lista separada por comas de fuentes de configuración a cargar (user, project, local)]:sources:' \

@@ -56,6 +56,46 @@ _claude_sessions() {
   compadd -a sessions
 }
 
+_claude_agent_names() {
+  local -a agents
+  local agent_dir agent_file name
+
+  # User-level and project-level agent definitions
+  for agent_dir in ~/.claude/agents ~/.config/claude/agents .claude/agents; do
+    [[ -d "$agent_dir" ]] || continue
+
+    for agent_file in ${agent_dir}/*.md(N); do
+      # Prefer the name declared in the front matter, fall back to the filename
+      name=$(sed -n '1,10{s/^name:[[:space:]]*\([^[:space:]]*\).*/\1/p;}' "$agent_file" 2>/dev/null | head -1)
+      agents+=(${name:-${agent_file:t:r}})
+    done
+  done
+
+  agents=(${(u)agents})
+
+  compadd -a agents
+}
+
+_claude_model_names() {
+  local -a models
+  local config_file
+
+  # Aliases always resolve to the latest model of that family
+  models=(default fable opus sonnet haiku)
+
+  # Full model names the user has already configured
+  for config_file in ~/.claude/settings.json ~/.claude/settings.local.json ~/.claude.json; do
+    [[ -f "$config_file" ]] || continue
+    models+=(${(f)"$(grep -oE '"(model|fallbackModel)"[[:space:]]*:[[:space:]]*"[^"]+"' "$config_file" 2>/dev/null | \
+      sed 's/.*:[[:space:]]*"\([^"]*\)"/\1/')"})
+  done
+
+  # Remove duplicates
+  models=(${(u)models})
+
+  compadd -a models
+}
+
 _claude() {
   local curcontext="$curcontext" state line
   typeset -A opt_args
@@ -103,10 +143,10 @@ _claude() {
     '(-r --resume)'{-r,--resume}'[បន្តការសន្ទនា - បញ្ជាក់លេខសម្គាល់វគ្គ ឬជ្រើសរើសតាមអន្តរកម្ម]:sessionId:_claude_sessions'
     '--fork-session[បង្កើតលេខសម្គាល់វគ្គថ្មីជំនួសឱ្យការប្រើលេខសម្គាល់វគ្គដើមឡើងវិញ នៅពេលបន្ត (ជាមួយ --resume ឬ --continue)]'
     '--no-session-persistence[បិទការរក្សាទុកវគ្គ - វគ្គនឹងមិនត្រូវបានរក្សាទុកទេ (តែ --print ប៉ុណ្ណោះ)]'
-    '--model[គំរូសម្រាប់វគ្គបច្ចុប្បន្ន។ បញ្ជាក់ឈ្មោះក្លែងក្លាយសម្រាប់គំរូថ្មីបំផុត (ឧ. '\''sonnet'\'' ឬ '\''opus'\'')]:model:'
-    '--agent[ភ្នាក់ងារសម្រាប់វគ្គបច្ចុប្បន្ន។ បដិសេធការកំណត់ '\''agent'\'']:agent:'
+    '--model[គំរូសម្រាប់វគ្គបច្ចុប្បន្ន។ បញ្ជាក់ឈ្មោះក្លែងក្លាយសម្រាប់គំរូថ្មីបំផុត (ឧ. '\''sonnet'\'' ឬ '\''opus'\'')]:model:_claude_model_names'
+    '--agent[ភ្នាក់ងារសម្រាប់វគ្គបច្ចុប្បន្ន។ បដិសេធការកំណត់ '\''agent'\'']:agent:_claude_agent_names'
     '--betas[បឋមកថា beta ដែលត្រូវរួមបញ្ចូលក្នុងសំណើ API (សម្រាប់តែអ្នកប្រើសោ API ប៉ុណ្ណោះ)]:betas:'
-    '--fallback-model[បើកដំណើរការការថយក្រោយស្វ័យប្រវត្តិទៅគំរូដែលបានបញ្ជាក់ នៅពេលគំរូលំនាំដើមមានបន្ទុកលើស (តែ --print ប៉ុណ្ណោះ)]:model:'
+    '--fallback-model[បើកដំណើរការការថយក្រោយស្វ័យប្រវត្តិទៅគំរូដែលបានបញ្ជាក់ នៅពេលគំរូលំនាំដើមមានបន្ទុកលើស (តែ --print ប៉ុណ្ណោះ)]:model:_claude_model_names'
     '--settings[ផ្លូវឯកសារ JSON នៃការកំណត់ ឬខ្សែអក្សរ JSON ដើម្បីផ្ទុកការកំណត់បន្ថែម]:file-or-json:_files'
     '--add-dir[ថតបន្ថែមដើម្បីអនុញ្ញាតឱ្យឧបករណ៍ចូលប្រើ]:directories:_directories'
     '--ide[ភ្ជាប់ទៅ IDE ស្វ័យប្រវត្តិនៅពេលចាប់ផ្តើម ប្រសិនបើមាន IDE ត្រឹមត្រូវតែមួយ]'
@@ -430,7 +470,7 @@ _claude_install() {
 _claude_agents() {
   _arguments \
     '*--add-dir[ថតបន្ថែមដើម្បីអនុញ្ញាតឱ្យឧបករណ៍ចូលប្រើក្នុងវគ្គដែលបានបញ្ជូន]:directory:_directories' \
-    '--agent[ភ្នាក់ងារលំនាំដើមសម្រាប់វគ្គដែលបានបញ្ជូនពីទិដ្ឋភាពភ្នាក់ងារ]:agent:' \
+    '--agent[ភ្នាក់ងារលំនាំដើមសម្រាប់វគ្គដែលបានបញ្ជូនពីទិដ្ឋភាពភ្នាក់ងារ]:agent:_claude_agent_names' \
     '--all[ជាមួយ --json៖ រួមបញ្ចូលផងដែរនូវវគ្គផ្ទៃខាងក្រោយដែលបានបញ្ចប់]' \
     '--allow-dangerously-skip-permissions[ធ្វើឱ្យរបៀបរំលងសិទ្ធិអាចប្រើបានសម្រាប់វគ្គដែលបានបញ្ជូន]' \
     '--cwd[បង្ហាញតែវគ្គផ្ទៃខាងក្រោយដែលចាប់ផ្តើមក្រោមផ្លូវ]:path:_directories' \
@@ -438,7 +478,7 @@ _claude_agents() {
     '--effort[កម្រិតការខិតខំលំនាំដើមសម្រាប់វគ្គដែលបានបញ្ជូន]:level:(low medium high xhigh max)' \
     '--json[បោះពុម្ពវគ្គសកម្មជា JSON array ហើយចេញ]' \
     '*--mcp-config[ការកំណត់រចនាសម្ព័ន្ធម៉ាស៊ីនមេ MCP ដើម្បីអនុវត្តចំពោះវគ្គដែលបានបញ្ជូន]:config:' \
-    '--model[គំរូលំនាំដើមសម្រាប់វគ្គដែលបានបញ្ជូនពីទិដ្ឋភាពភ្នាក់ងារ]:model:' \
+    '--model[គំរូលំនាំដើមសម្រាប់វគ្គដែលបានបញ្ជូនពីទិដ្ឋភាពភ្នាក់ងារ]:model:_claude_model_names' \
     '--permission-mode[របៀបសិទ្ធិលំនាំដើមសម្រាប់វគ្គដែលបានបញ្ជូន]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)' \
     '*--plugin-dir[ផ្ទុកកម្មវិធីជំនួយពីថតសម្រាប់ទិដ្ឋភាពភ្នាក់ងារ និងវគ្គដែលបានបញ្ជូន]:path:_directories' \
     '--setting-sources[បញ្ជីប្រភពការកំណត់ដើម្បីផ្ទុក (ផ្តាច់ដោយសញ្ញាក្បៀស៖ user, project, local)]:sources:' \

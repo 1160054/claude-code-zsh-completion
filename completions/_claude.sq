@@ -56,6 +56,46 @@ _claude_sessions() {
   compadd -a sessions
 }
 
+_claude_agent_names() {
+  local -a agents
+  local agent_dir agent_file name
+
+  # User-level and project-level agent definitions
+  for agent_dir in ~/.claude/agents ~/.config/claude/agents .claude/agents; do
+    [[ -d "$agent_dir" ]] || continue
+
+    for agent_file in ${agent_dir}/*.md(N); do
+      # Prefer the name declared in the front matter, fall back to the filename
+      name=$(sed -n '1,10{s/^name:[[:space:]]*\([^[:space:]]*\).*/\1/p;}' "$agent_file" 2>/dev/null | head -1)
+      agents+=(${name:-${agent_file:t:r}})
+    done
+  done
+
+  agents=(${(u)agents})
+
+  compadd -a agents
+}
+
+_claude_model_names() {
+  local -a models
+  local config_file
+
+  # Aliases always resolve to the latest model of that family
+  models=(default fable opus sonnet haiku)
+
+  # Full model names the user has already configured
+  for config_file in ~/.claude/settings.json ~/.claude/settings.local.json ~/.claude.json; do
+    [[ -f "$config_file" ]] || continue
+    models+=(${(f)"$(grep -oE '"(model|fallbackModel)"[[:space:]]*:[[:space:]]*"[^"]+"' "$config_file" 2>/dev/null | \
+      sed 's/.*:[[:space:]]*"\([^"]*\)"/\1/')"})
+  done
+
+  # Remove duplicates
+  models=(${(u)models})
+
+  compadd -a models
+}
+
 _claude() {
   local curcontext="$curcontext" state line
   typeset -A opt_args
@@ -103,10 +143,10 @@ _claude() {
     '(-r --resume)'{-r,--resume}'[Rifillo një bisedë - specifiko ID-në e sesionit ose zgjidh në mënyrë interaktive]:sessionId:_claude_sessions'
     '--fork-session[Krijo ID të re sesioni në vend të ripërdorimit të ID-së origjinale të sesionit gjatë rifillimit (me --resume ose --continue)]'
     '--no-session-persistence[Çaktivizo qëndrueshmërinë e sesionit - sesionet nuk do të ruhen (vetëm --print)]'
-    '--model[Modeli për sesionin aktual. Specifiko pseudonimin për modelin më të fundit (p.sh., '\''sonnet'\'' ose '\''opus'\'')]:model:'
-    '--agent[Agjenti për sesionin aktual. Anashkalon cilësimin '\''agent'\'']:agent:'
+    '--model[Modeli për sesionin aktual. Specifiko pseudonimin për modelin më të fundit (p.sh., '\''sonnet'\'' ose '\''opus'\'')]:model:_claude_model_names'
+    '--agent[Agjenti për sesionin aktual. Anashkalon cilësimin '\''agent'\'']:agent:_claude_agent_names'
     '--betas[Kokat beta për përfshirje në kërkesat API (vetëm përdoruesit me çelës API)]:betas:'
-    '--fallback-model[Aktivizo kthimin automatik te modeli i specifikuar kur modeli i paracaktuar është i mbingarkuar (vetëm --print)]:model:'
+    '--fallback-model[Aktivizo kthimin automatik te modeli i specifikuar kur modeli i paracaktuar është i mbingarkuar (vetëm --print)]:model:_claude_model_names'
     '--settings[Shtegu te skedari JSON i cilësimeve ose vargu JSON për ngarkimin e cilësimeve shtesë]:file-or-json:_files'
     '--add-dir[Direktori shtesë për të lejuar qasjen e mjeteve]:directories:_directories'
     '--ide[Lidhu automatikisht me IDE-në në nisje nëse është i disponueshëm saktësisht një IDE i vlefshëm]'
@@ -430,7 +470,7 @@ _claude_install() {
 _claude_agents() {
   _arguments \
     '*--add-dir[Direktori shtesë për të lejuar qasjen e mjeteve në sesionet e dërguara]:directory:_directories' \
-    '--agent[Agjenti i paracaktuar për sesionet e dërguara nga pamja e agjentit]:agent:' \
+    '--agent[Agjenti i paracaktuar për sesionet e dërguara nga pamja e agjentit]:agent:_claude_agent_names' \
     '--all[Me --json: përfshi gjithashtu sesionet e përfunduara në sfond]' \
     '--allow-dangerously-skip-permissions[Bëje modalitetin e anashkalimit të lejeve të disponueshëm për sesionet e dërguara]' \
     '--cwd[Shfaq vetëm sesionet në sfond të nisura nën shteg]:path:_directories' \
@@ -438,7 +478,7 @@ _claude_agents() {
     '--effort[Niveli i paracaktuar i përpjekjes për sesionet e dërguara]:level:(low medium high xhigh max)' \
     '--json[Printo sesionet aktive si varg JSON dhe dil]' \
     '*--mcp-config[Konfigurimi i serverit MCP për zbatim në sesionet e dërguara]:config:' \
-    '--model[Modeli i paracaktuar për sesionet e dërguara nga pamja e agjentit]:model:' \
+    '--model[Modeli i paracaktuar për sesionet e dërguara nga pamja e agjentit]:model:_claude_model_names' \
     '--permission-mode[Modaliteti i paracaktuar i lejeve për sesionet e dërguara]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)' \
     '*--plugin-dir[Ngarko shtojcat nga direktoria për pamjen e agjentit dhe sesionet e dërguara]:path:_directories' \
     '--setting-sources[Listë e ndarë me presje e burimeve të cilësimeve për ngarkim (user, project, local)]:sources:' \

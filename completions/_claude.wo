@@ -56,6 +56,46 @@ _claude_sessions() {
   compadd -a sessions
 }
 
+_claude_agent_names() {
+  local -a agents
+  local agent_dir agent_file name
+
+  # User-level and project-level agent definitions
+  for agent_dir in ~/.claude/agents ~/.config/claude/agents .claude/agents; do
+    [[ -d "$agent_dir" ]] || continue
+
+    for agent_file in ${agent_dir}/*.md(N); do
+      # Prefer the name declared in the front matter, fall back to the filename
+      name=$(sed -n '1,10{s/^name:[[:space:]]*\([^[:space:]]*\).*/\1/p;}' "$agent_file" 2>/dev/null | head -1)
+      agents+=(${name:-${agent_file:t:r}})
+    done
+  done
+
+  agents=(${(u)agents})
+
+  compadd -a agents
+}
+
+_claude_model_names() {
+  local -a models
+  local config_file
+
+  # Aliases always resolve to the latest model of that family
+  models=(default fable opus sonnet haiku)
+
+  # Full model names the user has already configured
+  for config_file in ~/.claude/settings.json ~/.claude/settings.local.json ~/.claude.json; do
+    [[ -f "$config_file" ]] || continue
+    models+=(${(f)"$(grep -oE '"(model|fallbackModel)"[[:space:]]*:[[:space:]]*"[^"]+"' "$config_file" 2>/dev/null | \
+      sed 's/.*:[[:space:]]*"\([^"]*\)"/\1/')"})
+  done
+
+  # Remove duplicates
+  models=(${(u)models})
+
+  compadd -a models
+}
+
 _claude() {
   local curcontext="$curcontext" state line
   typeset -A opt_args
@@ -103,10 +143,10 @@ _claude() {
     '(-r --resume)'{-r,--resume}'[Dellu ci ab waxtaan - wone session ID walla tànn ci anteraktivite]:sessionId:_claude_sessions'
     '--fork-session[Sos session ID bu bees ci lu dul jëfandikooti session ID bu njëkk bu ñuy delluwaat (ak --resume walla --continue)]'
     '--no-session-persistence[Tere persistence bu session - session yi duñu denc (--print rekk)]'
-    '--model[Model ngir session bi nekk. Wone alias ngir model bi gëna yees (misaal, '\''sonnet'\'' walla '\''opus'\'')]:model:'
-    '--agent[Ajaŋ ngir session bi nekk. Dafay soppi réglaas '\''agent'\'']:agent:'
+    '--model[Model ngir session bi nekk. Wone alias ngir model bi gëna yees (misaal, '\''sonnet'\'' walla '\''opus'\'')]:model:_claude_model_names'
+    '--agent[Ajaŋ ngir session bi nekk. Dafay soppi réglaas '\''agent'\'']:agent:_claude_agent_names'
     '--betas[Header beta yu ñuy boole ci ay requête API (jëfandikookat bu API key rekk)]:betas:'
-    '--fallback-model[Tàggat fallback otomatik ci model bu ñu wone bu model bu default chargé lool (--print rekk)]:model:'
+    '--fallback-model[Tàggat fallback otomatik ci model bu ñu wone bu model bu default chargé lool (--print rekk)]:model:_claude_model_names'
     '--settings[Yoon ci fiise JSON réglaas walla string JSON ngir yeb réglaas yu yokk]:file-or-json:_files'
     '--add-dir[Ay répertoire yu yokk ngir may access outil]:directories:_directories'
     '--ide[Jokkoo otomatik ak IDE ci tàmbali bu benn IDE bu baax rekk am]'
@@ -430,7 +470,7 @@ _claude_install() {
 _claude_agents() {
   _arguments \
     '*--add-dir[Répertoire yu yokk ngir may access outil ci session yu ñu dispatch]:directory:_directories' \
-    '--agent[Ajaŋ default ngir session yu ñu dispatch bu jóge agent view]:agent:' \
+    '--agent[Ajaŋ default ngir session yu ñu dispatch bu jóge agent view]:agent:_claude_agent_names' \
     '--all[Ak --json: boole itam session background yu ñu jeexal]' \
     '--allow-dangerously-skip-permissions[Def mode bypass-permissions bu am ngir session yu ñu dispatch]' \
     '--cwd[Wone rekk session background yu ñu tàmbali ci yoon wi]:path:_directories' \
@@ -438,7 +478,7 @@ _claude_agents() {
     '--effort[Niveau effort default ngir session yu ñu dispatch]:level:(low medium high xhigh max)' \
     '--json[Wone session yu doxal ni array JSON te génn]' \
     '*--mcp-config[Konfigurasion serwëer MCP bu ñuy applique ci session yu ñu dispatch]:config:' \
-    '--model[Model default ngir session yu ñu dispatch bu jóge agent view]:model:' \
+    '--model[Model default ngir session yu ñu dispatch bu jóge agent view]:model:_claude_model_names' \
     '--permission-mode[Mode permission default ngir session yu ñu dispatch]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)' \
     '*--plugin-dir[Yeb ay plugin bu jóge répertoire ngir agent view ak session yu ñu dispatch]:path:_directories' \
     '--setting-sources[Limu source réglaas bu ñuy yeb, ratax ak virgule (user, project, local)]:sources:' \

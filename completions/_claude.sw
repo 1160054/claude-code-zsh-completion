@@ -56,6 +56,46 @@ _claude_sessions() {
   compadd -a sessions
 }
 
+_claude_agent_names() {
+  local -a agents
+  local agent_dir agent_file name
+
+  # User-level and project-level agent definitions
+  for agent_dir in ~/.claude/agents ~/.config/claude/agents .claude/agents; do
+    [[ -d "$agent_dir" ]] || continue
+
+    for agent_file in ${agent_dir}/*.md(N); do
+      # Prefer the name declared in the front matter, fall back to the filename
+      name=$(sed -n '1,10{s/^name:[[:space:]]*\([^[:space:]]*\).*/\1/p;}' "$agent_file" 2>/dev/null | head -1)
+      agents+=(${name:-${agent_file:t:r}})
+    done
+  done
+
+  agents=(${(u)agents})
+
+  compadd -a agents
+}
+
+_claude_model_names() {
+  local -a models
+  local config_file
+
+  # Aliases always resolve to the latest model of that family
+  models=(default fable opus sonnet haiku)
+
+  # Full model names the user has already configured
+  for config_file in ~/.claude/settings.json ~/.claude/settings.local.json ~/.claude.json; do
+    [[ -f "$config_file" ]] || continue
+    models+=(${(f)"$(grep -oE '"(model|fallbackModel)"[[:space:]]*:[[:space:]]*"[^"]+"' "$config_file" 2>/dev/null | \
+      sed 's/.*:[[:space:]]*"\([^"]*\)"/\1/')"})
+  done
+
+  # Remove duplicates
+  models=(${(u)models})
+
+  compadd -a models
+}
+
 _claude() {
   local curcontext="$curcontext" state line
   typeset -A opt_args
@@ -103,10 +143,10 @@ _claude() {
     '(-r --resume)'{-r,--resume}'[Rudisha mazungumzo - bainisha kitambulisho cha kipindi au chagua kwa njia ya mwingiliano]:sessionId:_claude_sessions'
     '--fork-session[Unda kitambulisho kipya cha kipindi badala ya kutumia tena kitambulisho cha asili cha kipindi wakati wa kurudisha (pamoja na --resume au --continue)]'
     '--no-session-persistence[Zima uhifadhi wa kipindi - vipindi havitahifadhiwa (--print tu)]'
-    '--model[Modeli kwa kipindi cha sasa. Bainisha jina-mbadala kwa modeli mpya (mfano: '\''sonnet'\'' au '\''opus'\'')]:model:'
-    '--agent[Wakala kwa kipindi cha sasa. Inabatilisha mpangilio wa '\''agent'\'']:agent:'
+    '--model[Modeli kwa kipindi cha sasa. Bainisha jina-mbadala kwa modeli mpya (mfano: '\''sonnet'\'' au '\''opus'\'')]:model:_claude_model_names'
+    '--agent[Wakala kwa kipindi cha sasa. Inabatilisha mpangilio wa '\''agent'\'']:agent:_claude_agent_names'
     '--betas[Vichwa vya beta vya kujumuisha katika maombi ya API (watumiaji wa ufunguo wa API tu)]:betas:'
-    '--fallback-model[Wezesha kubadilika kiotomatiki kwa modeli iliyobainishwa wakati modeli chaguo-msingi imelemewa (--print tu)]:model:'
+    '--fallback-model[Wezesha kubadilika kiotomatiki kwa modeli iliyobainishwa wakati modeli chaguo-msingi imelemewa (--print tu)]:model:_claude_model_names'
     '--settings[Njia ya faili ya JSON ya mipangilio au mfuatano wa JSON wa kupakia mipangilio ya ziada]:file-or-json:_files'
     '--add-dir[Saraka za ziada za kuruhusu upatikanaji wa zana]:directories:_directories'
     '--ide[Unganisha-kiotomatiki kwa IDE wakati wa kuanzisha ikiwa kuna IDE moja halali inapatikana]'
@@ -430,7 +470,7 @@ _claude_install() {
 _claude_agents() {
   _arguments \
     '*--add-dir[Saraka ya ziada ya kuruhusu upatikanaji wa zana katika vipindi vilivyotumwa]:directory:_directories' \
-    '--agent[Wakala chaguo-msingi kwa vipindi vilivyotumwa kutoka kwa mwonekano wa wakala]:agent:' \
+    '--agent[Wakala chaguo-msingi kwa vipindi vilivyotumwa kutoka kwa mwonekano wa wakala]:agent:_claude_agent_names' \
     '--all[Pamoja na --json: pia jumuisha vipindi vya mandharinyuma vilivyokamilika]' \
     '--allow-dangerously-skip-permissions[Fanya mtindo wa kuruka-ruhusa upatikane kwa vipindi vilivyotumwa]' \
     '--cwd[Onyesha tu vipindi vya mandharinyuma vilivyoanzishwa chini ya njia]:path:_directories' \
@@ -438,7 +478,7 @@ _claude_agents() {
     '--effort[Kiwango cha juhudi chaguo-msingi kwa vipindi vilivyotumwa]:level:(low medium high xhigh max)' \
     '--json[Chapisha vipindi vinavyofanya kazi kama safu ya JSON na utoke]' \
     '*--mcp-config[Usanidi wa seva ya MCP wa kutumia kwa vipindi vilivyotumwa]:config:' \
-    '--model[Modeli chaguo-msingi kwa vipindi vilivyotumwa kutoka kwa mwonekano wa wakala]:model:' \
+    '--model[Modeli chaguo-msingi kwa vipindi vilivyotumwa kutoka kwa mwonekano wa wakala]:model:_claude_model_names' \
     '--permission-mode[Mtindo wa ruhusa chaguo-msingi kwa vipindi vilivyotumwa]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)' \
     '*--plugin-dir[Pakia programu-jalizi kutoka kwa saraka kwa mwonekano wa wakala na vipindi vilivyotumwa]:path:_directories' \
     '--setting-sources[Orodha ya vyanzo vya mipangilio iliyotenganishwa kwa koma ya kupakia (user, project, local)]:sources:' \

@@ -56,6 +56,46 @@ _claude_sessions() {
   compadd -a sessions
 }
 
+_claude_agent_names() {
+  local -a agents
+  local agent_dir agent_file name
+
+  # User-level and project-level agent definitions
+  for agent_dir in ~/.claude/agents ~/.config/claude/agents .claude/agents; do
+    [[ -d "$agent_dir" ]] || continue
+
+    for agent_file in ${agent_dir}/*.md(N); do
+      # Prefer the name declared in the front matter, fall back to the filename
+      name=$(sed -n '1,10{s/^name:[[:space:]]*\([^[:space:]]*\).*/\1/p;}' "$agent_file" 2>/dev/null | head -1)
+      agents+=(${name:-${agent_file:t:r}})
+    done
+  done
+
+  agents=(${(u)agents})
+
+  compadd -a agents
+}
+
+_claude_model_names() {
+  local -a models
+  local config_file
+
+  # Aliases always resolve to the latest model of that family
+  models=(default fable opus sonnet haiku)
+
+  # Full model names the user has already configured
+  for config_file in ~/.claude/settings.json ~/.claude/settings.local.json ~/.claude.json; do
+    [[ -f "$config_file" ]] || continue
+    models+=(${(f)"$(grep -oE '"(model|fallbackModel)"[[:space:]]*:[[:space:]]*"[^"]+"' "$config_file" 2>/dev/null | \
+      sed 's/.*:[[:space:]]*"\([^"]*\)"/\1/')"})
+  done
+
+  # Remove duplicates
+  models=(${(u)models})
+
+  compadd -a models
+}
+
 _claude() {
   local curcontext="$curcontext" state line
   typeset -A opt_args
@@ -103,10 +143,10 @@ _claude() {
     '(-r --resume)'{-r,--resume}'[Konversation fortsetzä - Sitzig-ID aagäh oder interaktiv uuswähle]:sessionId:_claude_sessions'
     '--fork-session[Nöii Sitzig-ID erstelle statt ursprünglichi Sitzig-ID bim Fortsetzä wiiderverwände (mit --resume oder --continue)]'
     '--no-session-persistence[Sitzigspersistänz deaktiviere - Sitzige wärde nöd gspeicheret (nur --print)]'
-    '--model[Modell für aktuelli Sitzig. Alias für nöischts Modell aagäh (z.B. '\''sonnet'\'' oder '\''opus'\'')]:model:'
-    '--agent[Agent für di aktuelli Sitzig. Überschribt d '\''agent'\''-Iischtellig]:agent:'
+    '--model[Modell für aktuelli Sitzig. Alias für nöischts Modell aagäh (z.B. '\''sonnet'\'' oder '\''opus'\'')]:model:_claude_model_names'
+    '--agent[Agent für di aktuelli Sitzig. Überschribt d '\''agent'\''-Iischtellig]:agent:_claude_agent_names'
     '--betas[Beta-Header i API-Aafrage iischliesse (nur API-Schlüssel-Benutzer)]:betas:'
-    '--fallback-model[Automatischs Zruckfalle uf aagähs Modell aktiviere, wänn Standardmodell überlastet isch (nur --print)]:model:'
+    '--fallback-model[Automatischs Zruckfalle uf aagähs Modell aktiviere, wänn Standardmodell überlastet isch (nur --print)]:model:_claude_model_names'
     '--settings[Pfad zu Iischtellige-JSON-Datei oder JSON-String zum Lade vo zuesätzliche Iischtellige]:file-or-json:_files'
     '--add-dir[Zuesätzlichi Verzeichnis für Wärkzügzuegang erlaube]:directories:_directories'
     '--ide[Automatisch mit IDE bim Start verbinde, wänn genau eis gültigs IDE verfüegbar isch]'
@@ -430,7 +470,7 @@ _claude_install() {
 _claude_agents() {
   _arguments \
     '*--add-dir[Zuesätzlichs Verzeichnis für Wärkzügzuegang i versändte Sitzige erlaube]:directory:_directories' \
-    '--agent[Standard-Agent für us de Agente-Aasicht versändti Sitzige]:agent:' \
+    '--agent[Standard-Agent für us de Agente-Aasicht versändti Sitzige]:agent:_claude_agent_names' \
     '--all[Mit --json: au abgschlosseni Hintergrundsitzige iischliesse]' \
     '--allow-dangerously-skip-permissions[Bypass-Berechtigigsmodus für versändti Sitzige verfüegbar mache]' \
     '--cwd[Nur under em Pfad gstartete Hintergrundsitzige aazeige]:path:_directories' \
@@ -438,7 +478,7 @@ _claude_agents() {
     '--effort[Standard-Ufwandsstufe für versändti Sitzige]:level:(low medium high xhigh max)' \
     '--json[Aktivi Sitzige als JSON-Array usgäh u beände]' \
     '*--mcp-config[MCP-Server-Konfiguration für versändti Sitzige aawände]:config:' \
-    '--model[Standardmodell für us de Agente-Aasicht versändti Sitzige]:model:' \
+    '--model[Standardmodell für us de Agente-Aasicht versändti Sitzige]:model:_claude_model_names' \
     '--permission-mode[Standard-Berechtigigsmodus für versändti Sitzige]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)' \
     '*--plugin-dir[Erwitterige us em Verzeichnis für d Agente-Aasicht u versändti Sitzige lade]:path:_directories' \
     '--setting-sources[Kommatrennte Liste vo Iischtelligsquälle zum Lade (user, project, local)]:sources:' \

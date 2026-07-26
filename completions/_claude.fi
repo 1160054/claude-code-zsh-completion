@@ -56,6 +56,46 @@ _claude_sessions() {
   compadd -a sessions
 }
 
+_claude_agent_names() {
+  local -a agents
+  local agent_dir agent_file name
+
+  # User-level and project-level agent definitions
+  for agent_dir in ~/.claude/agents ~/.config/claude/agents .claude/agents; do
+    [[ -d "$agent_dir" ]] || continue
+
+    for agent_file in ${agent_dir}/*.md(N); do
+      # Prefer the name declared in the front matter, fall back to the filename
+      name=$(sed -n '1,10{s/^name:[[:space:]]*\([^[:space:]]*\).*/\1/p;}' "$agent_file" 2>/dev/null | head -1)
+      agents+=(${name:-${agent_file:t:r}})
+    done
+  done
+
+  agents=(${(u)agents})
+
+  compadd -a agents
+}
+
+_claude_model_names() {
+  local -a models
+  local config_file
+
+  # Aliases always resolve to the latest model of that family
+  models=(default fable opus sonnet haiku)
+
+  # Full model names the user has already configured
+  for config_file in ~/.claude/settings.json ~/.claude/settings.local.json ~/.claude.json; do
+    [[ -f "$config_file" ]] || continue
+    models+=(${(f)"$(grep -oE '"(model|fallbackModel)"[[:space:]]*:[[:space:]]*"[^"]+"' "$config_file" 2>/dev/null | \
+      sed 's/.*:[[:space:]]*"\([^"]*\)"/\1/')"})
+  done
+
+  # Remove duplicates
+  models=(${(u)models})
+
+  compadd -a models
+}
+
 _claude() {
   local curcontext="$curcontext" state line
   typeset -A opt_args
@@ -103,10 +143,10 @@ _claude() {
     '(-r --resume)'{-r,--resume}'[Jatka keskustelua - määritä istunto-tunnus tai valitse interaktiivisesti]:sessionId:_claude_sessions'
     '--fork-session[Luo uusi istunto-tunnus alkuperäisen istunto-tunnuksen uudelleenkäytön sijaan jatkettaessa (--resume tai --continue -vaihtoehtojen kanssa)]'
     '--no-session-persistence[Poista istunnon säilyvyys käytöstä - istuntoja ei tallenneta (vain --print)]'
-    '--model[Malli nykyiselle istunnolle. Määritä alias uusimmalle mallille (esim. '\''sonnet'\'' tai '\''opus'\'')]:model:'
-    '--agent[Agentti nykyiselle istunnolle. Ohittaa '\''agent'\''-asetuksen]:agent:'
+    '--model[Malli nykyiselle istunnolle. Määritä alias uusimmalle mallille (esim. '\''sonnet'\'' tai '\''opus'\'')]:model:_claude_model_names'
+    '--agent[Agentti nykyiselle istunnolle. Ohittaa '\''agent'\''-asetuksen]:agent:_claude_agent_names'
     '--betas[Beta-otsikot sisällytettäväksi API-pyyntöihin (vain API-avaimen käyttäjät)]:betas:'
-    '--fallback-model[Ota käyttöön automaattinen varamalli kun oletusmalli on ylikuormitettu (vain --print)]:model:'
+    '--fallback-model[Ota käyttöön automaattinen varamalli kun oletusmalli on ylikuormitettu (vain --print)]:model:_claude_model_names'
     '--settings[Polku asetuksiin JSON-tiedostoon tai JSON-merkkijonoon lisäasetusten lataamiseksi]:file-or-json:_files'
     '--add-dir[Lisähakemistot työkalukäyttöä varten]:directories:_directories'
     '--ide[Yhdistä automaattisesti IDE:hen käynnistettäessä, jos täsmälleen yksi kelvollinen IDE on käytettävissä]'
@@ -430,7 +470,7 @@ _claude_install() {
 _claude_agents() {
   _arguments \
     '*--add-dir[Lisähakemisto työkalukäyttöä varten lähetetyissä istunnoissa]:directory:_directories' \
-    '--agent[Oletusagentti agenttinäkymästä lähetetyille istunnoille]:agent:' \
+    '--agent[Oletusagentti agenttinäkymästä lähetetyille istunnoille]:agent:_claude_agent_names' \
     '--all[--json-vaihtoehdon kanssa: sisällytä myös valmiit taustaistunnot]' \
     '--allow-dangerously-skip-permissions[Tee ohituskäyttöoikeustila saataville lähetetyille istunnoille]' \
     '--cwd[Näytä vain polun alla käynnistetyt taustaistunnot]:path:_directories' \
@@ -438,7 +478,7 @@ _claude_agents() {
     '--effort[Oletuspanostustaso lähetetyille istunnoille]:level:(low medium high xhigh max)' \
     '--json[Tulosta aktiiviset istunnot JSON-taulukkona ja poistu]' \
     '*--mcp-config[MCP-palvelinmääritys lähetetyille istunnoille sovellettavaksi]:config:' \
-    '--model[Oletusmalli agenttinäkymästä lähetetyille istunnoille]:model:' \
+    '--model[Oletusmalli agenttinäkymästä lähetetyille istunnoille]:model:_claude_model_names' \
     '--permission-mode[Oletuskäyttöoikeustila lähetetyille istunnoille]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)' \
     '*--plugin-dir[Lataa laajennukset hakemistosta agenttinäkymälle ja lähetetyille istunnoille]:path:_directories' \
     '--setting-sources[Pilkulla erotettu luettelo asetuslähteitä ladattavaksi (user, project, local)]:sources:' \

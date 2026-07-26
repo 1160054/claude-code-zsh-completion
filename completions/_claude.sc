@@ -56,6 +56,46 @@ _claude_sessions() {
   compadd -a sessions
 }
 
+_claude_agent_names() {
+  local -a agents
+  local agent_dir agent_file name
+
+  # User-level and project-level agent definitions
+  for agent_dir in ~/.claude/agents ~/.config/claude/agents .claude/agents; do
+    [[ -d "$agent_dir" ]] || continue
+
+    for agent_file in ${agent_dir}/*.md(N); do
+      # Prefer the name declared in the front matter, fall back to the filename
+      name=$(sed -n '1,10{s/^name:[[:space:]]*\([^[:space:]]*\).*/\1/p;}' "$agent_file" 2>/dev/null | head -1)
+      agents+=(${name:-${agent_file:t:r}})
+    done
+  done
+
+  agents=(${(u)agents})
+
+  compadd -a agents
+}
+
+_claude_model_names() {
+  local -a models
+  local config_file
+
+  # Aliases always resolve to the latest model of that family
+  models=(default fable opus sonnet haiku)
+
+  # Full model names the user has already configured
+  for config_file in ~/.claude/settings.json ~/.claude/settings.local.json ~/.claude.json; do
+    [[ -f "$config_file" ]] || continue
+    models+=(${(f)"$(grep -oE '"(model|fallbackModel)"[[:space:]]*:[[:space:]]*"[^"]+"' "$config_file" 2>/dev/null | \
+      sed 's/.*:[[:space:]]*"\([^"]*\)"/\1/')"})
+  done
+
+  # Remove duplicates
+  models=(${(u)models})
+
+  compadd -a models
+}
+
 _claude() {
   local curcontext="$curcontext" state line
   typeset -A opt_args
@@ -103,10 +143,10 @@ _claude() {
     '(-r --resume)'{-r,--resume}'[Ripigliare una cunversatzione - ispetzificare s'\''ID de sessione o seletzionare in manera interativa]:sessionId:_claude_sessions'
     '--fork-session[Creare unu nou ID de sessione imbetzes de torrare a impreare s'\''ID de sessione originale cando si ripìglliat (cun --resume o --continue)]'
     '--no-session-persistence[Disativare sa persistèntzia de sa sessione - sas sessiones no ant a èssere sarvadas (isceti --print)]'
-    '--model[Modellu pro sa sessione atuale. Ispetzificare un alias pro su modellu prus reghente (es: '\''sonnet'\'' o '\''opus'\'')]:model:'
-    '--agent[Agente pro sa sessione atuale. Subra iscrìet s'\''impostatzione '\''agent'\'']:agent:'
+    '--model[Modellu pro sa sessione atuale. Ispetzificare un alias pro su modellu prus reghente (es: '\''sonnet'\'' o '\''opus'\'')]:model:_claude_model_names'
+    '--agent[Agente pro sa sessione atuale. Subra iscrìet s'\''impostatzione '\''agent'\'']:agent:_claude_agent_names'
     '--betas[Intestatziones beta de includere in sas rechestas API (isceti utentes cun crae API)]:betas:'
-    '--fallback-model[Atibare su cambiu automàticu a su modellu ispetzificadu cando su modellu predefinidu est sobrecarrigadu (isceti --print)]:model:'
+    '--fallback-model[Atibare su cambiu automàticu a su modellu ispetzificadu cando su modellu predefinidu est sobrecarrigadu (isceti --print)]:model:_claude_model_names'
     '--settings[Càmminu a archìviu JSON de impostattziones o cadena JSON pro carrigare impostattziones additzionales]:file-or-json:_files'
     '--add-dir[Directorios additzionales pro permìtere s'\''atzessu a sos ainas]:directories:_directories'
     '--ide[Connessione automàtica a s'\''IDE a s'\''aviamentu si petzi unu IDE bàlidu est disponìbile]'
@@ -430,7 +470,7 @@ _claude_install() {
 _claude_agents() {
   _arguments \
     '*--add-dir[Diretòriu additzionale pro permìtere s'\''atzessu a sos ainas in sas sessiones inviadas]:directory:_directories' \
-    '--agent[Agente predefinidu pro sas sessiones inviadas dae sa vista de sos agentes]:agent:' \
+    '--agent[Agente predefinidu pro sas sessiones inviadas dae sa vista de sos agentes]:agent:_claude_agent_names' \
     '--all[Cun --json: includere fintzas sas sessiones in segundu pianu cumpletadas]' \
     '--allow-dangerously-skip-permissions[Rèndere sa modalidade bypass-permissions disponìbile pro sas sessiones inviadas]' \
     '--cwd[Ammustare isceti sas sessiones in segundu pianu aviadas suta su càmminu]:path:_directories' \
@@ -438,7 +478,7 @@ _claude_agents() {
     '--effort[Livellu de impinnu predefinidu pro sas sessiones inviadas]:level:(low medium high xhigh max)' \
     '--json[Imprentare sas sessiones ativas comente array JSON e essire]' \
     '*--mcp-config[Cunfiguratzione de su serbidore MCP de aplicare a sas sessiones inviadas]:config:' \
-    '--model[Modellu predefinidu pro sas sessiones inviadas dae sa vista de sos agentes]:model:' \
+    '--model[Modellu predefinidu pro sas sessiones inviadas dae sa vista de sos agentes]:model:_claude_model_names' \
     '--permission-mode[Modalidade de permissos predefinida pro sas sessiones inviadas]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)' \
     '*--plugin-dir[Carrigare plugins dae su diretòriu pro sa vista de sos agentes e sas sessiones inviadas]:path:_directories' \
     '--setting-sources[Lista separada cun vìrgulas de fontes de impostattziones de carrigare (user, project, local)]:sources:' \

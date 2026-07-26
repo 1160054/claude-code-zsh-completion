@@ -56,6 +56,46 @@ _claude_sessions() {
   compadd -a sessions
 }
 
+_claude_agent_names() {
+  local -a agents
+  local agent_dir agent_file name
+
+  # User-level and project-level agent definitions
+  for agent_dir in ~/.claude/agents ~/.config/claude/agents .claude/agents; do
+    [[ -d "$agent_dir" ]] || continue
+
+    for agent_file in ${agent_dir}/*.md(N); do
+      # Prefer the name declared in the front matter, fall back to the filename
+      name=$(sed -n '1,10{s/^name:[[:space:]]*\([^[:space:]]*\).*/\1/p;}' "$agent_file" 2>/dev/null | head -1)
+      agents+=(${name:-${agent_file:t:r}})
+    done
+  done
+
+  agents=(${(u)agents})
+
+  compadd -a agents
+}
+
+_claude_model_names() {
+  local -a models
+  local config_file
+
+  # Aliases always resolve to the latest model of that family
+  models=(default fable opus sonnet haiku)
+
+  # Full model names the user has already configured
+  for config_file in ~/.claude/settings.json ~/.claude/settings.local.json ~/.claude.json; do
+    [[ -f "$config_file" ]] || continue
+    models+=(${(f)"$(grep -oE '"(model|fallbackModel)"[[:space:]]*:[[:space:]]*"[^"]+"' "$config_file" 2>/dev/null | \
+      sed 's/.*:[[:space:]]*"\([^"]*\)"/\1/')"})
+  done
+
+  # Remove duplicates
+  models=(${(u)models})
+
+  compadd -a models
+}
+
 _claude() {
   local curcontext="$curcontext" state line
   typeset -A opt_args
@@ -103,10 +143,10 @@ _claude() {
     '(-r --resume)'{-r,--resume}'[საუბრის განახლება - მიუთითეთ სესიის ID ან აირჩიეთ ინტერაქტიულად]:sessionId:_claude_sessions'
     '--fork-session[ახალი სესიის ID-ის შექმნა ორიგინალის ხელახლა გამოყენების ნაცვლად (--resume ან --continue-თან)]'
     '--no-session-persistence[სესიის შენახვის გამორთვა - სესიები არ შეინახება (მხოლოდ --print)]'
-    '--model[მოდელი მიმდინარე სესიისთვის. მიუთითეთ ალიასი უახლესი მოდელისთვის (მაგ., '\''sonnet'\'' ან '\''opus'\'')]:model:'
-    '--agent[აგენტი მიმდინარე სესიისთვის. გადაფარავს '\''agent'\'' პარამეტრს]:agent:'
+    '--model[მოდელი მიმდინარე სესიისთვის. მიუთითეთ ალიასი უახლესი მოდელისთვის (მაგ., '\''sonnet'\'' ან '\''opus'\'')]:model:_claude_model_names'
+    '--agent[აგენტი მიმდინარე სესიისთვის. გადაფარავს '\''agent'\'' პარამეტრს]:agent:_claude_agent_names'
     '--betas[ბეტა header-ები API მოთხოვნებში ჩასართავად (მხოლოდ API გასაღების მომხმარებლებისთვის)]:betas:'
-    '--fallback-model[ავტომატური გადასვლის ჩართვა მითითებულ მოდელზე როცა ნაგულისხმევი მოდელი გადატვირთულია (მხოლოდ --print)]:model:'
+    '--fallback-model[ავტომატური გადასვლის ჩართვა მითითებულ მოდელზე როცა ნაგულისხმევი მოდელი გადატვირთულია (მხოლოდ --print)]:model:_claude_model_names'
     '--settings[პარამეტრების JSON ფაილის ან JSON სტრიქონის გზა დამატებითი პარამეტრების ჩასატვირთად]:file-or-json:_files'
     '--add-dir[დამატებითი დირექტორიები ინსტრუმენტების წვდომისთვის]:directories:_directories'
     '--ide[ავტომატური დაკავშირება IDE-სთან გაშვებისას თუ ხელმისაწვდომია ზუსტად ერთი ვალიდური IDE]'
@@ -430,7 +470,7 @@ _claude_install() {
 _claude_agents() {
   _arguments \
     '*--add-dir[დამატებითი დირექტორია ინსტრუმენტების წვდომისთვის გაშვებულ სესიებში]:directory:_directories' \
-    '--agent[ნაგულისხმევი აგენტი აგენტების ხედიდან გაშვებული სესიებისთვის]:agent:' \
+    '--agent[ნაგულისხმევი აგენტი აგენტების ხედიდან გაშვებული სესიებისთვის]:agent:_claude_agent_names' \
     '--all[--json-თან: ასევე დასრულებული ფონური სესიების ჩართვა]' \
     '--allow-dangerously-skip-permissions[bypass-permissions რეჟიმის ხელმისაწვდომობა გაშვებული სესიებისთვის]' \
     '--cwd[მხოლოდ მითითებული გზის ქვეშ დაწყებული ფონური სესიების ჩვენება]:path:_directories' \
@@ -438,7 +478,7 @@ _claude_agents() {
     '--effort[ნაგულისხმევი ძალისხმევის დონე გაშვებული სესიებისთვის]:level:(low medium high xhigh max)' \
     '--json[აქტიური სესიების დაბეჭდვა JSON მასივად და გასვლა]' \
     '*--mcp-config[MCP სერვერის კონფიგურაცია გაშვებულ სესიებზე გამოსაყენებლად]:config:' \
-    '--model[ნაგულისხმევი მოდელი აგენტების ხედიდან გაშვებული სესიებისთვის]:model:' \
+    '--model[ნაგულისხმევი მოდელი აგენტების ხედიდან გაშვებული სესიებისთვის]:model:_claude_model_names' \
     '--permission-mode[ნაგულისხმევი ნებართვის რეჟიმი გაშვებული სესიებისთვის]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)' \
     '*--plugin-dir[დამატებების ჩატვირთვა დირექტორიიდან აგენტების ხედისა და გაშვებული სესიებისთვის]:path:_directories' \
     '--setting-sources[მძიმით გამოყოფილი პარამეტრების წყაროების სია ჩასატვირთად (user, project, local)]:sources:' \

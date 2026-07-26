@@ -56,6 +56,46 @@ _claude_sessions() {
   compadd -a sessions
 }
 
+_claude_agent_names() {
+  local -a agents
+  local agent_dir agent_file name
+
+  # User-level and project-level agent definitions
+  for agent_dir in ~/.claude/agents ~/.config/claude/agents .claude/agents; do
+    [[ -d "$agent_dir" ]] || continue
+
+    for agent_file in ${agent_dir}/*.md(N); do
+      # Prefer the name declared in the front matter, fall back to the filename
+      name=$(sed -n '1,10{s/^name:[[:space:]]*\([^[:space:]]*\).*/\1/p;}' "$agent_file" 2>/dev/null | head -1)
+      agents+=(${name:-${agent_file:t:r}})
+    done
+  done
+
+  agents=(${(u)agents})
+
+  compadd -a agents
+}
+
+_claude_model_names() {
+  local -a models
+  local config_file
+
+  # Aliases always resolve to the latest model of that family
+  models=(default fable opus sonnet haiku)
+
+  # Full model names the user has already configured
+  for config_file in ~/.claude/settings.json ~/.claude/settings.local.json ~/.claude.json; do
+    [[ -f "$config_file" ]] || continue
+    models+=(${(f)"$(grep -oE '"(model|fallbackModel)"[[:space:]]*:[[:space:]]*"[^"]+"' "$config_file" 2>/dev/null | \
+      sed 's/.*:[[:space:]]*"\([^"]*\)"/\1/')"})
+  done
+
+  # Remove duplicates
+  models=(${(u)models})
+
+  compadd -a models
+}
+
 _claude() {
   local curcontext="$curcontext" state line
   typeset -A opt_args
@@ -103,10 +143,10 @@ _claude() {
     '(-r --resume)'{-r,--resume}'[Ripristinâ une conversazion - specificâ l'\''ID di session o sielzi in mût interatîf]:sessionId:_claude_sessions'
     '--fork-session[Creâ un gnûf ID di session invezit di tornâ a doprâ l'\''ID di session origjinâl cuant che si ripristine (cun --resume o --continue)]'
     '--no-session-persistence[Disativâ la persistence de session - lis session no vegnin salvadis (dome --print)]'
-    '--model[Model pe session atuâl. Specificâ un alias pal model plui resint (es: '\''sonnet'\'' o '\''opus'\'')]:model:'
-    '--agent[Agjent pe session atuâl. Al sostituìs la impostazion '\''agent'\'']:agent:'
+    '--model[Model pe session atuâl. Specificâ un alias pal model plui resint (es: '\''sonnet'\'' o '\''opus'\'')]:model:_claude_model_names'
+    '--agent[Agjent pe session atuâl. Al sostituìs la impostazion '\''agent'\'']:agent:_claude_agent_names'
     '--betas[Intestazions beta di includi tes richiestis API (dome utents cun clâf API)]:betas:'
-    '--fallback-model[Ativâ il passaç automatic al model specificât cuant che il model predefinît al è sovracjariât (dome --print)]:model:'
+    '--fallback-model[Ativâ il passaç automatic al model specificât cuant che il model predefinît al è sovracjariât (dome --print)]:model:_claude_model_names'
     '--settings[Percors a un file JSON di impostazions o une stringhe JSON par cjariâ impostazions adizionâls]:file-or-json:_files'
     '--add-dir[Diretoriis adizionâi par permetê l'\''acès ai struments]:directories:_directories'
     '--ide[Conession automatiche al IDE al inviament se dome un IDE vâlid al è disponibil]'
@@ -430,7 +470,7 @@ _claude_install() {
 _claude_agents() {
   _arguments \
     '*--add-dir[Diretori adizionâl par permetê l'\''acès ai struments tes session inviadis]:directory:_directories' \
-    '--agent[Agjent predefinît pes session inviadis de viodude agjents]:agent:' \
+    '--agent[Agjent predefinît pes session inviadis de viodude agjents]:agent:_claude_agent_names' \
     '--all[Cun --json: includi ancje lis session in sotfont completadis]' \
     '--allow-dangerously-skip-permissions[Rindi disponibile la modalitât bypass-permissions pes session inviadis]' \
     '--cwd[Mostrâ dome lis session in sotfont inviadis sot il percors]:path:_directories' \
@@ -438,7 +478,7 @@ _claude_agents() {
     '--effort[Nivel di sfuarç predefinît pes session inviadis]:level:(low medium high xhigh max)' \
     '--json[Stampâ lis session ativis come array JSON e jessî]' \
     '*--mcp-config[Configurazion dal servidôr MCP di aplicâ aes session inviadis]:config:' \
-    '--model[Model predefinît pes session inviadis de viodude agjents]:model:' \
+    '--model[Model predefinît pes session inviadis de viodude agjents]:model:_claude_model_names' \
     '--permission-mode[Modalitât di permès predefinide pes session inviadis]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)' \
     '*--plugin-dir[Cjariâ i plugin dal diretori pe viodude agjents e lis session inviadis]:path:_directories' \
     '--setting-sources[Liste separade di virgulis di fonts di impostazions di cjariâ (user, project, local)]:sources:' \

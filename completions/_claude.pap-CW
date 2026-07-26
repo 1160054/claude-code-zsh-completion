@@ -56,6 +56,46 @@ _claude_sessions() {
   compadd -a sessions
 }
 
+_claude_agent_names() {
+  local -a agents
+  local agent_dir agent_file name
+
+  # User-level and project-level agent definitions
+  for agent_dir in ~/.claude/agents ~/.config/claude/agents .claude/agents; do
+    [[ -d "$agent_dir" ]] || continue
+
+    for agent_file in ${agent_dir}/*.md(N); do
+      # Prefer the name declared in the front matter, fall back to the filename
+      name=$(sed -n '1,10{s/^name:[[:space:]]*\([^[:space:]]*\).*/\1/p;}' "$agent_file" 2>/dev/null | head -1)
+      agents+=(${name:-${agent_file:t:r}})
+    done
+  done
+
+  agents=(${(u)agents})
+
+  compadd -a agents
+}
+
+_claude_model_names() {
+  local -a models
+  local config_file
+
+  # Aliases always resolve to the latest model of that family
+  models=(default fable opus sonnet haiku)
+
+  # Full model names the user has already configured
+  for config_file in ~/.claude/settings.json ~/.claude/settings.local.json ~/.claude.json; do
+    [[ -f "$config_file" ]] || continue
+    models+=(${(f)"$(grep -oE '"(model|fallbackModel)"[[:space:]]*:[[:space:]]*"[^"]+"' "$config_file" 2>/dev/null | \
+      sed 's/.*:[[:space:]]*"\([^"]*\)"/\1/')"})
+  done
+
+  # Remove duplicates
+  models=(${(u)models})
+
+  compadd -a models
+}
+
 _claude() {
   local curcontext="$curcontext" state line
   typeset -A opt_args
@@ -103,10 +143,10 @@ _claude() {
     '(-r --resume)'{-r,--resume}'[Retomá un konbersashon - spesifiká ID di seshon of selektá interaktivamente]:sessionId:_claude_sessions'
     '--fork-session[Krea un ID di seshon nobo en bes di reutilisá e ID di seshon original ora ta retomá (ku --resume of --continue)]'
     '--no-session-persistence[Desaktivá persistensia di seshon - seshonnan lo no wòrdu wardá (--print so)]'
-    '--model[Modelo pa e seshon aktual. Spesifiká un alias pa e modelo mas resien (p.e., '\''sonnet'\'' of '\''opus'\'')]:model:'
-    '--agent[Agente pa e seshon aktual. Ta anulá e konfigurashon '\''agent'\'']:agent:'
+    '--model[Modelo pa e seshon aktual. Spesifiká un alias pa e modelo mas resien (p.e., '\''sonnet'\'' of '\''opus'\'')]:model:_claude_model_names'
+    '--agent[Agente pa e seshon aktual. Ta anulá e konfigurashon '\''agent'\'']:agent:_claude_agent_names'
     '--betas[Headernan beta pa inkluí den petishonnan API (solamente uzuarionan di API key)]:betas:'
-    '--fallback-model[Aktivá fallback outomátiko na e modelo spesifiká ora e modelo predeterminá ta sobrekargá (--print so)]:model:'
+    '--fallback-model[Aktivá fallback outomátiko na e modelo spesifiká ora e modelo predeterminá ta sobrekargá (--print so)]:model:_claude_model_names'
     '--settings[Kaminda na e archivo JSON di konfigurashon of string JSON pa karga konfigurashonnan adishonal]:file-or-json:_files'
     '--add-dir[Direktorionan adishonal pa permití akseso di hèrmènt]:directories:_directories'
     '--ide[Konektá outomátikamente na IDE ora di start si tin eksaktamente un IDE válido disponibel]'
@@ -430,7 +470,7 @@ _claude_install() {
 _claude_agents() {
   _arguments \
     '*--add-dir[Direktorio adishonal pa permití akseso di hèrmènt den seshonnan despachá]:directory:_directories' \
-    '--agent[Agente predeterminá pa seshonnan despachá for di e vista di agente]:agent:' \
+    '--agent[Agente predeterminá pa seshonnan despachá for di e vista di agente]:agent:_claude_agent_names' \
     '--all[Ku --json: inkluí tambe seshonnan di fondo kompletá]' \
     '--allow-dangerously-skip-permissions[Hasi modo bypass-permissions disponibel pa seshonnan despachá]' \
     '--cwd[Mustra solamente seshonnan di fondo kuminsá bou di e kaminda]:path:_directories' \
@@ -438,7 +478,7 @@ _claude_agents() {
     '--effort[Nivel di esfuerso predeterminá pa seshonnan despachá]:level:(low medium high xhigh max)' \
     '--json[Imprimí seshonnan aktivo komo un array JSON i sali]' \
     '*--mcp-config[Konfigurashon di servidó MCP pa apliká na seshonnan despachá]:config:' \
-    '--model[Modelo predeterminá pa seshonnan despachá for di e vista di agente]:model:' \
+    '--model[Modelo predeterminá pa seshonnan despachá for di e vista di agente]:model:_claude_model_names' \
     '--permission-mode[Modo di permiso predeterminá pa seshonnan despachá]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)' \
     '*--plugin-dir[Karga pluginnan for di direktorio pa e vista di agente i seshonnan despachá]:path:_directories' \
     '--setting-sources[Lista di fuentenan di konfigurashon pa karga separá ku koma (user, project, local)]:sources:' \

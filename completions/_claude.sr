@@ -56,6 +56,46 @@ _claude_sessions() {
   compadd -a sessions
 }
 
+_claude_agent_names() {
+  local -a agents
+  local agent_dir agent_file name
+
+  # User-level and project-level agent definitions
+  for agent_dir in ~/.claude/agents ~/.config/claude/agents .claude/agents; do
+    [[ -d "$agent_dir" ]] || continue
+
+    for agent_file in ${agent_dir}/*.md(N); do
+      # Prefer the name declared in the front matter, fall back to the filename
+      name=$(sed -n '1,10{s/^name:[[:space:]]*\([^[:space:]]*\).*/\1/p;}' "$agent_file" 2>/dev/null | head -1)
+      agents+=(${name:-${agent_file:t:r}})
+    done
+  done
+
+  agents=(${(u)agents})
+
+  compadd -a agents
+}
+
+_claude_model_names() {
+  local -a models
+  local config_file
+
+  # Aliases always resolve to the latest model of that family
+  models=(default fable opus sonnet haiku)
+
+  # Full model names the user has already configured
+  for config_file in ~/.claude/settings.json ~/.claude/settings.local.json ~/.claude.json; do
+    [[ -f "$config_file" ]] || continue
+    models+=(${(f)"$(grep -oE '"(model|fallbackModel)"[[:space:]]*:[[:space:]]*"[^"]+"' "$config_file" 2>/dev/null | \
+      sed 's/.*:[[:space:]]*"\([^"]*\)"/\1/')"})
+  done
+
+  # Remove duplicates
+  models=(${(u)models})
+
+  compadd -a models
+}
+
 _claude() {
   local curcontext="$curcontext" state line
   typeset -A opt_args
@@ -103,10 +143,10 @@ _claude() {
     '(-r --resume)'{-r,--resume}'[Настави разговор - наведите идентификатор сесије или изаберите интерактивно]:sessionId:_claude_sessions'
     '--fork-session[Креирај нови идентификатор сесије уместо поновне употребе оригиналног приликом наставка (са --resume или --continue)]'
     '--no-session-persistence[Онемогући трајност сесије - сесије неће бити сачуване (само --print)]'
-    '--model[Модел за тренутну сесију. Наведите надимак за најновији модел (нпр. '\''sonnet'\'' или '\''opus'\'')]:model:'
-    '--agent[Агент за тренутну сесију. Замењује подешавање '\''agent'\'']:agent:'
+    '--model[Модел за тренутну сесију. Наведите надимак за најновији модел (нпр. '\''sonnet'\'' или '\''opus'\'')]:model:_claude_model_names'
+    '--agent[Агент за тренутну сесију. Замењује подешавање '\''agent'\'']:agent:_claude_agent_names'
     '--betas[Beta заглавља која се укључују у API захтеве (само корисници API кључа)]:betas:'
-    '--fallback-model[Омогући автоматско пребацивање на наведени модел када је подразумевани модел преоптерећен (само --print)]:model:'
+    '--fallback-model[Омогући автоматско пребацивање на наведени модел када је подразумевани модел преоптерећен (само --print)]:model:_claude_model_names'
     '--settings[Путања до JSON датотеке са подешавањима или JSON низ за учитавање додатних подешавања]:file-or-json:_files'
     '--add-dir[Додатни директоријуми за пружање приступа алатима]:directories:_directories'
     '--ide[Аутоматски се повежи са IDE приликом покретања ако је доступан тачно један валидан IDE]'
@@ -430,7 +470,7 @@ _claude_install() {
 _claude_agents() {
   _arguments \
     '*--add-dir[Додатни директоријум за пружање приступа алатима у отпремљеним сесијама]:directory:_directories' \
-    '--agent[Подразумевани агент за сесије отпремљене из приказа агената]:agent:' \
+    '--agent[Подразумевани агент за сесије отпремљене из приказа агената]:agent:_claude_agent_names' \
     '--all[Са --json: укључи и завршене позадинске сесије]' \
     '--allow-dangerously-skip-permissions[Учини режим заобилажења дозвола доступним отпремљеним сесијама]' \
     '--cwd[Прикажи само позадинске сесије покренуте под путањом]:path:_directories' \
@@ -438,7 +478,7 @@ _claude_agents() {
     '--effort[Подразумевани ниво напора за отпремљене сесије]:level:(low medium high xhigh max)' \
     '--json[Испиши активне сесије као JSON низ и изађи]' \
     '*--mcp-config[Конфигурација MCP сервера за примену на отпремљене сесије]:config:' \
-    '--model[Подразумевани модел за сесије отпремљене из приказа агената]:model:' \
+    '--model[Подразумевани модел за сесије отпремљене из приказа агената]:model:_claude_model_names' \
     '--permission-mode[Подразумевани режим дозвола за отпремљене сесије]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)' \
     '*--plugin-dir[Учитај додатке из директоријума за приказ агената и отпремљене сесије]:path:_directories' \
     '--setting-sources[Листа извора подешавања одвојених зарезом за учитавање (user, project, local)]:sources:' \

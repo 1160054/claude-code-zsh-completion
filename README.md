@@ -18,7 +18,7 @@
 - 🎯 Context-aware argument completion
 - 📝 Helpful descriptions for all commands and options
 - 🌍 **Multi-language support (120+ languages)**
-- ⚡ Dynamic completion for MCP servers, plugins, and sessions
+- ⚡ Dynamic completion for MCP servers, plugins, sessions, agents, and models
 
 ## Requirements
 
@@ -152,6 +152,12 @@ claude plugin enable <TAB>      # Shows your installed plugins
 
 # Session ID completion (shows your available sessions)
 claude --resume <TAB>     # Shows: 12345678-abcd-..., 87654321-dcba-..., etc.
+
+# Agent completion (shows agents defined in ~/.claude/agents and .claude/agents)
+claude --agent <TAB>      # Shows: code-reviewer, db-migrator, etc.
+
+# Model completion (aliases, plus full model names found in your settings)
+claude --model <TAB>      # Shows: default, fable, opus, sonnet, haiku, claude-opus-5, etc.
 ```
 
 ## Supported Commands

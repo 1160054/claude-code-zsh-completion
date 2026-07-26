@@ -56,6 +56,46 @@ _claude_sessions() {
   compadd -a sessions
 }
 
+_claude_agent_names() {
+  local -a agents
+  local agent_dir agent_file name
+
+  # User-level and project-level agent definitions
+  for agent_dir in ~/.claude/agents ~/.config/claude/agents .claude/agents; do
+    [[ -d "$agent_dir" ]] || continue
+
+    for agent_file in ${agent_dir}/*.md(N); do
+      # Prefer the name declared in the front matter, fall back to the filename
+      name=$(sed -n '1,10{s/^name:[[:space:]]*\([^[:space:]]*\).*/\1/p;}' "$agent_file" 2>/dev/null | head -1)
+      agents+=(${name:-${agent_file:t:r}})
+    done
+  done
+
+  agents=(${(u)agents})
+
+  compadd -a agents
+}
+
+_claude_model_names() {
+  local -a models
+  local config_file
+
+  # Aliases always resolve to the latest model of that family
+  models=(default fable opus sonnet haiku)
+
+  # Full model names the user has already configured
+  for config_file in ~/.claude/settings.json ~/.claude/settings.local.json ~/.claude.json; do
+    [[ -f "$config_file" ]] || continue
+    models+=(${(f)"$(grep -oE '"(model|fallbackModel)"[[:space:]]*:[[:space:]]*"[^"]+"' "$config_file" 2>/dev/null | \
+      sed 's/.*:[[:space:]]*"\([^"]*\)"/\1/')"})
+  done
+
+  # Remove duplicates
+  models=(${(u)models})
+
+  compadd -a models
+}
+
 _claude() {
   local curcontext="$curcontext" state line
   typeset -A opt_args
@@ -103,10 +143,10 @@ _claude() {
     '(-r --resume)'{-r,--resume}'[Συνέχιση συνομιλίας - καθορίστε αναγνωριστικό συνεδρίας ή επιλέξτε διαδραστικά]:sessionId:_claude_sessions'
     '--fork-session[Δημιουργία νέου αναγνωριστικού συνεδρίας αντί επαναχρησιμοποίησης του αρχικού κατά τη συνέχιση (με --resume ή --continue)]'
     '--no-session-persistence[Απενεργοποίηση διατήρησης συνεδρίας - οι συνεδρίες δεν θα αποθηκεύονται (μόνο --print)]'
-    '--model[Μοντέλο για τρέχουσα συνεδρία. Καθορίστε ψευδώνυμο για το πιο πρόσφατο μοντέλο (π.χ. '\''sonnet'\'' ή '\''opus'\'')]:model:'
-    '--agent[Πράκτορας για την τρέχουσα συνεδρία. Παρακάμπτει τη ρύθμιση '\''agent'\'']:agent:'
+    '--model[Μοντέλο για τρέχουσα συνεδρία. Καθορίστε ψευδώνυμο για το πιο πρόσφατο μοντέλο (π.χ. '\''sonnet'\'' ή '\''opus'\'')]:model:_claude_model_names'
+    '--agent[Πράκτορας για την τρέχουσα συνεδρία. Παρακάμπτει τη ρύθμιση '\''agent'\'']:agent:_claude_agent_names'
     '--betas[Κεφαλίδες beta για συμπερίληψη σε αιτήματα API (μόνο χρήστες κλειδιού API)]:betas:'
-    '--fallback-model[Ενεργοποίηση αυτόματης εναλλακτικής λύσης σε καθορισμένο μοντέλο όταν το προεπιλεγμένο μοντέλο είναι υπερφορτωμένο (μόνο --print)]:model:'
+    '--fallback-model[Ενεργοποίηση αυτόματης εναλλακτικής λύσης σε καθορισμένο μοντέλο όταν το προεπιλεγμένο μοντέλο είναι υπερφορτωμένο (μόνο --print)]:model:_claude_model_names'
     '--settings[Διαδρομή σε αρχείο JSON ρυθμίσεων ή συμβολοσειρά JSON για φόρτωση πρόσθετων ρυθμίσεων]:file-or-json:_files'
     '--add-dir[Πρόσθετοι κατάλογοι για επιτρεπόμενη πρόσβαση εργαλείων]:directories:_directories'
     '--ide[Αυτόματη σύνδεση σε IDE κατά την εκκίνηση εάν είναι διαθέσιμο ακριβώς ένα έγκυρο IDE]'
@@ -430,7 +470,7 @@ _claude_install() {
 _claude_agents() {
   _arguments \
     '*--add-dir[Πρόσθετος κατάλογος για επιτρεπόμενη πρόσβαση εργαλείων σε αποσταλμένες συνεδρίες]:directory:_directories' \
-    '--agent[Προεπιλεγμένος πράκτορας για συνεδρίες που αποστέλλονται από την προβολή πρακτόρων]:agent:' \
+    '--agent[Προεπιλεγμένος πράκτορας για συνεδρίες που αποστέλλονται από την προβολή πρακτόρων]:agent:_claude_agent_names' \
     '--all[Με --json: συμπερίληψη επίσης ολοκληρωμένων συνεδριών παρασκηνίου]' \
     '--allow-dangerously-skip-permissions[Διαθεσιμότητα λειτουργίας παράκαμψης αδειών σε αποσταλμένες συνεδρίες]' \
     '--cwd[Εμφάνιση μόνο συνεδριών παρασκηνίου που ξεκίνησαν κάτω από τη διαδρομή]:path:_directories' \
@@ -438,7 +478,7 @@ _claude_agents() {
     '--effort[Προεπιλεγμένο επίπεδο προσπάθειας για αποσταλμένες συνεδρίες]:level:(low medium high xhigh max)' \
     '--json[Εκτύπωση ενεργών συνεδριών ως πίνακας JSON και έξοδος]' \
     '*--mcp-config[Διαμόρφωση διακομιστή MCP για εφαρμογή σε αποσταλμένες συνεδρίες]:config:' \
-    '--model[Προεπιλεγμένο μοντέλο για συνεδρίες που αποστέλλονται από την προβολή πρακτόρων]:model:' \
+    '--model[Προεπιλεγμένο μοντέλο για συνεδρίες που αποστέλλονται από την προβολή πρακτόρων]:model:_claude_model_names' \
     '--permission-mode[Προεπιλεγμένη λειτουργία αδειών για αποσταλμένες συνεδρίες]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)' \
     '*--plugin-dir[Φόρτωση προσθέτων από κατάλογο για την προβολή πρακτόρων και αποσταλμένες συνεδρίες]:path:_directories' \
     '--setting-sources[Λίστα διαχωρισμένη με κόμματα από πηγές ρυθμίσεων για φόρτωση (user, project, local)]:sources:' \

@@ -56,6 +56,46 @@ _claude_sessions() {
   compadd -a sessions
 }
 
+_claude_agent_names() {
+  local -a agents
+  local agent_dir agent_file name
+
+  # User-level and project-level agent definitions
+  for agent_dir in ~/.claude/agents ~/.config/claude/agents .claude/agents; do
+    [[ -d "$agent_dir" ]] || continue
+
+    for agent_file in ${agent_dir}/*.md(N); do
+      # Prefer the name declared in the front matter, fall back to the filename
+      name=$(sed -n '1,10{s/^name:[[:space:]]*\([^[:space:]]*\).*/\1/p;}' "$agent_file" 2>/dev/null | head -1)
+      agents+=(${name:-${agent_file:t:r}})
+    done
+  done
+
+  agents=(${(u)agents})
+
+  compadd -a agents
+}
+
+_claude_model_names() {
+  local -a models
+  local config_file
+
+  # Aliases always resolve to the latest model of that family
+  models=(default fable opus sonnet haiku)
+
+  # Full model names the user has already configured
+  for config_file in ~/.claude/settings.json ~/.claude/settings.local.json ~/.claude.json; do
+    [[ -f "$config_file" ]] || continue
+    models+=(${(f)"$(grep -oE '"(model|fallbackModel)"[[:space:]]*:[[:space:]]*"[^"]+"' "$config_file" 2>/dev/null | \
+      sed 's/.*:[[:space:]]*"\([^"]*\)"/\1/')"})
+  done
+
+  # Remove duplicates
+  models=(${(u)models})
+
+  compadd -a models
+}
+
 _claude() {
   local curcontext="$curcontext" state line
   typeset -A opt_args
@@ -103,10 +143,10 @@ _claude() {
     '(-r --resume)'{-r,--resume}'[Reluare conversație - specificați ID sesiune sau selectați interactiv]:sessionId:_claude_sessions'
     '--fork-session[Creare ID sesiune nou în loc de reutilizare ID sesiune original la reluare (cu --resume sau --continue)]'
     '--no-session-persistence[Dezactivare persistență sesiune - sesiunile nu vor fi salvate (doar --print)]'
-    '--model[Model pentru sesiunea curentă. Specificați alias pentru modelul cel mai recent (ex: '\''sonnet'\'' sau '\''opus'\'')]:model:'
-    '--agent[Agent pentru sesiunea curentă. Suprascrie setarea '\''agent'\'']:agent:'
+    '--model[Model pentru sesiunea curentă. Specificați alias pentru modelul cel mai recent (ex: '\''sonnet'\'' sau '\''opus'\'')]:model:_claude_model_names'
+    '--agent[Agent pentru sesiunea curentă. Suprascrie setarea '\''agent'\'']:agent:_claude_agent_names'
     '--betas[Antete beta de inclus în cererile API (doar utilizatori cu cheie API)]:betas:'
-    '--fallback-model[Activare fallback automat la modelul specificat când modelul implicit este supraîncărcat (doar --print)]:model:'
+    '--fallback-model[Activare fallback automat la modelul specificat când modelul implicit este supraîncărcat (doar --print)]:model:_claude_model_names'
     '--settings[Cale către fișier JSON de setări sau șir JSON pentru încărcare setări adiționale]:file-or-json:_files'
     '--add-dir[Directoare adiționale pentru permiteți accesul uneltelor]:directories:_directories'
     '--ide[Conectare automată la IDE la pornire dacă exact un IDE valid este disponibil]'
@@ -430,7 +470,7 @@ _claude_install() {
 _claude_agents() {
   _arguments \
     '*--add-dir[Director adițional pentru a permite accesul uneltelor în sesiunile lansate]:directory:_directories' \
-    '--agent[Agent implicit pentru sesiunile lansate din vizualizarea agent]:agent:' \
+    '--agent[Agent implicit pentru sesiunile lansate din vizualizarea agent]:agent:_claude_agent_names' \
     '--all[Cu --json: include și sesiunile în fundal finalizate]' \
     '--allow-dangerously-skip-permissions[Face disponibil modul de ocolire a permisiunilor pentru sesiunile lansate]' \
     '--cwd[Afișare doar sesiunile în fundal pornite sub cale]:path:_directories' \
@@ -438,7 +478,7 @@ _claude_agents() {
     '--effort[Nivel de efort implicit pentru sesiunile lansate]:level:(low medium high xhigh max)' \
     '--json[Afișare sesiuni active ca tablou JSON și ieșire]' \
     '*--mcp-config[Configurație server MCP de aplicat sesiunilor lansate]:config:' \
-    '--model[Model implicit pentru sesiunile lansate din vizualizarea agent]:model:' \
+    '--model[Model implicit pentru sesiunile lansate din vizualizarea agent]:model:_claude_model_names' \
     '--permission-mode[Mod permisiuni implicit pentru sesiunile lansate]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)' \
     '*--plugin-dir[Încărcare plugin-uri din director pentru vizualizarea agent și sesiunile lansate]:path:_directories' \
     '--setting-sources[Listă separată prin virgule de surse de setări de încărcat (user, project, local)]:sources:' \

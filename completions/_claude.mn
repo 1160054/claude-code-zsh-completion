@@ -56,6 +56,46 @@ _claude_sessions() {
   compadd -a sessions
 }
 
+_claude_agent_names() {
+  local -a agents
+  local agent_dir agent_file name
+
+  # User-level and project-level agent definitions
+  for agent_dir in ~/.claude/agents ~/.config/claude/agents .claude/agents; do
+    [[ -d "$agent_dir" ]] || continue
+
+    for agent_file in ${agent_dir}/*.md(N); do
+      # Prefer the name declared in the front matter, fall back to the filename
+      name=$(sed -n '1,10{s/^name:[[:space:]]*\([^[:space:]]*\).*/\1/p;}' "$agent_file" 2>/dev/null | head -1)
+      agents+=(${name:-${agent_file:t:r}})
+    done
+  done
+
+  agents=(${(u)agents})
+
+  compadd -a agents
+}
+
+_claude_model_names() {
+  local -a models
+  local config_file
+
+  # Aliases always resolve to the latest model of that family
+  models=(default fable opus sonnet haiku)
+
+  # Full model names the user has already configured
+  for config_file in ~/.claude/settings.json ~/.claude/settings.local.json ~/.claude.json; do
+    [[ -f "$config_file" ]] || continue
+    models+=(${(f)"$(grep -oE '"(model|fallbackModel)"[[:space:]]*:[[:space:]]*"[^"]+"' "$config_file" 2>/dev/null | \
+      sed 's/.*:[[:space:]]*"\([^"]*\)"/\1/')"})
+  done
+
+  # Remove duplicates
+  models=(${(u)models})
+
+  compadd -a models
+}
+
 _claude() {
   local curcontext="$curcontext" state line
   typeset -A opt_args
@@ -103,10 +143,10 @@ _claude() {
     '(-r --resume)'{-r,--resume}'[Ярианы үргэлжлүүлэх - сессийн ID заах эсвэл интерактив сонгох]:sessionId:_claude_sessions'
     '--fork-session[Үргэлжлүүлэхэд анхны сессийн ID дахин ашиглахын оронд шинэ сессийн ID үүсгэх (--resume эсвэл --continue-тэй хамт)]'
     '--no-session-persistence[Сессийн хадгалалтыг идэвхгүй болгох - сессүүд хадгалагдахгүй (зөвхөн --print)]'
-    '--model[Одоогийн сессийн загвар. Хамгийн сүүлийн загварын нэрийг зааж өгөх (жишээ нь '\''sonnet'\'' эсвэл '\''opus'\'')]:model:'
-    '--agent[Одоогийн сессийн агент. '\''agent'\'' тохиргоог дарж бичнэ]:agent:'
+    '--model[Одоогийн сессийн загвар. Хамгийн сүүлийн загварын нэрийг зааж өгөх (жишээ нь '\''sonnet'\'' эсвэл '\''opus'\'')]:model:_claude_model_names'
+    '--agent[Одоогийн сессийн агент. '\''agent'\'' тохиргоог дарж бичнэ]:agent:_claude_agent_names'
     '--betas[API хүсэлтэд оруулах бета толгойнууд (зөвхөн API түлхүүр хэрэглэгчид)]:betas:'
-    '--fallback-model[Үндсэн загвар ачаалалтай үед заасан загвар руу автоматаар буцах (зөвхөн --print)]:model:'
+    '--fallback-model[Үндсэн загвар ачаалалтай үед заасан загвар руу автоматаар буцах (зөвхөн --print)]:model:_claude_model_names'
     '--settings[Нэмэлт тохиргоо ачаалах JSON файлын зам эсвэл JSON мөр]:file-or-json:_files'
     '--add-dir[Багажийн хандалтыг зөвшөөрөх нэмэлт лавлахууд]:directories:_directories'
     '--ide[Эхлэхэд зөвхөн нэг хүчинтэй IDE байвал автоматаар IDE-д холбогдох]'
@@ -430,7 +470,7 @@ _claude_install() {
 _claude_agents() {
   _arguments \
     '*--add-dir[Илгээгдсэн сессүүдэд багажийн хандалтыг зөвшөөрөх нэмэлт лавлах]:directory:_directories' \
-    '--agent[Агент харагдацаас илгээгдсэн сессүүдэд зориулсан үндсэн агент]:agent:' \
+    '--agent[Агент харагдацаас илгээгдсэн сессүүдэд зориулсан үндсэн агент]:agent:_claude_agent_names' \
     '--all[--json-тэй: дууссан фон сессүүдийг мөн оруулах]' \
     '--allow-dangerously-skip-permissions[Илгээгдсэн сессүүдэд bypass-permissions горимыг ашиглах боломжтой болгох]' \
     '--cwd[Зөвхөн замын дор эхэлсэн фон сессүүдийг харуулах]:path:_directories' \
@@ -438,7 +478,7 @@ _claude_agents() {
     '--effort[Илгээгдсэн сессүүдийн үндсэн хүчин чармайлтын түвшин]:level:(low medium high xhigh max)' \
     '--json[Идэвхтэй сессүүдийг JSON массив болгон хэвлээд гарах]' \
     '*--mcp-config[Илгээгдсэн сессүүдэд хэрэглэх MCP серверийн тохиргоо]:config:' \
-    '--model[Агент харагдацаас илгээгдсэн сессүүдэд зориулсан үндсэн загвар]:model:' \
+    '--model[Агент харагдацаас илгээгдсэн сессүүдэд зориулсан үндсэн загвар]:model:_claude_model_names' \
     '--permission-mode[Илгээгдсэн сессүүдийн үндсэн зөвшөөрлийн горим]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)' \
     '*--plugin-dir[Агент харагдац ба илгээгдсэн сессүүдэд лавлахаас нэмэлт програм ачаалах]:path:_directories' \
     '--setting-sources[Ачаалах тохиргооны эх үүсвэрийн жагсаалт (таслалаар тусгаарлагдсан: user, project, local)]:sources:' \

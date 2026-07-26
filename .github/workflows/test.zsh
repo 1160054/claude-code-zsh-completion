@@ -105,6 +105,8 @@ test_dynamic_functions() {
     "_claude_mcp_servers()"
     "_claude_installed_plugins()"
     "_claude_sessions()"
+    "_claude_agent_names()"
+    "_claude_model_names()"
   )
 
   for func in $dynamic_funcs; do
@@ -112,6 +114,23 @@ test_dynamic_functions() {
       return 1
     fi
   done
+  return 0
+}
+
+# Test 5b: No function is defined twice
+#
+# Subcommand functions are named after the command they complete
+# (_claude_agents completes `claude agents`), so a helper that borrows the same
+# name is silently overridden by whichever definition comes last.
+test_no_duplicate_functions() {
+  local file="$1"
+
+  local duplicates=$(grep -oE '^_claude[a-z_]*\(\)' "$file" | sort | uniq -d)
+
+  if [[ -n "$duplicates" ]]; then
+    echo "    Duplicate function definitions: ${duplicates//$'\n'/ }" >&2
+    return 1
+  fi
   return 0
 }
 
@@ -452,6 +471,14 @@ run_tests_for_file() {
     log_pass "Dynamic completion functions"
   else
     log_fail "Dynamic completion functions"
+    file_passed=false
+  fi
+
+  # Test 5b: No duplicate function definitions
+  if test_no_duplicate_functions "$file"; then
+    log_pass "No duplicate function definitions"
+  else
+    log_fail "No duplicate function definitions"
     file_passed=false
   fi
 

@@ -56,6 +56,46 @@ _claude_sessions() {
   compadd -a sessions
 }
 
+_claude_agent_names() {
+  local -a agents
+  local agent_dir agent_file name
+
+  # User-level and project-level agent definitions
+  for agent_dir in ~/.claude/agents ~/.config/claude/agents .claude/agents; do
+    [[ -d "$agent_dir" ]] || continue
+
+    for agent_file in ${agent_dir}/*.md(N); do
+      # Prefer the name declared in the front matter, fall back to the filename
+      name=$(sed -n '1,10{s/^name:[[:space:]]*\([^[:space:]]*\).*/\1/p;}' "$agent_file" 2>/dev/null | head -1)
+      agents+=(${name:-${agent_file:t:r}})
+    done
+  done
+
+  agents=(${(u)agents})
+
+  compadd -a agents
+}
+
+_claude_model_names() {
+  local -a models
+  local config_file
+
+  # Aliases always resolve to the latest model of that family
+  models=(default fable opus sonnet haiku)
+
+  # Full model names the user has already configured
+  for config_file in ~/.claude/settings.json ~/.claude/settings.local.json ~/.claude.json; do
+    [[ -f "$config_file" ]] || continue
+    models+=(${(f)"$(grep -oE '"(model|fallbackModel)"[[:space:]]*:[[:space:]]*"[^"]+"' "$config_file" 2>/dev/null | \
+      sed 's/.*:[[:space:]]*"\([^"]*\)"/\1/')"})
+  done
+
+  # Remove duplicates
+  models=(${(u)models})
+
+  compadd -a models
+}
+
 _claude() {
   local curcontext="$curcontext" state line
   typeset -A opt_args
@@ -103,10 +143,10 @@ _claude() {
     '(-r --resume)'{-r,--resume}'[Obnoviť konverzáciu - zadajte identifikátor relácie alebo vyberte interaktívne]:sessionId:_claude_sessions'
     '--fork-session[Vytvoriť nový identifikátor relácie namiesto opätovného použitia pôvodného pri obnove (s --resume alebo --continue)]'
     '--no-session-persistence[Vypnúť perzistenciu relácií - relácie sa neuložia (len --print)]'
-    '--model[Model pre aktuálnu reláciu. Zadajte alias pre najnovší model (napr. '\''sonnet'\'' alebo '\''opus'\'')]:model:'
-    '--agent[Agent pre aktuálnu reláciu. Prepíše nastavenie '\''agent'\'']:agent:'
+    '--model[Model pre aktuálnu reláciu. Zadajte alias pre najnovší model (napr. '\''sonnet'\'' alebo '\''opus'\'')]:model:_claude_model_names'
+    '--agent[Agent pre aktuálnu reláciu. Prepíše nastavenie '\''agent'\'']:agent:_claude_agent_names'
     '--betas[Beta hlavičky pre zahrnutie do API požiadaviek (len pre používateľov API kľúča)]:betas:'
-    '--fallback-model[Povoliť automatické prepnutie na zadaný model keď je predvolený model preťažený (len --print)]:model:'
+    '--fallback-model[Povoliť automatické prepnutie na zadaný model keď je predvolený model preťažený (len --print)]:model:_claude_model_names'
     '--settings[Cesta k JSON súboru s nastavením alebo JSON reťazec pre načítanie dodatočných nastavení]:file-or-json:_files'
     '--add-dir[Ďalšie adresáre pre poskytnutie prístupu nástrojom]:directories:_directories'
     '--ide[Automaticky sa pripojiť k IDE pri spustení ak je dostupné práve jedno platné IDE]'
@@ -430,7 +470,7 @@ _claude_install() {
 _claude_agents() {
   _arguments \
     '*--add-dir[Ďalší adresár pre poskytnutie prístupu nástrojom v odoslaných reláciách]:directory:_directories' \
-    '--agent[Predvolený agent pre relácie odoslané z pohľadu agentov]:agent:' \
+    '--agent[Predvolený agent pre relácie odoslané z pohľadu agentov]:agent:_claude_agent_names' \
     '--all[S --json: zahrnúť aj dokončené relácie na pozadí]' \
     '--allow-dangerously-skip-permissions[Sprístupniť režim obídenia oprávnení pre odoslané relácie]' \
     '--cwd[Zobraziť len relácie na pozadí spustené pod cestou]:path:_directories' \
@@ -438,7 +478,7 @@ _claude_agents() {
     '--effort[Predvolená úroveň úsilia pre odoslané relácie]:level:(low medium high xhigh max)' \
     '--json[Vypísať aktívne relácie ako JSON pole a ukončiť]' \
     '*--mcp-config[Konfigurácia MCP servera pre aplikovanie na odoslané relácie]:config:' \
-    '--model[Predvolený model pre relácie odoslané z pohľadu agentov]:model:' \
+    '--model[Predvolený model pre relácie odoslané z pohľadu agentov]:model:_claude_model_names' \
     '--permission-mode[Predvolený režim oprávnení pre odoslané relácie]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)' \
     '*--plugin-dir[Načítať pluginy z adresára pre pohľad agentov a odoslané relácie]:path:_directories' \
     '--setting-sources[Zoznam zdrojov nastavení oddelených čiarkou pre načítanie (user, project, local)]:sources:' \

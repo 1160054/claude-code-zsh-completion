@@ -56,6 +56,46 @@ _claude_sessions() {
   compadd -a sessions
 }
 
+_claude_agent_names() {
+  local -a agents
+  local agent_dir agent_file name
+
+  # User-level and project-level agent definitions
+  for agent_dir in ~/.claude/agents ~/.config/claude/agents .claude/agents; do
+    [[ -d "$agent_dir" ]] || continue
+
+    for agent_file in ${agent_dir}/*.md(N); do
+      # Prefer the name declared in the front matter, fall back to the filename
+      name=$(sed -n '1,10{s/^name:[[:space:]]*\([^[:space:]]*\).*/\1/p;}' "$agent_file" 2>/dev/null | head -1)
+      agents+=(${name:-${agent_file:t:r}})
+    done
+  done
+
+  agents=(${(u)agents})
+
+  compadd -a agents
+}
+
+_claude_model_names() {
+  local -a models
+  local config_file
+
+  # Aliases always resolve to the latest model of that family
+  models=(default fable opus sonnet haiku)
+
+  # Full model names the user has already configured
+  for config_file in ~/.claude/settings.json ~/.claude/settings.local.json ~/.claude.json; do
+    [[ -f "$config_file" ]] || continue
+    models+=(${(f)"$(grep -oE '"(model|fallbackModel)"[[:space:]]*:[[:space:]]*"[^"]+"' "$config_file" 2>/dev/null | \
+      sed 's/.*:[[:space:]]*"\([^"]*\)"/\1/')"})
+  done
+
+  # Remove duplicates
+  models=(${(u)models})
+
+  compadd -a models
+}
+
 _claude() {
   local curcontext="$curcontext" state line
   typeset -A opt_args
@@ -103,10 +143,10 @@ _claude() {
     '(-r --resume)'{-r,--resume}'[ਇੱਕ ਗੱਲਬਾਤ ਮੁੜ ਸ਼ੁਰੂ ਕਰੋ - ਸੈਸ਼ਨ ID ਦਰਸਾਓ ਜਾਂ ਇੰਟਰਐਕਟਿਵ ਤੌਰ ਤੇ ਚੁਣੋ]:sessionId:_claude_sessions'
     '--fork-session[ਮੁੜ ਸ਼ੁਰੂ ਕਰਨ ਸਮੇਂ ਮੂਲ ਸੈਸ਼ਨ ID ਦੀ ਮੁੜ ਵਰਤੋਂ ਕਰਨ ਦੀ ਬਜਾਏ ਨਵਾਂ ਸੈਸ਼ਨ ID ਬਣਾਓ (--resume ਜਾਂ --continue ਨਾਲ)]'
     '--no-session-persistence[ਸੈਸ਼ਨ ਸਥਿਰਤਾ ਅਸਮਰੱਥ ਕਰੋ - ਸੈਸ਼ਨ ਸੰਭਾਲੇ ਨਹੀਂ ਜਾਣਗੇ (ਸਿਰਫ਼ --print)]'
-    '--model[ਮੌਜੂਦਾ ਸੈਸ਼ਨ ਲਈ ਮਾਡਲ। ਨਵੀਨਤਮ ਮਾਡਲ ਲਈ ਉਪਨਾਮ ਦਰਸਾਓ (ਜਿਵੇਂ, '\''sonnet'\'' ਜਾਂ '\''opus'\'')]:model:'
-    '--agent[ਮੌਜੂਦਾ ਸੈਸ਼ਨ ਲਈ ਏਜੰਟ। '\''agent'\'' ਸੈਟਿੰਗ ਨੂੰ ਓਵਰਰਾਈਡ ਕਰਦਾ ਹੈ]:agent:'
+    '--model[ਮੌਜੂਦਾ ਸੈਸ਼ਨ ਲਈ ਮਾਡਲ। ਨਵੀਨਤਮ ਮਾਡਲ ਲਈ ਉਪਨਾਮ ਦਰਸਾਓ (ਜਿਵੇਂ, '\''sonnet'\'' ਜਾਂ '\''opus'\'')]:model:_claude_model_names'
+    '--agent[ਮੌਜੂਦਾ ਸੈਸ਼ਨ ਲਈ ਏਜੰਟ। '\''agent'\'' ਸੈਟਿੰਗ ਨੂੰ ਓਵਰਰਾਈਡ ਕਰਦਾ ਹੈ]:agent:_claude_agent_names'
     '--betas[API ਬੇਨਤੀਆਂ ਵਿੱਚ ਸ਼ਾਮਲ ਕਰਨ ਲਈ ਬੀਟਾ ਹੈਡਰ (ਸਿਰਫ਼ API ਕੁੰਜੀ ਉਪਭੋਗਤਾ)]:betas:'
-    '--fallback-model[ਜਦੋਂ ਡਿਫਾਲਟ ਮਾਡਲ ਓਵਰਲੋਡ ਹੋਵੇ ਤਾਂ ਦਰਸਾਏ ਮਾਡਲ ਵਿੱਚ ਸਵੈਚਲਿਤ ਫਾਲਬੈਕ ਸਮਰੱਥ ਕਰੋ (ਸਿਰਫ਼ --print)]:model:'
+    '--fallback-model[ਜਦੋਂ ਡਿਫਾਲਟ ਮਾਡਲ ਓਵਰਲੋਡ ਹੋਵੇ ਤਾਂ ਦਰਸਾਏ ਮਾਡਲ ਵਿੱਚ ਸਵੈਚਲਿਤ ਫਾਲਬੈਕ ਸਮਰੱਥ ਕਰੋ (ਸਿਰਫ਼ --print)]:model:_claude_model_names'
     '--settings[ਸੈਟਿੰਗਜ਼ JSON ਫਾਈਲ ਜਾਂ ਵਾਧੂ ਸੈਟਿੰਗਜ਼ ਲੋਡ ਕਰਨ ਲਈ JSON ਸਤਰ ਦਾ ਮਾਰਗ]:file-or-json:_files'
     '--add-dir[ਟੂਲ ਐਕਸੈਸ ਦੀ ਇਜਾਜ਼ਤ ਦੇਣ ਲਈ ਵਾਧੂ ਡਾਇਰੈਕਟਰੀਆਂ]:directories:_directories'
     '--ide[ਜੇਕਰ ਬਿਲਕੁਲ ਇੱਕ ਵੈਧ IDE ਉਪਲਬਧ ਹੈ ਤਾਂ ਸਟਾਰਟਅੱਪ ਤੇ IDE ਨਾਲ ਆਟੋ-ਕਨੈਕਟ ਕਰੋ]'
@@ -430,7 +470,7 @@ _claude_install() {
 _claude_agents() {
   _arguments \
     '*--add-dir[ਭੇਜੇ ਗਏ ਸੈਸ਼ਨਾਂ ਵਿੱਚ ਟੂਲ ਐਕਸੈਸ ਦੀ ਇਜਾਜ਼ਤ ਦੇਣ ਲਈ ਵਾਧੂ ਡਾਇਰੈਕਟਰੀ]:directory:_directories' \
-    '--agent[ਏਜੰਟ ਦ੍ਰਿਸ਼ ਤੋਂ ਭੇਜੇ ਗਏ ਸੈਸ਼ਨਾਂ ਲਈ ਡਿਫਾਲਟ ਏਜੰਟ]:agent:' \
+    '--agent[ਏਜੰਟ ਦ੍ਰਿਸ਼ ਤੋਂ ਭੇਜੇ ਗਏ ਸੈਸ਼ਨਾਂ ਲਈ ਡਿਫਾਲਟ ਏਜੰਟ]:agent:_claude_agent_names' \
     '--all[--json ਨਾਲ: ਪੂਰੇ ਹੋਏ ਬੈਕਗ੍ਰਾਊਂਡ ਸੈਸ਼ਨ ਵੀ ਸ਼ਾਮਲ ਕਰੋ]' \
     '--allow-dangerously-skip-permissions[ਭੇਜੇ ਗਏ ਸੈਸ਼ਨਾਂ ਲਈ bypass-permissions ਮੋਡ ਉਪਲਬਧ ਕਰਾਓ]' \
     '--cwd[ਸਿਰਫ਼ ਮਾਰਗ ਦੇ ਅਧੀਨ ਸ਼ੁਰੂ ਕੀਤੇ ਬੈਕਗ੍ਰਾਊਂਡ ਸੈਸ਼ਨ ਦਿਖਾਓ]:path:_directories' \
@@ -438,7 +478,7 @@ _claude_agents() {
     '--effort[ਭੇਜੇ ਗਏ ਸੈਸ਼ਨਾਂ ਲਈ ਡਿਫਾਲਟ ਯਤਨ ਪੱਧਰ]:level:(low medium high xhigh max)' \
     '--json[ਸਰਗਰਮ ਸੈਸ਼ਨਾਂ ਨੂੰ JSON ਐਰੇ ਵਜੋਂ ਪ੍ਰਿੰਟ ਕਰੋ ਅਤੇ ਬਾਹਰ ਨਿਕਲੋ]' \
     '*--mcp-config[ਭੇਜੇ ਗਏ ਸੈਸ਼ਨਾਂ ਤੇ ਲਾਗੂ ਕਰਨ ਲਈ MCP ਸਰਵਰ ਸੰਰਚਨਾ]:config:' \
-    '--model[ਏਜੰਟ ਦ੍ਰਿਸ਼ ਤੋਂ ਭੇਜੇ ਗਏ ਸੈਸ਼ਨਾਂ ਲਈ ਡਿਫਾਲਟ ਮਾਡਲ]:model:' \
+    '--model[ਏਜੰਟ ਦ੍ਰਿਸ਼ ਤੋਂ ਭੇਜੇ ਗਏ ਸੈਸ਼ਨਾਂ ਲਈ ਡਿਫਾਲਟ ਮਾਡਲ]:model:_claude_model_names' \
     '--permission-mode[ਭੇਜੇ ਗਏ ਸੈਸ਼ਨਾਂ ਲਈ ਡਿਫਾਲਟ ਇਜਾਜ਼ਤ ਮੋਡ]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)' \
     '*--plugin-dir[ਏਜੰਟ ਦ੍ਰਿਸ਼ ਅਤੇ ਭੇਜੇ ਗਏ ਸੈਸ਼ਨਾਂ ਲਈ ਡਾਇਰੈਕਟਰੀ ਤੋਂ ਪਲੱਗਇਨ ਲੋਡ ਕਰੋ]:path:_directories' \
     '--setting-sources[ਲੋਡ ਕਰਨ ਲਈ ਸੈਟਿੰਗ ਸਰੋਤਾਂ ਦੀ ਕੰਮਾ-ਵਿਭਾਜਿਤ ਸੂਚੀ (user, project, local)]:sources:' \

@@ -56,6 +56,46 @@ _claude_sessions() {
   compadd -a sessions
 }
 
+_claude_agent_names() {
+  local -a agents
+  local agent_dir agent_file name
+
+  # User-level and project-level agent definitions
+  for agent_dir in ~/.claude/agents ~/.config/claude/agents .claude/agents; do
+    [[ -d "$agent_dir" ]] || continue
+
+    for agent_file in ${agent_dir}/*.md(N); do
+      # Prefer the name declared in the front matter, fall back to the filename
+      name=$(sed -n '1,10{s/^name:[[:space:]]*\([^[:space:]]*\).*/\1/p;}' "$agent_file" 2>/dev/null | head -1)
+      agents+=(${name:-${agent_file:t:r}})
+    done
+  done
+
+  agents=(${(u)agents})
+
+  compadd -a agents
+}
+
+_claude_model_names() {
+  local -a models
+  local config_file
+
+  # Aliases always resolve to the latest model of that family
+  models=(default fable opus sonnet haiku)
+
+  # Full model names the user has already configured
+  for config_file in ~/.claude/settings.json ~/.claude/settings.local.json ~/.claude.json; do
+    [[ -f "$config_file" ]] || continue
+    models+=(${(f)"$(grep -oE '"(model|fallbackModel)"[[:space:]]*:[[:space:]]*"[^"]+"' "$config_file" 2>/dev/null | \
+      sed 's/.*:[[:space:]]*"\([^"]*\)"/\1/')"})
+  done
+
+  # Remove duplicates
+  models=(${(u)models})
+
+  compadd -a models
+}
+
 _claude() {
   local curcontext="$curcontext" state line
   typeset -A opt_args
@@ -103,10 +143,10 @@ _claude() {
     '(-r --resume)'{-r,--resume}'[سۆھبەتنى داۋاملاشتۇرۇش - يىغىن كىملىكىنى بەلگىلەڭ ياكى ئۆز-ئارا تاللاڭ]:sessionId:_claude_sessions'
     '--fork-session[داۋاملاشتۇرغاندا ئەسلى يىغىن كىملىكىنى قايتا ئىشلىتىشنىڭ ئورنىغا يېڭى يىغىن كىملىكى ياساش (--resume ياكى --continue بىلەن)]'
     '--no-session-persistence[يىغىن ساقلاشنى چەكلەش - يىغىنلار ساقلانمايدۇ (پەقەت --print)]'
-    '--model[ھازىرقى يىغىن ئۈچۈن مودېل. ئەڭ يېڭى مودېل ئۈچۈن لەقەب بەلگىلەڭ (مەسىلەن، '\''sonnet'\'' ياكى '\''opus'\'')]:model:'
-    '--agent[ھازىرقى يىغىن ئۈچۈن ۋاكالەتچى. '\''agent'\'' تەڭشىكىنى بىكار قىلىدۇ]:agent:'
+    '--model[ھازىرقى يىغىن ئۈچۈن مودېل. ئەڭ يېڭى مودېل ئۈچۈن لەقەب بەلگىلەڭ (مەسىلەن، '\''sonnet'\'' ياكى '\''opus'\'')]:model:_claude_model_names'
+    '--agent[ھازىرقى يىغىن ئۈچۈن ۋاكالەتچى. '\''agent'\'' تەڭشىكىنى بىكار قىلىدۇ]:agent:_claude_agent_names'
     '--betas[API ئىلتىماسلىرىغا قوشۇلىدىغان Beta باشلىرى (پەقەت API ئاچقۇچ ئىشلەتكۈچىلىرى)]:betas:'
-    '--fallback-model[سۈكۈتتىكى مودېل ئارتۇق يۈكلەنگەندە بەلگىلەنگەن مودېلغا ئاپتوماتىك قايتىشنى قوزغىتىش (پەقەت --print)]:model:'
+    '--fallback-model[سۈكۈتتىكى مودېل ئارتۇق يۈكلەنگەندە بەلگىلەنگەن مودېلغا ئاپتوماتىك قايتىشنى قوزغىتىش (پەقەت --print)]:model:_claude_model_names'
     '--settings[قوشۇمچە تەڭشەكلەرنى يۈكلەش ئۈچۈن تەڭشەك JSON ھۆججىتى ياكى JSON تىزما يولى]:file-or-json:_files'
     '--add-dir[قورال كىرىشىگە ئىجازەت بېرىش ئۈچۈن قوشۇمچە مۇندەرىجىلەر]:directories:_directories'
     '--ide[قوزغىتىلغاندا ئەنە بىر ئىناۋەتلىك IDE بار بولسا، ئاپتوماتىك IDE غا ئۇلىنىش]'
@@ -430,7 +470,7 @@ _claude_install() {
 _claude_agents() {
   _arguments \
     '*--add-dir[ئەۋەتىلگەن يىغىنلاردا قورال كىرىشىگە ئىجازەت بېرىدىغان قوشۇمچە مۇندەرىجە]:directory:_directories' \
-    '--agent[ۋاكالەتچى كۆرۈنۈشىدىن ئەۋەتىلگەن يىغىنلار ئۈچۈن سۈكۈتتىكى ۋاكالەتچى]:agent:' \
+    '--agent[ۋاكالەتچى كۆرۈنۈشىدىن ئەۋەتىلگەن يىغىنلار ئۈچۈن سۈكۈتتىكى ۋاكالەتچى]:agent:_claude_agent_names' \
     '--all[--json بىلەن: تاماملانغان ئارقا سۇپا يىغىنلىرىنىمۇ ئۆز ئىچىگە ئالىدۇ]' \
     '--allow-dangerously-skip-permissions[ئىجازەت ئاتلاش ھالىتىنى ئەۋەتىلگەن يىغىنلارغا ئىشلىتىشچان قىلىش]' \
     '--cwd[پەقەت يول ئاستىدا باشلانغان ئارقا سۇپا يىغىنلىرىنى كۆرسىتىش]:path:_directories' \
@@ -438,7 +478,7 @@ _claude_agents() {
     '--effort[ئەۋەتىلگەن يىغىنلار ئۈچۈن سۈكۈتتىكى كۈچ سەرپ قىلىش دەرىجىسى]:level:(low medium high xhigh max)' \
     '--json[ئاكتىپ يىغىنلارنى JSON قاتارى سۈپىتىدە بېسىپ چىقىرىش ۋە چېكىنىش]' \
     '*--mcp-config[ئەۋەتىلگەن يىغىنلارغا قوللىنىدىغان MCP مۇلازىمېتىر سەپلىمىسى]:config:' \
-    '--model[ۋاكالەتچى كۆرۈنۈشىدىن ئەۋەتىلگەن يىغىنلار ئۈچۈن سۈكۈتتىكى مودېل]:model:' \
+    '--model[ۋاكالەتچى كۆرۈنۈشىدىن ئەۋەتىلگەن يىغىنلار ئۈچۈن سۈكۈتتىكى مودېل]:model:_claude_model_names' \
     '--permission-mode[ئەۋەتىلگەن يىغىنلار ئۈچۈن سۈكۈتتىكى ئىجازەت ھالىتى]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)' \
     '*--plugin-dir[ۋاكالەتچى كۆرۈنۈشى ۋە ئەۋەتىلگەن يىغىنلار ئۈچۈن مۇندەرىجىدىن قىستۇرمىلارنى يۈكلەش]:path:_directories' \
     '--setting-sources[يۈكلەش ئۈچۈن پەش بىلەن ئايرىلغان تەڭشەك مەنبەلىرىنىڭ تىزىملىكى (user, project, local)]:sources:' \

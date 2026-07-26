@@ -56,6 +56,46 @@ _claude_sessions() {
   compadd -a sessions
 }
 
+_claude_agent_names() {
+  local -a agents
+  local agent_dir agent_file name
+
+  # User-level and project-level agent definitions
+  for agent_dir in ~/.claude/agents ~/.config/claude/agents .claude/agents; do
+    [[ -d "$agent_dir" ]] || continue
+
+    for agent_file in ${agent_dir}/*.md(N); do
+      # Prefer the name declared in the front matter, fall back to the filename
+      name=$(sed -n '1,10{s/^name:[[:space:]]*\([^[:space:]]*\).*/\1/p;}' "$agent_file" 2>/dev/null | head -1)
+      agents+=(${name:-${agent_file:t:r}})
+    done
+  done
+
+  agents=(${(u)agents})
+
+  compadd -a agents
+}
+
+_claude_model_names() {
+  local -a models
+  local config_file
+
+  # Aliases always resolve to the latest model of that family
+  models=(default fable opus sonnet haiku)
+
+  # Full model names the user has already configured
+  for config_file in ~/.claude/settings.json ~/.claude/settings.local.json ~/.claude.json; do
+    [[ -f "$config_file" ]] || continue
+    models+=(${(f)"$(grep -oE '"(model|fallbackModel)"[[:space:]]*:[[:space:]]*"[^"]+"' "$config_file" 2>/dev/null | \
+      sed 's/.*:[[:space:]]*"\([^"]*\)"/\1/')"})
+  done
+
+  # Remove duplicates
+  models=(${(u)models})
+
+  compadd -a models
+}
+
 _claude() {
   local curcontext="$curcontext" state line
   typeset -A opt_args
@@ -103,10 +143,10 @@ _claude() {
     '(-r --resume)'{-r,--resume}'[Pokročuj z rozmołwu - podaj ID posedźenja abo wubjer interaktiwnje]:sessionId:_claude_sessions'
     '--fork-session[Wutwori nowe ID posedźenja město znowawužiwanja originalneho ID posedźenja při pokročowanju (z --resume abo --continue)]'
     '--no-session-persistence[Znjemóžni persistencu posedźenja - posedźenja so njeskładuja (jenož --print)]'
-    '--model[Model za aktualne posedźenje. Podaj alias za najnowši model (na př. '\''sonnet'\'' abo '\''opus'\'')]:model:'
-    '--agent[Agent za aktualne posedźenje. Přepisuje nastajenje '\''agent'\'']:agent:'
+    '--model[Model za aktualne posedźenje. Podaj alias za najnowši model (na př. '\''sonnet'\'' abo '\''opus'\'')]:model:_claude_model_names'
+    '--agent[Agent za aktualne posedźenje. Přepisuje nastajenje '\''agent'\'']:agent:_claude_agent_names'
     '--betas[Beta-hłowki za zapřijeće do API-naprašowanjow (jenož wužiwarjo API-kluča)]:betas:'
-    '--fallback-model[Zmóžni awtomatiske přeńdźenje na podaty model, hdyž je standardny model přećeženy (jenož --print)]:model:'
+    '--fallback-model[Zmóžni awtomatiske přeńdźenje na podaty model, hdyž je standardny model přećeženy (jenož --print)]:model:_claude_model_names'
     '--settings[Šćežka k JSON-dataji nastajenjow abo JSON-znamješkowemu rjećazkej za začitanje přidatnych nastajenjow]:file-or-json:_files'
     '--add-dir[Přidatne zapiski, kotrymž so přistup nastrojow dowoli]:directories:_directories'
     '--ide[Awtomatiske zwjazanje z IDE při startowanju, jeli je runje jedne płaćiwe IDE k dispoziciji]'
@@ -430,7 +470,7 @@ _claude_install() {
 _claude_agents() {
   _arguments \
     '*--add-dir[Přidatny zapis, kotremuž so přistup nastrojow w wotpósłanych posedźenjach dowoli]:directory:_directories' \
-    '--agent[Standardny agent za posedźenja wotpósłane z napohlada agentow]:agent:' \
+    '--agent[Standardny agent za posedźenja wotpósłane z napohlada agentow]:agent:_claude_agent_names' \
     '--all[Z --json: zapřijmi tež dokónčene pozadkowe posedźenja]' \
     '--allow-dangerously-skip-permissions[Sčiń modus wobeńdźenja dowolnosćow k dispoziciji za wotpósłane posedźenja]' \
     '--cwd[Pokaž jenož pozadkowe posedźenja startowane pod šćežku]:path:_directories' \
@@ -438,7 +478,7 @@ _claude_agents() {
     '--effort[Standardna runina prócowanja za wotpósłane posedźenja]:level:(low medium high xhigh max)' \
     '--json[Wudaj aktiwne posedźenja jako JSON-pólo a skónč]' \
     '*--mcp-config[Konfiguracija MCP-serwera za nałoženje na wotpósłane posedźenja]:config:' \
-    '--model[Standardny model za posedźenja wotpósłane z napohlada agentow]:model:' \
+    '--model[Standardny model za posedźenja wotpósłane z napohlada agentow]:model:_claude_model_names' \
     '--permission-mode[Standardny modus dowolnosćow za wotpósłane posedźenja]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)' \
     '*--plugin-dir[Začitaj tykački ze zapisa za napohlad agentow a wotpósłane posedźenja]:path:_directories' \
     '--setting-sources[Z komu dźělena lisćina žórłow nastajenjow za začitanje (user, project, local)]:sources:' \

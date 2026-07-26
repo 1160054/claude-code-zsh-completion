@@ -56,6 +56,46 @@ _claude_sessions() {
   compadd -a sessions
 }
 
+_claude_agent_names() {
+  local -a agents
+  local agent_dir agent_file name
+
+  # User-level and project-level agent definitions
+  for agent_dir in ~/.claude/agents ~/.config/claude/agents .claude/agents; do
+    [[ -d "$agent_dir" ]] || continue
+
+    for agent_file in ${agent_dir}/*.md(N); do
+      # Prefer the name declared in the front matter, fall back to the filename
+      name=$(sed -n '1,10{s/^name:[[:space:]]*\([^[:space:]]*\).*/\1/p;}' "$agent_file" 2>/dev/null | head -1)
+      agents+=(${name:-${agent_file:t:r}})
+    done
+  done
+
+  agents=(${(u)agents})
+
+  compadd -a agents
+}
+
+_claude_model_names() {
+  local -a models
+  local config_file
+
+  # Aliases always resolve to the latest model of that family
+  models=(default fable opus sonnet haiku)
+
+  # Full model names the user has already configured
+  for config_file in ~/.claude/settings.json ~/.claude/settings.local.json ~/.claude.json; do
+    [[ -f "$config_file" ]] || continue
+    models+=(${(f)"$(grep -oE '"(model|fallbackModel)"[[:space:]]*:[[:space:]]*"[^"]+"' "$config_file" 2>/dev/null | \
+      sed 's/.*:[[:space:]]*"\([^"]*\)"/\1/')"})
+  done
+
+  # Remove duplicates
+  models=(${(u)models})
+
+  compadd -a models
+}
+
 _claude() {
   local curcontext="$curcontext" state line
   typeset -A opt_args
@@ -103,10 +143,10 @@ _claude() {
     '(-r --resume)'{-r,--resume}'[Atsākt sarunu - norādiet sesijas identifikatoru vai izvēlieties interaktīvi]:sessionId:_claude_sessions'
     '--fork-session[Izveidot jaunu sesijas identifikatoru, nevis atkārtoti izmantot oriģinālo, atsākot (ar --resume vai --continue)]'
     '--no-session-persistence[Atspējot sesijas saglabāšanu - sesijas netiks saglabātas (tikai --print)]'
-    '--model[Modelis pašreizējai sesijai. Norādiet aizstājvārdu jaunākajam modelim (piem., '\''sonnet'\'' vai '\''opus'\'')]:model:'
-    '--agent[Aģents pašreizējai sesijai. Pārraksta '\''agent'\'' iestatījumu]:agent:'
+    '--model[Modelis pašreizējai sesijai. Norādiet aizstājvārdu jaunākajam modelim (piem., '\''sonnet'\'' vai '\''opus'\'')]:model:_claude_model_names'
+    '--agent[Aģents pašreizējai sesijai. Pārraksta '\''agent'\'' iestatījumu]:agent:_claude_agent_names'
     '--betas[Beta galvenes iekļaušanai API pieprasījumos (tikai API atslēgas lietotājiem)]:betas:'
-    '--fallback-model[Iespējot automātisko pārslēgšanos uz norādīto modeli, kad noklusējuma modelis ir pārslogots (tikai --print)]:model:'
+    '--fallback-model[Iespējot automātisko pārslēgšanos uz norādīto modeli, kad noklusējuma modelis ir pārslogots (tikai --print)]:model:_claude_model_names'
     '--settings[Ceļš uz JSON iestatījumu failu vai JSON virkni papildu iestatījumu ielādei]:file-or-json:_files'
     '--add-dir[Papildu direktorijas rīku piekļuves nodrošināšanai]:directories:_directories'
     '--ide[Automātiski savienoties ar IDE startēšanas laikā, ja ir pieejams tieši viens derīgs IDE]'
@@ -430,7 +470,7 @@ _claude_install() {
 _claude_agents() {
   _arguments \
     '*--add-dir[Papildu direktorija rīku piekļuves nodrošināšanai nosūtītajās sesijās]:directory:_directories' \
-    '--agent[Noklusējuma aģents sesijām, kas nosūtītas no aģentu skata]:agent:' \
+    '--agent[Noklusējuma aģents sesijām, kas nosūtītas no aģentu skata]:agent:_claude_agent_names' \
     '--all[Ar --json: iekļaut arī pabeigtās fona sesijas]' \
     '--allow-dangerously-skip-permissions[Padarīt atļauju apiešanas režīmu pieejamu nosūtītajām sesijām]' \
     '--cwd[Rādīt tikai fona sesijas, kas sāktas zem ceļa]:path:_directories' \
@@ -438,7 +478,7 @@ _claude_agents() {
     '--effort[Noklusējuma piepūles līmenis nosūtītajām sesijām]:level:(low medium high xhigh max)' \
     '--json[Izdrukāt aktīvās sesijas kā JSON masīvu un iziet]' \
     '*--mcp-config[MCP servera konfigurācija, ko piemērot nosūtītajām sesijām]:config:' \
-    '--model[Noklusējuma modelis sesijām, kas nosūtītas no aģentu skata]:model:' \
+    '--model[Noklusējuma modelis sesijām, kas nosūtītas no aģentu skata]:model:_claude_model_names' \
     '--permission-mode[Noklusējuma atļauju režīms nosūtītajām sesijām]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)' \
     '*--plugin-dir[Ielādēt spraudņus no direktorijas aģentu skatam un nosūtītajām sesijām]:path:_directories' \
     '--setting-sources[Iestatījumu avotu saraksts, atdalīts ar komatiem, ielādei (user, project, local)]:sources:' \

@@ -56,6 +56,46 @@ _claude_sessions() {
   compadd -a sessions
 }
 
+_claude_agent_names() {
+  local -a agents
+  local agent_dir agent_file name
+
+  # User-level and project-level agent definitions
+  for agent_dir in ~/.claude/agents ~/.config/claude/agents .claude/agents; do
+    [[ -d "$agent_dir" ]] || continue
+
+    for agent_file in ${agent_dir}/*.md(N); do
+      # Prefer the name declared in the front matter, fall back to the filename
+      name=$(sed -n '1,10{s/^name:[[:space:]]*\([^[:space:]]*\).*/\1/p;}' "$agent_file" 2>/dev/null | head -1)
+      agents+=(${name:-${agent_file:t:r}})
+    done
+  done
+
+  agents=(${(u)agents})
+
+  compadd -a agents
+}
+
+_claude_model_names() {
+  local -a models
+  local config_file
+
+  # Aliases always resolve to the latest model of that family
+  models=(default fable opus sonnet haiku)
+
+  # Full model names the user has already configured
+  for config_file in ~/.claude/settings.json ~/.claude/settings.local.json ~/.claude.json; do
+    [[ -f "$config_file" ]] || continue
+    models+=(${(f)"$(grep -oE '"(model|fallbackModel)"[[:space:]]*:[[:space:]]*"[^"]+"' "$config_file" 2>/dev/null | \
+      sed 's/.*:[[:space:]]*"\([^"]*\)"/\1/')"})
+  done
+
+  # Remove duplicates
+  models=(${(u)models})
+
+  compadd -a models
+}
+
 _claude() {
   local curcontext="$curcontext" state line
   typeset -A opt_args
@@ -103,10 +143,10 @@ _claude() {
     '(-r --resume)'{-r,--resume}'[Konversatioun virufueren - Sëtzungs-ID uginn oder interaktiv eraussichen]:sessionId:_claude_sessions'
     '--fork-session[Nei Sëtzungs-ID erstellen amplaz original Sëtzungs-ID beim Virufueren erëm ze benotzen (mat --resume oder --continue)]'
     '--no-session-persistence[Sëtzungspersistenz deaktivéieren - Sëtzunge ginn net gespäichert (nëmmen --print)]'
-    '--model[Modell fir aktuell Sëtzung. Alias fir neist Modell uginn (z.B. '\''sonnet'\'' oder '\''opus'\'')]:model:'
-    '--agent[Agent fir déi aktuell Sëtzung. Iwwerschreiwt déi '\''agent'\''-Astellung]:agent:'
+    '--model[Modell fir aktuell Sëtzung. Alias fir neist Modell uginn (z.B. '\''sonnet'\'' oder '\''opus'\'')]:model:_claude_model_names'
+    '--agent[Agent fir déi aktuell Sëtzung. Iwwerschreiwt déi '\''agent'\''-Astellung]:agent:_claude_agent_names'
     '--betas[Beta-Header fir an API-Ufroen anzeschléissen (nëmmen API-Schlëssel-Benotzer)]:betas:'
-    '--fallback-model[Automatescht Zréckfalen op uginn Modell aktivéieren wann Standardmodell iwwerlaascht ass (nëmmen --print)]:model:'
+    '--fallback-model[Automatescht Zréckfalen op uginn Modell aktivéieren wann Standardmodell iwwerlaascht ass (nëmmen --print)]:model:_claude_model_names'
     '--settings[Pad zu Astellunge-JSON-Fichier oder JSON-String fir zousätzlech Astellungen ze lueden]:file-or-json:_files'
     '--add-dir[Zousätzlech Verzeichnisser fir Wierkmëttelzougang erlaaben]:directories:_directories'
     '--ide[Automatesch mat IDE beim Start verbannen wann exakt een gültegen IDE disponibel ass]'
@@ -430,7 +470,7 @@ _claude_install() {
 _claude_agents() {
   _arguments \
     '*--add-dir[Zousätzlecht Verzeichnis fir Wierkmëttelzougang an ausgeléiste Sëtzungen ze erlaben]:directory:_directories' \
-    '--agent[Standardagent fir Sëtzungen déi vun der Agentenusiicht ausgeléist ginn]:agent:' \
+    '--agent[Standardagent fir Sëtzungen déi vun der Agentenusiicht ausgeléist ginn]:agent:_claude_agent_names' \
     '--all[Mat --json: och ofgeschloss Hannergrond-Sëtzungen aschléissen]' \
     '--allow-dangerously-skip-permissions[Bypass-Permissions-Modus fir ausgeléiste Sëtzungen disponibel maachen]' \
     '--cwd[Nëmmen Hannergrond-Sëtzungen weisen déi ënner dem Pad gestart goufen]:path:_directories' \
@@ -438,7 +478,7 @@ _claude_agents() {
     '--effort[Standard-Effortsniveau fir ausgeléiste Sëtzungen]:level:(low medium high xhigh max)' \
     '--json[Aktiv Sëtzungen als JSON-Array ausdrécken an ophalen]' \
     '*--mcp-config[MCP-Serverconfiguratioun fir op ausgeléiste Sëtzungen unzewennen]:config:' \
-    '--model[Standardmodell fir Sëtzungen déi vun der Agentenusiicht ausgeléist ginn]:model:' \
+    '--model[Standardmodell fir Sëtzungen déi vun der Agentenusiicht ausgeléist ginn]:model:_claude_model_names' \
     '--permission-mode[Standard-Rechter-Modus fir ausgeléiste Sëtzungen]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)' \
     '*--plugin-dir[Erweiderungen aus Verzeichnis fir déi Agentenusiicht an ausgeléiste Sëtzungen lueden]:path:_directories' \
     '--setting-sources[Komma-getrennten Lescht vun Astellungsquellen ze lueden (user, project, local)]:sources:' \

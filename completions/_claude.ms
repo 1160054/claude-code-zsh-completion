@@ -56,6 +56,46 @@ _claude_sessions() {
   compadd -a sessions
 }
 
+_claude_agent_names() {
+  local -a agents
+  local agent_dir agent_file name
+
+  # User-level and project-level agent definitions
+  for agent_dir in ~/.claude/agents ~/.config/claude/agents .claude/agents; do
+    [[ -d "$agent_dir" ]] || continue
+
+    for agent_file in ${agent_dir}/*.md(N); do
+      # Prefer the name declared in the front matter, fall back to the filename
+      name=$(sed -n '1,10{s/^name:[[:space:]]*\([^[:space:]]*\).*/\1/p;}' "$agent_file" 2>/dev/null | head -1)
+      agents+=(${name:-${agent_file:t:r}})
+    done
+  done
+
+  agents=(${(u)agents})
+
+  compadd -a agents
+}
+
+_claude_model_names() {
+  local -a models
+  local config_file
+
+  # Aliases always resolve to the latest model of that family
+  models=(default fable opus sonnet haiku)
+
+  # Full model names the user has already configured
+  for config_file in ~/.claude/settings.json ~/.claude/settings.local.json ~/.claude.json; do
+    [[ -f "$config_file" ]] || continue
+    models+=(${(f)"$(grep -oE '"(model|fallbackModel)"[[:space:]]*:[[:space:]]*"[^"]+"' "$config_file" 2>/dev/null | \
+      sed 's/.*:[[:space:]]*"\([^"]*\)"/\1/')"})
+  done
+
+  # Remove duplicates
+  models=(${(u)models})
+
+  compadd -a models
+}
+
 _claude() {
   local curcontext="$curcontext" state line
   typeset -A opt_args
@@ -103,10 +143,10 @@ _claude() {
     '(-r --resume)'{-r,--resume}'[Sambung semula perbualan - nyatakan ID sesi atau pilih secara interaktif]:sessionId:_claude_sessions'
     '--fork-session[Cipta ID sesi baharu daripada menggunakan semula ID sesi asal semasa menyambung semula (dengan --resume atau --continue)]'
     '--no-session-persistence[Lumpuhkan kegigihan sesi - sesi tidak akan disimpan (--print sahaja)]'
-    '--model[Model untuk sesi semasa. Nyatakan alias untuk model terkini (contoh: '\''sonnet'\'' atau '\''opus'\'')]:model:'
-    '--agent[Agen untuk sesi semasa. Mengatasi tetapan '\''agent'\'']:agent:'
+    '--model[Model untuk sesi semasa. Nyatakan alias untuk model terkini (contoh: '\''sonnet'\'' atau '\''opus'\'')]:model:_claude_model_names'
+    '--agent[Agen untuk sesi semasa. Mengatasi tetapan '\''agent'\'']:agent:_claude_agent_names'
     '--betas[Header beta untuk disertakan dalam permintaan API (pengguna kunci API sahaja)]:betas:'
-    '--fallback-model[Aktifkan penggantian automatik kepada model yang dinyatakan apabila model lalai terlebih muatan (--print sahaja)]:model:'
+    '--fallback-model[Aktifkan penggantian automatik kepada model yang dinyatakan apabila model lalai terlebih muatan (--print sahaja)]:model:_claude_model_names'
     '--settings[Laluan ke fail JSON tetapan atau rentetan JSON untuk memuatkan tetapan tambahan]:file-or-json:_files'
     '--add-dir[Direktori tambahan untuk membenarkan akses alat]:directories:_directories'
     '--ide[Auto-sambung ke IDE semasa permulaan jika tepat satu IDE sah tersedia]'
@@ -430,7 +470,7 @@ _claude_install() {
 _claude_agents() {
   _arguments \
     '*--add-dir[Direktori tambahan untuk membenarkan akses alat dalam sesi yang dihantar]:directory:_directories' \
-    '--agent[Agen lalai untuk sesi yang dihantar dari paparan agen]:agent:' \
+    '--agent[Agen lalai untuk sesi yang dihantar dari paparan agen]:agent:_claude_agent_names' \
     '--all[Dengan --json: turut sertakan sesi latar belakang yang selesai]' \
     '--allow-dangerously-skip-permissions[Sediakan mod langkau-kebenaran kepada sesi yang dihantar]' \
     '--cwd[Tunjukkan hanya sesi latar belakang yang dimulakan di bawah laluan]:path:_directories' \
@@ -438,7 +478,7 @@ _claude_agents() {
     '--effort[Tahap usaha lalai untuk sesi yang dihantar]:level:(low medium high xhigh max)' \
     '--json[Cetak sesi aktif sebagai tatasusunan JSON dan keluar]' \
     '*--mcp-config[Konfigurasi pelayan MCP untuk digunakan pada sesi yang dihantar]:config:' \
-    '--model[Model lalai untuk sesi yang dihantar dari paparan agen]:model:' \
+    '--model[Model lalai untuk sesi yang dihantar dari paparan agen]:model:_claude_model_names' \
     '--permission-mode[Mod kebenaran lalai untuk sesi yang dihantar]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)' \
     '*--plugin-dir[Muatkan plugin dari direktori untuk paparan agen dan sesi yang dihantar]:path:_directories' \
     '--setting-sources[Senarai sumber tetapan yang dipisahkan koma untuk dimuatkan (user, project, local)]:sources:' \

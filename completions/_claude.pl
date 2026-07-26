@@ -56,6 +56,46 @@ _claude_sessions() {
   compadd -a sessions
 }
 
+_claude_agent_names() {
+  local -a agents
+  local agent_dir agent_file name
+
+  # User-level and project-level agent definitions
+  for agent_dir in ~/.claude/agents ~/.config/claude/agents .claude/agents; do
+    [[ -d "$agent_dir" ]] || continue
+
+    for agent_file in ${agent_dir}/*.md(N); do
+      # Prefer the name declared in the front matter, fall back to the filename
+      name=$(sed -n '1,10{s/^name:[[:space:]]*\([^[:space:]]*\).*/\1/p;}' "$agent_file" 2>/dev/null | head -1)
+      agents+=(${name:-${agent_file:t:r}})
+    done
+  done
+
+  agents=(${(u)agents})
+
+  compadd -a agents
+}
+
+_claude_model_names() {
+  local -a models
+  local config_file
+
+  # Aliases always resolve to the latest model of that family
+  models=(default fable opus sonnet haiku)
+
+  # Full model names the user has already configured
+  for config_file in ~/.claude/settings.json ~/.claude/settings.local.json ~/.claude.json; do
+    [[ -f "$config_file" ]] || continue
+    models+=(${(f)"$(grep -oE '"(model|fallbackModel)"[[:space:]]*:[[:space:]]*"[^"]+"' "$config_file" 2>/dev/null | \
+      sed 's/.*:[[:space:]]*"\([^"]*\)"/\1/')"})
+  done
+
+  # Remove duplicates
+  models=(${(u)models})
+
+  compadd -a models
+}
+
 _claude() {
   local curcontext="$curcontext" state line
   typeset -A opt_args
@@ -103,10 +143,10 @@ _claude() {
     '(-r --resume)'{-r,--resume}'[Wznów konwersację - podaj identyfikator sesji lub wybierz interaktywnie]:sessionId:_claude_sessions'
     '--fork-session[Utwórz nowy identyfikator sesji zamiast ponownego użycia oryginalnego przy wznawianiu (z --resume lub --continue)]'
     '--no-session-persistence[Wyłącz trwałość sesji - sesje nie będą zapisywane (tylko --print)]'
-    '--model[Model dla bieżącej sesji. Określ alias dla najnowszego modelu (np. '\''sonnet'\'' lub '\''opus'\'')]:model:'
-    '--agent[Agent dla bieżącej sesji. Zastępuje ustawienie '\''agent'\'']:agent:'
+    '--model[Model dla bieżącej sesji. Określ alias dla najnowszego modelu (np. '\''sonnet'\'' lub '\''opus'\'')]:model:_claude_model_names'
+    '--agent[Agent dla bieżącej sesji. Zastępuje ustawienie '\''agent'\'']:agent:_claude_agent_names'
     '--betas[Nagłówki beta do dołączenia w żądaniach API (tylko użytkownicy klucza API)]:betas:'
-    '--fallback-model[Włącz automatyczne przełączanie na określony model gdy domyślny model jest przeciążony (tylko --print)]:model:'
+    '--fallback-model[Włącz automatyczne przełączanie na określony model gdy domyślny model jest przeciążony (tylko --print)]:model:_claude_model_names'
     '--settings[Ścieżka do pliku JSON z ustawieniami lub ciąg JSON do załadowania dodatkowych ustawień]:file-or-json:_files'
     '--add-dir[Dodatkowe katalogi z dostępem dla narzędzi]:directories:_directories'
     '--ide[Automatycznie połącz z IDE przy starcie jeśli dostępne jest dokładnie jedno prawidłowe IDE]'
@@ -430,7 +470,7 @@ _claude_install() {
 _claude_agents() {
   _arguments \
     '*--add-dir[Dodatkowy katalog z dostępem dla narzędzi w wysłanych sesjach]:directory:_directories' \
-    '--agent[Domyślny agent dla sesji wysyłanych z widoku agentów]:agent:' \
+    '--agent[Domyślny agent dla sesji wysyłanych z widoku agentów]:agent:_claude_agent_names' \
     '--all[Z --json: dołącz również ukończone sesje w tle]' \
     '--allow-dangerously-skip-permissions[Udostępnij tryb pomijania uprawnień wysłanym sesjom]' \
     '--cwd[Pokaż tylko sesje w tle uruchomione pod ścieżką]:path:_directories' \
@@ -438,7 +478,7 @@ _claude_agents() {
     '--effort[Domyślny poziom wysiłku dla wysłanych sesji]:level:(low medium high xhigh max)' \
     '--json[Wydrukuj aktywne sesje jako tablicę JSON i zakończ]' \
     '*--mcp-config[Konfiguracja serwera MCP do zastosowania w wysłanych sesjach]:config:' \
-    '--model[Domyślny model dla sesji wysyłanych z widoku agentów]:model:' \
+    '--model[Domyślny model dla sesji wysyłanych z widoku agentów]:model:_claude_model_names' \
     '--permission-mode[Domyślny tryb uprawnień dla wysłanych sesji]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)' \
     '*--plugin-dir[Załaduj wtyczki z katalogu dla widoku agentów i wysłanych sesji]:path:_directories' \
     '--setting-sources[Lista źródeł ustawień oddzielona przecinkami do załadowania (user, project, local)]:sources:' \

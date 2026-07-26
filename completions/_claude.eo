@@ -56,6 +56,46 @@ _claude_sessions() {
   compadd -a sessions
 }
 
+_claude_agent_names() {
+  local -a agents
+  local agent_dir agent_file name
+
+  # User-level and project-level agent definitions
+  for agent_dir in ~/.claude/agents ~/.config/claude/agents .claude/agents; do
+    [[ -d "$agent_dir" ]] || continue
+
+    for agent_file in ${agent_dir}/*.md(N); do
+      # Prefer the name declared in the front matter, fall back to the filename
+      name=$(sed -n '1,10{s/^name:[[:space:]]*\([^[:space:]]*\).*/\1/p;}' "$agent_file" 2>/dev/null | head -1)
+      agents+=(${name:-${agent_file:t:r}})
+    done
+  done
+
+  agents=(${(u)agents})
+
+  compadd -a agents
+}
+
+_claude_model_names() {
+  local -a models
+  local config_file
+
+  # Aliases always resolve to the latest model of that family
+  models=(default fable opus sonnet haiku)
+
+  # Full model names the user has already configured
+  for config_file in ~/.claude/settings.json ~/.claude/settings.local.json ~/.claude.json; do
+    [[ -f "$config_file" ]] || continue
+    models+=(${(f)"$(grep -oE '"(model|fallbackModel)"[[:space:]]*:[[:space:]]*"[^"]+"' "$config_file" 2>/dev/null | \
+      sed 's/.*:[[:space:]]*"\([^"]*\)"/\1/')"})
+  done
+
+  # Remove duplicates
+  models=(${(u)models})
+
+  compadd -a models
+}
+
 _claude() {
   local curcontext="$curcontext" state line
   typeset -A opt_args
@@ -103,10 +143,10 @@ _claude() {
     '(-r --resume)'{-r,--resume}'[Rekomenci konversacion - specifi seanc-identigilon aŭ elekti interaktive]:seancID:_claude_sessions'
     '--fork-session[Krei novan seanc-identigilon anstataŭ reuzi originalan seanc-identigilon dum rekomencado (kun --resume aŭ --continue)]'
     '--no-session-persistence[Malŝalti seanc-persiston - seancoj ne estos konservitaj (--print nur)]'
-    '--model[Modelo por nuna seanco. Specifi kromnomon por plej freŝa modelo (ekz., '\''sonnet'\'' aŭ '\''opus'\'')]:modelo:'
-    '--agent[Agento por la nuna seanco. Anstataŭigas la '\''agent'\'' agordon]:agento:'
+    '--model[Modelo por nuna seanco. Specifi kromnomon por plej freŝa modelo (ekz., '\''sonnet'\'' aŭ '\''opus'\'')]:modelo:_claude_model_names'
+    '--agent[Agento por la nuna seanco. Anstataŭigas la '\''agent'\'' agordon]:agento:_claude_agent_names'
     '--betas[Beta-kapoj por inkluzivi en API-petoj (nur uzantoj de API-ŝlosilo)]:betaoj:'
-    '--fallback-model[Ebligi aŭtomatan retropaŝon al specifita modelo kiam defaŭlta modelo estas tro ŝarĝita (--print nur)]:modelo:'
+    '--fallback-model[Ebligi aŭtomatan retropaŝon al specifita modelo kiam defaŭlta modelo estas tro ŝarĝita (--print nur)]:modelo:_claude_model_names'
     '--settings[Vojo al agorda JSON-dosiero aŭ JSON-ĉeno por ŝargi pliajn agordojn]:dosiero-aŭ-json:_files'
     '--add-dir[Pliaj dosierujoj por permesi ilan aliron]:dosierujoj:_directories'
     '--ide[Aŭtomate konekti al IDE dum startigado se precize unu valida IDE estas disponebla]'
@@ -430,7 +470,7 @@ _claude_install() {
 _claude_agents() {
   _arguments \
     '*--add-dir[Aldona dosierujo por permesi ilan aliron en senditaj seancoj]:dosierujo:_directories' \
-    '--agent[Defaŭlta agento por seancoj senditaj el agent-vido]:agento:' \
+    '--agent[Defaŭlta agento por seancoj senditaj el agent-vido]:agento:_claude_agent_names' \
     '--all[Kun --json: ankaŭ inkluzivi finitajn fonajn seancojn]' \
     '--allow-dangerously-skip-permissions[Disponebligi preterpas-permesan reĝimon al senditaj seancoj]' \
     '--cwd[Montri nur fonajn seancojn startigitajn sub vojo]:vojo:_directories' \
@@ -438,7 +478,7 @@ _claude_agents() {
     '--effort[Defaŭlta klopod-nivelo por senditaj seancoj]:nivelo:(low medium high xhigh max)' \
     '--json[Presi aktivajn seancojn kiel JSON-tabelon kaj eliri]' \
     '*--mcp-config[MCP-servila agordo por apliki al senditaj seancoj]:agordo:' \
-    '--model[Defaŭlta modelo por seancoj senditaj el agent-vido]:modelo:' \
+    '--model[Defaŭlta modelo por seancoj senditaj el agent-vido]:modelo:_claude_model_names' \
     '--permission-mode[Defaŭlta permesa reĝimo por senditaj seancoj]:reĝimo:(acceptEdits auto bypassPermissions manual dontAsk plan)' \
     '*--plugin-dir[Ŝargi kromaĵojn el dosierujo por la agent-vido kaj senditaj seancoj]:vojo:_directories' \
     '--setting-sources[Komo-apartigita listo de agord-fontoj por ŝargi (user, project, local)]:fontoj:' \

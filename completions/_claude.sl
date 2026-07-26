@@ -56,6 +56,46 @@ _claude_sessions() {
   compadd -a sessions
 }
 
+_claude_agent_names() {
+  local -a agents
+  local agent_dir agent_file name
+
+  # User-level and project-level agent definitions
+  for agent_dir in ~/.claude/agents ~/.config/claude/agents .claude/agents; do
+    [[ -d "$agent_dir" ]] || continue
+
+    for agent_file in ${agent_dir}/*.md(N); do
+      # Prefer the name declared in the front matter, fall back to the filename
+      name=$(sed -n '1,10{s/^name:[[:space:]]*\([^[:space:]]*\).*/\1/p;}' "$agent_file" 2>/dev/null | head -1)
+      agents+=(${name:-${agent_file:t:r}})
+    done
+  done
+
+  agents=(${(u)agents})
+
+  compadd -a agents
+}
+
+_claude_model_names() {
+  local -a models
+  local config_file
+
+  # Aliases always resolve to the latest model of that family
+  models=(default fable opus sonnet haiku)
+
+  # Full model names the user has already configured
+  for config_file in ~/.claude/settings.json ~/.claude/settings.local.json ~/.claude.json; do
+    [[ -f "$config_file" ]] || continue
+    models+=(${(f)"$(grep -oE '"(model|fallbackModel)"[[:space:]]*:[[:space:]]*"[^"]+"' "$config_file" 2>/dev/null | \
+      sed 's/.*:[[:space:]]*"\([^"]*\)"/\1/')"})
+  done
+
+  # Remove duplicates
+  models=(${(u)models})
+
+  compadd -a models
+}
+
 _claude() {
   local curcontext="$curcontext" state line
   typeset -A opt_args
@@ -103,10 +143,10 @@ _claude() {
     '(-r --resume)'{-r,--resume}'[Obnovi pogovor - navedi identifikator seje ali izberi interaktivno]:sessionId:_claude_sessions'
     '--fork-session[Ustvari nov identifikator seje namesto ponovne uporabe izvirnega pri obnovi (z --resume ali --continue)]'
     '--no-session-persistence[Onemogoči ohranjanje seje - seje ne bodo shranjene (samo --print)]'
-    '--model[Model za trenutno sejo. Navedi vzdevek za najnovejši model (npr. '\''sonnet'\'' ali '\''opus'\'')]:model:'
-    '--agent[Agent za trenutno sejo. Preglasi nastavitev '\''agent'\'']:agent:'
+    '--model[Model za trenutno sejo. Navedi vzdevek za najnovejši model (npr. '\''sonnet'\'' ali '\''opus'\'')]:model:_claude_model_names'
+    '--agent[Agent za trenutno sejo. Preglasi nastavitev '\''agent'\'']:agent:_claude_agent_names'
     '--betas[Beta glave za vključitev v zahteve API (samo uporabniki s ključem API)]:betas:'
-    '--fallback-model[Omogoči samodejno preklop na navedeni model ko je privzeti model preobremenjen (samo --print)]:model:'
+    '--fallback-model[Omogoči samodejno preklop na navedeni model ko je privzeti model preobremenjen (samo --print)]:model:_claude_model_names'
     '--settings[Pot do JSON datoteke z nastavitvami ali JSON niz za nalaganje dodatnih nastavitev]:file-or-json:_files'
     '--add-dir[Dodatni imeniki za zagotavljanje dostopa orodjem]:directories:_directories'
     '--ide[Samodejno se poveži z IDE ob zagonu če je na voljo točno en veljaven IDE]'
@@ -430,7 +470,7 @@ _claude_install() {
 _claude_agents() {
   _arguments \
     '*--add-dir[Dodatni imenik za dostop orodij v razporejenih sejah]:directory:_directories' \
-    '--agent[Privzeti agent za seje, razporejene iz pogleda agentov]:agent:' \
+    '--agent[Privzeti agent za seje, razporejene iz pogleda agentov]:agent:_claude_agent_names' \
     '--all[Z --json: vključi tudi dokončane seje v ozadju]' \
     '--allow-dangerously-skip-permissions[Omogoči način obida dovoljenj razporejenim sejam]' \
     '--cwd[Prikaži samo seje v ozadju, zagnane pod potjo]:path:_directories' \
@@ -438,7 +478,7 @@ _claude_agents() {
     '--effort[Privzeta raven napora za razporejene seje]:level:(low medium high xhigh max)' \
     '--json[Izpiši aktivne seje kot JSON polje in izhod]' \
     '*--mcp-config[Konfiguracija MCP strežnika za uporabo v razporejenih sejah]:config:' \
-    '--model[Privzeti model za seje, razporejene iz pogleda agentov]:model:' \
+    '--model[Privzeti model za seje, razporejene iz pogleda agentov]:model:_claude_model_names' \
     '--permission-mode[Privzeti način dovoljenj za razporejene seje]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)' \
     '*--plugin-dir[Naloži vtičnike iz imenika za pogled agentov in razporejene seje]:path:_directories' \
     '--setting-sources[Seznam virov nastavitev ločenih z vejico za nalaganje (user, project, local)]:sources:' \

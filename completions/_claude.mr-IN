@@ -56,6 +56,46 @@ _claude_sessions() {
   compadd -a sessions
 }
 
+_claude_agent_names() {
+  local -a agents
+  local agent_dir agent_file name
+
+  # User-level and project-level agent definitions
+  for agent_dir in ~/.claude/agents ~/.config/claude/agents .claude/agents; do
+    [[ -d "$agent_dir" ]] || continue
+
+    for agent_file in ${agent_dir}/*.md(N); do
+      # Prefer the name declared in the front matter, fall back to the filename
+      name=$(sed -n '1,10{s/^name:[[:space:]]*\([^[:space:]]*\).*/\1/p;}' "$agent_file" 2>/dev/null | head -1)
+      agents+=(${name:-${agent_file:t:r}})
+    done
+  done
+
+  agents=(${(u)agents})
+
+  compadd -a agents
+}
+
+_claude_model_names() {
+  local -a models
+  local config_file
+
+  # Aliases always resolve to the latest model of that family
+  models=(default fable opus sonnet haiku)
+
+  # Full model names the user has already configured
+  for config_file in ~/.claude/settings.json ~/.claude/settings.local.json ~/.claude.json; do
+    [[ -f "$config_file" ]] || continue
+    models+=(${(f)"$(grep -oE '"(model|fallbackModel)"[[:space:]]*:[[:space:]]*"[^"]+"' "$config_file" 2>/dev/null | \
+      sed 's/.*:[[:space:]]*"\([^"]*\)"/\1/')"})
+  done
+
+  # Remove duplicates
+  models=(${(u)models})
+
+  compadd -a models
+}
+
 _claude() {
   local curcontext="$curcontext" state line
   typeset -A opt_args
@@ -103,10 +143,10 @@ _claude() {
     '(-r --resume)'{-r,--resume}'[संभाषण पुन्हा सुरू करा - सत्र ID निर्दिष्ट करा किंवा परस्पर निवडा]:sessionId:_claude_sessions'
     '--fork-session[पुन्हा सुरू करताना मूळ सत्र ID चा पुनर्वापर करण्याऐवजी नवीन सत्र ID तयार करा (--resume किंवा --continue सह)]'
     '--no-session-persistence[सत्र टिकवणे अक्षम करा - सत्रे जतन केली जाणार नाहीत (केवळ --print)]'
-    '--model[सध्याच्या सत्रासाठी मॉडेल. नवीनतम मॉडेलसाठी उपनाम निर्दिष्ट करा (उदा., '\''sonnet'\'' किंवा '\''opus'\'')]:model:'
-    '--agent[सध्याच्या सत्रासाठी एजंट. '\''agent'\'' सेटिंग ओव्हरराइड करते]:agent:'
+    '--model[सध्याच्या सत्रासाठी मॉडेल. नवीनतम मॉडेलसाठी उपनाम निर्दिष्ट करा (उदा., '\''sonnet'\'' किंवा '\''opus'\'')]:model:_claude_model_names'
+    '--agent[सध्याच्या सत्रासाठी एजंट. '\''agent'\'' सेटिंग ओव्हरराइड करते]:agent:_claude_agent_names'
     '--betas[API विनंत्यांमध्ये समाविष्ट करण्यासाठी बीटा हेडर (केवळ API की वापरकर्ते)]:betas:'
-    '--fallback-model[जेव्हा डीफॉल्ट मॉडेल ओव्हरलोड असेल तेव्हा निर्दिष्ट मॉडेलमध्ये स्वयंचलित फॉलबॅक सक्षम करा (केवळ --print)]:model:'
+    '--fallback-model[जेव्हा डीफॉल्ट मॉडेल ओव्हरलोड असेल तेव्हा निर्दिष्ट मॉडेलमध्ये स्वयंचलित फॉलबॅक सक्षम करा (केवळ --print)]:model:_claude_model_names'
     '--settings[सेटिंग्ज JSON फाइल किंवा अतिरिक्त सेटिंग्ज लोड करण्यासाठी JSON स्ट्रिंगचा मार्ग]:file-or-json:_files'
     '--add-dir[साधन प्रवेशास परवानगी देण्यासाठी अतिरिक्त निर्देशिका]:directories:_directories'
     '--ide[जर अचूक एक वैध IDE उपलब्ध असेल तर स्टार्टअपवर IDE शी स्वयं-कनेक्ट करा]'
@@ -430,7 +470,7 @@ _claude_install() {
 _claude_agents() {
   _arguments \
     '*--add-dir[पाठवलेल्या सत्रांमध्ये साधन प्रवेशास परवानगी देण्यासाठी अतिरिक्त निर्देशिका]:directory:_directories' \
-    '--agent[एजंट दृश्यातून पाठवलेल्या सत्रांसाठी डीफॉल्ट एजंट]:agent:' \
+    '--agent[एजंट दृश्यातून पाठवलेल्या सत्रांसाठी डीफॉल्ट एजंट]:agent:_claude_agent_names' \
     '--all[--json सह: पूर्ण झालेली पार्श्वभूमी सत्रे देखील समाविष्ट करा]' \
     '--allow-dangerously-skip-permissions[पाठवलेल्या सत्रांना bypass-permissions मोड उपलब्ध करा]' \
     '--cwd[मार्गाखाली सुरू केलेली फक्त पार्श्वभूमी सत्रे दर्शवा]:path:_directories' \
@@ -438,7 +478,7 @@ _claude_agents() {
     '--effort[पाठवलेल्या सत्रांसाठी डीफॉल्ट प्रयत्न पातळी]:level:(low medium high xhigh max)' \
     '--json[सक्रिय सत्रे JSON अ‍ॅरे म्हणून प्रिंट करा आणि बाहेर पडा]' \
     '*--mcp-config[पाठवलेल्या सत्रांना लागू करण्यासाठी MCP सर्व्हर कॉन्फिगरेशन]:config:' \
-    '--model[एजंट दृश्यातून पाठवलेल्या सत्रांसाठी डीफॉल्ट मॉडेल]:model:' \
+    '--model[एजंट दृश्यातून पाठवलेल्या सत्रांसाठी डीफॉल्ट मॉडेल]:model:_claude_model_names' \
     '--permission-mode[पाठवलेल्या सत्रांसाठी डीफॉल्ट परवानगी मोड]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)' \
     '*--plugin-dir[एजंट दृश्य आणि पाठवलेल्या सत्रांसाठी निर्देशिकेतून प्लगइन लोड करा]:path:_directories' \
     '--setting-sources[लोड करण्यासाठी सेटिंग स्रोतांची स्वल्पविराम-विभाजित यादी (user, project, local)]:sources:' \

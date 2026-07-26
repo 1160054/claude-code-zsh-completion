@@ -56,6 +56,46 @@ _claude_sessions() {
   compadd -a sessions
 }
 
+_claude_agent_names() {
+  local -a agents
+  local agent_dir agent_file name
+
+  # User-level and project-level agent definitions
+  for agent_dir in ~/.claude/agents ~/.config/claude/agents .claude/agents; do
+    [[ -d "$agent_dir" ]] || continue
+
+    for agent_file in ${agent_dir}/*.md(N); do
+      # Prefer the name declared in the front matter, fall back to the filename
+      name=$(sed -n '1,10{s/^name:[[:space:]]*\([^[:space:]]*\).*/\1/p;}' "$agent_file" 2>/dev/null | head -1)
+      agents+=(${name:-${agent_file:t:r}})
+    done
+  done
+
+  agents=(${(u)agents})
+
+  compadd -a agents
+}
+
+_claude_model_names() {
+  local -a models
+  local config_file
+
+  # Aliases always resolve to the latest model of that family
+  models=(default fable opus sonnet haiku)
+
+  # Full model names the user has already configured
+  for config_file in ~/.claude/settings.json ~/.claude/settings.local.json ~/.claude.json; do
+    [[ -f "$config_file" ]] || continue
+    models+=(${(f)"$(grep -oE '"(model|fallbackModel)"[[:space:]]*:[[:space:]]*"[^"]+"' "$config_file" 2>/dev/null | \
+      sed 's/.*:[[:space:]]*"\([^"]*\)"/\1/')"})
+  done
+
+  # Remove duplicates
+  models=(${(u)models})
+
+  compadd -a models
+}
+
 _claude() {
   local curcontext="$curcontext" state line
   typeset -A opt_args
@@ -103,10 +143,10 @@ _claude() {
     '(-r --resume)'{-r,--resume}'[Resume a conversation - specify session ID or select interactively]:sessionId:_claude_sessions'
     '--fork-session[Create new session ID instead of reusing original session ID when resuming (with --resume or --continue)]'
     '--no-session-persistence[Disable session persistence - sessions will not be saved (--print only)]'
-    '--model[Model for current session. Specify alias for latest model (e.g., '\''sonnet'\'' or '\''opus'\'')]:model:'
-    '--agent[Agent for the current session. Overrides the '\''agent'\'' setting]:agent:'
+    '--model[Model for current session. Specify alias for latest model (e.g., '\''sonnet'\'' or '\''opus'\'')]:model:_claude_model_names'
+    '--agent[Agent for the current session. Overrides the '\''agent'\'' setting]:agent:_claude_agent_names'
     '--betas[Beta headers to include in API requests (API key users only)]:betas:'
-    '--fallback-model[Enable automatic fallback to specified model when default model is overloaded (--print only)]:model:'
+    '--fallback-model[Enable automatic fallback to specified model when default model is overloaded (--print only)]:model:_claude_model_names'
     '--settings[Path to settings JSON file or JSON string to load additional settings]:file-or-json:_files'
     '--add-dir[Additional directories to allow tool access]:directories:_directories'
     '--ide[Auto-connect to IDE on startup if exactly one valid IDE is available]'
@@ -430,7 +470,7 @@ _claude_install() {
 _claude_agents() {
   _arguments \
     '*--add-dir[Additional directory to allow tool access to in dispatched sessions]:directory:_directories' \
-    '--agent[Default agent for sessions dispatched from agent view]:agent:' \
+    '--agent[Default agent for sessions dispatched from agent view]:agent:_claude_agent_names' \
     '--all[With --json: also include completed background sessions]' \
     '--allow-dangerously-skip-permissions[Make bypass-permissions mode available to dispatched sessions]' \
     '--cwd[Show only background sessions started under path]:path:_directories' \
@@ -438,7 +478,7 @@ _claude_agents() {
     '--effort[Default effort level for dispatched sessions]:level:(low medium high xhigh max)' \
     '--json[Print active sessions as a JSON array and exit]' \
     '*--mcp-config[MCP server configuration to apply to dispatched sessions]:config:' \
-    '--model[Default model for sessions dispatched from agent view]:model:' \
+    '--model[Default model for sessions dispatched from agent view]:model:_claude_model_names' \
     '--permission-mode[Default permission mode for dispatched sessions]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)' \
     '*--plugin-dir[Load plugins from directory for the agent view and dispatched sessions]:path:_directories' \
     '--setting-sources[Comma-separated list of setting sources to load (user, project, local)]:sources:' \

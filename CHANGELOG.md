@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Dynamic completion for `--agent` / `--model` (and `--fallback-model`), in all 120 completion files
+  - `_claude_agent_names` reads agent definitions from `~/.claude/agents`, `~/.config/claude/agents` and the project's `.claude/agents`, preferring the `name:` in the front matter over the filename
+  - `_claude_model_names` offers the aliases (`default`, `fable`, `opus`, `sonnet`, `haiku`) plus any full model names configured in `~/.claude/settings.json`, `~/.claude/settings.local.json` or `~/.claude.json`
+- Scheduled drift check: a weekly workflow compares `claude --help` against `completions/_claude` and opens (or comments on) an issue when the completion falls behind
+- Test: no completion file may define the same function twice
+
+### Fixed
+- Drift check: options were compared as substrings, so `--fork-session` counted as covered when the file only declared `--fork-session-something`
+
 ### Changed
 - Demo GIF compressed with `gifsicle` (401 KB → 312 KB, same 22.2s duration and identical scenes); the pass is now part of the documented recording procedure
 

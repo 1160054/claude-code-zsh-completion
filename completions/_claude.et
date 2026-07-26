@@ -56,6 +56,46 @@ _claude_sessions() {
   compadd -a sessions
 }
 
+_claude_agent_names() {
+  local -a agents
+  local agent_dir agent_file name
+
+  # User-level and project-level agent definitions
+  for agent_dir in ~/.claude/agents ~/.config/claude/agents .claude/agents; do
+    [[ -d "$agent_dir" ]] || continue
+
+    for agent_file in ${agent_dir}/*.md(N); do
+      # Prefer the name declared in the front matter, fall back to the filename
+      name=$(sed -n '1,10{s/^name:[[:space:]]*\([^[:space:]]*\).*/\1/p;}' "$agent_file" 2>/dev/null | head -1)
+      agents+=(${name:-${agent_file:t:r}})
+    done
+  done
+
+  agents=(${(u)agents})
+
+  compadd -a agents
+}
+
+_claude_model_names() {
+  local -a models
+  local config_file
+
+  # Aliases always resolve to the latest model of that family
+  models=(default fable opus sonnet haiku)
+
+  # Full model names the user has already configured
+  for config_file in ~/.claude/settings.json ~/.claude/settings.local.json ~/.claude.json; do
+    [[ -f "$config_file" ]] || continue
+    models+=(${(f)"$(grep -oE '"(model|fallbackModel)"[[:space:]]*:[[:space:]]*"[^"]+"' "$config_file" 2>/dev/null | \
+      sed 's/.*:[[:space:]]*"\([^"]*\)"/\1/')"})
+  done
+
+  # Remove duplicates
+  models=(${(u)models})
+
+  compadd -a models
+}
+
 _claude() {
   local curcontext="$curcontext" state line
   typeset -A opt_args
@@ -103,10 +143,10 @@ _claude() {
     '(-r --resume)'{-r,--resume}'[Jätka vestlust - määra sessiooni identifikaator või vali interaktiivselt]:sessionId:_claude_sessions'
     '--fork-session[Loo uus sessiooni identifikaator jätkamisel originaali taaskasutamise asemel (koos --resume või --continue)]'
     '--no-session-persistence[Keela sessiooni püsivus - sessioone ei salvestata (ainult --print)]'
-    '--model[Mudel praeguseks sessiooniks. Määra hüüdnimi uusimale mudelile (nt '\''sonnet'\'' või '\''opus'\'')]:model:'
-    '--agent[Agent praeguseks sessiooniks. Kirjutab üle '\''agent'\'' seade]:agent:'
+    '--model[Mudel praeguseks sessiooniks. Määra hüüdnimi uusimale mudelile (nt '\''sonnet'\'' või '\''opus'\'')]:model:_claude_model_names'
+    '--agent[Agent praeguseks sessiooniks. Kirjutab üle '\''agent'\'' seade]:agent:_claude_agent_names'
     '--betas[Beeta päised API päringutesse kaasamiseks (ainult API võtme kasutajad)]:betas:'
-    '--fallback-model[Võimalda automaatne üleminek määratud mudelile, kui vaikemudel on ülekoormatud (ainult --print)]:model:'
+    '--fallback-model[Võimalda automaatne üleminek määratud mudelile, kui vaikemudel on ülekoormatud (ainult --print)]:model:_claude_model_names'
     '--settings[Tee JSON seadete failini või JSON string lisaseadete laadimiseks]:file-or-json:_files'
     '--add-dir[Lisaks kataloogid tööriistadele juurdepääsu võimaldamiseks]:directories:_directories'
     '--ide[Ühenda käivitamisel automaatselt IDE-ga, kui saadaval on täpselt üks kehtiv IDE]'
@@ -430,7 +470,7 @@ _claude_install() {
 _claude_agents() {
   _arguments \
     '*--add-dir[Lisakataloog tööriistade juurdepääsu võimaldamiseks lähetatud sessioonides]:directory:_directories' \
-    '--agent[Vaikeagent agendivaatest lähetatud sessioonidele]:agent:' \
+    '--agent[Vaikeagent agendivaatest lähetatud sessioonidele]:agent:_claude_agent_names' \
     '--all[Koos --json: kaasa ka lõpetatud taustsessioonid]' \
     '--allow-dangerously-skip-permissions[Tee loarekontrollide möödumise režiim kättesaadavaks lähetatud sessioonidele]' \
     '--cwd[Näita ainult tee all alustatud taustsessioone]:path:_directories' \
@@ -438,7 +478,7 @@ _claude_agents() {
     '--effort[Vaikimisi pingutuse tase lähetatud sessioonidele]:level:(low medium high xhigh max)' \
     '--json[Prindi aktiivsed sessioonid JSON massiivina ja välju]' \
     '*--mcp-config[MCP serveri konfiguratsioon lähetatud sessioonidele rakendamiseks]:config:' \
-    '--model[Vaikemudel agendivaatest lähetatud sessioonidele]:model:' \
+    '--model[Vaikemudel agendivaatest lähetatud sessioonidele]:model:_claude_model_names' \
     '--permission-mode[Vaikimisi loarežiim lähetatud sessioonidele]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)' \
     '*--plugin-dir[Laadi pluginad kataloogist agendivaatele ja lähetatud sessioonidele]:path:_directories' \
     '--setting-sources[Seadete allikate loend komadega eraldatuna laadimiseks (user, project, local)]:sources:' \

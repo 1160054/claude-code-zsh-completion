@@ -56,6 +56,46 @@ _claude_sessions() {
   compadd -a sessions
 }
 
+_claude_agent_names() {
+  local -a agents
+  local agent_dir agent_file name
+
+  # User-level and project-level agent definitions
+  for agent_dir in ~/.claude/agents ~/.config/claude/agents .claude/agents; do
+    [[ -d "$agent_dir" ]] || continue
+
+    for agent_file in ${agent_dir}/*.md(N); do
+      # Prefer the name declared in the front matter, fall back to the filename
+      name=$(sed -n '1,10{s/^name:[[:space:]]*\([^[:space:]]*\).*/\1/p;}' "$agent_file" 2>/dev/null | head -1)
+      agents+=(${name:-${agent_file:t:r}})
+    done
+  done
+
+  agents=(${(u)agents})
+
+  compadd -a agents
+}
+
+_claude_model_names() {
+  local -a models
+  local config_file
+
+  # Aliases always resolve to the latest model of that family
+  models=(default fable opus sonnet haiku)
+
+  # Full model names the user has already configured
+  for config_file in ~/.claude/settings.json ~/.claude/settings.local.json ~/.claude.json; do
+    [[ -f "$config_file" ]] || continue
+    models+=(${(f)"$(grep -oE '"(model|fallbackModel)"[[:space:]]*:[[:space:]]*"[^"]+"' "$config_file" 2>/dev/null | \
+      sed 's/.*:[[:space:]]*"\([^"]*\)"/\1/')"})
+  done
+
+  # Remove duplicates
+  models=(${(u)models})
+
+  compadd -a models
+}
+
 _claude() {
   local curcontext="$curcontext" state line
   typeset -A opt_args
@@ -103,10 +143,10 @@ _claude() {
     '(-r --resume)'{-r,--resume}'[חדש שיחה - ציין מזהה הפעלה או בחר באופן אינטראקטיבי]:sessionId:_claude_sessions'
     '--fork-session[צור מזהה הפעלה חדש במקום לעשות שימוש חוזר במזהה ההפעלה המקורי בעת חידוש (עם --resume או --continue)]'
     '--no-session-persistence[השבת שמירת הפעלות - הפעלות לא יישמרו (--print בלבד)]'
-    '--model[מודל להפעלה נוכחית. ציין כינוי למודל העדכני ביותר (למשל '\''sonnet'\'' או '\''opus'\'')]:model:'
-    '--agent[סוכן להפעלה הנוכחית. עוקף את הגדרת '\''agent'\'']:agent:'
+    '--model[מודל להפעלה נוכחית. ציין כינוי למודל העדכני ביותר (למשל '\''sonnet'\'' או '\''opus'\'')]:model:_claude_model_names'
+    '--agent[סוכן להפעלה הנוכחית. עוקף את הגדרת '\''agent'\'']:agent:_claude_agent_names'
     '--betas[כותרות בטא לכלול בבקשות API (למשתמשי מפתח API בלבד)]:betas:'
-    '--fallback-model[הפעל מעבר אוטומטי למודל שצוין כאשר המודל ברירת המחדל עמוס (--print בלבד)]:model:'
+    '--fallback-model[הפעל מעבר אוטומטי למודל שצוין כאשר המודל ברירת המחדל עמוס (--print בלבד)]:model:_claude_model_names'
     '--settings[נתיב לקובץ JSON הגדרות או מחרוזת JSON לטעינת הגדרות נוספות]:file-or-json:_files'
     '--add-dir[ספריות נוספות להרשאת גישת כלים]:directories:_directories'
     '--ide[התחבר אוטומטית ל-IDE בהפעלה אם זמין בדיוק IDE אחד תקף]'
@@ -430,7 +470,7 @@ _claude_install() {
 _claude_agents() {
   _arguments \
     '*--add-dir[ספרייה נוספת להרשאת גישת כלים בהפעלות שנשלחו]:directory:_directories' \
-    '--agent[סוכן ברירת מחדל להפעלות שנשלחו מתצוגת הסוכנים]:agent:' \
+    '--agent[סוכן ברירת מחדל להפעלות שנשלחו מתצוגת הסוכנים]:agent:_claude_agent_names' \
     '--all[עם --json: כלול גם הפעלות רקע שהושלמו]' \
     '--allow-dangerously-skip-permissions[הפוך מצב עקיפת הרשאות לזמין להפעלות שנשלחו]' \
     '--cwd[הצג רק הפעלות רקע שהתחילו תחת הנתיב]:path:_directories' \
@@ -438,7 +478,7 @@ _claude_agents() {
     '--effort[רמת מאמץ ברירת מחדל להפעלות שנשלחו]:level:(low medium high xhigh max)' \
     '--json[הדפס הפעלות פעילות כמערך JSON וצא]' \
     '*--mcp-config[הגדרת שרת MCP להחלה על הפעלות שנשלחו]:config:' \
-    '--model[מודל ברירת מחדל להפעלות שנשלחו מתצוגת הסוכנים]:model:' \
+    '--model[מודל ברירת מחדל להפעלות שנשלחו מתצוגת הסוכנים]:model:_claude_model_names' \
     '--permission-mode[מצב הרשאות ברירת מחדל להפעלות שנשלחו]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)' \
     '*--plugin-dir[טען תוספים מספרייה עבור תצוגת הסוכנים והפעלות שנשלחו]:path:_directories' \
     '--setting-sources[רשימה מופרדת בפסיקים של מקורות הגדרות לטעינה (user, project, local)]:sources:' \

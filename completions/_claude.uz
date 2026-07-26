@@ -56,6 +56,46 @@ _claude_sessions() {
   compadd -a sessions
 }
 
+_claude_agent_names() {
+  local -a agents
+  local agent_dir agent_file name
+
+  # User-level and project-level agent definitions
+  for agent_dir in ~/.claude/agents ~/.config/claude/agents .claude/agents; do
+    [[ -d "$agent_dir" ]] || continue
+
+    for agent_file in ${agent_dir}/*.md(N); do
+      # Prefer the name declared in the front matter, fall back to the filename
+      name=$(sed -n '1,10{s/^name:[[:space:]]*\([^[:space:]]*\).*/\1/p;}' "$agent_file" 2>/dev/null | head -1)
+      agents+=(${name:-${agent_file:t:r}})
+    done
+  done
+
+  agents=(${(u)agents})
+
+  compadd -a agents
+}
+
+_claude_model_names() {
+  local -a models
+  local config_file
+
+  # Aliases always resolve to the latest model of that family
+  models=(default fable opus sonnet haiku)
+
+  # Full model names the user has already configured
+  for config_file in ~/.claude/settings.json ~/.claude/settings.local.json ~/.claude.json; do
+    [[ -f "$config_file" ]] || continue
+    models+=(${(f)"$(grep -oE '"(model|fallbackModel)"[[:space:]]*:[[:space:]]*"[^"]+"' "$config_file" 2>/dev/null | \
+      sed 's/.*:[[:space:]]*"\([^"]*\)"/\1/')"})
+  done
+
+  # Remove duplicates
+  models=(${(u)models})
+
+  compadd -a models
+}
+
 _claude() {
   local curcontext="$curcontext" state line
   typeset -A opt_args
@@ -103,10 +143,10 @@ _claude() {
     '(-r --resume)'{-r,--resume}'[Suhbatni davom ettirish - sessiya identifikatorini ko'\''rsating yoki interaktiv tanlang]:sessionId:_claude_sessions'
     '--fork-session[Davom ettirayotganda asl sessiya identifikatorini qayta ishlatish o'\''rniga yangi sessiya identifikatorini yaratish (--resume yoki --continue bilan)]'
     '--no-session-persistence[Sessiya saqlanishini o'\''chirish - sessiyalar saqlanmaydi (faqat --print)]'
-    '--model[Joriy sessiya uchun model. Eng yangi model uchun taxallusni ko'\''rsating (masalan, '\''sonnet'\'' yoki '\''opus'\'')]:model:'
-    '--agent[Joriy sessiya uchun agent. '\''agent'\'' sozlamasini bekor qiladi]:agent:'
+    '--model[Joriy sessiya uchun model. Eng yangi model uchun taxallusni ko'\''rsating (masalan, '\''sonnet'\'' yoki '\''opus'\'')]:model:_claude_model_names'
+    '--agent[Joriy sessiya uchun agent. '\''agent'\'' sozlamasini bekor qiladi]:agent:_claude_agent_names'
     '--betas[API so'\''rovlariga kiritiladigan beta sarlavhalari (faqat API kaliti foydalanuvchilari)]:betas:'
-    '--fallback-model[Standart model ortiqcha yuklangan bo'\''lganda ko'\''rsatilgan modelga avtomatik qaytishni yoqish (faqat --print)]:model:'
+    '--fallback-model[Standart model ortiqcha yuklangan bo'\''lganda ko'\''rsatilgan modelga avtomatik qaytishni yoqish (faqat --print)]:model:_claude_model_names'
     '--settings[Qo'\''shimcha sozlamalarni yuklash uchun sozlamalar JSON fayli yoki JSON qator yo'\''li]:file-or-json:_files'
     '--add-dir[Vosita kirishi uchun qo'\''shimcha kataloglar]:directories:_directories'
     '--ide[Ishga tushirishda aynan bitta yaroqli IDE mavjud bo'\''lsa, avtomatik ravishda IDE-ga ulanish]'
@@ -430,7 +470,7 @@ _claude_install() {
 _claude_agents() {
   _arguments \
     '*--add-dir[Yuborilgan sessiyalarda vosita kirishiga ruxsat berish uchun qo'\''shimcha katalog]:directory:_directories' \
-    '--agent[Agent ko'\''rinishidan yuborilgan sessiyalar uchun standart agent]:agent:' \
+    '--agent[Agent ko'\''rinishidan yuborilgan sessiyalar uchun standart agent]:agent:_claude_agent_names' \
     '--all[--json bilan: tugallangan fon sessiyalarini ham kiritish]' \
     '--allow-dangerously-skip-permissions[Yuborilgan sessiyalar uchun ruxsatlarni chetlab o'\''tish rejimini mavjud qilish]' \
     '--cwd[Faqat yo'\''l ostida boshlangan fon sessiyalarini ko'\''rsatish]:path:_directories' \
@@ -438,7 +478,7 @@ _claude_agents() {
     '--effort[Yuborilgan sessiyalar uchun standart harakat darajasi]:level:(low medium high xhigh max)' \
     '--json[Faol sessiyalarni JSON massivi sifatida chop etish va chiqish]' \
     '*--mcp-config[Yuborilgan sessiyalarga qo'\''llaniladigan MCP server konfiguratsiyasi]:config:' \
-    '--model[Agent ko'\''rinishidan yuborilgan sessiyalar uchun standart model]:model:' \
+    '--model[Agent ko'\''rinishidan yuborilgan sessiyalar uchun standart model]:model:_claude_model_names' \
     '--permission-mode[Yuborilgan sessiyalar uchun standart ruxsat rejimi]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)' \
     '*--plugin-dir[Agent ko'\''rinishi va yuborilgan sessiyalar uchun katalogdan plaginlarni yuklash]:path:_directories' \
     '--setting-sources[Yuklash uchun vergul bilan ajratilgan sozlamalar manbalari ro'\''yxati (user, project, local)]:sources:' \

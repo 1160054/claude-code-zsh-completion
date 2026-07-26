@@ -56,6 +56,46 @@ _claude_sessions() {
   compadd -a sessions
 }
 
+_claude_agent_names() {
+  local -a agents
+  local agent_dir agent_file name
+
+  # User-level and project-level agent definitions
+  for agent_dir in ~/.claude/agents ~/.config/claude/agents .claude/agents; do
+    [[ -d "$agent_dir" ]] || continue
+
+    for agent_file in ${agent_dir}/*.md(N); do
+      # Prefer the name declared in the front matter, fall back to the filename
+      name=$(sed -n '1,10{s/^name:[[:space:]]*\([^[:space:]]*\).*/\1/p;}' "$agent_file" 2>/dev/null | head -1)
+      agents+=(${name:-${agent_file:t:r}})
+    done
+  done
+
+  agents=(${(u)agents})
+
+  compadd -a agents
+}
+
+_claude_model_names() {
+  local -a models
+  local config_file
+
+  # Aliases always resolve to the latest model of that family
+  models=(default fable opus sonnet haiku)
+
+  # Full model names the user has already configured
+  for config_file in ~/.claude/settings.json ~/.claude/settings.local.json ~/.claude.json; do
+    [[ -f "$config_file" ]] || continue
+    models+=(${(f)"$(grep -oE '"(model|fallbackModel)"[[:space:]]*:[[:space:]]*"[^"]+"' "$config_file" 2>/dev/null | \
+      sed 's/.*:[[:space:]]*"\([^"]*\)"/\1/')"})
+  done
+
+  # Remove duplicates
+  models=(${(u)models})
+
+  compadd -a models
+}
+
 _claude() {
   local curcontext="$curcontext" state line
   typeset -A opt_args
@@ -103,10 +143,10 @@ _claude() {
     '(-r --resume)'{-r,--resume}'[একটি কথোপকথন পুনরায় শুরু করুন - সেশন ID নির্দিষ্ট করুন বা ইন্টারঅ্যাক্টিভভাবে নির্বাচন করুন]:sessionId:_claude_sessions'
     '--fork-session[পুনরায় শুরু করার সময় মূল সেশন ID পুনরায় ব্যবহার করার পরিবর্তে নতুন সেশন ID তৈরি করুন (--resume বা --continue এর সাথে)]'
     '--no-session-persistence[সেশন স্থায়িত্ব নিষ্ক্রিয় করুন - সেশনগুলি সংরক্ষণ করা হবে না (শুধুমাত্র --print)]'
-    '--model[বর্তমান সেশনের জন্য মডেল। সর্বশেষ মডেলের জন্য উপনাম নির্দিষ্ট করুন (যেমন, '\''sonnet'\'' বা '\''opus'\'')]:model:'
-    '--agent[বর্তমান সেশনের জন্য এজেন্ট। '\''agent'\'' সেটিং ওভাররাইড করে]:agent:'
+    '--model[বর্তমান সেশনের জন্য মডেল। সর্বশেষ মডেলের জন্য উপনাম নির্দিষ্ট করুন (যেমন, '\''sonnet'\'' বা '\''opus'\'')]:model:_claude_model_names'
+    '--agent[বর্তমান সেশনের জন্য এজেন্ট। '\''agent'\'' সেটিং ওভাররাইড করে]:agent:_claude_agent_names'
     '--betas[API অনুরোধে অন্তর্ভুক্ত করার জন্য বিটা হেডার (শুধুমাত্র API কী ব্যবহারকারী)]:betas:'
-    '--fallback-model[যখন ডিফল্ট মডেল ওভারলোড হয় তখন নির্দিষ্ট মডেলে স্বয়ংক্রিয় ফলবাক সক্ষম করুন (শুধুমাত্র --print)]:model:'
+    '--fallback-model[যখন ডিফল্ট মডেল ওভারলোড হয় তখন নির্দিষ্ট মডেলে স্বয়ংক্রিয় ফলবাক সক্ষম করুন (শুধুমাত্র --print)]:model:_claude_model_names'
     '--settings[সেটিংস JSON ফাইল বা অতিরিক্ত সেটিংস লোড করার জন্য JSON স্ট্রিং এর পথ]:file-or-json:_files'
     '--add-dir[টুল অ্যাক্সেসের অনুমতি দেওয়ার জন্য অতিরিক্ত ডিরেক্টরি]:directories:_directories'
     '--ide[যদি ঠিক একটি বৈধ IDE উপলব্ধ থাকে তবে স্টার্টআপে IDE-তে অটো-সংযোগ করুন]'
@@ -430,7 +470,7 @@ _claude_install() {
 _claude_agents() {
   _arguments \
     '*--add-dir[প্রেরিত সেশনে টুল অ্যাক্সেসের অনুমতি দেওয়ার জন্য অতিরিক্ত ডিরেক্টরি]:directory:_directories' \
-    '--agent[এজেন্ট ভিউ থেকে প্রেরিত সেশনের জন্য ডিফল্ট এজেন্ট]:agent:' \
+    '--agent[এজেন্ট ভিউ থেকে প্রেরিত সেশনের জন্য ডিফল্ট এজেন্ট]:agent:_claude_agent_names' \
     '--all[--json এর সাথে: সম্পন্ন ব্যাকগ্রাউন্ড সেশনগুলিও অন্তর্ভুক্ত করুন]' \
     '--allow-dangerously-skip-permissions[প্রেরিত সেশনে বাইপাস-অনুমতি মোড উপলব্ধ করুন]' \
     '--cwd[শুধুমাত্র পথের অধীনে শুরু হওয়া ব্যাকগ্রাউন্ড সেশন দেখান]:path:_directories' \
@@ -438,7 +478,7 @@ _claude_agents() {
     '--effort[প্রেরিত সেশনের জন্য ডিফল্ট প্রচেষ্টার স্তর]:level:(low medium high xhigh max)' \
     '--json[সক্রিয় সেশনগুলি একটি JSON অ্যারে হিসাবে প্রিন্ট করুন এবং প্রস্থান করুন]' \
     '*--mcp-config[প্রেরিত সেশনে প্রয়োগ করার জন্য MCP সার্ভার কনফিগারেশন]:config:' \
-    '--model[এজেন্ট ভিউ থেকে প্রেরিত সেশনের জন্য ডিফল্ট মডেল]:model:' \
+    '--model[এজেন্ট ভিউ থেকে প্রেরিত সেশনের জন্য ডিফল্ট মডেল]:model:_claude_model_names' \
     '--permission-mode[প্রেরিত সেশনের জন্য ডিফল্ট অনুমতি মোড]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)' \
     '*--plugin-dir[এজেন্ট ভিউ এবং প্রেরিত সেশনের জন্য ডিরেক্টরি থেকে প্লাগইন লোড করুন]:path:_directories' \
     '--setting-sources[লোড করার জন্য সেটিং উৎসের কমা-বিভক্ত তালিকা (user, project, local)]:sources:' \

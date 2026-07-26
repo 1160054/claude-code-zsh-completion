@@ -56,6 +56,46 @@ _claude_sessions() {
   compadd -a sessions
 }
 
+_claude_agent_names() {
+  local -a agents
+  local agent_dir agent_file name
+
+  # User-level and project-level agent definitions
+  for agent_dir in ~/.claude/agents ~/.config/claude/agents .claude/agents; do
+    [[ -d "$agent_dir" ]] || continue
+
+    for agent_file in ${agent_dir}/*.md(N); do
+      # Prefer the name declared in the front matter, fall back to the filename
+      name=$(sed -n '1,10{s/^name:[[:space:]]*\([^[:space:]]*\).*/\1/p;}' "$agent_file" 2>/dev/null | head -1)
+      agents+=(${name:-${agent_file:t:r}})
+    done
+  done
+
+  agents=(${(u)agents})
+
+  compadd -a agents
+}
+
+_claude_model_names() {
+  local -a models
+  local config_file
+
+  # Aliases always resolve to the latest model of that family
+  models=(default fable opus sonnet haiku)
+
+  # Full model names the user has already configured
+  for config_file in ~/.claude/settings.json ~/.claude/settings.local.json ~/.claude.json; do
+    [[ -f "$config_file" ]] || continue
+    models+=(${(f)"$(grep -oE '"(model|fallbackModel)"[[:space:]]*:[[:space:]]*"[^"]+"' "$config_file" 2>/dev/null | \
+      sed 's/.*:[[:space:]]*"\([^"]*\)"/\1/')"})
+  done
+
+  # Remove duplicates
+  models=(${(u)models})
+
+  compadd -a models
+}
+
 _claude() {
   local curcontext="$curcontext" state line
   typeset -A opt_args
@@ -103,10 +143,10 @@ _claude() {
     '(-r --resume)'{-r,--resume}'[In petear ferfetsje - jou sesje-ID op of selektearje ynteraktyf]:sessionId:_claude_sessions'
     '--fork-session[Nije sesje-ID oanmeitsje ynstee fan de orizjinele sesje-ID op '\''e nij te brûken by it ferfetsjen (mei --resume of --continue)]'
     '--no-session-persistence[Sesjepersistinsje útskeakelje - sesjes wurde net bewarre (allinne --print)]'
-    '--model[Model foar de hjoeddeistige sesje. Jou alias op foar it nijste model (bygl. '\''sonnet'\'' of '\''opus'\'')]:model:'
-    '--agent[Agint foar de hjoeddeistige sesje. Oerskriuwt de '\''agent'\''-ynstelling]:agent:'
+    '--model[Model foar de hjoeddeistige sesje. Jou alias op foar it nijste model (bygl. '\''sonnet'\'' of '\''opus'\'')]:model:_claude_model_names'
+    '--agent[Agint foar de hjoeddeistige sesje. Oerskriuwt de '\''agent'\''-ynstelling]:agent:_claude_agent_names'
     '--betas[Beta-headers om op te nimmen yn API-fersiken (allinne API-kaaibrûkers)]:betas:'
-    '--fallback-model[Automatyske fallback nei oanjûn model ynskeakelje as it standertmodel oerladen is (allinne --print)]:model:'
+    '--fallback-model[Automatyske fallback nei oanjûn model ynskeakelje as it standertmodel oerladen is (allinne --print)]:model:_claude_model_names'
     '--settings[Paad nei ynstellings-JSON-triem of JSON-string om ekstra ynstellings te laden]:file-or-json:_files'
     '--add-dir[Ekstra mappen om tooltagong ta te stean]:directories:_directories'
     '--ide[Automatysk ferbine mei IDE by it opstarten as der krekt ien jildige IDE beskikber is]'
@@ -430,7 +470,7 @@ _claude_install() {
 _claude_agents() {
   _arguments \
     '*--add-dir[Ekstra map om tooltagong ta te stean yn ferstjoerde sesjes]:directory:_directories' \
-    '--agent[Standertagint foar sesjes ferstjoerd út de agintwerjefte]:agent:' \
+    '--agent[Standertagint foar sesjes ferstjoerd út de agintwerjefte]:agent:_claude_agent_names' \
     '--all[Mei --json: nim ek foltôge eftergrûnsesjes op]' \
     '--allow-dangerously-skip-permissions[Bypass-permissions-modus beskikber meitsje foar ferstjoerde sesjes]' \
     '--cwd[Allinne eftergrûnsesjes toane dy'\''t ûnder paad starten binne]:path:_directories' \
@@ -438,7 +478,7 @@ _claude_agents() {
     '--effort[Standert ynspanningsnivo foar ferstjoerde sesjes]:level:(low medium high xhigh max)' \
     '--json[Aktive sesjes as JSON-array printsje en ôfslute]' \
     '*--mcp-config[MCP-serverkonfiguraasje om ta te passen op ferstjoerde sesjes]:config:' \
-    '--model[Standertmodel foar sesjes ferstjoerd út de agintwerjefte]:model:' \
+    '--model[Standertmodel foar sesjes ferstjoerd út de agintwerjefte]:model:_claude_model_names' \
     '--permission-mode[Standert tastimmingsmodus foar ferstjoerde sesjes]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)' \
     '*--plugin-dir[Plugins lade út map foar de agintwerjefte en ferstjoerde sesjes]:path:_directories' \
     '--setting-sources[Kommaskieden list mei ynstellingsboarnen om te laden (user, project, local)]:sources:' \

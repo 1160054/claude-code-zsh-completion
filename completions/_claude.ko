@@ -56,6 +56,46 @@ _claude_sessions() {
   compadd -a sessions
 }
 
+_claude_agent_names() {
+  local -a agents
+  local agent_dir agent_file name
+
+  # User-level and project-level agent definitions
+  for agent_dir in ~/.claude/agents ~/.config/claude/agents .claude/agents; do
+    [[ -d "$agent_dir" ]] || continue
+
+    for agent_file in ${agent_dir}/*.md(N); do
+      # Prefer the name declared in the front matter, fall back to the filename
+      name=$(sed -n '1,10{s/^name:[[:space:]]*\([^[:space:]]*\).*/\1/p;}' "$agent_file" 2>/dev/null | head -1)
+      agents+=(${name:-${agent_file:t:r}})
+    done
+  done
+
+  agents=(${(u)agents})
+
+  compadd -a agents
+}
+
+_claude_model_names() {
+  local -a models
+  local config_file
+
+  # Aliases always resolve to the latest model of that family
+  models=(default fable opus sonnet haiku)
+
+  # Full model names the user has already configured
+  for config_file in ~/.claude/settings.json ~/.claude/settings.local.json ~/.claude.json; do
+    [[ -f "$config_file" ]] || continue
+    models+=(${(f)"$(grep -oE '"(model|fallbackModel)"[[:space:]]*:[[:space:]]*"[^"]+"' "$config_file" 2>/dev/null | \
+      sed 's/.*:[[:space:]]*"\([^"]*\)"/\1/')"})
+  done
+
+  # Remove duplicates
+  models=(${(u)models})
+
+  compadd -a models
+}
+
 _claude() {
   local curcontext="$curcontext" state line
   typeset -A opt_args
@@ -103,10 +143,10 @@ _claude() {
     '(-r --resume)'{-r,--resume}'[대화 재개 - 세션 ID 지정 또는 대화식으로 선택]:sessionId:_claude_sessions'
     '--fork-session[재개 시 원래 세션 ID를 재사용하는 대신 새 세션 ID 생성(--resume 또는 --continue와 함께 사용)]'
     '--no-session-persistence[세션 지속성 비활성화 - 세션이 저장되지 않음(--print만)]'
-    '--model[현재 세션의 모델. 최신 모델의 별칭 지정(예: '\''sonnet'\'' 또는 '\''opus'\'')]:model:'
-    '--agent[현재 세션의 에이전트. '\''agent'\'' 설정을 재정의함]:agent:'
+    '--model[현재 세션의 모델. 최신 모델의 별칭 지정(예: '\''sonnet'\'' 또는 '\''opus'\'')]:model:_claude_model_names'
+    '--agent[현재 세션의 에이전트. '\''agent'\'' 설정을 재정의함]:agent:_claude_agent_names'
     '--betas[API 요청에 포함할 베타 헤더(API 키 사용자만)]:betas:'
-    '--fallback-model[기본 모델이 과부하 상태일 때 지정된 모델로 자동 폴백 활성화(--print만)]:model:'
+    '--fallback-model[기본 모델이 과부하 상태일 때 지정된 모델로 자동 폴백 활성화(--print만)]:model:_claude_model_names'
     '--settings[설정 JSON 파일 경로 또는 추가 설정을 로드할 JSON 문자열]:file-or-json:_files'
     '--add-dir[도구 액세스를 허용할 추가 디렉토리]:directories:_directories'
     '--ide[정확히 하나의 유효한 IDE를 사용할 수 있는 경우 시작 시 자동으로 IDE에 연결]'
@@ -430,7 +470,7 @@ _claude_install() {
 _claude_agents() {
   _arguments \
     '*--add-dir[디스패치된 세션에서 도구 액세스를 허용할 추가 디렉토리]:directory:_directories' \
-    '--agent[에이전트 뷰에서 디스패치된 세션의 기본 에이전트]:agent:' \
+    '--agent[에이전트 뷰에서 디스패치된 세션의 기본 에이전트]:agent:_claude_agent_names' \
     '--all[--json과 함께: 완료된 백그라운드 세션도 포함]' \
     '--allow-dangerously-skip-permissions[디스패치된 세션에서 권한 우회 모드 사용 가능하게 함]' \
     '--cwd[경로 아래에서 시작된 백그라운드 세션만 표시]:path:_directories' \
@@ -438,7 +478,7 @@ _claude_agents() {
     '--effort[디스패치된 세션의 기본 노력 수준]:level:(low medium high xhigh max)' \
     '--json[활성 세션을 JSON 배열로 출력하고 종료]' \
     '*--mcp-config[디스패치된 세션에 적용할 MCP 서버 구성]:config:' \
-    '--model[에이전트 뷰에서 디스패치된 세션의 기본 모델]:model:' \
+    '--model[에이전트 뷰에서 디스패치된 세션의 기본 모델]:model:_claude_model_names' \
     '--permission-mode[디스패치된 세션의 기본 권한 모드]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)' \
     '*--plugin-dir[에이전트 뷰 및 디스패치된 세션을 위해 디렉토리에서 플러그인 로드]:path:_directories' \
     '--setting-sources[로드할 설정 소스의 쉼표로 구분된 목록(user, project, local)]:sources:' \

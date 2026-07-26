@@ -56,6 +56,46 @@ _claude_sessions() {
   compadd -a sessions
 }
 
+_claude_agent_names() {
+  local -a agents
+  local agent_dir agent_file name
+
+  # User-level and project-level agent definitions
+  for agent_dir in ~/.claude/agents ~/.config/claude/agents .claude/agents; do
+    [[ -d "$agent_dir" ]] || continue
+
+    for agent_file in ${agent_dir}/*.md(N); do
+      # Prefer the name declared in the front matter, fall back to the filename
+      name=$(sed -n '1,10{s/^name:[[:space:]]*\([^[:space:]]*\).*/\1/p;}' "$agent_file" 2>/dev/null | head -1)
+      agents+=(${name:-${agent_file:t:r}})
+    done
+  done
+
+  agents=(${(u)agents})
+
+  compadd -a agents
+}
+
+_claude_model_names() {
+  local -a models
+  local config_file
+
+  # Aliases always resolve to the latest model of that family
+  models=(default fable opus sonnet haiku)
+
+  # Full model names the user has already configured
+  for config_file in ~/.claude/settings.json ~/.claude/settings.local.json ~/.claude.json; do
+    [[ -f "$config_file" ]] || continue
+    models+=(${(f)"$(grep -oE '"(model|fallbackModel)"[[:space:]]*:[[:space:]]*"[^"]+"' "$config_file" 2>/dev/null | \
+      sed 's/.*:[[:space:]]*"\([^"]*\)"/\1/')"})
+  done
+
+  # Remove duplicates
+  models=(${(u)models})
+
+  compadd -a models
+}
+
 _claude() {
   local curcontext="$curcontext" state line
   typeset -A opt_args
@@ -103,10 +143,10 @@ _claude() {
     '(-r --resume)'{-r,--resume}'[Återuppta en konversation - ange sessions-ID eller välj interaktivt]:sessionId:_claude_sessions'
     '--fork-session[Skapa nytt sessions-ID istället för att återanvända ursprungligt sessions-ID vid återupptagning (med --resume eller --continue)]'
     '--no-session-persistence[Inaktivera sessionsbeständighet - sessioner sparas inte (endast --print)]'
-    '--model[Modell för aktuell session. Ange alias för senaste modell (t.ex. '\''sonnet'\'' eller '\''opus'\'')]:model:'
-    '--agent[Agent för aktuell session. Åsidosätter '\''agent'\''-inställningen]:agent:'
+    '--model[Modell för aktuell session. Ange alias för senaste modell (t.ex. '\''sonnet'\'' eller '\''opus'\'')]:model:_claude_model_names'
+    '--agent[Agent för aktuell session. Åsidosätter '\''agent'\''-inställningen]:agent:_claude_agent_names'
     '--betas[Beta-huvuden att inkludera i API-förfrågningar (endast API-nyckelanvändare)]:betas:'
-    '--fallback-model[Aktivera automatisk återgång till angiven modell när standardmodellen är överbelastad (endast --print)]:model:'
+    '--fallback-model[Aktivera automatisk återgång till angiven modell när standardmodellen är överbelastad (endast --print)]:model:_claude_model_names'
     '--settings[Sökväg till inställningar JSON-fil eller JSON-sträng för att ladda ytterligare inställningar]:file-or-json:_files'
     '--add-dir[Ytterligare kataloger att tillåta verktygsåtkomst]:directories:_directories'
     '--ide[Anslut automatiskt till IDE vid start om exakt en giltig IDE är tillgänglig]'
@@ -430,7 +470,7 @@ _claude_install() {
 _claude_agents() {
   _arguments \
     '*--add-dir[Ytterligare katalog att tillåta verktygsåtkomst till i utsända sessioner]:directory:_directories' \
-    '--agent[Standardagent för sessioner utsända från agentvyn]:agent:' \
+    '--agent[Standardagent för sessioner utsända från agentvyn]:agent:_claude_agent_names' \
     '--all[Med --json: inkludera även slutförda bakgrundssessioner]' \
     '--allow-dangerously-skip-permissions[Gör läget kringgå-behörigheter tillgängligt för utsända sessioner]' \
     '--cwd[Visa endast bakgrundssessioner startade under sökväg]:path:_directories' \
@@ -438,7 +478,7 @@ _claude_agents() {
     '--effort[Standardansträngningsnivå för utsända sessioner]:level:(low medium high xhigh max)' \
     '--json[Skriv ut aktiva sessioner som en JSON-array och avsluta]' \
     '*--mcp-config[MCP-serverkonfiguration att tillämpa på utsända sessioner]:config:' \
-    '--model[Standardmodell för sessioner utsända från agentvyn]:model:' \
+    '--model[Standardmodell för sessioner utsända från agentvyn]:model:_claude_model_names' \
     '--permission-mode[Standardbehörighetsläge för utsända sessioner]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)' \
     '*--plugin-dir[Ladda tillägg från katalog för agentvyn och utsända sessioner]:path:_directories' \
     '--setting-sources[Kommaseparerad lista över inställningskällor att ladda (user, project, local)]:sources:' \

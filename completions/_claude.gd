@@ -56,6 +56,46 @@ _claude_sessions() {
   compadd -a sessions
 }
 
+_claude_agent_names() {
+  local -a agents
+  local agent_dir agent_file name
+
+  # User-level and project-level agent definitions
+  for agent_dir in ~/.claude/agents ~/.config/claude/agents .claude/agents; do
+    [[ -d "$agent_dir" ]] || continue
+
+    for agent_file in ${agent_dir}/*.md(N); do
+      # Prefer the name declared in the front matter, fall back to the filename
+      name=$(sed -n '1,10{s/^name:[[:space:]]*\([^[:space:]]*\).*/\1/p;}' "$agent_file" 2>/dev/null | head -1)
+      agents+=(${name:-${agent_file:t:r}})
+    done
+  done
+
+  agents=(${(u)agents})
+
+  compadd -a agents
+}
+
+_claude_model_names() {
+  local -a models
+  local config_file
+
+  # Aliases always resolve to the latest model of that family
+  models=(default fable opus sonnet haiku)
+
+  # Full model names the user has already configured
+  for config_file in ~/.claude/settings.json ~/.claude/settings.local.json ~/.claude.json; do
+    [[ -f "$config_file" ]] || continue
+    models+=(${(f)"$(grep -oE '"(model|fallbackModel)"[[:space:]]*:[[:space:]]*"[^"]+"' "$config_file" 2>/dev/null | \
+      sed 's/.*:[[:space:]]*"\([^"]*\)"/\1/')"})
+  done
+
+  # Remove duplicates
+  models=(${(u)models})
+
+  compadd -a models
+}
+
 _claude() {
   local curcontext="$curcontext" state line
   typeset -A opt_args
@@ -103,10 +143,10 @@ _claude() {
     '(-r --resume)'{-r,--resume}'[Ath-thòisich còmhradh - sònraich ID seisein no tagh gu h-eadar-ghnìomhach]:IDseisein:_claude_sessions'
     '--fork-session[Cruthaich ID seisein ùr an àite ID seisein tùsail ath-chleachdadh nuair a thòisicheas tu a-rithist (le --resume no --continue)]'
     '--no-session-persistence[Cuir à comas maireannachd seisein - cha tèid seiseanan a shàbhaladh (--print a-mhàin)]'
-    '--model[Modail airson an t-seisein làithreach. Sònraich alias airson a'\'' mhodail as ùire (m.e., '\''sonnet'\'' no '\''opus'\'')]:modail:'
-    '--agent[Àidseant airson an t-seisein làithreach. Tar-àithnidh e an suidheachadh '\''agent'\'']:àidseant:'
+    '--model[Modail airson an t-seisein làithreach. Sònraich alias airson a'\'' mhodail as ùire (m.e., '\''sonnet'\'' no '\''opus'\'')]:modail:_claude_model_names'
+    '--agent[Àidseant airson an t-seisein làithreach. Tar-àithnidh e an suidheachadh '\''agent'\'']:àidseant:_claude_agent_names'
     '--betas[Bannan-cinn beta ri ghabhail a-steach ann an iarrtasan API (luchd-cleachdaidh iuchair API a-mhàin)]:betas:'
-    '--fallback-model[Cuir an comas tuiteam fèin-ghluasadach chun mhodail a chaidh a shònrachadh nuair a tha am modail bunaiteach air a luchdachadh thar a chomais (--print a-mhàin)]:modail:'
+    '--fallback-model[Cuir an comas tuiteam fèin-ghluasadach chun mhodail a chaidh a shònrachadh nuair a tha am modail bunaiteach air a luchdachadh thar a chomais (--print a-mhàin)]:modail:_claude_model_names'
     '--settings[Slighe gu faidhle JSON roghainnean no sreang JSON gus roghainnean a bharrachd a luchdachadh]:faidhle-no-json:_files'
     '--add-dir[Eòlaireann a bharrachd gus cead inntrigidh innealan]:eòlaireann:_directories'
     '--ide[Fèin-cheangail ri IDE aig toiseach tòiseachaidh ma tha dìreach aon IDE dligheach ri fhaighinn]'
@@ -430,7 +470,7 @@ _claude_install() {
 _claude_agents() {
   _arguments \
     '*--add-dir[Eòlaire a bharrachd gus cead inntrigidh innealan ann an seiseanan air an cur a-mach]:eòlaire:_directories' \
-    '--agent[Àidseant bunaiteach airson seiseanan air an cur a-mach bho shealladh àidseant]:àidseant:' \
+    '--agent[Àidseant bunaiteach airson seiseanan air an cur a-mach bho shealladh àidseant]:àidseant:_claude_agent_names' \
     '--all[Le --json: gabh a-steach cuideachd seiseanan cùil crìochnaichte]' \
     '--allow-dangerously-skip-permissions[Dèan modh seachnadh-cheadan ri fhaighinn do sheiseanan air an cur a-mach]' \
     '--cwd[Seall a-mhàin seiseanan cùil a thòisich fon t-slighe]:slighe:_directories' \
@@ -438,7 +478,7 @@ _claude_agents() {
     '--effort[Ìre oidhirp bhunaiteach airson seiseanan air an cur a-mach]:ìre:(low medium high xhigh max)' \
     '--json[Clò-bhuail seiseanan gnìomhach mar sreath JSON agus fàg]' \
     '*--mcp-config[Rèiteachadh frithealaiche MCP ri chur an sàs air seiseanan air an cur a-mach]:rèiteachadh:' \
-    '--model[Modail bunaiteach airson seiseanan air an cur a-mach bho shealladh àidseant]:modail:' \
+    '--model[Modail bunaiteach airson seiseanan air an cur a-mach bho shealladh àidseant]:modail:_claude_model_names' \
     '--permission-mode[Modh cead bunaiteach airson seiseanan air an cur a-mach]:modh:(acceptEdits auto bypassPermissions manual dontAsk plan)' \
     '*--plugin-dir[Luchdaich plugain bho eòlaire airson an t-seallaidh àidseant agus seiseanan air an cur a-mach]:slighe:_directories' \
     '--setting-sources[Liosta air a sgaradh le cromag de thùsan roghainnean ri luchdachadh (user, project, local)]:tùsan:' \
