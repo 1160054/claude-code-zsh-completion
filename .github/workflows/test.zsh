@@ -309,6 +309,101 @@ test_cli_commands_coverage() {
   return 0
 }
 
+# Oh My Zsh plugin bootstrap (claude-code.plugin.zsh)
+#
+# These run in `zsh -f` subshells so the developer's own zshrc, fpath and
+# already-registered completions cannot mask a broken bootstrap.
+PLUGIN_FILE="$SCRIPT_DIR/claude-code.plugin.zsh"
+
+test_plugin_syntax() {
+  zsh -n "$PLUGIN_FILE" 2>&1
+}
+
+# Oh My Zsh sources plugin files *after* compinit has already run, so the
+# plugin has to register the completion itself (see #9).
+#
+# Any directory that already provides a _claude would let compinit register the
+# completion on its own and hide a broken bootstrap - an inherited FPATH or a
+# previous manual install is enough - so those are dropped first.
+test_plugin_registers_completion() {
+  zsh -f -c "
+    local -a clean
+    local dir
+    for dir in \$fpath; do
+      [[ -e \$dir/_claude ]] || clean+=(\$dir)
+    done
+    fpath=(\$clean)
+
+    autoload -Uz compinit
+    compinit -u -d ${(q)PLUGIN_TEST_DUMP}
+    (( \$+_comps[claude] )) && exit 1
+
+    source ${(q)PLUGIN_FILE}
+    (( \$+_comps[claude] )) || exit 1
+    [[ \$_comps[claude] == _claude ]] || exit 1
+  " 2>&1
+}
+
+# Other install methods source the plugin *before* compinit, where compdef does
+# not exist yet. The registration block must be a no-op there, not an error.
+test_plugin_without_compdef() {
+  zsh -f -c "
+    source ${(q)PLUGIN_FILE} || exit 1
+    (( \$+functions[compdef] )) && exit 1
+    exit 0
+  " 2>&1
+}
+
+# Either way, the completions directory has to end up on fpath.
+test_plugin_extends_fpath() {
+  zsh -f -c "
+    source ${(q)PLUGIN_FILE}
+    local dir=\${fpath[(r)*/completions]}
+    [[ -n \$dir && -f \$dir/_claude ]]
+  " 2>&1
+}
+
+run_plugin_tests() {
+  local plugin_passed=true
+
+  echo ""
+  echo "Testing: ${PLUGIN_FILE:t}"
+
+  PLUGIN_TEST_DUMP="${TMPDIR:-/tmp}/claude-completion-test-zcompdump.$$"
+
+  if test_plugin_syntax; then
+    log_pass "Syntax check"
+  else
+    log_fail "Syntax check"
+    plugin_passed=false
+  fi
+
+  if test_plugin_registers_completion; then
+    log_pass "Registers completion when sourced after compinit"
+  else
+    log_fail "Registers completion when sourced after compinit"
+    plugin_passed=false
+  fi
+
+  if test_plugin_without_compdef; then
+    log_pass "No-op when compdef is not available yet"
+  else
+    log_fail "No-op when compdef is not available yet"
+    plugin_passed=false
+  fi
+
+  if test_plugin_extends_fpath; then
+    log_pass "Adds completions directory to fpath"
+  else
+    log_fail "Adds completions directory to fpath"
+    plugin_passed=false
+  fi
+
+  rm -f "$PLUGIN_TEST_DUMP"
+
+  [[ $plugin_passed == true ]] || failed_files+=("${PLUGIN_FILE:t}")
+}
+
 # Run all tests for a single file
 run_tests_for_file() {
   local file="$1"
@@ -462,6 +557,9 @@ main() {
   for file in $completion_files; do
     run_tests_for_file "$file"
   done
+
+  log_section "Running tests for the Oh My Zsh plugin bootstrap"
+  run_plugin_tests
 
   # Summary
   log_section "Test Summary"
