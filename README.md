@@ -5,20 +5,17 @@
 
 # claude-code-zsh-completion
 
-🚀 Zsh completion script for Claude Code CLI - intelligent auto-completion for all claude commands, options, and arguments
+Zsh completion script for Claude Code CLI - intelligent auto-completion for all claude commands, options, and arguments
 
 ![Demo](demo.gif)
 
 ## Features
 
-- ✨ Complete command completion for all `claude` commands
-- 🔧 Intelligent option and flag suggestions
-- 📦 MCP server management completions
-- 🔌 Plugin marketplace operation completions
-- 🎯 Context-aware argument completion
-- 📝 Helpful descriptions for all commands and options
-- 🌍 **Multi-language support (120+ languages)**
-- ⚡ Dynamic completion for MCP servers, plugins, sessions, agents, and models
+- Completion for every `claude` command, subcommand and option
+- Descriptions alongside each candidate, so you can pick without leaving the prompt
+- Values completed for options that have a fixed set (`--permission-mode`, `--output-format`, …)
+- Dynamic completion for MCP servers, plugins, sessions, agents and models — read from your own configuration
+- Localized into 120+ languages
 
 ## Requirements
 
@@ -115,7 +112,7 @@ plugins=(... claude-code)
 - English (`_claude`), Japanese (`_claude.ja`), Chinese Simplified (`_claude.zh-CN`), Spanish (`_claude.es`), French (`_claude.fr`), German (`_claude.de`), Korean (`_claude.ko`), Russian (`_claude.ru`), Portuguese (`_claude.pt`), Italian (`_claude.it`), Arabic (`_claude.ar`), Hindi (`_claude.hi`), Turkish (`_claude.tr`), Polish (`_claude.pl`), Dutch (`_claude.nl`), Vietnamese (`_claude.vi`), Thai (`_claude.th`), Indonesian (`_claude.id`)
 
 <details>
-<summary>📋 See all 120+ supported languages</summary>
+<summary>See all 120+ supported languages</summary>
 
 Browse all language files in the [`completions/`](https://github.com/1160054/claude-code-zsh-completion/tree/main/completions) directory.
 
@@ -133,52 +130,53 @@ For any language, replace `_claude` with your preferred language file (e.g., `_c
 
 ## Usage
 
-Once installed, simply type `claude` and press `TAB` to see available completions:
+Type `claude` and press `TAB`:
+
 ```bash
-claude <TAB>              # Shows all available commands
-claude mcp <TAB>          # Shows MCP subcommands
-claude --<TAB>            # Shows all available options
-claude plugin <TAB>       # Shows plugin subcommands
-```
-
-### Basic Examples
-```bash
-# Autocomplete main commands
-claude m<TAB>  →  claude mcp
-
-# Autocomplete MCP subcommands
-claude mcp a<TAB>  →  claude mcp add
-
-# Autocomplete options
-claude --mod<TAB>  →  claude --model
-
-# Autocomplete with descriptions
-claude mcp <TAB>
-serve                    -- Start Claude Code MCP server
-add                      -- Add an MCP server to Claude Code
-remove                   -- Remove an MCP server
-list                     -- List configured MCP servers
+claude <TAB>
+agents        -- Manage background agents
+auth          -- Manage authentication
+mcp           -- Configure and manage MCP servers
+plugin        -- Manage Claude Code plugins
+project       -- Manage Claude Code project state
+ultrareview   -- Run a cloud-hosted multi-agent code review and print the findings
 ...
 ```
 
-### Dynamic Completion Examples
+Partial input narrows the candidates, and options that take a fixed set of
+values complete those too:
+
 ```bash
-# MCP server completion (shows your configured servers)
-claude mcp remove <TAB>   # Shows: server1, server2, myserver, etc.
-claude mcp get <TAB>      # Shows: server1, server2, myserver, etc.
+claude --allow<TAB>
+--allow-dangerously-skip-permissions  -- Enable option to bypass permission checks without enabling by default
+--allowed-tools                       -- Comma or space-separated list of allowed tool names
+--allowedTools                        -- Comma or space-separated list of allowed tool names (camelCase format)
 
-# Plugin completion (shows your installed plugins)
-claude plugin uninstall <TAB>   # Shows your installed plugins
-claude plugin enable <TAB>      # Shows your installed plugins
+claude --permission-mode <TAB>
+acceptEdits  auto  bypassPermissions  manual  dontAsk  plan
+```
 
-# Session ID completion (shows your available sessions)
-claude --resume <TAB>     # Shows: 12345678-abcd-..., 87654321-dcba-..., etc.
+### Completion from your own configuration
 
-# Agent completion (shows agents defined in ~/.claude/agents and .claude/agents)
-claude --agent <TAB>      # Shows: code-reviewer, db-migrator, etc.
+These read your configuration rather than a fixed list, so the candidates are
+the ones you actually have:
 
-# Model completion (aliases, plus full model names found in your settings)
-claude --model <TAB>      # Shows: default, fable, opus, sonnet, haiku, claude-opus-5, etc.
+```bash
+# MCP servers from ~/.claude.json
+claude mcp get <TAB>
+claude mcp remove <TAB>
+
+# Sessions you can resume
+claude --resume <TAB>
+
+# Agents defined in ~/.claude/agents or the project's .claude/agents
+claude --agent <TAB>
+
+# Model aliases, plus full model names found in your settings
+claude --model <TAB>
+
+# Plugins you have installed
+claude plugin uninstall <TAB>
 ```
 
 ## Supported Commands
@@ -254,7 +252,3 @@ This project is licensed under the MIT License—see the [LICENSE](LICENSE) file
 
 - [Claude Code Documentation](https://docs.claude.com/)
 - [Zsh Completion Guide](http://zsh.sourceforge.net/Doc/Release/Completion-System.html)
-
----
-
-Made with ❤️ for the Claude Code community
