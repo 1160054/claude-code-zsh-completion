@@ -1,12 +1,32 @@
 #compdef claude
 
-# Динамічні функції автодоповнення
+# Dynamic completion functions
+
+# Directories Claude Code keeps its state in (agents, plugins, sessions).
+# CLAUDE_CONFIG_DIR replaces the default location when it is set.
+_claude_state_dirs() {
+  if [[ -n "$CLAUDE_CONFIG_DIR" ]]; then
+    print -r -- "$CLAUDE_CONFIG_DIR"
+  else
+    print -l -- "$HOME/.claude" "$HOME/.config/claude"
+  fi
+}
+
+# JSON files that may hold MCP server definitions.
+_claude_config_files() {
+  if [[ -n "$CLAUDE_CONFIG_DIR" ]]; then
+    print -l -- "$CLAUDE_CONFIG_DIR/.claude.json" "$CLAUDE_CONFIG_DIR/mcp.json"
+  else
+    print -l -- "$HOME/.claude.json" "$HOME/.claude/mcp.json" "$HOME/.config/claude/mcp.json"
+  fi
+}
+
 _claude_mcp_servers() {
   local config_file
   local -a server_list
 
   # Parse config files using grep/sed (no external dependencies)
-  for config_file in ~/.claude.json ~/.claude/mcp.json ~/.config/claude/mcp.json; do
+  for config_file in ${(f)"$(_claude_config_files)"}; do
     [[ -f "$config_file" ]] || continue
     # Find entries with "command", "type", or "url" (MCP server signature)
     server_list+=(${(f)"$(grep -B 1 -E '"(command|type|url)"[[:space:]]*:' "$config_file" 2>/dev/null | \
@@ -24,44 +44,69 @@ _claude_mcp_servers() {
 
 _claude_installed_plugins() {
   local -a plugins
-  local config_file plugin_dir
+  local state_dir manifest
 
-  # Check plugin directories directly
-  for plugin_dir in ~/.claude/plugins ~/.config/claude/plugins; do
-    [[ -d "$plugin_dir" ]] || continue
-    plugins+=(${plugin_dir}/*(N:t))
+  # Installed plugins are "name@marketplace" keys in
+  # plugins/installed_plugins.json - the directories beside it are caches.
+  for state_dir in ${(f)"$(_claude_state_dirs)"}; do
+    manifest="$state_dir/plugins/installed_plugins.json"
+    [[ -f "$manifest" ]] || continue
+    plugins+=(${(f)"$(grep -oE '"[^"]+@[^"]+"[[:space:]]*:' "$manifest" 2>/dev/null | \
+      sed 's/[[:space:]]*:$//; s/"//g')"})
   done
 
-  # Remove duplicates
   plugins=(${(u)plugins})
 
   compadd -a plugins
 }
 
 _claude_sessions() {
-  local -a sessions
-  local session_dir
+  setopt localoptions extendedglob
 
-  # Check session directory
-  for session_dir in ~/.claude/sessions ~/.config/claude/sessions; do
-    [[ -d "$session_dir" ]] || continue
+  local -a sessions project_dirs
+  local state_dir project_dir cwd session_file uuid summary
 
-    # Extract UUIDs directly from filenames
-    sessions+=(${session_dir}/*~*.zwc(N:t:r))
+  # Sessions live under <config>/projects/<cwd with / and . turned into ->.
+  # A symlinked working directory is recorded under its resolved path, so
+  # try that as well as the one the shell reports.
+  for cwd in "$PWD" "${PWD:A}"; do
+    project_dirs+=(${${cwd//\//-}//./-})
+  done
+  project_dirs=(${(u)project_dirs})
+
+  for state_dir in ${(f)"$(_claude_state_dirs)"}; do
+    for project_dir in $project_dirs; do
+      [[ -d "$state_dir/projects/$project_dir" ]] || continue
+
+      # Newest first, capped so completion stays instant on long-lived projects
+      for session_file in ${state_dir}/projects/${project_dir}/*.jsonl(Nom[1,20]); do
+        uuid=${session_file:t:r}
+        [[ $uuid == [0-9a-f](#c8)-[0-9a-f](#c4)-[0-9a-f](#c4)-[0-9a-f](#c4)-[0-9a-f](#c12) ]] || continue
+
+        # Describe each session with the first thing you typed in it. Only the
+        # head of the transcript is read - these files grow into the megabytes.
+        summary=$(head -c 200000 "$session_file" 2>/dev/null | \
+          grep -m 1 -o '"role":"user","content":"[^"]\{1,60\}' 2>/dev/null | \
+          sed 's/.*"content":"//; s/\\n/ /g; s/\\*$//')
+        sessions+=("${uuid}:${summary:-no description}")
+      done
+    done
   done
 
-  # Filter only valid UUIDs
-  sessions=(${(M)sessions:#[0-9a-f](#c8)-[0-9a-f](#c4)-[0-9a-f](#c4)-[0-9a-f](#c4)-[0-9a-f](#c12)})
-
-  compadd -a sessions
+  _describe -t sessions 'session' sessions
 }
 
 _claude_agent_names() {
-  local -a agents
-  local agent_dir agent_file name
+  local -a agents agent_dirs
+  local state_dir agent_dir agent_file name
 
   # User-level and project-level agent definitions
-  for agent_dir in ~/.claude/agents ~/.config/claude/agents .claude/agents; do
+  for state_dir in ${(f)"$(_claude_state_dirs)"}; do
+    agent_dirs+=("$state_dir/agents")
+  done
+  agent_dirs+=(.claude/agents)
+
+  for agent_dir in $agent_dirs; do
     [[ -d "$agent_dir" ]] || continue
 
     for agent_file in ${agent_dir}/*.md(N); do
@@ -77,14 +122,19 @@ _claude_agent_names() {
 }
 
 _claude_model_names() {
-  local -a models
-  local config_file
+  local -a models config_files
+  local state_dir config_file
 
   # Aliases always resolve to the latest model of that family
   models=(default fable opus sonnet haiku)
 
   # Full model names the user has already configured
-  for config_file in ~/.claude/settings.json ~/.claude/settings.local.json ~/.claude.json; do
+  for state_dir in ${(f)"$(_claude_state_dirs)"}; do
+    config_files+=("$state_dir/settings.json" "$state_dir/settings.local.json")
+  done
+  config_files+=(${(f)"$(_claude_config_files)"})
+
+  for config_file in $config_files; do
     [[ -f "$config_file" ]] || continue
     models+=(${(f)"$(grep -oE '"(model|fallbackModel)"[[:space:]]*:[[:space:]]*"[^"]+"' "$config_file" 2>/dev/null | \
       sed 's/.*:[[:space:]]*"\([^"]*\)"/\1/')"})
