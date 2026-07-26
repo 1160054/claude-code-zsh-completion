@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- Test coverage for `claude-code.plugin.zsh`: the suite now checks that the Oh My Zsh bootstrap registers the completion when sourced after `compinit`, stays a no-op when `compdef` is not available yet, and puts the completions directory on `fpath`
+
 ## [2.3.1] - 2026-07-26
 
 ### Changed
