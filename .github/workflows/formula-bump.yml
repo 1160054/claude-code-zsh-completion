@@ -1,0 +1,84 @@
+name: Bump Homebrew Formula
+
+# Points Formula/claude-code-zsh-completion.rb at a newly published release and
+# opens a PR with the new url and checksum. main is protected, so this cannot
+# push the change directly.
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag to point the formula at (e.g. v2.4.0)'
+        required: true
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v5
+      with:
+        ref: main
+
+    - name: Work out the release and its checksum
+      id: release
+      env:
+        TAG: ${{ github.event.release.tag_name || inputs.tag }}
+      run: |
+        url="https://github.com/${GITHUB_REPOSITORY}/archive/refs/tags/${TAG}.tar.gz"
+
+        curl -fsSL -o release.tar.gz "$url"
+        sha=$(sha256sum release.tar.gz | cut -d' ' -f1)
+        rm release.tar.gz
+
+        echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+        echo "url=${url}" >> "$GITHUB_OUTPUT"
+        echo "sha=${sha}" >> "$GITHUB_OUTPUT"
+
+    - name: Update the formula
+      id: update
+      env:
+        URL: ${{ steps.release.outputs.url }}
+        SHA: ${{ steps.release.outputs.sha }}
+      run: |
+        formula=Formula/claude-code-zsh-completion.rb
+
+        sed -i -E "s|^  url \".*\"|  url \"${URL}\"|" "$formula"
+        sed -i -E "s|^  sha256 \".*\"|  sha256 \"${SHA}\"|" "$formula"
+
+        if git diff --quiet -- "$formula"; then
+          echo "changed=false" >> "$GITHUB_OUTPUT"
+          echo "Formula already points at this release"
+        else
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+          git diff -- "$formula"
+        fi
+
+    - name: Open the bump PR
+      if: steps.update.outputs.changed == 'true'
+      env:
+        GH_TOKEN: ${{ github.token }}
+        TAG: ${{ steps.release.outputs.tag }}
+        SHA: ${{ steps.release.outputs.sha }}
+      run: |
+        branch="chore/formula-${TAG}"
+
+        git config user.name "github-actions[bot]"
+        git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+        git switch -c "$branch"
+        git commit -qam "Point Homebrew formula at ${TAG}"
+        git push -q -u origin "$branch"
+
+        gh pr create \
+          --base main \
+          --head "$branch" \
+          --title "Point Homebrew formula at ${TAG}" \
+          --body "$(printf 'Automated bump after the %s release.\n\n- Checksum: `%s`\n\nMerging this makes `brew upgrade` pick up %s.\n' "$TAG" "$SHA" "$TAG")"

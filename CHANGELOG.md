@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- Homebrew formula: `brew tap 1160054/claude https://github.com/1160054/claude-code-zsh-completion && brew install claude-code-zsh-completion` installs the English completion into Homebrew's `site-functions` (already on `fpath`, so no `.zshrc` changes) and keeps all 120 localized files available for switching
+- Release automation: publishing a release opens a PR pointing the formula at the new tag and checksum
+
 ## [2.4.0] - 2026-07-26
 
 ### Added
