@@ -48,7 +48,7 @@ ln -sf "$(brew --prefix)/share/claude-code-zsh-completion/completions/_claude.ja
   "$(brew --prefix)/share/zsh/site-functions/_claude"
 ```
 
-### Quick Install
+### Manual Install
 
 ```bash
 # Download and install (English example)
@@ -183,10 +183,13 @@ claude --model <TAB>      # Shows: default, fable, opus, sonnet, haiku, claude-o
 
 ## Supported Commands
 
-- Main commands: `mcp`, `plugin`, `migrate-installer`, `setup-token`, `doctor`, `update`, `install`
-- MCP commands: `serve`, `add`, `remove`, `list`, `get`, `add-json`, `add-from-claude-desktop`, `reset-project-choices`
-- Plugin commands: `validate`, `marketplace`, `install`, `uninstall`, `enable`, `disable`
-- Plugin marketplace: `add`, `list`, `remove`, `update`
+Everything `claude --help` reports, including the `mcp`, `plugin`, `agents`,
+`auth`, `auto-mode`, `gateway`, `project` and `ultrareview` command groups and
+their subcommands.
+
+The list that matters is [`completions/_claude`](completions/_claude) itself, so
+it is not duplicated here — a scheduled workflow compares it against the
+installed CLI every week and files an issue when the two drift apart.
 
 ## Troubleshooting
 
@@ -214,9 +217,13 @@ compinit
 which _claude
 ```
 
+Installed with Homebrew? The active file is
+`$(brew --prefix)/share/zsh/site-functions/_claude`, and that directory is put
+on your `fpath` by `brew shellenv` — check that your `~/.zshrc` runs it.
+
 ### Permission issues
 
-Make sure the completion file has the correct permissions:
+Make sure the completion file has the correct permissions (manual install):
 ```bash
 chmod 644 ~/.zsh/completions/_claude
 ```
