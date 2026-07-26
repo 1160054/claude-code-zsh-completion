@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- `--resume` / `-r` completed nothing at all: sessions were looked up in `~/.claude/sessions`, a directory Claude Code does not use. They now come from the project's own transcript directory (`<config>/projects/<cwd>/*.jsonl`, with `/` and `.` in the path turned into `-`), newest first and capped at 20, and each candidate is described by the first message of that session
+- `plugin uninstall` and its sibling subcommands offered `cache`, `data`, `marketplaces` and the JSON files that sit in the plugins directory, rather than plugin names — those come from `plugins/installed_plugins.json`, keyed as `name@marketplace`
+- `CLAUDE_CONFIG_DIR` was ignored, so every configuration-driven completion — MCP servers, sessions, agents, plugins, models — came back empty for anyone whose Claude Code configuration does not live in `~/.claude`
+- All three applied to every one of the 120 completion files, which carry the same dynamic-completion block
+
 ### Changed
 - README: Usage rewritten around what the completion actually shows (descriptions, option filtering, fixed-value options) with the configuration-driven completions in their own section; decorative emoji removed from the feature list
 - README: the curl instructions are labelled "Manual Install" rather than "Quick Install" (Homebrew is now the shorter path), and the hand-maintained command list is replaced by a pointer to `completions/_claude` — it still listed the removed `migrate-installer` and was missing every command added in 2.2.0
