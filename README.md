@@ -27,6 +27,23 @@
 
 ## Installation
 
+### [Homebrew](https://brew.sh/)
+
+```bash
+brew tap 1160054/claude https://github.com/1160054/claude-code-zsh-completion
+brew install claude-code-zsh-completion
+```
+
+No `~/.zshrc` changes are needed — Homebrew's `site-functions` directory is
+already on your `fpath`. `brew upgrade` keeps the completion current.
+
+Every localized completion is installed alongside the English one. To switch:
+
+```bash
+ln -sf "$(brew --prefix)/share/claude-code-zsh-completion/completions/_claude.ja" \
+  "$(brew --prefix)/share/zsh/site-functions/_claude"
+```
+
 ### Quick Install
 
 ```bash
