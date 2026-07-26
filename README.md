@@ -5,16 +5,18 @@
 
 # claude-code-zsh-completion
 
-Zsh completion script for Claude Code CLI - intelligent auto-completion for all claude commands, options, and arguments
+Zsh completion for the Claude Code CLI. It reads your own configuration, so
+`claude --resume <TAB>` lists the sessions you can actually resume — each one
+labelled with what you asked in it — instead of leaving you to remember a UUID.
 
 ![Demo](demo.gif)
 
 ## Features
 
+- Sessions, MCP servers, agents, models and plugins completed from your own configuration, not from a fixed list
 - Completion for every `claude` command, subcommand and option
 - Descriptions alongside each candidate, so you can pick without leaving the prompt
 - Values completed for options that have a fixed set (`--permission-mode`, `--output-format`, …)
-- Dynamic completion for MCP servers, plugins, sessions, agents and models — read from your own configuration
 - Localized into 120+ languages
 
 ## Requirements
@@ -130,6 +132,42 @@ For any language, replace `_claude` with your preferred language file (e.g., `_c
 
 ## Usage
 
+### Completion from your own configuration
+
+These read your configuration rather than a fixed list, so the candidates are
+the ones you actually have. Resumable sessions are the clearest case — each is
+labelled with the first thing you asked in it:
+
+```bash
+claude --resume <TAB>
+3f6b1c20-8d4a-4e91-b7c2-1a5e9d0f3b84  -- add a health check endpoint
+7c2a94e1-5b60-4d3f-9a18-e4c7b2650df3  -- why is the nightly build red?
+a3f8e2b1-9c4d-4e7a-b5f3-2d8c9a1e4f6b  -- port auth to the new router
+```
+
+Sessions come from the project you are standing in, newest first. The rest work
+the same way:
+
+```bash
+# MCP servers from your Claude Code configuration
+claude mcp get <TAB>
+claude mcp remove <TAB>
+
+# Agents defined in ~/.claude/agents or the project's .claude/agents
+claude --agent <TAB>
+
+# Model aliases, plus full model names found in your settings
+claude --model <TAB>
+
+# Plugins you have installed
+claude plugin uninstall <TAB>
+```
+
+`CLAUDE_CONFIG_DIR` is honoured, so this still works if your configuration does
+not live in `~/.claude`.
+
+### Commands and options
+
 Type `claude` and press `TAB`:
 
 ```bash
@@ -154,29 +192,6 @@ claude --allow<TAB>
 
 claude --permission-mode <TAB>
 acceptEdits  auto  bypassPermissions  manual  dontAsk  plan
-```
-
-### Completion from your own configuration
-
-These read your configuration rather than a fixed list, so the candidates are
-the ones you actually have:
-
-```bash
-# MCP servers from ~/.claude.json
-claude mcp get <TAB>
-claude mcp remove <TAB>
-
-# Sessions you can resume
-claude --resume <TAB>
-
-# Agents defined in ~/.claude/agents or the project's .claude/agents
-claude --agent <TAB>
-
-# Model aliases, plus full model names found in your settings
-claude --model <TAB>
-
-# Plugins you have installed
-claude plugin uninstall <TAB>
 ```
 
 ## Supported Commands
