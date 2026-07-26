@@ -56,6 +56,46 @@ _claude_sessions() {
   compadd -a sessions
 }
 
+_claude_agent_names() {
+  local -a agents
+  local agent_dir agent_file name
+
+  # User-level and project-level agent definitions
+  for agent_dir in ~/.claude/agents ~/.config/claude/agents .claude/agents; do
+    [[ -d "$agent_dir" ]] || continue
+
+    for agent_file in ${agent_dir}/*.md(N); do
+      # Prefer the name declared in the front matter, fall back to the filename
+      name=$(sed -n '1,10{s/^name:[[:space:]]*\([^[:space:]]*\).*/\1/p;}' "$agent_file" 2>/dev/null | head -1)
+      agents+=(${name:-${agent_file:t:r}})
+    done
+  done
+
+  agents=(${(u)agents})
+
+  compadd -a agents
+}
+
+_claude_model_names() {
+  local -a models
+  local config_file
+
+  # Aliases always resolve to the latest model of that family
+  models=(default fable opus sonnet haiku)
+
+  # Full model names the user has already configured
+  for config_file in ~/.claude/settings.json ~/.claude/settings.local.json ~/.claude.json; do
+    [[ -f "$config_file" ]] || continue
+    models+=(${(f)"$(grep -oE '"(model|fallbackModel)"[[:space:]]*:[[:space:]]*"[^"]+"' "$config_file" 2>/dev/null | \
+      sed 's/.*:[[:space:]]*"\([^"]*\)"/\1/')"})
+  done
+
+  # Remove duplicates
+  models=(${(u)models})
+
+  compadd -a models
+}
+
 _claude() {
   local curcontext="$curcontext" state line
   typeset -A opt_args
@@ -103,10 +143,10 @@ _claude() {
     '(-r --resume)'{-r,--resume}'[Tiếp tục một cuộc trò chuyện - chỉ định ID phiên hoặc chọn tương tác]:sessionId:_claude_sessions'
     '--fork-session[Tạo ID phiên mới thay vì sử dụng lại ID phiên gốc khi tiếp tục (với --resume hoặc --continue)]'
     '--no-session-persistence[Tắt lưu phiên - các phiên sẽ không được lưu (chỉ --print)]'
-    '--model[Mô hình cho phiên hiện tại. Chỉ định alias cho mô hình mới nhất (ví dụ: '\''sonnet'\'' hoặc '\''opus'\'')]:model:'
-    '--agent[Agent cho phiên hiện tại. Ghi đè cài đặt '\''agent'\'']:agent:'
+    '--model[Mô hình cho phiên hiện tại. Chỉ định alias cho mô hình mới nhất (ví dụ: '\''sonnet'\'' hoặc '\''opus'\'')]:model:_claude_model_names'
+    '--agent[Agent cho phiên hiện tại. Ghi đè cài đặt '\''agent'\'']:agent:_claude_agent_names'
     '--betas[Các header beta để bao gồm trong yêu cầu API (chỉ dành cho người dùng API key)]:betas:'
-    '--fallback-model[Bật tự động chuyển sang mô hình được chỉ định khi mô hình mặc định bị quá tải (chỉ --print)]:model:'
+    '--fallback-model[Bật tự động chuyển sang mô hình được chỉ định khi mô hình mặc định bị quá tải (chỉ --print)]:model:_claude_model_names'
     '--settings[Đường dẫn đến file JSON cài đặt hoặc chuỗi JSON để tải các cài đặt bổ sung]:file-or-json:_files'
     '--add-dir[Các thư mục bổ sung để cho phép truy cập công cụ]:directories:_directories'
     '--ide[Tự động kết nối với IDE khi khởi động nếu có đúng một IDE hợp lệ]'
@@ -430,7 +470,7 @@ _claude_install() {
 _claude_agents() {
   _arguments \
     '*--add-dir[Thư mục bổ sung để cho phép truy cập công cụ trong các phiên được điều phối]:directory:_directories' \
-    '--agent[Agent mặc định cho các phiên được điều phối từ chế độ xem agent]:agent:' \
+    '--agent[Agent mặc định cho các phiên được điều phối từ chế độ xem agent]:agent:_claude_agent_names' \
     '--all[Với --json: cũng bao gồm các phiên nền đã hoàn thành]' \
     '--allow-dangerously-skip-permissions[Cung cấp chế độ bypass-permissions cho các phiên được điều phối]' \
     '--cwd[Chỉ hiển thị các phiên nền được khởi động dưới đường dẫn]:path:_directories' \
@@ -438,7 +478,7 @@ _claude_agents() {
     '--effort[Mức độ nỗ lực mặc định cho các phiên được điều phối]:level:(low medium high xhigh max)' \
     '--json[In các phiên đang hoạt động dưới dạng mảng JSON và thoát]' \
     '*--mcp-config[Cấu hình MCP server để áp dụng cho các phiên được điều phối]:config:' \
-    '--model[Mô hình mặc định cho các phiên được điều phối từ chế độ xem agent]:model:' \
+    '--model[Mô hình mặc định cho các phiên được điều phối từ chế độ xem agent]:model:_claude_model_names' \
     '--permission-mode[Chế độ quyền mặc định cho các phiên được điều phối]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)' \
     '*--plugin-dir[Tải plugin từ thư mục cho chế độ xem agent và các phiên được điều phối]:path:_directories' \
     '--setting-sources[Danh sách các nguồn cài đặt phân tách bằng dấu phẩy để tải (user, project, local)]:sources:' \

@@ -56,6 +56,46 @@ _claude_sessions() {
   compadd -a sessions
 }
 
+_claude_agent_names() {
+  local -a agents
+  local agent_dir agent_file name
+
+  # User-level and project-level agent definitions
+  for agent_dir in ~/.claude/agents ~/.config/claude/agents .claude/agents; do
+    [[ -d "$agent_dir" ]] || continue
+
+    for agent_file in ${agent_dir}/*.md(N); do
+      # Prefer the name declared in the front matter, fall back to the filename
+      name=$(sed -n '1,10{s/^name:[[:space:]]*\([^[:space:]]*\).*/\1/p;}' "$agent_file" 2>/dev/null | head -1)
+      agents+=(${name:-${agent_file:t:r}})
+    done
+  done
+
+  agents=(${(u)agents})
+
+  compadd -a agents
+}
+
+_claude_model_names() {
+  local -a models
+  local config_file
+
+  # Aliases always resolve to the latest model of that family
+  models=(default fable opus sonnet haiku)
+
+  # Full model names the user has already configured
+  for config_file in ~/.claude/settings.json ~/.claude/settings.local.json ~/.claude.json; do
+    [[ -f "$config_file" ]] || continue
+    models+=(${(f)"$(grep -oE '"(model|fallbackModel)"[[:space:]]*:[[:space:]]*"[^"]+"' "$config_file" 2>/dev/null | \
+      sed 's/.*:[[:space:]]*"\([^"]*\)"/\1/')"})
+  done
+
+  # Remove duplicates
+  models=(${(u)models})
+
+  compadd -a models
+}
+
 _claude() {
   local curcontext="$curcontext" state line
   typeset -A opt_args
@@ -103,10 +143,10 @@ _claude() {
     '(-r --resume)'{-r,--resume}'[Ipagpatuloy ang isang pag-uusap - tukuyin ang session ID o pumili nang interactive]:sessionId:_claude_sessions'
     '--fork-session[Lumikha ng bagong session ID sa halip na gamitin ulit ang orihinal na session ID kapag nagre-resume (kasama ang --resume o --continue)]'
     '--no-session-persistence[I-disable ang session persistence - hindi mase-save ang mga session (--print lang)]'
-    '--model[Model para sa kasalukuyang session. Tukuyin ang alias para sa pinakabagong model (hal.: '\''sonnet'\'' o '\''opus'\'')]:model:'
-    '--agent[Agent para sa kasalukuyang session. I-override ang '\''agent'\'' setting]:agent:'
+    '--model[Model para sa kasalukuyang session. Tukuyin ang alias para sa pinakabagong model (hal.: '\''sonnet'\'' o '\''opus'\'')]:model:_claude_model_names'
+    '--agent[Agent para sa kasalukuyang session. I-override ang '\''agent'\'' setting]:agent:_claude_agent_names'
     '--betas[Mga beta header na isasama sa mga API request (mga user ng API key lang)]:betas:'
-    '--fallback-model[Paganahin ang awtomatikong fallback sa tinukoy na model kapag ang default model ay overloaded (--print lang)]:model:'
+    '--fallback-model[Paganahin ang awtomatikong fallback sa tinukoy na model kapag ang default model ay overloaded (--print lang)]:model:_claude_model_names'
     '--settings[Path sa settings JSON file o JSON string para mag-load ng karagdagang mga setting]:file-or-json:_files'
     '--add-dir[Karagdagang mga direktoryo para pahintulutan ang tool access]:directories:_directories'
     '--ide[Auto-connect sa IDE sa startup kung eksakto isang valid na IDE ang available]'
@@ -430,7 +470,7 @@ _claude_install() {
 _claude_agents() {
   _arguments \
     '*--add-dir[Karagdagang direktoryo para pahintulutan ang tool access sa mga dispatched session]:directory:_directories' \
-    '--agent[Default na agent para sa mga session na na-dispatch mula sa agent view]:agent:' \
+    '--agent[Default na agent para sa mga session na na-dispatch mula sa agent view]:agent:_claude_agent_names' \
     '--all[Kasama ang --json: isama rin ang mga natapos na background session]' \
     '--allow-dangerously-skip-permissions[Gawing available ang bypass-permissions mode sa mga dispatched session]' \
     '--cwd[Ipakita lang ang mga background session na sinimulan sa ilalim ng path]:path:_directories' \
@@ -438,7 +478,7 @@ _claude_agents() {
     '--effort[Default na antas ng effort para sa mga dispatched session]:level:(low medium high xhigh max)' \
     '--json[I-print ang mga aktibong session bilang JSON array at lumabas]' \
     '*--mcp-config[MCP server configuration na ilalapat sa mga dispatched session]:config:' \
-    '--model[Default na model para sa mga session na na-dispatch mula sa agent view]:model:' \
+    '--model[Default na model para sa mga session na na-dispatch mula sa agent view]:model:_claude_model_names' \
     '--permission-mode[Default na permission mode para sa mga dispatched session]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)' \
     '*--plugin-dir[Mag-load ng mga plugin mula sa direktoryo para sa agent view at mga dispatched session]:path:_directories' \
     '--setting-sources[Listahan ng mga setting source na pinaghihiwalay ng kuwit para i-load (user, project, local)]:sources:' \

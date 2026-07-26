@@ -56,6 +56,46 @@ _claude_sessions() {
   compadd -a sessions
 }
 
+_claude_agent_names() {
+  local -a agents
+  local agent_dir agent_file name
+
+  # User-level and project-level agent definitions
+  for agent_dir in ~/.claude/agents ~/.config/claude/agents .claude/agents; do
+    [[ -d "$agent_dir" ]] || continue
+
+    for agent_file in ${agent_dir}/*.md(N); do
+      # Prefer the name declared in the front matter, fall back to the filename
+      name=$(sed -n '1,10{s/^name:[[:space:]]*\([^[:space:]]*\).*/\1/p;}' "$agent_file" 2>/dev/null | head -1)
+      agents+=(${name:-${agent_file:t:r}})
+    done
+  done
+
+  agents=(${(u)agents})
+
+  compadd -a agents
+}
+
+_claude_model_names() {
+  local -a models
+  local config_file
+
+  # Aliases always resolve to the latest model of that family
+  models=(default fable opus sonnet haiku)
+
+  # Full model names the user has already configured
+  for config_file in ~/.claude/settings.json ~/.claude/settings.local.json ~/.claude.json; do
+    [[ -f "$config_file" ]] || continue
+    models+=(${(f)"$(grep -oE '"(model|fallbackModel)"[[:space:]]*:[[:space:]]*"[^"]+"' "$config_file" 2>/dev/null | \
+      sed 's/.*:[[:space:]]*"\([^"]*\)"/\1/')"})
+  done
+
+  # Remove duplicates
+  models=(${(u)models})
+
+  compadd -a models
+}
+
 _claude() {
   local curcontext="$curcontext" state line
   typeset -A opt_args
@@ -103,10 +143,10 @@ _claude() {
     '(-r --resume)'{-r,--resume}'[Gjenoppta ei samtale - angi økt-ID eller vel interaktivt]:sessionId:_claude_sessions'
     '--fork-session[Opprett ny økt-ID i staden for å gjenbruke original økt-ID ved gjenopptak (med --resume eller --continue)]'
     '--no-session-persistence[Deaktiver øktpersistens - økter vert ikkje lagra (berre --print)]'
-    '--model[Modell for gjeldande økt. Angi alias for nyaste modell (t.d. '\''sonnet'\'' eller '\''opus'\'')]:model:'
-    '--agent[Agent for gjeldande økt. Overstyrer '\''agent'\''-innstillinga]:agent:'
+    '--model[Modell for gjeldande økt. Angi alias for nyaste modell (t.d. '\''sonnet'\'' eller '\''opus'\'')]:model:_claude_model_names'
+    '--agent[Agent for gjeldande økt. Overstyrer '\''agent'\''-innstillinga]:agent:_claude_agent_names'
     '--betas[Beta-headerar å inkludere i API-førespurnader (berre API-nøkkelbrukarar)]:betas:'
-    '--fallback-model[Aktiver automatisk tilbakefall til angitt modell når standardmodellen er overbelasta (berre --print)]:model:'
+    '--fallback-model[Aktiver automatisk tilbakefall til angitt modell når standardmodellen er overbelasta (berre --print)]:model:_claude_model_names'
     '--settings[Sti til innstillingar JSON-fil eller JSON-streng for å laste ytterlegare innstillingar]:file-or-json:_files'
     '--add-dir[Ytterlegare mapper å tillate verktøytilgang]:directories:_directories'
     '--ide[Kople automatisk til IDE ved oppstart dersom nøyaktig éin gyldig IDE er tilgjengeleg]'
@@ -430,7 +470,7 @@ _claude_install() {
 _claude_agents() {
   _arguments \
     '*--add-dir[Ytterlegare mappe å tillate verktøytilgang til i utsende økter]:directory:_directories' \
-    '--agent[Standardagent for økter utsende frå agentvisinga]:agent:' \
+    '--agent[Standardagent for økter utsende frå agentvisinga]:agent:_claude_agent_names' \
     '--all[Med --json: inkluder òg fullførte bakgrunnsøkter]' \
     '--allow-dangerously-skip-permissions[Gjer omgå-tillatelsar-modus tilgjengeleg for utsende økter]' \
     '--cwd[Vis berre bakgrunnsøkter starta under sti]:path:_directories' \
@@ -438,7 +478,7 @@ _claude_agents() {
     '--effort[Standard innsatsnivå for utsende økter]:level:(low medium high xhigh max)' \
     '--json[Skriv ut aktive økter som ein JSON-array og avslutt]' \
     '*--mcp-config[MCP-tenarkonfigurasjon å bruke på utsende økter]:config:' \
-    '--model[Standardmodell for økter utsende frå agentvisinga]:model:' \
+    '--model[Standardmodell for økter utsende frå agentvisinga]:model:_claude_model_names' \
     '--permission-mode[Standard tillatelsesmodus for utsende økter]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)' \
     '*--plugin-dir[Last tillegg frå mappe for agentvisinga og utsende økter]:path:_directories' \
     '--setting-sources[Kommaseparert liste over innstillingskjelder å laste (user, project, local)]:sources:' \

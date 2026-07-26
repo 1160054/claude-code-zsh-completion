@@ -56,6 +56,46 @@ _claude_sessions() {
   compadd -a sessions
 }
 
+_claude_agent_names() {
+  local -a agents
+  local agent_dir agent_file name
+
+  # User-level and project-level agent definitions
+  for agent_dir in ~/.claude/agents ~/.config/claude/agents .claude/agents; do
+    [[ -d "$agent_dir" ]] || continue
+
+    for agent_file in ${agent_dir}/*.md(N); do
+      # Prefer the name declared in the front matter, fall back to the filename
+      name=$(sed -n '1,10{s/^name:[[:space:]]*\([^[:space:]]*\).*/\1/p;}' "$agent_file" 2>/dev/null | head -1)
+      agents+=(${name:-${agent_file:t:r}})
+    done
+  done
+
+  agents=(${(u)agents})
+
+  compadd -a agents
+}
+
+_claude_model_names() {
+  local -a models
+  local config_file
+
+  # Aliases always resolve to the latest model of that family
+  models=(default fable opus sonnet haiku)
+
+  # Full model names the user has already configured
+  for config_file in ~/.claude/settings.json ~/.claude/settings.local.json ~/.claude.json; do
+    [[ -f "$config_file" ]] || continue
+    models+=(${(f)"$(grep -oE '"(model|fallbackModel)"[[:space:]]*:[[:space:]]*"[^"]+"' "$config_file" 2>/dev/null | \
+      sed 's/.*:[[:space:]]*"\([^"]*\)"/\1/')"})
+  done
+
+  # Remove duplicates
+  models=(${(u)models})
+
+  compadd -a models
+}
+
 _claude() {
   local curcontext="$curcontext" state line
   typeset -A opt_args
@@ -103,10 +143,10 @@ _claude() {
     '(-r --resume)'{-r,--resume}'[Konversation fortsetzen - Sitzungs-ID angeben oder interaktiv auswählen]:sessionId:_claude_sessions'
     '--fork-session[Neue Sitzungs-ID erstellen statt ursprüngliche Sitzungs-ID beim Fortsetzen wiederzuverwenden (mit --resume oder --continue)]'
     '--no-session-persistence[Sitzungspersistenz deaktivieren - Sitzungen werden nicht gespeichert (nur --print)]'
-    '--model[Modell für aktuelle Sitzung. Alias für neuestes Modell angeben (z.B. '\''sonnet'\'' oder '\''opus'\'')]:model:'
-    '--agent[Agent für die aktuelle Sitzung. Überschreibt die '\''agent'\''-Einstellung]:agent:'
+    '--model[Modell für aktuelle Sitzung. Alias für neuestes Modell angeben (z.B. '\''sonnet'\'' oder '\''opus'\'')]:model:_claude_model_names'
+    '--agent[Agent für die aktuelle Sitzung. Überschreibt die '\''agent'\''-Einstellung]:agent:_claude_agent_names'
     '--betas[Beta-Header für API-Anfragen einschliessen (nur API-Schlüssel-Benutzer)]:betas:'
-    '--fallback-model[Automatisches Zurückfallen auf angegebenes Modell aktivieren, wenn Standardmodell überlastet ist (nur --print)]:model:'
+    '--fallback-model[Automatisches Zurückfallen auf angegebenes Modell aktivieren, wenn Standardmodell überlastet ist (nur --print)]:model:_claude_model_names'
     '--settings[Pfad zu Einstellungen-JSON-Datei oder JSON-String zum Laden zusätzlicher Einstellungen]:file-or-json:_files'
     '--add-dir[Zusätzliche Verzeichnisse für Werkzeugzugriff erlauben]:directories:_directories'
     '--ide[Automatisch mit IDE beim Start verbinden, wenn genau eine gültige IDE verfügbar ist]'
@@ -430,7 +470,7 @@ _claude_install() {
 _claude_agents() {
   _arguments \
     '*--add-dir[Zusätzliches Verzeichnis für Werkzeugzugriff in versendeten Sitzungen zulassen]:directory:_directories' \
-    '--agent[Standard-Agent für aus der Agentenansicht versendete Sitzungen]:agent:' \
+    '--agent[Standard-Agent für aus der Agentenansicht versendete Sitzungen]:agent:_claude_agent_names' \
     '--all[Mit --json: auch abgeschlossene Hintergrundsitzungen einschliessen]' \
     '--allow-dangerously-skip-permissions[Bypass-Berechtigungsmodus für versendete Sitzungen verfügbar machen]' \
     '--cwd[Nur unter Pfad gestartete Hintergrundsitzungen anzeigen]:path:_directories' \
@@ -438,7 +478,7 @@ _claude_agents() {
     '--effort[Standard-Aufwandsstufe für versendete Sitzungen]:level:(low medium high xhigh max)' \
     '--json[Aktive Sitzungen als JSON-Array ausgeben und beenden]' \
     '*--mcp-config[MCP-Server-Konfiguration für versendete Sitzungen anwenden]:config:' \
-    '--model[Standardmodell für aus der Agentenansicht versendete Sitzungen]:model:' \
+    '--model[Standardmodell für aus der Agentenansicht versendete Sitzungen]:model:_claude_model_names' \
     '--permission-mode[Standard-Berechtigungsmodus für versendete Sitzungen]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)' \
     '*--plugin-dir[Erweiterungen aus Verzeichnis für die Agentenansicht und versendete Sitzungen laden]:path:_directories' \
     '--setting-sources[Kommagetrennte Liste von Einstellungsquellen zum Laden (user, project, local)]:sources:' \

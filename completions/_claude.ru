@@ -56,6 +56,46 @@ _claude_sessions() {
   compadd -a sessions
 }
 
+_claude_agent_names() {
+  local -a agents
+  local agent_dir agent_file name
+
+  # User-level and project-level agent definitions
+  for agent_dir in ~/.claude/agents ~/.config/claude/agents .claude/agents; do
+    [[ -d "$agent_dir" ]] || continue
+
+    for agent_file in ${agent_dir}/*.md(N); do
+      # Prefer the name declared in the front matter, fall back to the filename
+      name=$(sed -n '1,10{s/^name:[[:space:]]*\([^[:space:]]*\).*/\1/p;}' "$agent_file" 2>/dev/null | head -1)
+      agents+=(${name:-${agent_file:t:r}})
+    done
+  done
+
+  agents=(${(u)agents})
+
+  compadd -a agents
+}
+
+_claude_model_names() {
+  local -a models
+  local config_file
+
+  # Aliases always resolve to the latest model of that family
+  models=(default fable opus sonnet haiku)
+
+  # Full model names the user has already configured
+  for config_file in ~/.claude/settings.json ~/.claude/settings.local.json ~/.claude.json; do
+    [[ -f "$config_file" ]] || continue
+    models+=(${(f)"$(grep -oE '"(model|fallbackModel)"[[:space:]]*:[[:space:]]*"[^"]+"' "$config_file" 2>/dev/null | \
+      sed 's/.*:[[:space:]]*"\([^"]*\)"/\1/')"})
+  done
+
+  # Remove duplicates
+  models=(${(u)models})
+
+  compadd -a models
+}
+
 _claude() {
   local curcontext="$curcontext" state line
   typeset -A opt_args
@@ -103,10 +143,10 @@ _claude() {
     '(-r --resume)'{-r,--resume}'[Возобновить разговор - укажите ID сессии или выберите интерактивно]:sessionId:_claude_sessions'
     '--fork-session[Создать новый ID сессии вместо повторного использования исходного ID сессии при возобновлении (с --resume или --continue)]'
     '--no-session-persistence[Отключить сохранение сессий - сессии не будут сохраняться (только --print)]'
-    '--model[Модель для текущей сессии. Укажите псевдоним для последней модели (например, '\''sonnet'\'' или '\''opus'\'')]:model:'
-    '--agent[Агент для текущей сессии. Переопределяет настройку '\''agent'\'']:agent:'
+    '--model[Модель для текущей сессии. Укажите псевдоним для последней модели (например, '\''sonnet'\'' или '\''opus'\'')]:model:_claude_model_names'
+    '--agent[Агент для текущей сессии. Переопределяет настройку '\''agent'\'']:agent:_claude_agent_names'
     '--betas[Бета-заголовки для включения в запросы API (только для пользователей с API ключом)]:betas:'
-    '--fallback-model[Включить автоматический переход на указанную модель при перегрузке модели по умолчанию (только --print)]:model:'
+    '--fallback-model[Включить автоматический переход на указанную модель при перегрузке модели по умолчанию (только --print)]:model:_claude_model_names'
     '--settings[Путь к JSON файлу настроек или JSON строка для загрузки дополнительных настроек]:file-or-json:_files'
     '--add-dir[Дополнительные директории для разрешения доступа инструментов]:directories:_directories'
     '--ide[Автоматически подключиться к IDE при запуске, если доступна ровно одна валидная IDE]'
@@ -430,7 +470,7 @@ _claude_install() {
 _claude_agents() {
   _arguments \
     '*--add-dir[Дополнительная директория для разрешения доступа инструментов в запущенных сессиях]:directory:_directories' \
-    '--agent[Агент по умолчанию для сессий, запущенных из представления агентов]:agent:' \
+    '--agent[Агент по умолчанию для сессий, запущенных из представления агентов]:agent:_claude_agent_names' \
     '--all[С --json: также включить завершенные фоновые сессии]' \
     '--allow-dangerously-skip-permissions[Сделать режим обхода разрешений доступным для запущенных сессий]' \
     '--cwd[Показать только фоновые сессии, запущенные по указанному пути]:path:_directories' \
@@ -438,7 +478,7 @@ _claude_agents() {
     '--effort[Уровень усилий по умолчанию для запущенных сессий]:level:(low medium high xhigh max)' \
     '--json[Вывести активные сессии как JSON массив и выйти]' \
     '*--mcp-config[Конфигурация MCP сервера для применения к запущенным сессиям]:config:' \
-    '--model[Модель по умолчанию для сессий, запущенных из представления агентов]:model:' \
+    '--model[Модель по умолчанию для сессий, запущенных из представления агентов]:model:_claude_model_names' \
     '--permission-mode[Режим разрешений по умолчанию для запущенных сессий]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)' \
     '*--plugin-dir[Загружать плагины из директории для представления агентов и запущенных сессий]:path:_directories' \
     '--setting-sources[Список источников настроек через запятую для загрузки (user, project, local)]:sources:' \

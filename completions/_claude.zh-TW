@@ -56,6 +56,46 @@ _claude_sessions() {
   compadd -a sessions
 }
 
+_claude_agent_names() {
+  local -a agents
+  local agent_dir agent_file name
+
+  # User-level and project-level agent definitions
+  for agent_dir in ~/.claude/agents ~/.config/claude/agents .claude/agents; do
+    [[ -d "$agent_dir" ]] || continue
+
+    for agent_file in ${agent_dir}/*.md(N); do
+      # Prefer the name declared in the front matter, fall back to the filename
+      name=$(sed -n '1,10{s/^name:[[:space:]]*\([^[:space:]]*\).*/\1/p;}' "$agent_file" 2>/dev/null | head -1)
+      agents+=(${name:-${agent_file:t:r}})
+    done
+  done
+
+  agents=(${(u)agents})
+
+  compadd -a agents
+}
+
+_claude_model_names() {
+  local -a models
+  local config_file
+
+  # Aliases always resolve to the latest model of that family
+  models=(default fable opus sonnet haiku)
+
+  # Full model names the user has already configured
+  for config_file in ~/.claude/settings.json ~/.claude/settings.local.json ~/.claude.json; do
+    [[ -f "$config_file" ]] || continue
+    models+=(${(f)"$(grep -oE '"(model|fallbackModel)"[[:space:]]*:[[:space:]]*"[^"]+"' "$config_file" 2>/dev/null | \
+      sed 's/.*:[[:space:]]*"\([^"]*\)"/\1/')"})
+  done
+
+  # Remove duplicates
+  models=(${(u)models})
+
+  compadd -a models
+}
+
 _claude() {
   local curcontext="$curcontext" state line
   typeset -A opt_args
@@ -103,10 +143,10 @@ _claude() {
     '(-r --resume)'{-r,--resume}'[繼續對話 - 指定工作階段 ID 或互動式選取]:sessionId:_claude_sessions'
     '--fork-session[在繼續時建立新的工作階段 ID，而不是重複使用原始工作階段 ID（搭配 --resume 或 --continue）]'
     '--no-session-persistence[停用工作階段持續性 - 工作階段將不會儲存（僅限 --print）]'
-    '--model[目前工作階段的模型。指定最新模型的別名（例如 '\''sonnet'\'' 或 '\''opus'\''）]:model:'
-    '--agent[目前工作階段的代理程式。覆寫 '\''agent'\'' 設定]:agent:'
+    '--model[目前工作階段的模型。指定最新模型的別名（例如 '\''sonnet'\'' 或 '\''opus'\''）]:model:_claude_model_names'
+    '--agent[目前工作階段的代理程式。覆寫 '\''agent'\'' 設定]:agent:_claude_agent_names'
     '--betas[要包含在 API 要求中的 Beta 標頭（僅限 API 金鑰使用者）]:betas:'
-    '--fallback-model[當預設模型過載時自動遞補至指定模型（僅限 --print）]:model:'
+    '--fallback-model[當預設模型過載時自動遞補至指定模型（僅限 --print）]:model:_claude_model_names'
     '--settings[設定 JSON 檔案路徑或 JSON 字串以載入其他設定]:file-or-json:_files'
     '--add-dir[允許工具存取的其他目錄]:directories:_directories'
     '--ide[如果恰好有一個有效的 IDE，則在啟動時自動連線至 IDE]'
@@ -430,7 +470,7 @@ _claude_install() {
 _claude_agents() {
   _arguments \
     '*--add-dir[在派發的工作階段中允許工具存取的其他目錄]:directory:_directories' \
-    '--agent[從代理程式檢視派發之工作階段的預設代理程式]:agent:' \
+    '--agent[從代理程式檢視派發之工作階段的預設代理程式]:agent:_claude_agent_names' \
     '--all[搭配 --json：同時包含已完成的背景工作階段]' \
     '--allow-dangerously-skip-permissions[讓派發的工作階段可使用略過權限模式]' \
     '--cwd[僅顯示在路徑下啟動的背景工作階段]:path:_directories' \
@@ -438,7 +478,7 @@ _claude_agents() {
     '--effort[派發之工作階段的預設努力程度]:level:(low medium high xhigh max)' \
     '--json[將作用中工作階段列印為 JSON 陣列並結束]' \
     '*--mcp-config[要套用至派發之工作階段的 MCP 伺服器設定]:config:' \
-    '--model[從代理程式檢視派發之工作階段的預設模型]:model:' \
+    '--model[從代理程式檢視派發之工作階段的預設模型]:model:_claude_model_names' \
     '--permission-mode[派發之工作階段的預設權限模式]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)' \
     '*--plugin-dir[為代理程式檢視和派發的工作階段從目錄載入外掛程式]:path:_directories' \
     '--setting-sources[以逗號分隔的要載入的設定來源清單（user、project、local）]:sources:' \

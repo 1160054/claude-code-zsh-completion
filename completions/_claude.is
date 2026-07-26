@@ -56,6 +56,46 @@ _claude_sessions() {
   compadd -a sessions
 }
 
+_claude_agent_names() {
+  local -a agents
+  local agent_dir agent_file name
+
+  # User-level and project-level agent definitions
+  for agent_dir in ~/.claude/agents ~/.config/claude/agents .claude/agents; do
+    [[ -d "$agent_dir" ]] || continue
+
+    for agent_file in ${agent_dir}/*.md(N); do
+      # Prefer the name declared in the front matter, fall back to the filename
+      name=$(sed -n '1,10{s/^name:[[:space:]]*\([^[:space:]]*\).*/\1/p;}' "$agent_file" 2>/dev/null | head -1)
+      agents+=(${name:-${agent_file:t:r}})
+    done
+  done
+
+  agents=(${(u)agents})
+
+  compadd -a agents
+}
+
+_claude_model_names() {
+  local -a models
+  local config_file
+
+  # Aliases always resolve to the latest model of that family
+  models=(default fable opus sonnet haiku)
+
+  # Full model names the user has already configured
+  for config_file in ~/.claude/settings.json ~/.claude/settings.local.json ~/.claude.json; do
+    [[ -f "$config_file" ]] || continue
+    models+=(${(f)"$(grep -oE '"(model|fallbackModel)"[[:space:]]*:[[:space:]]*"[^"]+"' "$config_file" 2>/dev/null | \
+      sed 's/.*:[[:space:]]*"\([^"]*\)"/\1/')"})
+  done
+
+  # Remove duplicates
+  models=(${(u)models})
+
+  compadd -a models
+}
+
 _claude() {
   local curcontext="$curcontext" state line
   typeset -A opt_args
@@ -103,10 +143,10 @@ _claude() {
     '(-r --resume)'{-r,--resume}'[Halda áfram samtali - tilgreina lotu-auðkenni eða velja gagnvirkt]:sessionId:_claude_sessions'
     '--fork-session[Búa til nýtt lotu-auðkenni í stað þess að endurnýta upprunalegt lotu-auðkenni við áframhald (með --resume eða --continue)]'
     '--no-session-persistence[Slökkva á lotuvistun - lotur verða ekki vistaðar (aðeins --print)]'
-    '--model[Líkan fyrir núverandi lotu. Tilgreina samnefni fyrir nýjasta líkan (t.d. '\''sonnet'\'' eða '\''opus'\'')]:model:'
-    '--agent[Umboðsmaður fyrir núverandi lotu. Hunsar '\''agent'\'' stillinguna]:agent:'
+    '--model[Líkan fyrir núverandi lotu. Tilgreina samnefni fyrir nýjasta líkan (t.d. '\''sonnet'\'' eða '\''opus'\'')]:model:_claude_model_names'
+    '--agent[Umboðsmaður fyrir núverandi lotu. Hunsar '\''agent'\'' stillinguna]:agent:_claude_agent_names'
     '--betas[Beta hausar til að taka með í API beiðnum (aðeins fyrir API lyklanotendur)]:betas:'
-    '--fallback-model[Virkja sjálfvirka varalíkan þegar sjálfgefið líkan er ofhlaðið (aðeins --print)]:model:'
+    '--fallback-model[Virkja sjálfvirka varalíkan þegar sjálfgefið líkan er ofhlaðið (aðeins --print)]:model:_claude_model_names'
     '--settings[Slóð að stillingum JSON skrá eða JSON strengi til að hlaða viðbótar stillingum]:file-or-json:_files'
     '--add-dir[Viðbótar möppur til að leyfa verkfæra aðgang]:directories:_directories'
     '--ide[Tengja sjálfkrafa við IDE við ræsingu ef nákvæmlega eitt gilt IDE er tiltækt]'
@@ -430,7 +470,7 @@ _claude_install() {
 _claude_agents() {
   _arguments \
     '*--add-dir[Viðbótar mappa til að leyfa verkfæra aðgang í útsendum lotum]:directory:_directories' \
-    '--agent[Sjálfgefinn umboðsmaður fyrir lotur útsendar úr umboðsmannasýn]:agent:' \
+    '--agent[Sjálfgefinn umboðsmaður fyrir lotur útsendar úr umboðsmannasýn]:agent:_claude_agent_names' \
     '--all[Með --json: einnig taka með kláraðar bakgrunnslotur]' \
     '--allow-dangerously-skip-permissions[Gera bypass-permissions ham tiltækan fyrir útsendar lotur]' \
     '--cwd[Sýna aðeins bakgrunnslotur sem hófust undir slóð]:path:_directories' \
@@ -438,7 +478,7 @@ _claude_agents() {
     '--effort[Sjálfgefið áreynslustig fyrir útsendar lotur]:level:(low medium high xhigh max)' \
     '--json[Prenta virkar lotur sem JSON fylki og hætta]' \
     '*--mcp-config[MCP-þjóns stilling til að beita á útsendar lotur]:config:' \
-    '--model[Sjálfgefið líkan fyrir lotur útsendar úr umboðsmannasýn]:model:' \
+    '--model[Sjálfgefið líkan fyrir lotur útsendar úr umboðsmannasýn]:model:_claude_model_names' \
     '--permission-mode[Sjálfgefinn heimildarhamur fyrir útsendar lotur]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)' \
     '*--plugin-dir[Hlaða viðbótum úr möppu fyrir umboðsmannasýn og útsendar lotur]:path:_directories' \
     '--setting-sources[Kommu aðskilinn listi yfir stillingarheimildir til að hlaða (user, project, local)]:sources:' \

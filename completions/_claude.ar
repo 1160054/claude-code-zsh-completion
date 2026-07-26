@@ -56,6 +56,46 @@ _claude_sessions() {
   compadd -a sessions
 }
 
+_claude_agent_names() {
+  local -a agents
+  local agent_dir agent_file name
+
+  # User-level and project-level agent definitions
+  for agent_dir in ~/.claude/agents ~/.config/claude/agents .claude/agents; do
+    [[ -d "$agent_dir" ]] || continue
+
+    for agent_file in ${agent_dir}/*.md(N); do
+      # Prefer the name declared in the front matter, fall back to the filename
+      name=$(sed -n '1,10{s/^name:[[:space:]]*\([^[:space:]]*\).*/\1/p;}' "$agent_file" 2>/dev/null | head -1)
+      agents+=(${name:-${agent_file:t:r}})
+    done
+  done
+
+  agents=(${(u)agents})
+
+  compadd -a agents
+}
+
+_claude_model_names() {
+  local -a models
+  local config_file
+
+  # Aliases always resolve to the latest model of that family
+  models=(default fable opus sonnet haiku)
+
+  # Full model names the user has already configured
+  for config_file in ~/.claude/settings.json ~/.claude/settings.local.json ~/.claude.json; do
+    [[ -f "$config_file" ]] || continue
+    models+=(${(f)"$(grep -oE '"(model|fallbackModel)"[[:space:]]*:[[:space:]]*"[^"]+"' "$config_file" 2>/dev/null | \
+      sed 's/.*:[[:space:]]*"\([^"]*\)"/\1/')"})
+  done
+
+  # Remove duplicates
+  models=(${(u)models})
+
+  compadd -a models
+}
+
 _claude() {
   local curcontext="$curcontext" state line
   typeset -A opt_args
@@ -103,10 +143,10 @@ _claude() {
     '(-r --resume)'{-r,--resume}'[استئناف محادثة - حدد معرف الجلسة أو اختر تفاعلياً]:sessionId:_claude_sessions'
     '--fork-session[إنشاء معرف جلسة جديد بدلاً من إعادة استخدام معرف الجلسة الأصلي عند الاستئناف (مع --resume أو --continue)]'
     '--no-session-persistence[تعطيل استمرارية الجلسة - لن يتم حفظ الجلسات (--print فقط)]'
-    '--model[النموذج للجلسة الحالية. حدد اسماً مستعاراً لأحدث نموذج (مثل '\''sonnet'\'' أو '\''opus'\'')]:model:'
-    '--agent[الوكيل للجلسة الحالية. يتجاوز إعداد '\''agent'\'']:agent:'
+    '--model[النموذج للجلسة الحالية. حدد اسماً مستعاراً لأحدث نموذج (مثل '\''sonnet'\'' أو '\''opus'\'')]:model:_claude_model_names'
+    '--agent[الوكيل للجلسة الحالية. يتجاوز إعداد '\''agent'\'']:agent:_claude_agent_names'
     '--betas[رؤوس Beta لتضمينها في طلبات API (مستخدمو مفتاح API فقط)]:betas:'
-    '--fallback-model[تمكين الرجوع التلقائي إلى النموذج المحدد عند تحميل النموذج الافتراضي زائد (--print فقط)]:model:'
+    '--fallback-model[تمكين الرجوع التلقائي إلى النموذج المحدد عند تحميل النموذج الافتراضي زائد (--print فقط)]:model:_claude_model_names'
     '--settings[مسار ملف JSON للإعدادات أو سلسلة JSON لتحميل إعدادات إضافية]:file-or-json:_files'
     '--add-dir[دلائل إضافية للسماح بالوصول للأدوات]:directories:_directories'
     '--ide[الاتصال التلقائي بـ IDE عند بدء التشغيل إذا كان هناك IDE صالح واحد بالضبط متاحاً]'
@@ -430,7 +470,7 @@ _claude_install() {
 _claude_agents() {
   _arguments \
     '*--add-dir[دليل إضافي للسماح بوصول الأدوات في الجلسات المرسلة]:directory:_directories' \
-    '--agent[الوكيل الافتراضي للجلسات المرسلة من عرض الوكيل]:agent:' \
+    '--agent[الوكيل الافتراضي للجلسات المرسلة من عرض الوكيل]:agent:_claude_agent_names' \
     '--all[مع --json: تضمين جلسات الخلفية المكتملة أيضاً]' \
     '--allow-dangerously-skip-permissions[جعل وضع تجاوز الأذونات متاحاً للجلسات المرسلة]' \
     '--cwd[عرض جلسات الخلفية التي بدأت ضمن المسار فقط]:path:_directories' \
@@ -438,7 +478,7 @@ _claude_agents() {
     '--effort[مستوى الجهد الافتراضي للجلسات المرسلة]:level:(low medium high xhigh max)' \
     '--json[طباعة الجلسات النشطة كمصفوفة JSON والخروج]' \
     '*--mcp-config[تكوين خادم MCP لتطبيقه على الجلسات المرسلة]:config:' \
-    '--model[النموذج الافتراضي للجلسات المرسلة من عرض الوكيل]:model:' \
+    '--model[النموذج الافتراضي للجلسات المرسلة من عرض الوكيل]:model:_claude_model_names' \
     '--permission-mode[وضع الأذونات الافتراضي للجلسات المرسلة]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)' \
     '*--plugin-dir[تحميل الإضافات من دليل لعرض الوكيل والجلسات المرسلة]:path:_directories' \
     '--setting-sources[قائمة مفصولة بفواصل لمصادر الإعدادات المراد تحميلها (user, project, local)]:sources:' \

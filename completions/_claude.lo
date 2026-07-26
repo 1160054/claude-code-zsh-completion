@@ -56,6 +56,46 @@ _claude_sessions() {
   compadd -a sessions
 }
 
+_claude_agent_names() {
+  local -a agents
+  local agent_dir agent_file name
+
+  # User-level and project-level agent definitions
+  for agent_dir in ~/.claude/agents ~/.config/claude/agents .claude/agents; do
+    [[ -d "$agent_dir" ]] || continue
+
+    for agent_file in ${agent_dir}/*.md(N); do
+      # Prefer the name declared in the front matter, fall back to the filename
+      name=$(sed -n '1,10{s/^name:[[:space:]]*\([^[:space:]]*\).*/\1/p;}' "$agent_file" 2>/dev/null | head -1)
+      agents+=(${name:-${agent_file:t:r}})
+    done
+  done
+
+  agents=(${(u)agents})
+
+  compadd -a agents
+}
+
+_claude_model_names() {
+  local -a models
+  local config_file
+
+  # Aliases always resolve to the latest model of that family
+  models=(default fable opus sonnet haiku)
+
+  # Full model names the user has already configured
+  for config_file in ~/.claude/settings.json ~/.claude/settings.local.json ~/.claude.json; do
+    [[ -f "$config_file" ]] || continue
+    models+=(${(f)"$(grep -oE '"(model|fallbackModel)"[[:space:]]*:[[:space:]]*"[^"]+"' "$config_file" 2>/dev/null | \
+      sed 's/.*:[[:space:]]*"\([^"]*\)"/\1/')"})
+  done
+
+  # Remove duplicates
+  models=(${(u)models})
+
+  compadd -a models
+}
+
 _claude() {
   local curcontext="$curcontext" state line
   typeset -A opt_args
@@ -103,10 +143,10 @@ _claude() {
     '(-r --resume)'{-r,--resume}'[ສືບຕໍ່ການສົນທະນາ - ລະບຸ ID ເຊສຊັນ ຫຼືເລືອກແບບໂຕ້ຕອບ]:sessionId:_claude_sessions'
     '--fork-session[ສ້າງ ID ເຊສຊັນໃໝ່ແທນການໃຊ້ຄືນ ID ເຊສຊັນດັ້ງເດີມ ເມື່ອສືບຕໍ່ (ກັບ --resume ຫຼື --continue)]'
     '--no-session-persistence[ປິດການບັນທຶກເຊສຊັນ - ເຊສຊັນຈະບໍ່ຖືກບັນທຶກ (ພຽງແຕ່ --print)]'
-    '--model[ຮູບແບບສຳລັບເຊສຊັນປັດຈຸບັນ. ລະບຸນາມແຝງສຳລັບຮູບແບບຫຼ້າສຸດ (ຕົວຢ່າງ '\''sonnet'\'' ຫຼື '\''opus'\'')]:model:'
-    '--agent[ຕົວແທນສຳລັບເຊສຊັນປັດຈຸບັນ. ຂຽນທັບການຕັ້ງຄ່າ '\''agent'\'']:agent:'
+    '--model[ຮູບແບບສຳລັບເຊສຊັນປັດຈຸບັນ. ລະບຸນາມແຝງສຳລັບຮູບແບບຫຼ້າສຸດ (ຕົວຢ່າງ '\''sonnet'\'' ຫຼື '\''opus'\'')]:model:_claude_model_names'
+    '--agent[ຕົວແທນສຳລັບເຊສຊັນປັດຈຸບັນ. ຂຽນທັບການຕັ້ງຄ່າ '\''agent'\'']:agent:_claude_agent_names'
     '--betas[ຫົວ Beta ທີ່ຈະລວມໃນຄຳຂໍ API (ພຽງແຕ່ຜູ້ໃຊ້ API key)]:betas:'
-    '--fallback-model[ເປີດໃຊ້ການສຳຮອງອັດຕະໂນມັດໄປຫາຮູບແບບທີ່ລະບຸ ເມື່ອຮູບແບບເລີ່ມຕົ້ນໂຫລດເກີນ (ພຽງແຕ່ --print)]:model:'
+    '--fallback-model[ເປີດໃຊ້ການສຳຮອງອັດຕະໂນມັດໄປຫາຮູບແບບທີ່ລະບຸ ເມື່ອຮູບແບບເລີ່ມຕົ້ນໂຫລດເກີນ (ພຽງແຕ່ --print)]:model:_claude_model_names'
     '--settings[ເສັ້ນທາງໄຟລ໌ JSON ຂອງການຕັ້ງຄ່າ ຫຼືສະຕຣິງ JSON ເພື່ອໂຫລດການຕັ້ງຄ່າເພີ່ມເຕີມ]:file-or-json:_files'
     '--add-dir[ໂຟນເດີເພີ່ມເຕີມເພື່ອອະນຸຍາດການເຂົ້າເຖິງເຄື່ອງມື]:directories:_directories'
     '--ide[ເຊື່ອມຕໍ່ກັບ IDE ອັດຕະໂນມັດເມື່ອເລີ່ມຕົ້ນ ຖ້າມີ IDE ທີ່ຖືກຕ້ອງພຽງອັນດຽວ]'
@@ -430,7 +470,7 @@ _claude_install() {
 _claude_agents() {
   _arguments \
     '*--add-dir[ໂຟນເດີເພີ່ມເຕີມເພື່ອອະນຸຍາດການເຂົ້າເຖິງເຄື່ອງມືໃນເຊສຊັນທີ່ຖືກສົ່ງໄປ]:directory:_directories' \
-    '--agent[ຕົວແທນເລີ່ມຕົ້ນສຳລັບເຊສຊັນທີ່ຖືກສົ່ງຈາກມຸມມອງຕົວແທນ]:agent:' \
+    '--agent[ຕົວແທນເລີ່ມຕົ້ນສຳລັບເຊສຊັນທີ່ຖືກສົ່ງຈາກມຸມມອງຕົວແທນ]:agent:_claude_agent_names' \
     '--all[ກັບ --json: ລວມເຊສຊັນພື້ນຫຼັງທີ່ສຳເລັດແລ້ວນຳ]' \
     '--allow-dangerously-skip-permissions[ເຮັດໃຫ້ໂໝດຂ້າມການອະນຸຍາດໃຊ້ໄດ້ກັບເຊສຊັນທີ່ຖືກສົ່ງໄປ]' \
     '--cwd[ສະແດງພຽງແຕ່ເຊສຊັນພື້ນຫຼັງທີ່ເລີ່ມພາຍໃຕ້ເສັ້ນທາງ]:path:_directories' \
@@ -438,7 +478,7 @@ _claude_agents() {
     '--effort[ລະດັບຄວາມພະຍາຍາມເລີ່ມຕົ້ນສຳລັບເຊສຊັນທີ່ຖືກສົ່ງໄປ]:level:(low medium high xhigh max)' \
     '--json[ພິມເຊສຊັນທີ່ໃຊ້ງານຢູ່ເປັນ JSON array ແລະອອກ]' \
     '*--mcp-config[ການຕັ້ງຄ່າເຊີບເວີ MCP ທີ່ຈະນຳໃຊ້ກັບເຊສຊັນທີ່ຖືກສົ່ງໄປ]:config:' \
-    '--model[ຮູບແບບເລີ່ມຕົ້ນສຳລັບເຊສຊັນທີ່ຖືກສົ່ງຈາກມຸມມອງຕົວແທນ]:model:' \
+    '--model[ຮູບແບບເລີ່ມຕົ້ນສຳລັບເຊສຊັນທີ່ຖືກສົ່ງຈາກມຸມມອງຕົວແທນ]:model:_claude_model_names' \
     '--permission-mode[ໂໝດການອະນຸຍາດເລີ່ມຕົ້ນສຳລັບເຊສຊັນທີ່ຖືກສົ່ງໄປ]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)' \
     '*--plugin-dir[ໂຫລດໂປລແກຼມເສີມຈາກໂຟນເດີສຳລັບມຸມມອງຕົວແທນ ແລະເຊສຊັນທີ່ຖືກສົ່ງໄປ]:path:_directories' \
     '--setting-sources[ລາຍຊື່ແຫຼ່ງການຕັ້ງຄ່າທີ່ຈະໂຫລດ (ແຍກດ້ວຍເຄື່ອງໝາຍຈຸດຄໍາ: user, project, local)]:sources:' \

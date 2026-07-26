@@ -56,6 +56,46 @@ _claude_sessions() {
   compadd -a sessions
 }
 
+_claude_agent_names() {
+  local -a agents
+  local agent_dir agent_file name
+
+  # User-level and project-level agent definitions
+  for agent_dir in ~/.claude/agents ~/.config/claude/agents .claude/agents; do
+    [[ -d "$agent_dir" ]] || continue
+
+    for agent_file in ${agent_dir}/*.md(N); do
+      # Prefer the name declared in the front matter, fall back to the filename
+      name=$(sed -n '1,10{s/^name:[[:space:]]*\([^[:space:]]*\).*/\1/p;}' "$agent_file" 2>/dev/null | head -1)
+      agents+=(${name:-${agent_file:t:r}})
+    done
+  done
+
+  agents=(${(u)agents})
+
+  compadd -a agents
+}
+
+_claude_model_names() {
+  local -a models
+  local config_file
+
+  # Aliases always resolve to the latest model of that family
+  models=(default fable opus sonnet haiku)
+
+  # Full model names the user has already configured
+  for config_file in ~/.claude/settings.json ~/.claude/settings.local.json ~/.claude.json; do
+    [[ -f "$config_file" ]] || continue
+    models+=(${(f)"$(grep -oE '"(model|fallbackModel)"[[:space:]]*:[[:space:]]*"[^"]+"' "$config_file" 2>/dev/null | \
+      sed 's/.*:[[:space:]]*"\([^"]*\)"/\1/')"})
+  done
+
+  # Remove duplicates
+  models=(${(u)models})
+
+  compadd -a models
+}
+
 _claude() {
   local curcontext="$curcontext" state line
   typeset -A opt_args
@@ -103,10 +143,10 @@ _claude() {
     '(-r --resume)'{-r,--resume}'[Сөйләшүне дәвам итү - сессия идентификаторын күрсәтегез яки интерактив сайлагыз]:sessionId:_claude_sessions'
     '--fork-session[Дәвам иткәндә оригиналь сессия идентификаторын кабат кулланмыйча яңа сессия идентификаторы ясау (--resume яки --continue белән)]'
     '--no-session-persistence[Сессия саклауны сүндерү - сессияләр сакланмаячак (тик --print)]'
-    '--model[Агымдагы сессия өчен модель. Иң яңа модель өчен лакап исем күрсәтегез (мәсәлән, '\''sonnet'\'' яки '\''opus'\'')]:model:'
-    '--agent[Агымдагы сессия өчен агент. '\''agent'\'' көйләвен кире кага]:agent:'
+    '--model[Агымдагы сессия өчен модель. Иң яңа модель өчен лакап исем күрсәтегез (мәсәлән, '\''sonnet'\'' яки '\''opus'\'')]:model:_claude_model_names'
+    '--agent[Агымдагы сессия өчен агент. '\''agent'\'' көйләвен кире кага]:agent:_claude_agent_names'
     '--betas[API запросларына кертеләчәк бета башлыклары (тик API ачкычы кулланучылар)]:betas:'
-    '--fallback-model[Килешенгән модель артык йөкләнгәндә күрсәтелгән модельгә автомат кире кайтуны кабызу (тик --print)]:model:'
+    '--fallback-model[Килешенгән модель артык йөкләнгәндә күрсәтелгән модельгә автомат кире кайтуны кабызу (тик --print)]:model:_claude_model_names'
     '--settings[Өстәмә көйләүләр йөкләү өчен көйләүләр JSON файлы яки JSON юл юлы]:file-or-json:_files'
     '--add-dir[Корал керүенә рөхсәт бирү өчен өстәмә каталоглар]:directories:_directories'
     '--ide[Башлангычта төгәл бер дөрес IDE булса, автомат рәвештә IDE-га тоташу]'
@@ -430,7 +470,7 @@ _claude_install() {
 _claude_agents() {
   _arguments \
     '*--add-dir[Җибәрелгән сессияләрдә корал керүенә рөхсәт бирү өчен өстәмә каталог]:directory:_directories' \
-    '--agent[Агент күренешеннән җибәрелгән сессияләр өчен килешенгән агент]:agent:' \
+    '--agent[Агент күренешеннән җибәрелгән сессияләр өчен килешенгән агент]:agent:_claude_agent_names' \
     '--all[--json белән: тәмамланган фон сессияләрен дә кертү]' \
     '--allow-dangerously-skip-permissions[Җибәрелгән сессияләргә рөхсәт-узу режимын мөмкин итү]' \
     '--cwd[Тик юл астында башланган фон сессияләрен күрсәтү]:path:_directories' \
@@ -438,7 +478,7 @@ _claude_agents() {
     '--effort[Җибәрелгән сессияләр өчен килешенгән көч дәрәҗәсе]:level:(low medium high xhigh max)' \
     '--json[Актив сессияләрне JSON массивы буларак бастыру һәм чыгу]' \
     '*--mcp-config[Җибәрелгән сессияләргә куллану өчен MCP сервер көйләүе]:config:' \
-    '--model[Агент күренешеннән җибәрелгән сессияләр өчен килешенгән модель]:model:' \
+    '--model[Агент күренешеннән җибәрелгән сессияләр өчен килешенгән модель]:model:_claude_model_names' \
     '--permission-mode[Җибәрелгән сессияләр өчен килешенгән рөхсәт режимы]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)' \
     '*--plugin-dir[Агент күренеше һәм җибәрелгән сессияләр өчен каталогтан плагиннар йөкләү]:path:_directories' \
     '--setting-sources[Йөкләү өчен өтер белән аерылган көйләү чыганаклары исемлеге (user, project, local)]:sources:' \

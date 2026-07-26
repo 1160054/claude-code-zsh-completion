@@ -56,6 +56,46 @@ _claude_sessions() {
   compadd -a sessions
 }
 
+_claude_agent_names() {
+  local -a agents
+  local agent_dir agent_file name
+
+  # User-level and project-level agent definitions
+  for agent_dir in ~/.claude/agents ~/.config/claude/agents .claude/agents; do
+    [[ -d "$agent_dir" ]] || continue
+
+    for agent_file in ${agent_dir}/*.md(N); do
+      # Prefer the name declared in the front matter, fall back to the filename
+      name=$(sed -n '1,10{s/^name:[[:space:]]*\([^[:space:]]*\).*/\1/p;}' "$agent_file" 2>/dev/null | head -1)
+      agents+=(${name:-${agent_file:t:r}})
+    done
+  done
+
+  agents=(${(u)agents})
+
+  compadd -a agents
+}
+
+_claude_model_names() {
+  local -a models
+  local config_file
+
+  # Aliases always resolve to the latest model of that family
+  models=(default fable opus sonnet haiku)
+
+  # Full model names the user has already configured
+  for config_file in ~/.claude/settings.json ~/.claude/settings.local.json ~/.claude.json; do
+    [[ -f "$config_file" ]] || continue
+    models+=(${(f)"$(grep -oE '"(model|fallbackModel)"[[:space:]]*:[[:space:]]*"[^"]+"' "$config_file" 2>/dev/null | \
+      sed 's/.*:[[:space:]]*"\([^"]*\)"/\1/')"})
+  done
+
+  # Remove duplicates
+  models=(${(u)models})
+
+  compadd -a models
+}
+
 _claude() {
   local curcontext="$curcontext" state line
   typeset -A opt_args
@@ -103,10 +143,10 @@ _claude() {
     '(-r --resume)'{-r,--resume}'[กลับมาสนทนาต่อ - ระบุ ID เซสชันหรือเลือกแบบโต้ตอบ]:sessionId:_claude_sessions'
     '--fork-session[สร้าง ID เซสชันใหม่แทนที่จะใช้ซ้ำเมื่อกลับมาสนทนาต่อ (ใช้กับ --resume หรือ --continue)]'
     '--no-session-persistence[ปิดการคงอยู่ของเซสชัน - เซสชันจะไม่ถูกบันทึก (--print เท่านั้น)]'
-    '--model[โมเดลสำหรับเซสชันปัจจุบัน ระบุชื่อสั้นสำหรับโมเดลล่าสุด (เช่น '\''sonnet'\'' หรือ '\''opus'\'')]:model:'
-    '--agent[เอเจนต์สำหรับเซสชันปัจจุบัน แทนที่การตั้งค่า '\''agent'\'']:agent:'
+    '--model[โมเดลสำหรับเซสชันปัจจุบัน ระบุชื่อสั้นสำหรับโมเดลล่าสุด (เช่น '\''sonnet'\'' หรือ '\''opus'\'')]:model:_claude_model_names'
+    '--agent[เอเจนต์สำหรับเซสชันปัจจุบัน แทนที่การตั้งค่า '\''agent'\'']:agent:_claude_agent_names'
     '--betas[เฮดเดอร์เบต้าที่จะรวมในคำขอ API (สำหรับผู้ใช้ API key เท่านั้น)]:betas:'
-    '--fallback-model[เปิดใช้งานการสำรองอัตโนมัติไปยังโมเดลที่ระบุเมื่อโมเดลเริ่มต้นเต็มระบบ (--print เท่านั้น)]:model:'
+    '--fallback-model[เปิดใช้งานการสำรองอัตโนมัติไปยังโมเดลที่ระบุเมื่อโมเดลเริ่มต้นเต็มระบบ (--print เท่านั้น)]:model:_claude_model_names'
     '--settings[เส้นทางไปยังไฟล์ JSON ของการตั้งค่าหรือสตริง JSON เพื่อโหลดการตั้งค่าเพิ่มเติม]:file-or-json:_files'
     '--add-dir[ไดเรกทอรีเพิ่มเติมเพื่ออนุญาตการเข้าถึงเครื่องมือ]:directories:_directories'
     '--ide[เชื่อมต่อกับ IDE อัตโนมัติเมื่อเริ่มต้นหาก IDE ที่ใช้งานได้มีเพียงหนึ่งตัว]'
@@ -430,7 +470,7 @@ _claude_install() {
 _claude_agents() {
   _arguments \
     '*--add-dir[ไดเรกทอรีเพิ่มเติมเพื่ออนุญาตการเข้าถึงเครื่องมือในเซสชันที่ถูกส่งไป]:directory:_directories' \
-    '--agent[เอเจนต์เริ่มต้นสำหรับเซสชันที่ส่งจากมุมมองเอเจนต์]:agent:' \
+    '--agent[เอเจนต์เริ่มต้นสำหรับเซสชันที่ส่งจากมุมมองเอเจนต์]:agent:_claude_agent_names' \
     '--all[ใช้กับ --json: รวมเซสชันเบื้องหลังที่เสร็จสมบูรณ์แล้วด้วย]' \
     '--allow-dangerously-skip-permissions[ทำให้โหมดข้ามการตรวจสอบสิทธิ์พร้อมใช้งานสำหรับเซสชันที่ถูกส่งไป]' \
     '--cwd[แสดงเฉพาะเซสชันเบื้องหลังที่เริ่มต้นภายใต้เส้นทาง]:path:_directories' \
@@ -438,7 +478,7 @@ _claude_agents() {
     '--effort[ระดับความพยายามเริ่มต้นสำหรับเซสชันที่ถูกส่งไป]:level:(low medium high xhigh max)' \
     '--json[แสดงเซสชันที่ทำงานอยู่เป็นอาร์เรย์ JSON แล้วออก]' \
     '*--mcp-config[การกำหนดค่าเซิร์ฟเวอร์ MCP ที่จะใช้กับเซสชันที่ถูกส่งไป]:config:' \
-    '--model[โมเดลเริ่มต้นสำหรับเซสชันที่ส่งจากมุมมองเอเจนต์]:model:' \
+    '--model[โมเดลเริ่มต้นสำหรับเซสชันที่ส่งจากมุมมองเอเจนต์]:model:_claude_model_names' \
     '--permission-mode[โหมดการอนุญาตเริ่มต้นสำหรับเซสชันที่ถูกส่งไป]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)' \
     '*--plugin-dir[โหลดปลั๊กอินจากไดเรกทอรีสำหรับมุมมองเอเจนต์และเซสชันที่ถูกส่งไป]:path:_directories' \
     '--setting-sources[รายการแหล่งที่มาของการตั้งค่าที่จะโหลดคอมมาคั่น (user, project, local)]:sources:' \

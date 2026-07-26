@@ -56,6 +56,46 @@ _claude_sessions() {
   compadd -a sessions
 }
 
+_claude_agent_names() {
+  local -a agents
+  local agent_dir agent_file name
+
+  # User-level and project-level agent definitions
+  for agent_dir in ~/.claude/agents ~/.config/claude/agents .claude/agents; do
+    [[ -d "$agent_dir" ]] || continue
+
+    for agent_file in ${agent_dir}/*.md(N); do
+      # Prefer the name declared in the front matter, fall back to the filename
+      name=$(sed -n '1,10{s/^name:[[:space:]]*\([^[:space:]]*\).*/\1/p;}' "$agent_file" 2>/dev/null | head -1)
+      agents+=(${name:-${agent_file:t:r}})
+    done
+  done
+
+  agents=(${(u)agents})
+
+  compadd -a agents
+}
+
+_claude_model_names() {
+  local -a models
+  local config_file
+
+  # Aliases always resolve to the latest model of that family
+  models=(default fable opus sonnet haiku)
+
+  # Full model names the user has already configured
+  for config_file in ~/.claude/settings.json ~/.claude/settings.local.json ~/.claude.json; do
+    [[ -f "$config_file" ]] || continue
+    models+=(${(f)"$(grep -oE '"(model|fallbackModel)"[[:space:]]*:[[:space:]]*"[^"]+"' "$config_file" 2>/dev/null | \
+      sed 's/.*:[[:space:]]*"\([^"]*\)"/\1/')"})
+  done
+
+  # Remove duplicates
+  models=(${(u)models})
+
+  compadd -a models
+}
+
 _claude() {
   local curcontext="$curcontext" state line
   typeset -A opt_args
@@ -103,10 +143,10 @@ _claude() {
     '(-r --resume)'{-r,--resume}'[Bir konuşmayı sürdür - oturum kimliği belirt veya etkileşimli seç]:sessionId:_claude_sessions'
     '--fork-session[Sürdürürken orijinal oturum kimliğini yeniden kullanmak yerine yeni oturum kimliği oluştur (--resume veya --continue ile)]'
     '--no-session-persistence[Oturum kalıcılığını devre dışı bırak - oturumlar kaydedilmez (yalnızca --print)]'
-    '--model[Mevcut oturum için model. En son model için takma ad belirt (örn. '\''sonnet'\'' veya '\''opus'\'')]:model:'
-    '--agent[Mevcut oturum için ajan. '\''agent'\'' ayarını geçersiz kılar]:agent:'
+    '--model[Mevcut oturum için model. En son model için takma ad belirt (örn. '\''sonnet'\'' veya '\''opus'\'')]:model:_claude_model_names'
+    '--agent[Mevcut oturum için ajan. '\''agent'\'' ayarını geçersiz kılar]:agent:_claude_agent_names'
     '--betas[API isteklerine dahil edilecek beta başlıkları (yalnızca API anahtarı kullanıcıları)]:betas:'
-    '--fallback-model[Varsayılan model aşırı yüklendiğinde belirtilen modele otomatik geri dönüşü etkinleştir (yalnızca --print)]:model:'
+    '--fallback-model[Varsayılan model aşırı yüklendiğinde belirtilen modele otomatik geri dönüşü etkinleştir (yalnızca --print)]:model:_claude_model_names'
     '--settings[Ek ayarları yüklemek için ayarlar JSON dosyasının yolu veya JSON dizesi]:file-or-json:_files'
     '--add-dir[Araç erişimine izin verilecek ek dizinler]:directories:_directories'
     '--ide[Tam olarak bir geçerli IDE mevcutsa başlangıçta IDE ile otomatik bağlan]'
@@ -430,7 +470,7 @@ _claude_install() {
 _claude_agents() {
   _arguments \
     '*--add-dir[Görevlendirilen oturumlarda araç erişimine izin verilecek ek dizin]:directory:_directories' \
-    '--agent[Ajan görünümünden görevlendirilen oturumlar için varsayılan ajan]:agent:' \
+    '--agent[Ajan görünümünden görevlendirilen oturumlar için varsayılan ajan]:agent:_claude_agent_names' \
     '--all[--json ile: tamamlanmış arka plan oturumlarını da dahil et]' \
     '--allow-dangerously-skip-permissions[Görevlendirilen oturumlarda izinleri atlama modunu kullanılabilir yap]' \
     '--cwd[Yalnızca yol altında başlatılan arka plan oturumlarını göster]:path:_directories' \
@@ -438,7 +478,7 @@ _claude_agents() {
     '--effort[Görevlendirilen oturumlar için varsayılan çaba düzeyi]:level:(low medium high xhigh max)' \
     '--json[Etkin oturumları JSON dizisi olarak yazdır ve çık]' \
     '*--mcp-config[Görevlendirilen oturumlara uygulanacak MCP sunucu yapılandırması]:config:' \
-    '--model[Ajan görünümünden görevlendirilen oturumlar için varsayılan model]:model:' \
+    '--model[Ajan görünümünden görevlendirilen oturumlar için varsayılan model]:model:_claude_model_names' \
     '--permission-mode[Görevlendirilen oturumlar için varsayılan izin modu]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)' \
     '*--plugin-dir[Ajan görünümü ve görevlendirilen oturumlar için dizinden eklenti yükle]:path:_directories' \
     '--setting-sources[Yüklenecek ayar kaynaklarının virgülle ayrılmış listesi (user, project, local)]:sources:' \

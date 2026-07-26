@@ -56,6 +56,46 @@ _claude_sessions() {
   compadd -a sessions
 }
 
+_claude_agent_names() {
+  local -a agents
+  local agent_dir agent_file name
+
+  # User-level and project-level agent definitions
+  for agent_dir in ~/.claude/agents ~/.config/claude/agents .claude/agents; do
+    [[ -d "$agent_dir" ]] || continue
+
+    for agent_file in ${agent_dir}/*.md(N); do
+      # Prefer the name declared in the front matter, fall back to the filename
+      name=$(sed -n '1,10{s/^name:[[:space:]]*\([^[:space:]]*\).*/\1/p;}' "$agent_file" 2>/dev/null | head -1)
+      agents+=(${name:-${agent_file:t:r}})
+    done
+  done
+
+  agents=(${(u)agents})
+
+  compadd -a agents
+}
+
+_claude_model_names() {
+  local -a models
+  local config_file
+
+  # Aliases always resolve to the latest model of that family
+  models=(default fable opus sonnet haiku)
+
+  # Full model names the user has already configured
+  for config_file in ~/.claude/settings.json ~/.claude/settings.local.json ~/.claude.json; do
+    [[ -f "$config_file" ]] || continue
+    models+=(${(f)"$(grep -oE '"(model|fallbackModel)"[[:space:]]*:[[:space:]]*"[^"]+"' "$config_file" 2>/dev/null | \
+      sed 's/.*:[[:space:]]*"\([^"]*\)"/\1/')"})
+  done
+
+  # Remove duplicates
+  models=(${(u)models})
+
+  compadd -a models
+}
+
 _claude() {
   local curcontext="$curcontext" state line
   typeset -A opt_args
@@ -103,10 +143,10 @@ _claude() {
     '(-r --resume)'{-r,--resume}'[Beszélgetés folytatása – adja meg a munkamenet-azonosítót vagy válasszon interaktívan]:sessionId:_claude_sessions'
     '--fork-session[Új munkamenet-azonosító létrehozása az eredeti munkamenet-azonosító újrafelhasználása helyett folytatáskor (a --resume vagy --continue mellett)]'
     '--no-session-persistence[A munkamenet-megőrzés letiltása – a munkamenetek nem lesznek mentve (csak --print)]'
-    '--model[Az aktuális munkamenet modellje. Adja meg a legújabb modell aliasát (pl. '\''sonnet'\'' vagy '\''opus'\'')]:model:'
-    '--agent[Az aktuális munkamenet ügynöke. Felülírja az '\''agent'\'' beállítást]:agent:'
+    '--model[Az aktuális munkamenet modellje. Adja meg a legújabb modell aliasát (pl. '\''sonnet'\'' vagy '\''opus'\'')]:model:_claude_model_names'
+    '--agent[Az aktuális munkamenet ügynöke. Felülírja az '\''agent'\'' beállítást]:agent:_claude_agent_names'
     '--betas[Az API-kérésekbe belefoglalandó béta fejlécek (csak API-kulcsot használóknak)]:betas:'
-    '--fallback-model[Automatikus visszaváltás engedélyezése a megadott modellre, ha az alapértelmezett modell túlterhelt (csak --print)]:model:'
+    '--fallback-model[Automatikus visszaváltás engedélyezése a megadott modellre, ha az alapértelmezett modell túlterhelt (csak --print)]:model:_claude_model_names'
     '--settings[A beállítások JSON-fájljának elérési útja vagy JSON-karakterlánc további beállítások betöltéséhez]:file-or-json:_files'
     '--add-dir[További könyvtárak, amelyekhez engedélyezhető az eszközhozzáférés]:directories:_directories'
     '--ide[Automatikus csatlakozás az IDE-hez indításkor, ha pontosan egy érvényes IDE érhető el]'
@@ -430,7 +470,7 @@ _claude_install() {
 _claude_agents() {
   _arguments \
     '*--add-dir[További könyvtár, amelyhez engedélyezhető az eszközhozzáférés az elindított munkamenetekben]:directory:_directories' \
-    '--agent[Az ügynöknézetből elindított munkamenetek alapértelmezett ügynöke]:agent:' \
+    '--agent[Az ügynöknézetből elindított munkamenetek alapértelmezett ügynöke]:agent:_claude_agent_names' \
     '--all[A --json mellett: a befejezett háttérmunkamenetek belefoglalása is]' \
     '--allow-dangerously-skip-permissions[Az engedélymegkerülő mód elérhetővé tétele az elindított munkamenetek számára]' \
     '--cwd[Csak a megadott útvonal alatt indított háttérmunkamenetek megjelenítése]:path:_directories' \
@@ -438,7 +478,7 @@ _claude_agents() {
     '--effort[Az elindított munkamenetek alapértelmezett erőfeszítési szintje]:level:(low medium high xhigh max)' \
     '--json[Az aktív munkamenetek kiírása JSON-tömbként és kilépés]' \
     '*--mcp-config[Az elindított munkamenetekre alkalmazandó MCP-kiszolgáló-konfiguráció]:config:' \
-    '--model[Az ügynöknézetből elindított munkamenetek alapértelmezett modellje]:model:' \
+    '--model[Az ügynöknézetből elindított munkamenetek alapértelmezett modellje]:model:_claude_model_names' \
     '--permission-mode[Az elindított munkamenetek alapértelmezett engedélymódja]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)' \
     '*--plugin-dir[Bővítmények betöltése egy könyvtárból az ügynöknézethez és az elindított munkamenetekhez]:path:_directories' \
     '--setting-sources[A betöltendő beállításforrások vesszővel elválasztott listája (user, project, local)]:sources:' \

@@ -56,6 +56,46 @@ _claude_sessions() {
   compadd -a sessions
 }
 
+_claude_agent_names() {
+  local -a agents
+  local agent_dir agent_file name
+
+  # User-level and project-level agent definitions
+  for agent_dir in ~/.claude/agents ~/.config/claude/agents .claude/agents; do
+    [[ -d "$agent_dir" ]] || continue
+
+    for agent_file in ${agent_dir}/*.md(N); do
+      # Prefer the name declared in the front matter, fall back to the filename
+      name=$(sed -n '1,10{s/^name:[[:space:]]*\([^[:space:]]*\).*/\1/p;}' "$agent_file" 2>/dev/null | head -1)
+      agents+=(${name:-${agent_file:t:r}})
+    done
+  done
+
+  agents=(${(u)agents})
+
+  compadd -a agents
+}
+
+_claude_model_names() {
+  local -a models
+  local config_file
+
+  # Aliases always resolve to the latest model of that family
+  models=(default fable opus sonnet haiku)
+
+  # Full model names the user has already configured
+  for config_file in ~/.claude/settings.json ~/.claude/settings.local.json ~/.claude.json; do
+    [[ -f "$config_file" ]] || continue
+    models+=(${(f)"$(grep -oE '"(model|fallbackModel)"[[:space:]]*:[[:space:]]*"[^"]+"' "$config_file" 2>/dev/null | \
+      sed 's/.*:[[:space:]]*"\([^"]*\)"/\1/')"})
+  done
+
+  # Remove duplicates
+  models=(${(u)models})
+
+  compadd -a models
+}
+
 _claude() {
   local curcontext="$curcontext" state line
   typeset -A opt_args
@@ -103,10 +143,10 @@ _claude() {
     '(-r --resume)'{-r,--resume}'[Reprender ina conversaziun - specificar l'\''ID da sessiun u tscherner interactivamain]:sessionId:_claude_sessions'
     '--fork-session[Crear in nov ID da sessiun empè da reutilisar l'\''ID da sessiun original cura reprender (cun --resume u --continue)]'
     '--no-session-persistence[Deactivar la persistenza da la sessiun - las sessiuns na vegnan betg memorisadas (mo --print)]'
-    '--model[Model per la sessiun actuala. Specificar in alias per il model pli nov (p.ex. '\''sonnet'\'' u '\''opus'\'')]:model:'
-    '--agent[Agenta per la sessiun actuala. Surscriva la configuraziun '\''agent'\'']:agent:'
+    '--model[Model per la sessiun actuala. Specificar in alias per il model pli nov (p.ex. '\''sonnet'\'' u '\''opus'\'')]:model:_claude_model_names'
+    '--agent[Agenta per la sessiun actuala. Surscriva la configuraziun '\''agent'\'']:agent:_claude_agent_names'
     '--betas[Headers beta d'\''includer en las dumondas API (mo per utilisaders cun clav API)]:betas:'
-    '--fallback-model[Activar il midament automatic al model specifichà sch'\''il model standard è surchargià (mo --print)]:model:'
+    '--fallback-model[Activar il midament automatic al model specifichà sch'\''il model standard è surchargià (mo --print)]:model:_claude_model_names'
     '--settings[Via ad in file JSON da configuraziun u ina chadaina JSON per chargiar configuraziuns supplementaras]:file-or-json:_files'
     '--add-dir[Directories supplementars per permetter l'\''access als utensils]:directories:_directories'
     '--ide[Connexiun automatica a l'\''IDE a l'\''aviaziun sche exactamain in IDE valid è disponibel]'
@@ -430,7 +470,7 @@ _claude_install() {
 _claude_agents() {
   _arguments \
     '*--add-dir[Directory supplementar per permetter l'\''access als utensils en sessiuns spedidas]:directory:_directories' \
-    '--agent[Agenta standard per sessiuns spedidas da la vista d'\''agentas]:agent:' \
+    '--agent[Agenta standard per sessiuns spedidas da la vista d'\''agentas]:agent:_claude_agent_names' \
     '--all[Cun --json: includer er sessiuns en fund terminadas]' \
     '--allow-dangerously-skip-permissions[Render disponibel il modus bypass-permissions per sessiuns spedidas]' \
     '--cwd[Mussar mo sessiuns en fund aviadas sut la via]:path:_directories' \
@@ -438,7 +478,7 @@ _claude_agents() {
     '--effort[Nivel d'\''effort standard per sessiuns spedidas]:level:(low medium high xhigh max)' \
     '--json[Stampar las sessiuns activas sco array JSON e finir]' \
     '*--mcp-config[Configuraziun dal server MCP d'\''applitgar a sessiuns spedidas]:config:' \
-    '--model[Model standard per sessiuns spedidas da la vista d'\''agentas]:model:' \
+    '--model[Model standard per sessiuns spedidas da la vista d'\''agentas]:model:_claude_model_names' \
     '--permission-mode[Modus da permissiuns standard per sessiuns spedidas]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)' \
     '*--plugin-dir[Chargiar plugins dad in directory per la vista d'\''agentas e sessiuns spedidas]:path:_directories' \
     '--setting-sources[Glista separada cun commas da funtaunas da configuraziun da chargiar (user, project, local)]:sources:' \

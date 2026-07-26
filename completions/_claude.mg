@@ -56,6 +56,46 @@ _claude_sessions() {
   compadd -a sessions
 }
 
+_claude_agent_names() {
+  local -a agents
+  local agent_dir agent_file name
+
+  # User-level and project-level agent definitions
+  for agent_dir in ~/.claude/agents ~/.config/claude/agents .claude/agents; do
+    [[ -d "$agent_dir" ]] || continue
+
+    for agent_file in ${agent_dir}/*.md(N); do
+      # Prefer the name declared in the front matter, fall back to the filename
+      name=$(sed -n '1,10{s/^name:[[:space:]]*\([^[:space:]]*\).*/\1/p;}' "$agent_file" 2>/dev/null | head -1)
+      agents+=(${name:-${agent_file:t:r}})
+    done
+  done
+
+  agents=(${(u)agents})
+
+  compadd -a agents
+}
+
+_claude_model_names() {
+  local -a models
+  local config_file
+
+  # Aliases always resolve to the latest model of that family
+  models=(default fable opus sonnet haiku)
+
+  # Full model names the user has already configured
+  for config_file in ~/.claude/settings.json ~/.claude/settings.local.json ~/.claude.json; do
+    [[ -f "$config_file" ]] || continue
+    models+=(${(f)"$(grep -oE '"(model|fallbackModel)"[[:space:]]*:[[:space:]]*"[^"]+"' "$config_file" 2>/dev/null | \
+      sed 's/.*:[[:space:]]*"\([^"]*\)"/\1/')"})
+  done
+
+  # Remove duplicates
+  models=(${(u)models})
+
+  compadd -a models
+}
+
 _claude() {
   local curcontext="$curcontext" state line
   typeset -A opt_args
@@ -103,10 +143,10 @@ _claude() {
     '(-r --resume)'{-r,--resume}'[Miverina amin ny resaka - manamarihana ID session na mifidy amin ny alalan ny fifandraisana]:sessionId:_claude_sessions'
     '--fork-session[Mamorona ID session vaovao fa tsy mampiasa indray ny ID session tany am-boalohany rehefa miverina (miaraka amin ny --resume na --continue)]'
     '--no-session-persistence[Manakana ny fitehirizana session - tsy hotehirizina ny session (--print ihany)]'
-    '--model[Modely ho an ny session ankehitriny. Mamaritra anarana hafa ho an ny modely farany (ohatra: "sonnet" na "opus")]:model:'
-    '--agent[Agent ho an ny session ankehitriny. Manova ny setting '\''agent'\'']:agent:'
+    '--model[Modely ho an ny session ankehitriny. Mamaritra anarana hafa ho an ny modely farany (ohatra: "sonnet" na "opus")]:model:_claude_model_names'
+    '--agent[Agent ho an ny session ankehitriny. Manova ny setting '\''agent'\'']:agent:_claude_agent_names'
     '--betas[Headers beta hampidirina amin ny fangatahana API (mpampiasa API key ihany)]:betas:'
-    '--fallback-model[Mamela fiovana automatique mankany amin ny modely voamarika rehefa be loatra ny modely default (--print ihany)]:model:'
+    '--fallback-model[Mamela fiovana automatique mankany amin ny modely voamarika rehefa be loatra ny modely default (--print ihany)]:model:_claude_model_names'
     '--settings[Lalana mankany amin ny rakitra JSON settings na tady JSON hampidirana settings fanampiny]:file-or-json:_files'
     '--add-dir[Lahatahiry fanampiny hamela fidirana fitaovana]:directories:_directories'
     '--ide[Mampifandray ho azy amin ny IDE rehefa manomboka raha misy IDE manan-kery iray loha]'
@@ -430,7 +470,7 @@ _claude_install() {
 _claude_agents() {
   _arguments \
     '*--add-dir[Lahatahiry fanampiny hamela fidirana fitaovana amin ny session nalefa]:directory:_directories' \
-    '--agent[Agent default ho an ny session nalefa avy amin ny agent view]:agent:' \
+    '--agent[Agent default ho an ny session nalefa avy amin ny agent view]:agent:_claude_agent_names' \
     '--all[Miaraka amin ny --json: ampidiro koa ny session ambadika vita]' \
     '--allow-dangerously-skip-permissions[Mamela ny mode bypass-permissions ho an ny session nalefa]' \
     '--cwd[Asehoy ny session ambadika natomboka ao ambanin ny lalana ihany]:path:_directories' \
@@ -438,7 +478,7 @@ _claude_agents() {
     '--effort[Ambaratongan ny ezaka default ho an ny session nalefa]:level:(low medium high xhigh max)' \
     '--json[Manonta ny session mavitrika ho array JSON ary mivoaka]' \
     '*--mcp-config[Configuration serveur MCP hampiharina amin ny session nalefa]:config:' \
-    '--model[Modely default ho an ny session nalefa avy amin ny agent view]:model:' \
+    '--model[Modely default ho an ny session nalefa avy amin ny agent view]:model:_claude_model_names' \
     '--permission-mode[Mode alalana default ho an ny session nalefa]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)' \
     '*--plugin-dir[Mampiditra plugins avy amin ny lahatahiry ho an ny agent view sy ny session nalefa]:path:_directories' \
     '--setting-sources[Lisitr ireo loharanom-baovao settings sarahan ny virgule ho ampidirina (user, project, local)]:sources:' \

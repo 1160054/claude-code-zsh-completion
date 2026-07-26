@@ -56,6 +56,46 @@ _claude_sessions() {
   compadd -a sessions
 }
 
+_claude_agent_names() {
+  local -a agents
+  local agent_dir agent_file name
+
+  # User-level and project-level agent definitions
+  for agent_dir in ~/.claude/agents ~/.config/claude/agents .claude/agents; do
+    [[ -d "$agent_dir" ]] || continue
+
+    for agent_file in ${agent_dir}/*.md(N); do
+      # Prefer the name declared in the front matter, fall back to the filename
+      name=$(sed -n '1,10{s/^name:[[:space:]]*\([^[:space:]]*\).*/\1/p;}' "$agent_file" 2>/dev/null | head -1)
+      agents+=(${name:-${agent_file:t:r}})
+    done
+  done
+
+  agents=(${(u)agents})
+
+  compadd -a agents
+}
+
+_claude_model_names() {
+  local -a models
+  local config_file
+
+  # Aliases always resolve to the latest model of that family
+  models=(default fable opus sonnet haiku)
+
+  # Full model names the user has already configured
+  for config_file in ~/.claude/settings.json ~/.claude/settings.local.json ~/.claude.json; do
+    [[ -f "$config_file" ]] || continue
+    models+=(${(f)"$(grep -oE '"(model|fallbackModel)"[[:space:]]*:[[:space:]]*"[^"]+"' "$config_file" 2>/dev/null | \
+      sed 's/.*:[[:space:]]*"\([^"]*\)"/\1/')"})
+  done
+
+  # Remove duplicates
+  models=(${(u)models})
+
+  compadd -a models
+}
+
 _claude() {
   local curcontext="$curcontext" state line
   typeset -A opt_args
@@ -103,10 +143,10 @@ _claude() {
     '(-r --resume)'{-r,--resume}'[Resume a conversation - specify session ID or select interactively]:sessionId:_claude_sessions'
     '--fork-session[Create new session ID instead of reusing original session ID when resuming (with --resume or --continue)]'
     '--no-session-persistence[Thibela ho boloka seboka - diboka di ke ke tsa bolokwa (--print feela)]'
-    '--model[Model for current session. Specify alias for latest model (e.g., '\''sonnet'\'' or '\''opus'\'')]:model:'
-    '--agent[Agente bakeng sa seboka sa hona joale. E fetola tlhophiso ya '\''agent'\'']:agent:'
+    '--model[Model for current session. Specify alias for latest model (e.g., '\''sonnet'\'' or '\''opus'\'')]:model:_claude_model_names'
+    '--agent[Agente bakeng sa seboka sa hona joale. E fetola tlhophiso ya '\''agent'\'']:agent:_claude_agent_names'
     '--betas[Di-header tsa beta tse kenyeletswang dikopong tsa API (basebedisi ba senotlolo sa API feela)]:betas:'
-    '--fallback-model[Enable automatic fallback to specified model when default model is overloaded (--print only)]:model:'
+    '--fallback-model[Enable automatic fallback to specified model when default model is overloaded (--print only)]:model:_claude_model_names'
     '--settings[Path to settings JSON file or JSON string to load additional settings]:file-or-json:_files'
     '--add-dir[Additional directories to allow tool access]:directories:_directories'
     '--ide[Auto-connect to IDE on startup if exactly one valid IDE is available]'
@@ -430,7 +470,7 @@ _claude_install() {
 _claude_agents() {
   _arguments \
     '*--add-dir[Tateletso e eketsehileng ya ho dumella phihlello ya sesebediswa dibokeng tse rometsweng]:directory:_directories' \
-    '--agent[Agente ka tlhaho bakeng sa diboka tse rometsweng ho tswa ponong ya agente]:agent:' \
+    '--agent[Agente ka tlhaho bakeng sa diboka tse rometsweng ho tswa ponong ya agente]:agent:_claude_agent_names' \
     '--all[Ka --json: kenyeletsa le diboka tsa morao tse phethilweng]' \
     '--allow-dangerously-skip-permissions[Etsa hore mokgwa wa bypass-permissions o fumanehe dibokeng tse rometsweng]' \
     '--cwd[Bontsha feela diboka tsa morao tse qadilweng tlasa tsela]:path:_directories' \
@@ -438,7 +478,7 @@ _claude_agents() {
     '--effort[Boemo ba boiteko ka tlhaho bakeng sa diboka tse rometsweng]:level:(low medium high xhigh max)' \
     '--json[Hatisa diboka tse sebetsang e le array ya JSON mme u tswe]' \
     '*--mcp-config[Tlhophiso ya seva sa MCP e sebediswang dibokeng tse rometsweng]:config:' \
-    '--model[Mmotlolo ka tlhaho bakeng sa diboka tse rometsweng ho tswa ponong ya agente]:model:' \
+    '--model[Mmotlolo ka tlhaho bakeng sa diboka tse rometsweng ho tswa ponong ya agente]:model:_claude_model_names' \
     '--permission-mode[Mokgwa wa tumello ka tlhaho bakeng sa diboka tse rometsweng]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)' \
     '*--plugin-dir[Kenya di-plugin ho tswa tatelanong bakeng sa pono ya agente le diboka tse rometsweng]:path:_directories' \
     '--setting-sources[Lethathamo le arohaneng ka dikoma la mehlodi ya ditlhophiso e tla kenngwa (user, project, local)]:sources:' \

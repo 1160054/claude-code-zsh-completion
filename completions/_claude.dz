@@ -56,6 +56,46 @@ _claude_sessions() {
   compadd -a sessions
 }
 
+_claude_agent_names() {
+  local -a agents
+  local agent_dir agent_file name
+
+  # User-level and project-level agent definitions
+  for agent_dir in ~/.claude/agents ~/.config/claude/agents .claude/agents; do
+    [[ -d "$agent_dir" ]] || continue
+
+    for agent_file in ${agent_dir}/*.md(N); do
+      # Prefer the name declared in the front matter, fall back to the filename
+      name=$(sed -n '1,10{s/^name:[[:space:]]*\([^[:space:]]*\).*/\1/p;}' "$agent_file" 2>/dev/null | head -1)
+      agents+=(${name:-${agent_file:t:r}})
+    done
+  done
+
+  agents=(${(u)agents})
+
+  compadd -a agents
+}
+
+_claude_model_names() {
+  local -a models
+  local config_file
+
+  # Aliases always resolve to the latest model of that family
+  models=(default fable opus sonnet haiku)
+
+  # Full model names the user has already configured
+  for config_file in ~/.claude/settings.json ~/.claude/settings.local.json ~/.claude.json; do
+    [[ -f "$config_file" ]] || continue
+    models+=(${(f)"$(grep -oE '"(model|fallbackModel)"[[:space:]]*:[[:space:]]*"[^"]+"' "$config_file" 2>/dev/null | \
+      sed 's/.*:[[:space:]]*"\([^"]*\)"/\1/')"})
+  done
+
+  # Remove duplicates
+  models=(${(u)models})
+
+  compadd -a models
+}
+
 _claude() {
   local curcontext="$curcontext" state line
   typeset -A opt_args
@@ -103,10 +143,10 @@ _claude() {
     '(-r --resume)'{-r,--resume}'[གྲོས་གླེང་སླར་འགོ་བཙུགས - ལས་ཐེངས་ID གསལ་བཀོད་འབད་ཡང་ན་ཕན་ཚུན་འབྲེལ་ལམ་ཐོག་སེལ་འཐུ་འབད]:sessionId:_claude_sessions'
     '--fork-session[སླར་འགོ་བཙུགས་པའི་སྐབས་ལས་ཐེངས་ID ཐོག་མ་སླར་ལག་ལེན་གྱི་ཚབ་ལུ་ལས་ཐེངས་ID གསརཔ་གསར་བསྐྲུན་འབད (--resume ཡང་ན་ --continue དང་གཅིག་ཁར)]'
     '--no-session-persistence[ལས་ཐེངས་མུ་མཐུད་ལྕོགས་མེད་བཟོ - ལས་ཐེངས་ཚུ་སྲུང་བཞག་མི་འབད (--print རྐྱངམ་ཅིག)]'
-    '--model[ད་ལྟོའི་ལས་ཐེངས་ཀྱི་དོན་ལུ་དཔེ་གཞི། དཔེ་གཞི་ཨ་རྟག་ཤོས་ཀྱི་དོན་ལུ་མིང་ཚབ་གསལ་བཀོད་འབད (དཔེར་ན, '\''sonnet'\'' ཡང་ན་ '\''opus'\'')]:model:'
-    '--agent[ད་ལྟོའི་ལས་ཐེངས་ཀྱི་དོན་ལུ་ལས་བྱེད། '\''agent'\'' སྒྲིག་སྟངས་ཚབ་བཙུགས]:agent:'
+    '--model[ད་ལྟོའི་ལས་ཐེངས་ཀྱི་དོན་ལུ་དཔེ་གཞི། དཔེ་གཞི་ཨ་རྟག་ཤོས་ཀྱི་དོན་ལུ་མིང་ཚབ་གསལ་བཀོད་འབད (དཔེར་ན, '\''sonnet'\'' ཡང་ན་ '\''opus'\'')]:model:_claude_model_names'
+    '--agent[ད་ལྟོའི་ལས་ཐེངས་ཀྱི་དོན་ལུ་ལས་བྱེད། '\''agent'\'' སྒྲིག་སྟངས་ཚབ་བཙུགས]:agent:_claude_agent_names'
     '--betas[API ཞུ་བ་ཚུ་ནང་ཚུད་བཅུག་ནིའི་Beta header ཚུ (API key ལག་ལེན་པ་རྐྱངམ་ཅིག)]:betas:'
-    '--fallback-model[སྔོན་སྒྲིག་དཔེ་གཞི་ལུ་ཁུར་ཆ་ལྷག་པའི་སྐབས་གསལ་བཀོད་འབད་མི་དཔེ་གཞི་ལུ་རང་བཞིན་fallback ལྕོགས་ཅན་བཟོ (--print རྐྱངམ་ཅིག)]:model:'
+    '--fallback-model[སྔོན་སྒྲིག་དཔེ་གཞི་ལུ་ཁུར་ཆ་ལྷག་པའི་སྐབས་གསལ་བཀོད་འབད་མི་དཔེ་གཞི་ལུ་རང་བཞིན་fallback ལྕོགས་ཅན་བཟོ (--print རྐྱངམ་ཅིག)]:model:_claude_model_names'
     '--settings[སྒྲིག་སྟངས་ཁ་སྐོང་མངོན་གསལ་འབད་ནིའི་སྒྲིག་སྟངས་JSON ཡིག་ཆ་ཡང་ན་JSON string གྱི་འགྲོ་ལམ]:file-or-json:_files'
     '--add-dir[ལག་ཆས་འཛུལ་སྤྱོད་ཆོག་ནིའི་ཡིག་སྣོད་ཁ་སྐོང]:directories:_directories'
     '--ide[ནུས་ཅན་IDE གཅིག་རྐྱངམ་ཅིག་འཐོབ་ཚུགས་པ་ཅིན་འགོ་བཙུགས་སྐབས་IDE ལུ་རང་བཞིན་མཐུད]'
@@ -430,7 +470,7 @@ _claude_install() {
 _claude_agents() {
   _arguments \
     '*--add-dir[གཏང་བའི་ལས་ཐེངས་ཚུ་ནང་ལག་ཆས་འཛུལ་སྤྱོད་ཆོག་ནིའི་ཡིག་སྣོད་ཁ་སྐོང]:directory:_directories' \
-    '--agent[ལས་བྱེད་མཐོང་སྣང་ནང་ལས་གཏང་བའི་ལས་ཐེངས་ཚུ་གི་དོན་ལུ་སྔོན་སྒྲིག་ལས་བྱེད]:agent:' \
+    '--agent[ལས་བྱེད་མཐོང་སྣང་ནང་ལས་གཏང་བའི་ལས་ཐེངས་ཚུ་གི་དོན་ལུ་སྔོན་སྒྲིག་ལས་བྱེད]:agent:_claude_agent_names' \
     '--all[--json དང་གཅིག་ཁར: མཇུག་བསྡུ་བའི་རྒྱབ་གཞིའི་ལས་ཐེངས་ཚུ་ཡང་ཚུད་བཅུག]' \
     '--allow-dangerously-skip-permissions[གཏང་བའི་ལས་ཐེངས་ཚུ་ལུ་bypass-permissions ཐབས་ལམ་འཐོབ་ཚུགས་བཟོ]' \
     '--cwd[འགྲོ་ལམ་འོག་ལུ་འགོ་བཙུགས་མི་རྒྱབ་གཞིའི་ལས་ཐེངས་ཚུ་རྐྱངམ་ཅིག་སྟོན]:path:_directories' \
@@ -438,7 +478,7 @@ _claude_agents() {
     '--effort[གཏང་བའི་ལས་ཐེངས་ཚུ་གི་དོན་ལུ་སྔོན་སྒྲིག་འབད་བརྩོན་གནས་རིམ]:level:(low medium high xhigh max)' \
     '--json[ལས་ཐེངས་ཤུགས་ལྡན་ཚུ་JSON array སྦེ་དཔར་བསྐྲུན་འབད་ཞིནམ་ལས་ཕྱིར་ཐོན]' \
     '*--mcp-config[གཏང་བའི་ལས་ཐེངས་ཚུ་ལུ་འཇུག་སྤྱོད་འབད་ནིའི་MCP སར་བར་རིམ་སྒྲིག]:config:' \
-    '--model[ལས་བྱེད་མཐོང་སྣང་ནང་ལས་གཏང་བའི་ལས་ཐེངས་ཚུ་གི་དོན་ལུ་སྔོན་སྒྲིག་དཔེ་གཞི]:model:' \
+    '--model[ལས་བྱེད་མཐོང་སྣང་ནང་ལས་གཏང་བའི་ལས་ཐེངས་ཚུ་གི་དོན་ལུ་སྔོན་སྒྲིག་དཔེ་གཞི]:model:_claude_model_names' \
     '--permission-mode[གཏང་བའི་ལས་ཐེངས་ཚུ་གི་དོན་ལུ་སྔོན་སྒྲིག་གནང་བའི་ཐབས་ལམ]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)' \
     '*--plugin-dir[ལས་བྱེད་མཐོང་སྣང་དང་གཏང་བའི་ལས་ཐེངས་ཚུ་གི་དོན་ལུ་ཡིག་སྣོད་ནང་ལས་པ་ལག་ཚུ་མངོན་གསལ་འབད]:path:_directories' \
     '--setting-sources[མངོན་གསལ་འབད་ནིའི་སྒྲིག་སྟངས་འབྱུང་ཁུངས་ཀྱི་ཐོ་ཡིག་comma གིས་སོ་སོར (user, project, local)]:sources:' \

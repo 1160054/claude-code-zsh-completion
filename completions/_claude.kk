@@ -56,6 +56,46 @@ _claude_sessions() {
   compadd -a sessions
 }
 
+_claude_agent_names() {
+  local -a agents
+  local agent_dir agent_file name
+
+  # User-level and project-level agent definitions
+  for agent_dir in ~/.claude/agents ~/.config/claude/agents .claude/agents; do
+    [[ -d "$agent_dir" ]] || continue
+
+    for agent_file in ${agent_dir}/*.md(N); do
+      # Prefer the name declared in the front matter, fall back to the filename
+      name=$(sed -n '1,10{s/^name:[[:space:]]*\([^[:space:]]*\).*/\1/p;}' "$agent_file" 2>/dev/null | head -1)
+      agents+=(${name:-${agent_file:t:r}})
+    done
+  done
+
+  agents=(${(u)agents})
+
+  compadd -a agents
+}
+
+_claude_model_names() {
+  local -a models
+  local config_file
+
+  # Aliases always resolve to the latest model of that family
+  models=(default fable opus sonnet haiku)
+
+  # Full model names the user has already configured
+  for config_file in ~/.claude/settings.json ~/.claude/settings.local.json ~/.claude.json; do
+    [[ -f "$config_file" ]] || continue
+    models+=(${(f)"$(grep -oE '"(model|fallbackModel)"[[:space:]]*:[[:space:]]*"[^"]+"' "$config_file" 2>/dev/null | \
+      sed 's/.*:[[:space:]]*"\([^"]*\)"/\1/')"})
+  done
+
+  # Remove duplicates
+  models=(${(u)models})
+
+  compadd -a models
+}
+
 _claude() {
   local curcontext="$curcontext" state line
   typeset -A opt_args
@@ -103,10 +143,10 @@ _claude() {
     '(-r --resume)'{-r,--resume}'[Әңгімені жалғастыру - сессия идентификаторын көрсетіңіз немесе интерактивті түрде таңдаңыз]:sessionId:_claude_sessions'
     '--fork-session[Жалғастыру кезінде түпнұсқа сессия идентификаторын қайта пайдалану орнына жаңа сессия идентификаторын жасау (--resume немесе --continue-мен)]'
     '--no-session-persistence[Сессия сақтауын өшіру - сессиялар сақталмайды (тек --print)]'
-    '--model[Ағымдағы сессия үшін модель. Ең соңғы модель үшін бүркеншік атты көрсетіңіз (мысалы, '\''sonnet'\'' немесе '\''opus'\'')]:model:'
-    '--agent[Ағымдағы сессия үшін агент. '\''agent'\'' параметрін қайта анықтайды]:agent:'
+    '--model[Ағымдағы сессия үшін модель. Ең соңғы модель үшін бүркеншік атты көрсетіңіз (мысалы, '\''sonnet'\'' немесе '\''opus'\'')]:model:_claude_model_names'
+    '--agent[Ағымдағы сессия үшін агент. '\''agent'\'' параметрін қайта анықтайды]:agent:_claude_agent_names'
     '--betas[API сұрауларына қосылатын бета тақырыптары (тек API кілт пайдаланушылары)]:betas:'
-    '--fallback-model[Әдепкі модель жүктелген кезде көрсетілген модельге автоматты қосалқы ауысуды қосу (тек --print)]:model:'
+    '--fallback-model[Әдепкі модель жүктелген кезде көрсетілген модельге автоматты қосалқы ауысуды қосу (тек --print)]:model:_claude_model_names'
     '--settings[Қосымша параметрлерді жүктеу үшін параметрлер JSON файлы немесе JSON жолының жолы]:file-or-json:_files'
     '--add-dir[Құрал қолжетімділігіне рұқсат беру үшін қосымша каталогтар]:directories:_directories'
     '--ide[Іске қосу кезінде дәл бір жарамды IDE қол жетімді болса, автоматты түрде IDE-ге қосылу]'
@@ -430,7 +470,7 @@ _claude_install() {
 _claude_agents() {
   _arguments \
     '*--add-dir[Жіберілген сессияларда құрал қолжетімділігіне рұқсат беру үшін қосымша каталог]:directory:_directories' \
-    '--agent[Агент көрінісінен жіберілген сессиялар үшін әдепкі агент]:agent:' \
+    '--agent[Агент көрінісінен жіберілген сессиялар үшін әдепкі агент]:agent:_claude_agent_names' \
     '--all[--json-мен: аяқталған фондық сессияларды да қосу]' \
     '--allow-dangerously-skip-permissions[Жіберілген сессиялар үшін рұқсаттарды айналып өту режімін қолжетімді ету]' \
     '--cwd[Тек жол астында іске қосылған фондық сессияларды көрсету]:path:_directories' \
@@ -438,7 +478,7 @@ _claude_agents() {
     '--effort[Жіберілген сессиялар үшін әдепкі күш деңгейі]:level:(low medium high xhigh max)' \
     '--json[Белсенді сессияларды JSON массиві ретінде басып шығару және шығу]' \
     '*--mcp-config[Жіберілген сессияларға қолданылатын MCP сервер конфигурациясы]:config:' \
-    '--model[Агент көрінісінен жіберілген сессиялар үшін әдепкі модель]:model:' \
+    '--model[Агент көрінісінен жіберілген сессиялар үшін әдепкі модель]:model:_claude_model_names' \
     '--permission-mode[Жіберілген сессиялар үшін әдепкі рұқсат режімі]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)' \
     '*--plugin-dir[Агент көрінісі мен жіберілген сессиялар үшін каталогтан плагиндерді жүктеу]:path:_directories' \
     '--setting-sources[Жүктеу үшін үтірмен бөлінген параметр көздерінің тізімі (user, project, local)]:sources:' \

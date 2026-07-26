@@ -56,6 +56,46 @@ _claude_sessions() {
   compadd -a sessions
 }
 
+_claude_agent_names() {
+  local -a agents
+  local agent_dir agent_file name
+
+  # User-level and project-level agent definitions
+  for agent_dir in ~/.claude/agents ~/.config/claude/agents .claude/agents; do
+    [[ -d "$agent_dir" ]] || continue
+
+    for agent_file in ${agent_dir}/*.md(N); do
+      # Prefer the name declared in the front matter, fall back to the filename
+      name=$(sed -n '1,10{s/^name:[[:space:]]*\([^[:space:]]*\).*/\1/p;}' "$agent_file" 2>/dev/null | head -1)
+      agents+=(${name:-${agent_file:t:r}})
+    done
+  done
+
+  agents=(${(u)agents})
+
+  compadd -a agents
+}
+
+_claude_model_names() {
+  local -a models
+  local config_file
+
+  # Aliases always resolve to the latest model of that family
+  models=(default fable opus sonnet haiku)
+
+  # Full model names the user has already configured
+  for config_file in ~/.claude/settings.json ~/.claude/settings.local.json ~/.claude.json; do
+    [[ -f "$config_file" ]] || continue
+    models+=(${(f)"$(grep -oE '"(model|fallbackModel)"[[:space:]]*:[[:space:]]*"[^"]+"' "$config_file" 2>/dev/null | \
+      sed 's/.*:[[:space:]]*"\([^"]*\)"/\1/')"})
+  done
+
+  # Remove duplicates
+  models=(${(u)models})
+
+  compadd -a models
+}
+
 _claude() {
   local curcontext="$curcontext" state line
   typeset -A opt_args
@@ -103,10 +143,10 @@ _claude() {
     '(-r --resume)'{-r,--resume}'[Reprendre una conversacion - especificar l'\''ID de session o seleccionar interactivament]:sessionId:_claude_sessions'
     '--fork-session[Crear un novèl ID de session al luòc de reutilizar l'\''ID de session d'\''origina en reprenant (amb --resume o --continue)]'
     '--no-session-persistence[Desactivar la persisténcia de session - las sessions seràn pas salvadas (--print solament)]'
-    '--model[Modèl per la session actuala. Especificar un alias pel modèl mai recent (ex: '\''sonnet'\'' o '\''opus'\'')]:model:'
-    '--agent[Agent per la session actuala. Remplaça lo paramètre '\''agent'\'']:agent:'
+    '--model[Modèl per la session actuala. Especificar un alias pel modèl mai recent (ex: '\''sonnet'\'' o '\''opus'\'')]:model:_claude_model_names'
+    '--agent[Agent per la session actuala. Remplaça lo paramètre '\''agent'\'']:agent:_claude_agent_names'
     '--betas[Entèstas beta d'\''inclure dins las requèstas API (utilizaires de clau API solament)]:betas:'
-    '--fallback-model[Activar lo basculament automatic vèrs lo modèl especificat quand lo modèl per defaut es sobrecarregat (--print solament)]:model:'
+    '--fallback-model[Activar lo basculament automatic vèrs lo modèl especificat quand lo modèl per defaut es sobrecarregat (--print solament)]:model:_claude_model_names'
     '--settings[Camin vèrs un fichièr JSON de paramètres o una cadena JSON per cargar de paramètres suplementaris]:file-or-json:_files'
     '--add-dir[Directoris suplementaris per autorizar l'\''accès a las aisinas]:directories:_directories'
     '--ide[Connexion automatica a l'\''EDI al demarratge se exactament un EDI valid es disponible]'
@@ -430,7 +470,7 @@ _claude_install() {
 _claude_agents() {
   _arguments \
     '*--add-dir[Directòri suplementari per autorizar l'\''accès a las aisinas dins las sessions despachadas]:directory:_directories' \
-    '--agent[Agent per defaut per las sessions despachadas dempuèi la vista d'\''agent]:agent:' \
+    '--agent[Agent per defaut per las sessions despachadas dempuèi la vista d'\''agent]:agent:_claude_agent_names' \
     '--all[Amb --json: inclure tanben las sessions en rèireplan acabadas]' \
     '--allow-dangerously-skip-permissions[Rendre lo mòde bypass-permissions disponible per las sessions despachadas]' \
     '--cwd[Afichar solament las sessions en rèireplan aviadas jos lo camin]:path:_directories' \
@@ -438,7 +478,7 @@ _claude_agents() {
     '--effort[Nivèl d'\''esfòrç per defaut per las sessions despachadas]:level:(low medium high xhigh max)' \
     '--json[Afichar las sessions activas coma un tablèu JSON e quitar]' \
     '*--mcp-config[Configuracion del servidor MCP d'\''aplicar a las sessions despachadas]:config:' \
-    '--model[Modèl per defaut per las sessions despachadas dempuèi la vista d'\''agent]:model:' \
+    '--model[Modèl per defaut per las sessions despachadas dempuèi la vista d'\''agent]:model:_claude_model_names' \
     '--permission-mode[Mòde de permissions per defaut per las sessions despachadas]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)' \
     '*--plugin-dir[Cargar los plugins dempuèi un directòri per la vista d'\''agent e las sessions despachadas]:path:_directories' \
     '--setting-sources[Lista separada per virgulas de fonts de paramètres de cargar (user, project, local)]:sources:' \

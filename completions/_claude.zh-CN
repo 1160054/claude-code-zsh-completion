@@ -56,6 +56,46 @@ _claude_sessions() {
   compadd -a sessions
 }
 
+_claude_agent_names() {
+  local -a agents
+  local agent_dir agent_file name
+
+  # User-level and project-level agent definitions
+  for agent_dir in ~/.claude/agents ~/.config/claude/agents .claude/agents; do
+    [[ -d "$agent_dir" ]] || continue
+
+    for agent_file in ${agent_dir}/*.md(N); do
+      # Prefer the name declared in the front matter, fall back to the filename
+      name=$(sed -n '1,10{s/^name:[[:space:]]*\([^[:space:]]*\).*/\1/p;}' "$agent_file" 2>/dev/null | head -1)
+      agents+=(${name:-${agent_file:t:r}})
+    done
+  done
+
+  agents=(${(u)agents})
+
+  compadd -a agents
+}
+
+_claude_model_names() {
+  local -a models
+  local config_file
+
+  # Aliases always resolve to the latest model of that family
+  models=(default fable opus sonnet haiku)
+
+  # Full model names the user has already configured
+  for config_file in ~/.claude/settings.json ~/.claude/settings.local.json ~/.claude.json; do
+    [[ -f "$config_file" ]] || continue
+    models+=(${(f)"$(grep -oE '"(model|fallbackModel)"[[:space:]]*:[[:space:]]*"[^"]+"' "$config_file" 2>/dev/null | \
+      sed 's/.*:[[:space:]]*"\([^"]*\)"/\1/')"})
+  done
+
+  # Remove duplicates
+  models=(${(u)models})
+
+  compadd -a models
+}
+
 _claude() {
   local curcontext="$curcontext" state line
   typeset -A opt_args
@@ -103,10 +143,10 @@ _claude() {
     '(-r --resume)'{-r,--resume}'[恢复对话 - 指定会话ID或交互式选择]:sessionId:_claude_sessions'
     '--fork-session[恢复时创建新的会话ID而不是重用原始会话ID（与--resume或--continue一起使用）]'
     '--no-session-persistence[禁用会话持久化 - 会话将不会被保存（仅--print）]'
-    '--model[当前会话的模型。指定最新模型的别名（例如，'\''sonnet'\''或'\''opus'\''）]:model:'
-    '--agent[当前会话的代理。覆盖'\''agent'\''设置]:agent:'
+    '--model[当前会话的模型。指定最新模型的别名（例如，'\''sonnet'\''或'\''opus'\''）]:model:_claude_model_names'
+    '--agent[当前会话的代理。覆盖'\''agent'\''设置]:agent:_claude_agent_names'
     '--betas[要包含在API请求中的Beta标头（仅限API密钥用户）]:betas:'
-    '--fallback-model[当默认模型过载时启用自动回退到指定模型（仅--print）]:model:'
+    '--fallback-model[当默认模型过载时启用自动回退到指定模型（仅--print）]:model:_claude_model_names'
     '--settings[设置JSON文件的路径或用于加载其他设置的JSON字符串]:file-or-json:_files'
     '--add-dir[允许工具访问的其他目录]:directories:_directories'
     '--ide[如果恰好有一个有效的IDE可用，则在启动时自动连接到IDE]'
@@ -430,7 +470,7 @@ _claude_install() {
 _claude_agents() {
   _arguments \
     '*--add-dir[允许派发会话中工具访问的其他目录]:directory:_directories' \
-    '--agent[从代理视图派发的会话的默认代理]:agent:' \
+    '--agent[从代理视图派发的会话的默认代理]:agent:_claude_agent_names' \
     '--all[与--json一起使用：同时包含已完成的后台会话]' \
     '--allow-dangerously-skip-permissions[使派发的会话可以使用绕过权限模式]' \
     '--cwd[仅显示在指定路径下启动的后台会话]:path:_directories' \
@@ -438,7 +478,7 @@ _claude_agents() {
     '--effort[派发会话的默认努力程度]:level:(low medium high xhigh max)' \
     '--json[将活动会话打印为JSON数组并退出]' \
     '*--mcp-config[应用于派发会话的MCP服务器配置]:config:' \
-    '--model[从代理视图派发的会话的默认模型]:model:' \
+    '--model[从代理视图派发的会话的默认模型]:model:_claude_model_names' \
     '--permission-mode[派发会话的默认权限模式]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)' \
     '*--plugin-dir[为代理视图和派发会话从目录加载插件]:path:_directories' \
     '--setting-sources[要加载的设置源的逗号分隔列表（user, project, local）]:sources:' \

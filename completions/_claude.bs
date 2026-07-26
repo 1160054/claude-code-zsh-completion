@@ -56,6 +56,46 @@ _claude_sessions() {
   compadd -a sessions
 }
 
+_claude_agent_names() {
+  local -a agents
+  local agent_dir agent_file name
+
+  # User-level and project-level agent definitions
+  for agent_dir in ~/.claude/agents ~/.config/claude/agents .claude/agents; do
+    [[ -d "$agent_dir" ]] || continue
+
+    for agent_file in ${agent_dir}/*.md(N); do
+      # Prefer the name declared in the front matter, fall back to the filename
+      name=$(sed -n '1,10{s/^name:[[:space:]]*\([^[:space:]]*\).*/\1/p;}' "$agent_file" 2>/dev/null | head -1)
+      agents+=(${name:-${agent_file:t:r}})
+    done
+  done
+
+  agents=(${(u)agents})
+
+  compadd -a agents
+}
+
+_claude_model_names() {
+  local -a models
+  local config_file
+
+  # Aliases always resolve to the latest model of that family
+  models=(default fable opus sonnet haiku)
+
+  # Full model names the user has already configured
+  for config_file in ~/.claude/settings.json ~/.claude/settings.local.json ~/.claude.json; do
+    [[ -f "$config_file" ]] || continue
+    models+=(${(f)"$(grep -oE '"(model|fallbackModel)"[[:space:]]*:[[:space:]]*"[^"]+"' "$config_file" 2>/dev/null | \
+      sed 's/.*:[[:space:]]*"\([^"]*\)"/\1/')"})
+  done
+
+  # Remove duplicates
+  models=(${(u)models})
+
+  compadd -a models
+}
+
 _claude() {
   local curcontext="$curcontext" state line
   typeset -A opt_args
@@ -103,10 +143,10 @@ _claude() {
     '(-r --resume)'{-r,--resume}'[Nastavi razgovor - navedite identifikator sesije ili odaberite interaktivno]:sessionId:_claude_sessions'
     '--fork-session[Kreiraj novi identifikator sesije umjesto ponovne upotrebe originalnog prilikom nastavka (sa --resume ili --continue)]'
     '--no-session-persistence[Onemogući postojanost sesije - sesije neće biti sačuvane (samo --print)]'
-    '--model[Model za trenutnu sesiju. Navedite nadimak za najnoviji model (npr. '\''sonnet'\'' ili '\''opus'\'')]:model:'
-    '--agent[Agent za trenutnu sesiju. Prepisuje postavku '\''agent'\'']:agent:'
+    '--model[Model za trenutnu sesiju. Navedite nadimak za najnoviji model (npr. '\''sonnet'\'' ili '\''opus'\'')]:model:_claude_model_names'
+    '--agent[Agent za trenutnu sesiju. Prepisuje postavku '\''agent'\'']:agent:_claude_agent_names'
     '--betas[Beta zaglavlja za uključivanje u API zahtjeve (samo za korisnike API ključa)]:betas:'
-    '--fallback-model[Omogući automatsko prebacivanje na navedeni model kada je podrazumijevani model preopterećen (samo --print)]:model:'
+    '--fallback-model[Omogući automatsko prebacivanje na navedeni model kada je podrazumijevani model preopterećen (samo --print)]:model:_claude_model_names'
     '--settings[Putanja do JSON datoteke sa postavkama ili JSON niz za učitavanje dodatnih postavki]:file-or-json:_files'
     '--add-dir[Dodatni direktoriji za pružanje pristupa alatima]:directories:_directories'
     '--ide[Automatski se poveži sa IDE prilikom pokretanja ako je dostupan tačno jedan validan IDE]'
@@ -430,7 +470,7 @@ _claude_install() {
 _claude_agents() {
   _arguments \
     '*--add-dir[Dodatni direktorij za pružanje pristupa alatima u dispečovanim sesijama]:directory:_directories' \
-    '--agent[Podrazumijevani agent za sesije dispečovane iz prikaza agenata]:agent:' \
+    '--agent[Podrazumijevani agent za sesije dispečovane iz prikaza agenata]:agent:_claude_agent_names' \
     '--all[Sa --json: uključi i završene pozadinske sesije]' \
     '--allow-dangerously-skip-permissions[Učini režim zaobilaženja dozvola dostupnim dispečovanim sesijama]' \
     '--cwd[Prikaži samo pozadinske sesije pokrenute pod putanjom]:path:_directories' \
@@ -438,7 +478,7 @@ _claude_agents() {
     '--effort[Podrazumijevani nivo napora za dispečovane sesije]:level:(low medium high xhigh max)' \
     '--json[Ispiši aktivne sesije kao JSON niz i izađi]' \
     '*--mcp-config[Konfiguracija MCP servera za primjenu na dispečovane sesije]:config:' \
-    '--model[Podrazumijevani model za sesije dispečovane iz prikaza agenata]:model:' \
+    '--model[Podrazumijevani model za sesije dispečovane iz prikaza agenata]:model:_claude_model_names' \
     '--permission-mode[Podrazumijevani režim dozvola za dispečovane sesije]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)' \
     '*--plugin-dir[Učitaj dodatke iz direktorija za prikaz agenata i dispečovane sesije]:path:_directories' \
     '--setting-sources[Lista izvora postavki odvojenih zarezom za učitavanje (user, project, local)]:sources:' \

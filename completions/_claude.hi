@@ -56,6 +56,46 @@ _claude_sessions() {
   compadd -a sessions
 }
 
+_claude_agent_names() {
+  local -a agents
+  local agent_dir agent_file name
+
+  # User-level and project-level agent definitions
+  for agent_dir in ~/.claude/agents ~/.config/claude/agents .claude/agents; do
+    [[ -d "$agent_dir" ]] || continue
+
+    for agent_file in ${agent_dir}/*.md(N); do
+      # Prefer the name declared in the front matter, fall back to the filename
+      name=$(sed -n '1,10{s/^name:[[:space:]]*\([^[:space:]]*\).*/\1/p;}' "$agent_file" 2>/dev/null | head -1)
+      agents+=(${name:-${agent_file:t:r}})
+    done
+  done
+
+  agents=(${(u)agents})
+
+  compadd -a agents
+}
+
+_claude_model_names() {
+  local -a models
+  local config_file
+
+  # Aliases always resolve to the latest model of that family
+  models=(default fable opus sonnet haiku)
+
+  # Full model names the user has already configured
+  for config_file in ~/.claude/settings.json ~/.claude/settings.local.json ~/.claude.json; do
+    [[ -f "$config_file" ]] || continue
+    models+=(${(f)"$(grep -oE '"(model|fallbackModel)"[[:space:]]*:[[:space:]]*"[^"]+"' "$config_file" 2>/dev/null | \
+      sed 's/.*:[[:space:]]*"\([^"]*\)"/\1/')"})
+  done
+
+  # Remove duplicates
+  models=(${(u)models})
+
+  compadd -a models
+}
+
 _claude() {
   local curcontext="$curcontext" state line
   typeset -A opt_args
@@ -103,10 +143,10 @@ _claude() {
     '(-r --resume)'{-r,--resume}'[वार्तालाप पुनः शुरू करें - सत्र ID निर्दिष्ट करें या इंटरैक्टिव रूप से चुनें]:sessionId:_claude_sessions'
     '--fork-session[पुनः शुरू करते समय मूल सत्र ID का पुनः उपयोग करने के बजाय नया सत्र ID बनाएं (--resume या --continue के साथ)]'
     '--no-session-persistence[सत्र स्थायित्व अक्षम करें - सत्र सहेजे नहीं जाएंगे (केवल --print)]'
-    '--model[वर्तमान सत्र के लिए मॉडल. नवीनतम मॉडल के लिए उपनाम निर्दिष्ट करें (जैसे, '\''sonnet'\'' या '\''opus'\'')]:model:'
-    '--agent[वर्तमान सत्र के लिए एजेंट. '\''agent'\'' सेटिंग को ओवरराइड करता है]:agent:'
+    '--model[वर्तमान सत्र के लिए मॉडल. नवीनतम मॉडल के लिए उपनाम निर्दिष्ट करें (जैसे, '\''sonnet'\'' या '\''opus'\'')]:model:_claude_model_names'
+    '--agent[वर्तमान सत्र के लिए एजेंट. '\''agent'\'' सेटिंग को ओवरराइड करता है]:agent:_claude_agent_names'
     '--betas[API अनुरोधों में शामिल करने के लिए बीटा हेडर (केवल API key उपयोगकर्ता)]:betas:'
-    '--fallback-model[जब डिफ़ॉल्ट मॉडल ओवरलोड हो तो निर्दिष्ट मॉडल पर स्वचालित फॉलबैक सक्षम करें (केवल --print)]:model:'
+    '--fallback-model[जब डिफ़ॉल्ट मॉडल ओवरलोड हो तो निर्दिष्ट मॉडल पर स्वचालित फॉलबैक सक्षम करें (केवल --print)]:model:_claude_model_names'
     '--settings[अतिरिक्त सेटिंग्स लोड करने के लिए सेटिंग्स JSON फ़ाइल या JSON स्ट्रिंग का पथ]:file-or-json:_files'
     '--add-dir[टूल एक्सेस की अनुमति देने के लिए अतिरिक्त डायरेक्टरी]:directories:_directories'
     '--ide[स्टार्टअप पर IDE से ऑटो-कनेक्ट करें यदि बिल्कुल एक मान्य IDE उपलब्ध है]'
@@ -430,7 +470,7 @@ _claude_install() {
 _claude_agents() {
   _arguments \
     '*--add-dir[डिस्पैच किए गए सत्रों में टूल एक्सेस की अनुमति देने के लिए अतिरिक्त डायरेक्टरी]:directory:_directories' \
-    '--agent[एजेंट व्यू से डिस्पैच किए गए सत्रों के लिए डिफ़ॉल्ट एजेंट]:agent:' \
+    '--agent[एजेंट व्यू से डिस्पैच किए गए सत्रों के लिए डिफ़ॉल्ट एजेंट]:agent:_claude_agent_names' \
     '--all[--json के साथ: पूर्ण बैकग्राउंड सत्र भी शामिल करें]' \
     '--allow-dangerously-skip-permissions[डिस्पैच किए गए सत्रों के लिए bypass-permissions मोड उपलब्ध कराएं]' \
     '--cwd[केवल पथ के अंतर्गत प्रारंभ किए गए बैकग्राउंड सत्र दिखाएं]:path:_directories' \
@@ -438,7 +478,7 @@ _claude_agents() {
     '--effort[डिस्पैच किए गए सत्रों के लिए डिफ़ॉल्ट प्रयास स्तर]:level:(low medium high xhigh max)' \
     '--json[सक्रिय सत्रों को JSON सरणी के रूप में प्रिंट करें और बाहर निकलें]' \
     '*--mcp-config[डिस्पैच किए गए सत्रों पर लागू करने के लिए MCP सर्वर कॉन्फ़िगरेशन]:config:' \
-    '--model[एजेंट व्यू से डिस्पैच किए गए सत्रों के लिए डिफ़ॉल्ट मॉडल]:model:' \
+    '--model[एजेंट व्यू से डिस्पैच किए गए सत्रों के लिए डिफ़ॉल्ट मॉडल]:model:_claude_model_names' \
     '--permission-mode[डिस्पैच किए गए सत्रों के लिए डिफ़ॉल्ट अनुमति मोड]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)' \
     '*--plugin-dir[एजेंट व्यू और डिस्पैच किए गए सत्रों के लिए डायरेक्टरी से प्लगइन लोड करें]:path:_directories' \
     '--setting-sources[लोड करने के लिए सेटिंग स्रोतों की कॉमा-अलग सूची (user, project, local)]:sources:' \

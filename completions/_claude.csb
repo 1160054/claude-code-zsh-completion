@@ -56,6 +56,46 @@ _claude_sessions() {
   compadd -a sessions
 }
 
+_claude_agent_names() {
+  local -a agents
+  local agent_dir agent_file name
+
+  # User-level and project-level agent definitions
+  for agent_dir in ~/.claude/agents ~/.config/claude/agents .claude/agents; do
+    [[ -d "$agent_dir" ]] || continue
+
+    for agent_file in ${agent_dir}/*.md(N); do
+      # Prefer the name declared in the front matter, fall back to the filename
+      name=$(sed -n '1,10{s/^name:[[:space:]]*\([^[:space:]]*\).*/\1/p;}' "$agent_file" 2>/dev/null | head -1)
+      agents+=(${name:-${agent_file:t:r}})
+    done
+  done
+
+  agents=(${(u)agents})
+
+  compadd -a agents
+}
+
+_claude_model_names() {
+  local -a models
+  local config_file
+
+  # Aliases always resolve to the latest model of that family
+  models=(default fable opus sonnet haiku)
+
+  # Full model names the user has already configured
+  for config_file in ~/.claude/settings.json ~/.claude/settings.local.json ~/.claude.json; do
+    [[ -f "$config_file" ]] || continue
+    models+=(${(f)"$(grep -oE '"(model|fallbackModel)"[[:space:]]*:[[:space:]]*"[^"]+"' "$config_file" 2>/dev/null | \
+      sed 's/.*:[[:space:]]*"\([^"]*\)"/\1/')"})
+  done
+
+  # Remove duplicates
+  models=(${(u)models})
+
+  compadd -a models
+}
+
 _claude() {
   local curcontext="$curcontext" state line
   typeset -A opt_args
@@ -103,10 +143,10 @@ _claude() {
     '(-r --resume)'{-r,--resume}'[Wznowi rozmòwã - pòdôj ID sesje abò wëbierzë interaktiwno]:sessionId:_claude_sessions'
     '--fork-session[Ùsôdzë nowé ID sesje w môl brëkòwaniô òriginalnégò ID sesje przë wznôwianim (z --resume abò --continue)]'
     '--no-session-persistence[Wëłączë trwałosc sesje - sesje nie bãdą zapisóné (le --print)]'
-    '--model[Model dlô aktualny sesje. Pòdôj alias dlô nônowszégò modelu (np. '\''sonnet'\'' abò '\''opus'\'')]:model:'
-    '--agent[Agent dlô aktualny sesje. Nadpisëje nastôw '\''agent'\'']:agent:'
+    '--model[Model dlô aktualny sesje. Pòdôj alias dlô nônowszégò modelu (np. '\''sonnet'\'' abò '\''opus'\'')]:model:_claude_model_names'
+    '--agent[Agent dlô aktualny sesje. Nadpisëje nastôw '\''agent'\'']:agent:_claude_agent_names'
     '--betas[Beta nagłówczi do dołączeniô w prosbach API (le brëkòwnicë z klucza API)]:betas:'
-    '--fallback-model[Włączë aùtomatny fallback do òkreslonégò modelu, czej domëslny model je przecążony (le --print)]:model:'
+    '--fallback-model[Włączë aùtomatny fallback do òkreslonégò modelu, czej domëslny model je przecążony (le --print)]:model:_claude_model_names'
     '--settings[Stegna do plika JSON z nastôwama abò cygù JSON do wczëtaniô dodôwkòwëch nastôwów]:file-or-json:_files'
     '--add-dir[Dodôwkòwé katalodżi do zezwòleniô przistãpù nôrzãdzóm]:directories:_directories'
     '--ide[Aùtomatno pòłączë z IDE przë sztarce, jeżlë je przistãpné akùrat jedno wôżné IDE]'
@@ -430,7 +470,7 @@ _claude_install() {
 _claude_agents() {
   _arguments \
     '*--add-dir[Dodôwkòwi katalog do zezwòleniô przistãpù nôrzãdzóm w wësłónëch sesjach]:directory:_directories' \
-    '--agent[Domëslny agent dlô sesji wësłónëch z wëzdrzatkù agenta]:agent:' \
+    '--agent[Domëslny agent dlô sesji wësłónëch z wëzdrzatkù agenta]:agent:_claude_agent_names' \
     '--all[Z --json: dołączë téż zakùńczoné sesje w tle]' \
     '--allow-dangerously-skip-permissions[Ùczëni mòdus òbińdzeniô zezwòleniów przistãpnym dlô wësłónëch sesji]' \
     '--cwd[Pòkażë le sesje w tle zrëszóné pòd stegną]:path:_directories' \
@@ -438,7 +478,7 @@ _claude_agents() {
     '--effort[Domëslnô rówizna wësiłkù dlô wësłónëch sesji]:level:(low medium high xhigh max)' \
     '--json[Wëpiszë aktiwné sesje jakò tôfla JSON ë wińdzë]' \
     '*--mcp-config[Kònfigùracjô serwera MCP do zastosowaniô w wësłónëch sesjach]:config:' \
-    '--model[Domëslny model dlô sesji wësłónëch z wëzdrzatkù agenta]:model:' \
+    '--model[Domëslny model dlô sesji wësłónëch z wëzdrzatkù agenta]:model:_claude_model_names' \
     '--permission-mode[Domëslny mòdus zezwòleniów dlô wësłónëch sesji]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)' \
     '*--plugin-dir[Wczëtôj wtëczi z katalogù dlô wëzdrzatkù agenta ë wësłónëch sesji]:path:_directories' \
     '--setting-sources[Lësta zdrojów nastôwów do wczëtaniô òddzelonô kòmą (user, project, local)]:sources:' \

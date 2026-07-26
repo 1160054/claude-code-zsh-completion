@@ -56,6 +56,46 @@ _claude_sessions() {
   compadd -a sessions
 }
 
+_claude_agent_names() {
+  local -a agents
+  local agent_dir agent_file name
+
+  # User-level and project-level agent definitions
+  for agent_dir in ~/.claude/agents ~/.config/claude/agents .claude/agents; do
+    [[ -d "$agent_dir" ]] || continue
+
+    for agent_file in ${agent_dir}/*.md(N); do
+      # Prefer the name declared in the front matter, fall back to the filename
+      name=$(sed -n '1,10{s/^name:[[:space:]]*\([^[:space:]]*\).*/\1/p;}' "$agent_file" 2>/dev/null | head -1)
+      agents+=(${name:-${agent_file:t:r}})
+    done
+  done
+
+  agents=(${(u)agents})
+
+  compadd -a agents
+}
+
+_claude_model_names() {
+  local -a models
+  local config_file
+
+  # Aliases always resolve to the latest model of that family
+  models=(default fable opus sonnet haiku)
+
+  # Full model names the user has already configured
+  for config_file in ~/.claude/settings.json ~/.claude/settings.local.json ~/.claude.json; do
+    [[ -f "$config_file" ]] || continue
+    models+=(${(f)"$(grep -oE '"(model|fallbackModel)"[[:space:]]*:[[:space:]]*"[^"]+"' "$config_file" 2>/dev/null | \
+      sed 's/.*:[[:space:]]*"\([^"]*\)"/\1/')"})
+  done
+
+  # Remove duplicates
+  models=(${(u)models})
+
+  compadd -a models
+}
+
 _claude() {
   local curcontext="$curcontext" state line
   typeset -A opt_args
@@ -103,10 +143,10 @@ _claude() {
     '(-r --resume)'{-r,--resume}'[از سرگیری گفتگو - شناسه نشست را مشخص کنید یا به صورت تعاملی انتخاب کنید]:sessionId:_claude_sessions'
     '--fork-session[ایجاد شناسه نشست جدید به جای استفاده مجدد از شناسه نشست اصلی هنگام از سرگیری (با --resume یا --continue)]'
     '--no-session-persistence[غیرفعال‌سازی ماندگاری نشست - نشست‌ها ذخیره نخواهند شد (فقط --print)]'
-    '--model[مدل برای نشست فعلی. نام مستعار را برای جدیدترین مدل مشخص کنید (مثلاً '\''sonnet'\'' یا '\''opus'\'')]:model:'
-    '--agent[عامل برای نشست فعلی. تنظیم '\''agent'\'' را نادیده می‌گیرد]:agent:'
+    '--model[مدل برای نشست فعلی. نام مستعار را برای جدیدترین مدل مشخص کنید (مثلاً '\''sonnet'\'' یا '\''opus'\'')]:model:_claude_model_names'
+    '--agent[عامل برای نشست فعلی. تنظیم '\''agent'\'' را نادیده می‌گیرد]:agent:_claude_agent_names'
     '--betas[هدرهای بتا برای گنجاندن در درخواست‌های API (فقط کاربران کلید API)]:betas:'
-    '--fallback-model[فعال‌سازی بازگشت خودکار به مدل مشخص شده زمانی که مدل پیش‌فرض مشغول است (فقط --print)]:model:'
+    '--fallback-model[فعال‌سازی بازگشت خودکار به مدل مشخص شده زمانی که مدل پیش‌فرض مشغول است (فقط --print)]:model:_claude_model_names'
     '--settings[مسیر فایل JSON تنظیمات یا رشته JSON برای بارگذاری تنظیمات اضافی]:file-or-json:_files'
     '--add-dir[دایرکتوری‌های اضافی برای مجوز دسترسی ابزار]:directories:_directories'
     '--ide[اتصال خودکار به IDE در شروع اگر دقیقاً یک IDE معتبر موجود باشد]'
@@ -430,7 +470,7 @@ _claude_install() {
 _claude_agents() {
   _arguments \
     '*--add-dir[دایرکتوری اضافی برای مجوز دسترسی ابزار در نشست‌های ارسال‌شده]:directory:_directories' \
-    '--agent[عامل پیش‌فرض برای نشست‌های ارسال‌شده از نمای عامل]:agent:' \
+    '--agent[عامل پیش‌فرض برای نشست‌های ارسال‌شده از نمای عامل]:agent:_claude_agent_names' \
     '--all[با --json: همچنین نشست‌های پس‌زمینه تکمیل‌شده را نیز شامل شود]' \
     '--allow-dangerously-skip-permissions[در دسترس قرار دادن حالت دور زدن مجوزها برای نشست‌های ارسال‌شده]' \
     '--cwd[فقط نشست‌های پس‌زمینه شروع‌شده در مسیر را نمایش بده]:path:_directories' \
@@ -438,7 +478,7 @@ _claude_agents() {
     '--effort[سطح تلاش پیش‌فرض برای نشست‌های ارسال‌شده]:level:(low medium high xhigh max)' \
     '--json[چاپ نشست‌های فعال به صورت آرایه JSON و خروج]' \
     '*--mcp-config[پیکربندی سرور MCP برای اعمال بر نشست‌های ارسال‌شده]:config:' \
-    '--model[مدل پیش‌فرض برای نشست‌های ارسال‌شده از نمای عامل]:model:' \
+    '--model[مدل پیش‌فرض برای نشست‌های ارسال‌شده از نمای عامل]:model:_claude_model_names' \
     '--permission-mode[حالت مجوز پیش‌فرض برای نشست‌های ارسال‌شده]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)' \
     '*--plugin-dir[بارگذاری افزونه‌ها از دایرکتوری برای نمای عامل و نشست‌های ارسال‌شده]:path:_directories' \
     '--setting-sources[لیست جداشده با کاما از منابع تنظیمات برای بارگذاری (user, project, local)]:sources:' \

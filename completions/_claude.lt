@@ -56,6 +56,46 @@ _claude_sessions() {
   compadd -a sessions
 }
 
+_claude_agent_names() {
+  local -a agents
+  local agent_dir agent_file name
+
+  # User-level and project-level agent definitions
+  for agent_dir in ~/.claude/agents ~/.config/claude/agents .claude/agents; do
+    [[ -d "$agent_dir" ]] || continue
+
+    for agent_file in ${agent_dir}/*.md(N); do
+      # Prefer the name declared in the front matter, fall back to the filename
+      name=$(sed -n '1,10{s/^name:[[:space:]]*\([^[:space:]]*\).*/\1/p;}' "$agent_file" 2>/dev/null | head -1)
+      agents+=(${name:-${agent_file:t:r}})
+    done
+  done
+
+  agents=(${(u)agents})
+
+  compadd -a agents
+}
+
+_claude_model_names() {
+  local -a models
+  local config_file
+
+  # Aliases always resolve to the latest model of that family
+  models=(default fable opus sonnet haiku)
+
+  # Full model names the user has already configured
+  for config_file in ~/.claude/settings.json ~/.claude/settings.local.json ~/.claude.json; do
+    [[ -f "$config_file" ]] || continue
+    models+=(${(f)"$(grep -oE '"(model|fallbackModel)"[[:space:]]*:[[:space:]]*"[^"]+"' "$config_file" 2>/dev/null | \
+      sed 's/.*:[[:space:]]*"\([^"]*\)"/\1/')"})
+  done
+
+  # Remove duplicates
+  models=(${(u)models})
+
+  compadd -a models
+}
+
 _claude() {
   local curcontext="$curcontext" state line
   typeset -A opt_args
@@ -103,10 +143,10 @@ _claude() {
     '(-r --resume)'{-r,--resume}'[Atnaujinti pokalbį - nurodykite seanso identifikatorių arba pasirinkite interaktyviai]:sessionId:_claude_sessions'
     '--fork-session[Sukurti naują seanso identifikatorių vietoj originalaus pakartotinio naudojimo atnaujinant (su --resume arba --continue)]'
     '--no-session-persistence[Išjungti seanso išsaugojimą - seansai nebus išsaugoti (tik --print)]'
-    '--model[Modelis dabartiniam seansui. Nurodykite slapyvardį naujausiajam modeliui (pvz., '\''sonnet'\'' arba '\''opus'\'')]:model:'
-    '--agent[Agentas dabartiniam seansui. Perrašo '\''agent'\'' nustatymą]:agent:'
+    '--model[Modelis dabartiniam seansui. Nurodykite slapyvardį naujausiajam modeliui (pvz., '\''sonnet'\'' arba '\''opus'\'')]:model:_claude_model_names'
+    '--agent[Agentas dabartiniam seansui. Perrašo '\''agent'\'' nustatymą]:agent:_claude_agent_names'
     '--betas[Beta antraštės įtraukimui į API užklausas (tik API rakto vartotojams)]:betas:'
-    '--fallback-model[Įgalinti automatinį perjungimą į nurodytą modelį, kai numatytasis modelis perkrautas (tik --print)]:model:'
+    '--fallback-model[Įgalinti automatinį perjungimą į nurodytą modelį, kai numatytasis modelis perkrautas (tik --print)]:model:_claude_model_names'
     '--settings[Kelias į JSON nustatymų failą arba JSON eilutę papildomų nustatymų įkėlimui]:file-or-json:_files'
     '--add-dir[Papildomi katalogai įrankių prieigai suteikti]:directories:_directories'
     '--ide[Automatiškai prisijungti prie IDE paleidžiant, jei yra prieinama tiksliai viena galiojanti IDE]'
@@ -430,7 +470,7 @@ _claude_install() {
 _claude_agents() {
   _arguments \
     '*--add-dir[Papildomas katalogas įrankių prieigai suteikti išsiųstuose seansuose]:directory:_directories' \
-    '--agent[Numatytasis agentas seansams, išsiųstiems iš agentų rodinio]:agent:' \
+    '--agent[Numatytasis agentas seansams, išsiųstiems iš agentų rodinio]:agent:_claude_agent_names' \
     '--all[Su --json: taip pat įtraukti užbaigtus foninius seansus]' \
     '--allow-dangerously-skip-permissions[Padaryti leidimų apėjimo režimą prieinamą išsiųstiems seansams]' \
     '--cwd[Rodyti tik foninius seansus, pradėtus nurodytame kelyje]:path:_directories' \
@@ -438,7 +478,7 @@ _claude_agents() {
     '--effort[Numatytasis pastangų lygis išsiųstiems seansams]:level:(low medium high xhigh max)' \
     '--json[Atspausdinti aktyvius seansus kaip JSON masyvą ir išeiti]' \
     '*--mcp-config[MCP serverio konfigūracija, taikoma išsiųstiems seansams]:config:' \
-    '--model[Numatytasis modelis seansams, išsiųstiems iš agentų rodinio]:model:' \
+    '--model[Numatytasis modelis seansams, išsiųstiems iš agentų rodinio]:model:_claude_model_names' \
     '--permission-mode[Numatytasis leidimų režimas išsiųstiems seansams]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)' \
     '*--plugin-dir[Įkelti papildinius iš katalogo agentų rodiniui ir išsiųstiems seansams]:path:_directories' \
     '--setting-sources[Nustatymų šaltinių sąrašas atskirtas kableliais įkėlimui (user, project, local)]:sources:' \

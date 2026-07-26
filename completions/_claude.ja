@@ -56,6 +56,46 @@ _claude_sessions() {
   compadd -a sessions
 }
 
+_claude_agent_names() {
+  local -a agents
+  local agent_dir agent_file name
+
+  # User-level and project-level agent definitions
+  for agent_dir in ~/.claude/agents ~/.config/claude/agents .claude/agents; do
+    [[ -d "$agent_dir" ]] || continue
+
+    for agent_file in ${agent_dir}/*.md(N); do
+      # Prefer the name declared in the front matter, fall back to the filename
+      name=$(sed -n '1,10{s/^name:[[:space:]]*\([^[:space:]]*\).*/\1/p;}' "$agent_file" 2>/dev/null | head -1)
+      agents+=(${name:-${agent_file:t:r}})
+    done
+  done
+
+  agents=(${(u)agents})
+
+  compadd -a agents
+}
+
+_claude_model_names() {
+  local -a models
+  local config_file
+
+  # Aliases always resolve to the latest model of that family
+  models=(default fable opus sonnet haiku)
+
+  # Full model names the user has already configured
+  for config_file in ~/.claude/settings.json ~/.claude/settings.local.json ~/.claude.json; do
+    [[ -f "$config_file" ]] || continue
+    models+=(${(f)"$(grep -oE '"(model|fallbackModel)"[[:space:]]*:[[:space:]]*"[^"]+"' "$config_file" 2>/dev/null | \
+      sed 's/.*:[[:space:]]*"\([^"]*\)"/\1/')"})
+  done
+
+  # Remove duplicates
+  models=(${(u)models})
+
+  compadd -a models
+}
+
 _claude() {
   local curcontext="$curcontext" state line
   typeset -A opt_args
@@ -103,10 +143,10 @@ _claude() {
     '(-r --resume)'{-r,--resume}'[会話を再開 - セッションIDを指定するか、対話的に選択]:sessionId:_claude_sessions'
     '--fork-session[再開時、元のセッションIDを再利用せず新しいセッションIDを作成（--resumeまたは--continueと併用）]'
     '--no-session-persistence[セッションの永続化を無効化 - セッションは保存されない（--printのみ）]'
-    '--model[現在のセッション用モデル。最新モデルのエイリアス（例：'\''sonnet'\''または'\''opus'\''）を指定]:model:'
-    '--agent[現在のセッション用エージェント。'\''agent'\''設定を上書き]:agent:'
+    '--model[現在のセッション用モデル。最新モデルのエイリアス（例：'\''sonnet'\''または'\''opus'\''）を指定]:model:_claude_model_names'
+    '--agent[現在のセッション用エージェント。'\''agent'\''設定を上書き]:agent:_claude_agent_names'
     '--betas[APIリクエストに含めるベータヘッダー（APIキーユーザーのみ）]:betas:'
-    '--fallback-model[デフォルトモデルが過負荷時に指定モデルへ自動フォールバック有効化（--printのみ）]:model:'
+    '--fallback-model[デフォルトモデルが過負荷時に指定モデルへ自動フォールバック有効化（--printのみ）]:model:_claude_model_names'
     '--settings[設定JSONファイルへのパスまたは追加設定を読み込むJSON文字列]:file-or-json:_files'
     '--add-dir[ツールアクセスを許可する追加ディレクトリ]:directories:_directories'
     '--ide[正確に1つの有効なIDEが利用可能な場合、起動時に自動接続]'
@@ -430,7 +470,7 @@ _claude_install() {
 _claude_agents() {
   _arguments \
     '*--add-dir[ディスパッチされたセッションでツールアクセスを許可する追加ディレクトリ]:directory:_directories' \
-    '--agent[エージェントビューからディスパッチされるセッションのデフォルトエージェント]:agent:' \
+    '--agent[エージェントビューからディスパッチされるセッションのデフォルトエージェント]:agent:_claude_agent_names' \
     '--all[--jsonと併用：完了したバックグラウンドセッションも含める]' \
     '--allow-dangerously-skip-permissions[ディスパッチされたセッションでbypass-permissionsモードを利用可能にする]' \
     '--cwd[指定したパス配下で開始されたバックグラウンドセッションのみ表示]:path:_directories' \
@@ -438,7 +478,7 @@ _claude_agents() {
     '--effort[ディスパッチされたセッションのデフォルト努力レベル]:level:(low medium high xhigh max)' \
     '--json[アクティブなセッションをJSON配列として出力して終了]' \
     '*--mcp-config[ディスパッチされたセッションに適用するMCPサーバー設定]:config:' \
-    '--model[エージェントビューからディスパッチされるセッションのデフォルトモデル]:model:' \
+    '--model[エージェントビューからディスパッチされるセッションのデフォルトモデル]:model:_claude_model_names' \
     '--permission-mode[ディスパッチされたセッションのデフォルト権限モード]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)' \
     '*--plugin-dir[エージェントビューとディスパッチされたセッション用にディレクトリからプラグインを読み込む]:path:_directories' \
     '--setting-sources[読み込む設定ソースのカンマ区切りリスト（user, project, local）]:sources:' \
