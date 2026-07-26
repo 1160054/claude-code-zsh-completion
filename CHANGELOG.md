@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- README: the curl instructions are labelled "Manual Install" rather than "Quick Install" (Homebrew is now the shorter path), and the hand-maintained command list is replaced by a pointer to `completions/_claude` — it still listed the removed `migrate-installer` and was missing every command added in 2.2.0
+
 ### Added
 - Homebrew formula: `brew tap 1160054/claude <repo-url>`, `brew trust 1160054/claude`, then `brew install claude-code-zsh-completion` installs the English completion into Homebrew's `site-functions` (already on `fpath`, so no `.zshrc` changes) and keeps all 120 localized files available for switching
 - Release automation: publishing a release opens a PR pointing the formula at the new tag and checksum
