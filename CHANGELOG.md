@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Changed
+- README: Usage rewritten around what the completion actually shows (descriptions, option filtering, fixed-value options) with the configuration-driven completions in their own section; decorative emoji removed from the feature list
 - README: the curl instructions are labelled "Manual Install" rather than "Quick Install" (Homebrew is now the shorter path), and the hand-maintained command list is replaced by a pointer to `completions/_claude` — it still listed the removed `migrate-installer` and was missing every command added in 2.2.0
 
 ### Added
