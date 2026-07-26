@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [2.5.0] - 2026-07-27
 
 ### Fixed
 - `--resume` / `-r` completed nothing at all: sessions were looked up in `~/.claude/sessions`, a directory Claude Code does not use. They now come from the project's own transcript directory (`<config>/projects/<cwd>/*.jsonl`, with `/` and `.` in the path turned into `-`), newest first and capped at 20, and each candidate is described by the first message of that session. A symlinked working directory is recorded under its resolved path, so both that and the one the shell reports are looked up
