@@ -63,26 +63,33 @@ _claude_installed_plugins() {
 _claude_sessions() {
   setopt localoptions extendedglob
 
-  local -a sessions
-  local state_dir project_dir session_file uuid summary
+  local -a sessions project_dirs
+  local state_dir project_dir cwd session_file uuid summary
 
-  # Sessions live under <config>/projects/<cwd with / and . turned into ->
-  project_dir=${${PWD//\//-}//./-}
+  # Sessions live under <config>/projects/<cwd with / and . turned into ->.
+  # A symlinked working directory is recorded under its resolved path, so
+  # try that as well as the one the shell reports.
+  for cwd in "$PWD" "${PWD:A}"; do
+    project_dirs+=(${${cwd//\//-}//./-})
+  done
+  project_dirs=(${(u)project_dirs})
 
   for state_dir in ${(f)"$(_claude_state_dirs)"}; do
-    [[ -d "$state_dir/projects/$project_dir" ]] || continue
+    for project_dir in $project_dirs; do
+      [[ -d "$state_dir/projects/$project_dir" ]] || continue
 
-    # Newest first, capped so completion stays instant on long-lived projects
-    for session_file in ${state_dir}/projects/${project_dir}/*.jsonl(Nom[1,20]); do
-      uuid=${session_file:t:r}
-      [[ $uuid == [0-9a-f](#c8)-[0-9a-f](#c4)-[0-9a-f](#c4)-[0-9a-f](#c4)-[0-9a-f](#c12) ]] || continue
+      # Newest first, capped so completion stays instant on long-lived projects
+      for session_file in ${state_dir}/projects/${project_dir}/*.jsonl(Nom[1,20]); do
+        uuid=${session_file:t:r}
+        [[ $uuid == [0-9a-f](#c8)-[0-9a-f](#c4)-[0-9a-f](#c4)-[0-9a-f](#c4)-[0-9a-f](#c12) ]] || continue
 
-      # Describe each session with the first thing you typed in it. Only the
-      # head of the transcript is read - these files grow into the megabytes.
-      summary=$(head -c 200000 "$session_file" 2>/dev/null | \
-        grep -m 1 -o '"role":"user","content":"[^"]\{1,60\}' 2>/dev/null | \
-        sed 's/.*"content":"//; s/\\n/ /g; s/\\*$//')
-      sessions+=("${uuid}:${summary:-no description}")
+        # Describe each session with the first thing you typed in it. Only the
+        # head of the transcript is read - these files grow into the megabytes.
+        summary=$(head -c 200000 "$session_file" 2>/dev/null | \
+          grep -m 1 -o '"role":"user","content":"[^"]\{1,60\}' 2>/dev/null | \
+          sed 's/.*"content":"//; s/\\n/ /g; s/\\*$//')
+        sessions+=("${uuid}:${summary:-no description}")
+      done
     done
   done
 
