@@ -19,6 +19,8 @@ Set Theme "Dracula"
 Set Padding 20
 Set TypingSpeed 30ms
 Set Framerate 24
+# Trims the pauses a little without retuning every Sleep below
+Set PlaybackSpeed 1.1
 
 # Setup before recording
 Hide
