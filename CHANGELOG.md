@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [2.6.0] - 2026-09-13
 
 ### Added
 - Completion for the background-session commands the CLI gained: `attach`, `logs`, `stop` (and its `kill` alias), `respawn` (`--all`) and `rm` (`--discard-unpushed`, `--force-remove-worktree`). Their `<id>` argument is completed from `<config>/jobs/<id>/state.json` — the short ids `claude --bg` prints — each described by the session's name and state, so `claude attach <TAB>` shows what you would be attaching to
@@ -15,9 +15,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - The English regional variants (`en-*`) carry all of the above, and so do Japanese, Korean, Simplified and Traditional Chinese, Spanish, French, German, Italian, Brazilian Portuguese, Russian, Turkish and Polish; the remaining locales follow in a later release, as with 2.2.0
 
 ### Changed
-- Demo re-recorded against the current completion: the top-level command list now includes the background-session commands and `import`, and a new scene shows `claude attach <TAB>` completing background sessions from `jobs/<id>/state.json` fixtures. The frame is 100px taller so all 18 commands fit
 - README leads with the configuration-driven completion — `claude --resume <TAB>` and the descriptions it now carries — rather than the language count, and Usage opens with that section instead of ending on it
-- Demo re-recorded with `--resume` as the opening scene, and the fixtures rebuilt to match the layout the completion actually reads: sessions under `projects/`, plugins from `installed_plugins.json`. The recording clears `CLAUDE_CONFIG_DIR`, which would otherwise point it at the recorder's real configuration
+- Demo re-recorded: `--resume` opens, a new scene shows `claude attach <TAB>` completing background sessions from `jobs/<id>/state.json` fixtures, the top-level list carries all 18 commands (frame 100px taller), the selection is stepped through every list, and playback is 10% faster. The fixtures were rebuilt to the layout the completion actually reads (sessions under `projects/`, plugins from `installed_plugins.json`), and the recording clears `CLAUDE_CONFIG_DIR`, which would otherwise point it at the recorder's real configuration
 
 ### Fixed
 - The demo fixtures under `demo/fixtures/home/.claude` were never committed — ignoring `.claude/` is common in a global gitignore, and that quietly swallowed them, so the recording only worked on the machine that made them. The repository's `.gitignore` un-ignores that path now
