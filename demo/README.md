@@ -32,13 +32,19 @@ the GIF is loaded by everyone who opens the README.
 
 The dynamic completions read the user's own configuration:
 
-| Completion            | Source                       |
-| --------------------- | ---------------------------- |
-| `claude mcp get <TAB>` | `~/.claude.json`             |
-| `claude --resume <TAB>` | `~/.claude/sessions/*`      |
-| `claude plugin … <TAB>` | `~/.claude/plugins/*`       |
+| Completion              | Source                                          |
+| ----------------------- | ----------------------------------------------- |
+| `claude mcp get <TAB>`  | `~/.claude.json`                                |
+| `claude --resume <TAB>` | `~/.claude/projects/<cwd>/*.jsonl`              |
+| `claude attach <TAB>`   | `~/.claude/jobs/<id>/state.json`                |
+| `claude plugin … <TAB>` | `~/.claude/plugins/installed_plugins.json`      |
 
 To keep the recording reproducible - and to avoid leaking the recorder's real
 MCP servers and session IDs into the GIF - `demo.tape` points `$HOME` at
 `fixtures/home` before running `compinit`. Edit the files under `fixtures/home`
 if you want different demo data.
+
+The session transcripts are the exception: their directory is named after the
+project's own path, so `demo.tape` creates it at recording time from
+`fixtures/sessions/`. The background sessions under `fixtures/home/.claude/jobs`
+are static and checked in.
