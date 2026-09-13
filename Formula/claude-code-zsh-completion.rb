@@ -1,8 +1,8 @@
 class ClaudeCodeZshCompletion < Formula
   desc "Zsh completion for the Claude Code CLI, localized into 120+ languages"
   homepage "https://github.com/1160054/claude-code-zsh-completion"
-  url "https://github.com/1160054/claude-code-zsh-completion/archive/refs/tags/v2.5.0.tar.gz"
-  sha256 "1c620660f1566c9f097b6af62bf5fb443d95f4995ba25ecf01a56dd14d7332c3"
+  url "https://github.com/1160054/claude-code-zsh-completion/archive/refs/tags/v2.6.0.tar.gz"
+  sha256 "427a9f7444359b63963ddc82aede8ee08a2e980a5242e20aa03681d3d2338095"
   license "MIT"
   head "https://github.com/1160054/claude-code-zsh-completion.git", branch: "main"
 
