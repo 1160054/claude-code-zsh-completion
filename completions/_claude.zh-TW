@@ -121,6 +121,39 @@ _claude_agent_names() {
   compadd -a agents
 }
 
+_claude_background_sessions() {
+  local -a sessions state_files
+  local -A names states
+  local state_dir state_file line id rest
+
+  # Background sessions (`claude --bg`) live in <config>/jobs/<id>/, where
+  # <id> is the short id that attach, logs, stop, respawn and rm take.
+  for state_dir in ${(f)"$(_claude_state_dirs)"}; do
+    # Newest first
+    state_files=(${state_dir}/jobs/*/state.json(Nom))
+    (( ${#state_files} )) || continue
+
+    # One grep for all of them; the first "name" and "state" it reports for a
+    # file are that file's top-level ones
+    names=() states=()
+    for line in ${(f)"$(grep -HoE '"(name|state)"[[:space:]]*:[[:space:]]*"[^"]*"' $state_files 2>/dev/null)"}; do
+      id=${${line%%/state.json:*}:t}
+      rest=${line#*/state.json:}
+      case $rest in
+        \"name\"*)  [[ -z $names[$id] ]]  && names[$id]=${${rest#*:*\"}%\"} ;;
+        \"state\"*) [[ -z $states[$id] ]] && states[$id]=${${rest#*:*\"}%\"} ;;
+      esac
+    done
+
+    for state_file in $state_files; do
+      id=${state_file:h:t}
+      sessions+=("${id}:${names[$id]:-no name}${states[$id]:+ (${states[$id]})}")
+    done
+  done
+
+  _describe -t sessions 'background session' sessions
+}
+
 _claude_model_names() {
   local -a models config_files
   local state_dir config_file
@@ -155,9 +188,15 @@ _claude() {
     'mcp:設定和管理 MCP 伺服器'
     'plugin:管理 Claude Code 外掛程式'
     'agents:管理背景代理程式'
+    'attach:在此終端機中開啟背景工作階段'
+    'logs:列印背景工作階段最近的終端機輸出'
+    'stop:停止背景工作階段（對話會被保留）'
+    'respawn:重新啟動背景工作階段，使其執行目前的 Claude Code 版本'
+    'rm:刪除背景工作階段，並在安全時一併刪除其工作樹'
     'auth:管理驗證'
     'auto-mode:檢查或重設自動模式分類器設定'
     'gateway:執行企業驗證/遙測閘道'
+    'import:將其他 AI 程式設計代理程式的設定匯入 Claude Code'
     'project:管理 Claude Code 專案狀態'
     'ultrareview:執行雲端託管的多代理程式程式碼審查並列印結果'
     'setup-token:設定長期驗證權杖（需要 Claude 訂閱）'
@@ -178,6 +217,7 @@ _claude() {
     '--mcp-debug[\[已淘汰。請改用 --debug\] 啟用 MCP 偵錯模式（顯示 MCP 伺服器錯誤）]'
     '--dangerously-skip-permissions[略過所有權限檢查。僅建議用於無網際網路存取的沙箱]'
     '--allow-dangerously-skip-permissions[啟用略過權限檢查的選項，但預設不啟用]'
+    '--restricted[受限模式：移除執行命令或程式碼的工具和 WebFetch，忽略 user/project/local 設定，並將檔案工具限制在工作目錄內]'
     '--max-budget-usd[花費在 API 呼叫上的美元金額上限（僅限 --print）]:amount:'
     '--replay-user-messages[在 stdout 上重新傳送來自 stdin 的使用者訊息以進行確認]'
     '--allowed-tools[以逗號或空格分隔的允許工具名稱清單（例如 "Bash(git:*) Edit"）]:tools:'
@@ -187,8 +227,13 @@ _claude() {
     '--disallowedTools[以逗號或空格分隔的不允許工具名稱清單（駝峰式大小寫格式）]:tools:'
     '--mcp-config[從 JSON 檔案或字串載入 MCP 伺服器（以空格分隔）]:configs:'
     '--system-prompt[工作階段使用的系統提示]:prompt:'
+    '--system-prompt-file[從檔案讀取系統提示]:file:_files'
     '--append-system-prompt[將系統提示附加至預設系統提示]:prompt:'
+    '--append-system-prompt-file[從檔案讀取系統提示並附加到預設系統提示]:file:_files'
+    '--system-prompt-snapshot[每個對話記錄一次系統提示，並在之後的每次請求與恢復中原樣重複使用（on，預設），或每次請求重新產生（off）]:mode:(on off)'
     '--permission-mode[工作階段使用的權限模式]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)'
+    '--permission-prompts[使用 --print 時由誰回答權限提示："host"（SDK 主機或 --permission-prompt-tool）或 "none"（任何需要提示的操作都會被拒絕）]:target:(host none)'
+    '--permission-prompt-tool[用於權限提示的 MCP 工具（僅限 --print）]:tool:'
     '(-c --continue)'{-c,--continue}'[繼續最近的對話]'
     '(-r --resume)'{-r,--resume}'[繼續對話 - 指定工作階段 ID 或互動式選取]:sessionId:_claude_sessions'
     '--fork-session[在繼續時建立新的工作階段 ID，而不是重複使用原始工作階段 ID（搭配 --resume 或 --continue）]'
@@ -208,11 +253,15 @@ _claude() {
     '--disable-slash-commands[停用所有斜線命令]'
     '(--bg --background)'{--bg,--background}'[以背景代理程式啟動工作階段並立即返回]'
     '(-w --worktree)'{-w,--worktree}'[為此工作階段建立新的 git 工作樹（可選擇指定名稱）]::name:'
-    '--tmux[為工作樹建立 tmux 工作階段（需要 --worktree）]'
+    '--tmux=-[為工作樹建立 tmux 工作階段（需要 --worktree）。可用時使用 iTerm2 原生窗格；傳統 tmux 請用 --tmux=classic]::mode:(classic)'
     '(-n --name)'{-n,--name}'[為此工作階段設定顯示名稱]:name:'
     '--effort[目前工作階段的努力程度]:level:(low medium high xhigh max)'
+    '--autocompact[自動壓縮視窗大小（auto，或 100k 到 1M 個 token）]:size:(auto)'
     '--debug-file[將偵錯記錄寫入特定檔案路徑（隱含啟用偵錯模式）]:path:_files'
     '--from-pr[繼續依編號/URL 連結至 PR 的工作階段，或開啟互動式選擇器]::value:'
+    '--teleport[恢復傳送工作階段，可選擇指定工作階段 ID]::session:'
+    '--cloud[使用指定的描述建立雲端工作階段，或透過工作階段 ID 或 claude.ai/code URL 附加到現有的工作階段]::description-or-session:'
+    '--environment[建立在指定自架環境（ccpool_...）上執行的新雲端工作階段]:environment_id:'
     '--remote-control[啟動已啟用遠端控制的互動式工作階段（可選擇命名）]::name:'
     '--remote-control-session-name-prefix[自動產生遠端控制工作階段名稱的前綴]:prefix:'
     '--chrome[啟用 Claude in Chrome 整合]'
@@ -254,6 +303,17 @@ _claude() {
         agents)
           _claude_agents
           ;;
+        attach|logs|stop|kill)
+          _arguments \
+            '(-h --help)'{-h,--help}'[顯示命令說明]' \
+            '1:session:_claude_background_sessions'
+          ;;
+        respawn)
+          _claude_respawn
+          ;;
+        rm)
+          _claude_rm
+          ;;
         auth)
           _claude_auth
           ;;
@@ -262,6 +322,9 @@ _claude() {
           ;;
         gateway)
           _claude_gateway
+          ;;
+        import)
+          _claude_import
           ;;
         project)
           _claude_project
@@ -319,6 +382,9 @@ _claude_mcp() {
             '(-t --transport)'{-t,--transport}'[傳輸類型（stdio、sse、http）]:transport:(stdio sse http)' \
             '(-e --env)'{-e,--env}'[設定環境變數（例如 -e KEY=value）]:env:' \
             '(-H --header)'{-H,--header}'[設定 WebSocket 標頭]:header:' \
+            '--client-id[HTTP/SSE 伺服器的 OAuth 用戶端 ID]:clientId:' \
+            '--client-secret[提示輸入 OAuth 用戶端密鑰（或設定 MCP_CLIENT_SECRET 環境變數）]' \
+            '--callback-port[OAuth 回呼的固定連接埠（用於需要預先註冊重新導向 URI 的伺服器）]:port:' \
             '(-h --help)'{-h,--help}'[顯示說明]' \
             '1:name:' \
             '2:commandOrUrl:' \
@@ -342,6 +408,7 @@ _claude_mcp() {
         add-json)
           _arguments \
             '(-s --scope)'{-s,--scope}'[設定範圍（local、user、project）]:scope:(local user project)' \
+            '--client-secret[提示輸入 OAuth 用戶端密鑰（或設定 MCP_CLIENT_SECRET 環境變數）]' \
             '(-h --help)'{-h,--help}'[顯示說明]' \
             '1:name:' \
             '2:json:'
@@ -355,7 +422,13 @@ _claude_mcp() {
           _arguments \
             '(-h --help)'{-h,--help}'[顯示說明]'
           ;;
-        login|logout)
+        login)
+          _arguments \
+            '--no-browser[列印授權 URL 而不開啟瀏覽器（用於 SSH/無頭工作階段）]' \
+            '(-h --help)'{-h,--help}'[顯示說明]' \
+            '1:name:_claude_mcp_servers'
+          ;;
+        logout)
           _arguments \
             '(-h --help)'{-h,--help}'[顯示說明]' \
             '1:name:_claude_mcp_servers'
@@ -375,6 +448,7 @@ _claude_plugin() {
     'install:從可用市集安裝外掛程式'
     'i:從可用市集安裝外掛程式（install 的簡寫）'
     'init:建立新外掛程式的骨架（下次工作階段自動載入）'
+    'new:建立新外掛程式的骨架（init 的別名）'
     'uninstall:解除安裝已安裝的外掛程式'
     'remove:解除安裝已安裝的外掛程式（uninstall 的別名）'
     'enable:啟用已停用的外掛程式'
@@ -382,6 +456,7 @@ _claude_plugin() {
     'update:將外掛程式更新至最新版本'
     'eval:對外掛程式執行評估案例並回報評分結果'
     'prune:移除不再需要的自動安裝相依項目'
+    'autoremove:移除不再需要的自動安裝相依項目（prune 的別名）'
     'tag:為外掛程式版本建立 {name}--v{version} git 標籤'
     'help:顯示說明'
   )
@@ -402,6 +477,8 @@ _claude_plugin() {
       case $words[1] in
         validate)
           _arguments \
+            '--strict[將警告視為錯誤（結束代碼 1）]' \
+            '--json[以 JSON 輸出驗證報告（結束代碼相同）]' \
             '(-h --help)'{-h,--help}'[顯示說明]' \
             '1:path:_files'
           ;;
@@ -411,29 +488,56 @@ _claude_plugin() {
         install|i)
           _arguments \
             '(-s --scope)'{-s,--scope}'[安裝範圍]:scope:(user project local)' \
+            '*--config[設定外掛程式資訊清單中宣告的 userConfig 選項（可重複）]:key=value:' \
+            '(-y --yes)'{-y,--yes}'[不經確認提示即接受顯示的市集宣告命令]' \
+            '--json[列印一行機器可讀的結果，而非人類可讀的訊息]' \
             '(-h --help)'{-h,--help}'[顯示說明]' \
             '1:plugin:'
           ;;
         uninstall|remove)
           _arguments \
             '(-s --scope)'{-s,--scope}'[安裝範圍]:scope:(user project local)' \
+            '--keep-data[保留外掛程式的持久資料目錄]' \
+            '--prune[同時移除不再需要的自動安裝相依項目]' \
+            '(-y --yes)'{-y,--yes}'[略過 --prune 的確認提示]' \
+            '--json[列印一行機器可讀的結果，而非人類可讀的訊息（不能與 --prune 同用）]' \
             '(-h --help)'{-h,--help}'[顯示說明]' \
             '1:plugin:_claude_installed_plugins'
           ;;
-        enable|disable)
+        enable)
           _arguments \
             '(-s --scope)'{-s,--scope}'[安裝範圍]:scope:(user project local)' \
+            '--json[列印一行機器可讀的結果，而非人類可讀的訊息]' \
             '(-h --help)'{-h,--help}'[顯示說明]' \
             '1:plugin:_claude_installed_plugins'
+          ;;
+        disable)
+          _arguments \
+            '(-a --all)'{-a,--all}'[停用所有已啟用的外掛程式]' \
+            '(-s --scope)'{-s,--scope}'[安裝範圍]:scope:(user project local)' \
+            '--json[列印一行機器可讀的結果，而非人類可讀的訊息]' \
+            '(-h --help)'{-h,--help}'[顯示說明]' \
+            '::plugin:_claude_installed_plugins'
           ;;
         update)
           _arguments \
             '(-s --scope)'{-s,--scope}'[安裝範圍]:scope:(user project local managed)' \
+            '(-y --yes)'{-y,--yes}'[不經確認提示即接受顯示的市集宣告命令]' \
+            '--json[列印一行機器可讀的結果，而非人類可讀的訊息]' \
             '(-h --help)'{-h,--help}'[顯示說明]' \
             '1:plugin:_claude_installed_plugins'
           ;;
-        list|prune)
+        list)
           _arguments \
+            '--json[以 JSON 輸出]' \
+            '--available[包含市集中可用的外掛程式（需要 --json）]' \
+            '(-h --help)'{-h,--help}'[顯示說明]'
+          ;;
+        prune|autoremove)
+          _arguments \
+            '(-s --scope)'{-s,--scope}'[在此範圍內清理]:scope:(user project local)' \
+            '--dry-run[列出將被移除的項目但不實際移除]' \
+            '(-y --yes)'{-y,--yes}'[略過確認提示]' \
             '(-h --help)'{-h,--help}'[顯示說明]'
           ;;
         details)
@@ -441,20 +545,53 @@ _claude_plugin() {
             '(-h --help)'{-h,--help}'[顯示說明]' \
             '1:plugin:_claude_installed_plugins'
           ;;
-        init)
+        init|new)
           _arguments \
+            '--description[資訊清單描述]:text:' \
+            '--author[作者姓名（預設：git config user.name）]:name:' \
+            '--author-email[作者電子郵件（預設：git config user.email）]:email:' \
+            '--with[一併建立骨架的元件]:components:' \
+            '(-f --force)'{-f,--force}'[覆寫目標位置既有的 .claude-plugin/]' \
             '(-h --help)'{-h,--help}'[顯示說明]' \
             '1:name:'
           ;;
         eval)
           _arguments \
+            '--case[依名稱 glob 篩選案例]:glob:' \
+            '*--tag[依標籤篩選案例（可重複）]:tag:' \
+            '--runs[覆寫每個案例的執行次數（預設：case.runs，否則為 3）]:n:' \
+            '(-j --concurrency)'{-j,--concurrency}'[同時執行最多 n 個代理程式（1 到 8，預設 1）]:n:' \
+            '--model[覆寫所有案例的模型]:model:_claude_model_names' \
+            '--judge-model[覆寫 LLM 評分模型（預設：haiku）]:model:_claude_model_names' \
+            '--max-cost-usd[硬性成本上限；達到時中止並回報部分結果（結束代碼 2）]:usd:' \
+            '--output-dir[存放 aggregate-result.json 的目錄]:dir:_directories' \
+            '--eval-dir[存放評估案例的目錄名稱（位於外掛程式之下）]:dir:' \
+            '--json[將完整執行結果以 JSON 列印到標準輸出，或寫入此 .json 檔案]::path:_files' \
+            '--threshold[任一案例分數低於此門檻時以結束代碼 1 結束（預設：1.0）]:threshold:' \
+            '*--allow-tools[操作者對受限工具（Bash、Write、Edit、WebFetch、mcp__*）的授權]:tools:' \
+            '(--no-scaffold)--scaffold[執行每個案例的 scaffold_script（以你的身分執行作者提供的 bash；預設關閉）]' \
+            '(--scaffold)--no-scaffold[明確略過 scaffold_script]' \
+            '--trust-plugin[聲明你信任此外掛程式及其評估套件，略過首次執行的信任提示（用於 CI）]' \
+            '--ablation[執行無外掛程式的基準線並回報分數差異]:mode:(none with-without)' \
+            '--mocks[MCP 伺服器的模擬替身（來自 <eval dir>/mocks/）]:mode:(record off)' \
+            '--allow-real-servers[使用 --mocks record 時，同時啟動沒有模擬的真實 MCP 伺服器程序]' \
+            '--keep-temp[保留 scaffold 目錄以便除錯]' \
+            '--verbose[將每則訊息的追蹤事件記錄到除錯記錄]' \
+            '--report[將獨立的 HTML 報告寫入此路徑而非結果目錄]:path:_files' \
+            '(--no-publish)--publish-report[同時要求將報告發佈到 claude.ai]' \
+            '(--publish-report)--no-publish[僅在本機保留 HTML 報告，不發佈到 claude.ai]' \
             '(-h --help)'{-h,--help}'[顯示說明]' \
-            '1:target:'
+            '::target: _alternative "plugins\:installed plugin\:_claude_installed_plugins" "files\:path\:_files"'
           ;;
         tag)
           _arguments \
+            '--push[建立標籤後推送到 --remote]' \
+            '--dry-run[列印將要建立的標籤但不實際建立]' \
+            '(-f --force)'{-f,--force}'[略過工作樹未提交變更與標籤已存在的檢查]' \
+            '(-m --message)'{-m,--message}'[標籤註解訊息（%s 代表版本）]:msg:' \
+            '--remote[使用 --push 時推送到的遠端]:name:' \
             '(-h --help)'{-h,--help}'[顯示說明]' \
-            '1:path:_files'
+            '::path:_files'
           ;;
       esac
       ;;
@@ -488,15 +625,20 @@ _claude_plugin_marketplace() {
       case $words[1] in
         add)
           _arguments \
+            '--sparse[透過 git sparse-checkout 僅簽出特定目錄（用於單一儲存庫）]:paths:' \
+            '--scope[在何處宣告市集]:scope:(user project local)' \
+            '--claudeai[新增 claude.ai 為你託管的此名稱的市集]' \
             '(-h --help)'{-h,--help}'[顯示說明]' \
             '1:source:'
           ;;
         list)
           _arguments \
+            '--json[以 JSON 輸出]' \
             '(-h --help)'{-h,--help}'[顯示說明]'
           ;;
         remove|rm)
           _arguments \
+            '--scope[從特定設定範圍移除市集宣告（省略則從所有範圍移除）]:scope:(user project local)' \
             '(-h --help)'{-h,--help}'[顯示說明]' \
             '1:name:'
           ;;
@@ -534,6 +676,7 @@ _claude_agents() {
     '--setting-sources[以逗號分隔的要載入的設定來源清單（user、project、local）]:sources:' \
     '--settings[要套用的設定檔或 JSON 字串]:file-or-json:_files' \
     '--strict-mcp-config[在派發的工作階段中僅使用 --mcp-config 中的 MCP 伺服器]' \
+    '--restricted[以受限模式啟動派送的工作階段]' \
     '(-h --help)'{-h,--help}'[顯示命令說明]'
 }
 
@@ -560,7 +703,21 @@ _claude_auth() {
       ;;
     args)
       case $words[1] in
-        login|logout|status)
+        login)
+          _arguments \
+            '--email[在登入頁面預先填入電子郵件地址]:email:' \
+            '--sso[強制使用 SSO 登入流程]' \
+            '(--claudeai)--console[使用 Anthropic Console（依 API 用量計費）而非 Claude 訂閱]' \
+            '(--console)--claudeai[使用 Claude 訂閱（預設）]' \
+            '(-h --help)'{-h,--help}'[顯示命令說明]'
+          ;;
+        status)
+          _arguments \
+            '(--text)--json[以 JSON 輸出（預設）]' \
+            '(--json)--text[以人類可讀的文字輸出]' \
+            '(-h --help)'{-h,--help}'[顯示命令說明]'
+          ;;
+        logout)
           _arguments \
             '(-h --help)'{-h,--help}'[顯示命令說明]'
           ;;
@@ -593,7 +750,22 @@ _claude_auto_mode() {
       ;;
     args)
       case $words[1] in
-        config|critique|defaults|reset)
+        critique)
+          _arguments \
+            '--model[覆寫所使用的模型]:model:_claude_model_names' \
+            '(-h --help)'{-h,--help}'[顯示命令說明]'
+          ;;
+        defaults)
+          _arguments \
+            '--label[僅顯示標籤以此前綴開頭的規則（不區分大小寫）]:prefix:' \
+            '(-h --help)'{-h,--help}'[顯示命令說明]'
+          ;;
+        reset)
+          _arguments \
+            '(-y --yes)'{-y,--yes}'[略過確認提示]' \
+            '(-h --help)'{-h,--help}'[顯示命令說明]'
+          ;;
+        config)
           _arguments \
             '(-h --help)'{-h,--help}'[顯示命令說明]'
           ;;
@@ -631,8 +803,12 @@ _claude_project() {
       case $words[1] in
         purge)
           _arguments \
+            '--dry-run[列出將被刪除的項目但不實際刪除]' \
+            '(-y --yes)'{-y,--yes}'[略過確認提示]' \
+            '(-i --interactive)'{-i,--interactive}'[刪除前逐項確認]' \
+            '(1)--all[清除所有專案的狀態（不能與路徑同用）]' \
             '(-h --help)'{-h,--help}'[顯示命令說明]' \
-            '1:path:_directories'
+            '(--all)::path:_directories'
           ;;
       esac
       ;;
@@ -642,9 +818,34 @@ _claude_project() {
 _claude_ultrareview() {
   _arguments \
     '--json[列印原始 bugs.json 承載而非格式化的結果]' \
-    '--timeout[等待審查完成的最長分鐘數]:minutes:' \
+    '--timeout[等待審查完成的最長分鐘數（預設：45）]:minutes:' \
+    '(--no-post)--post[以你的身分將完成的審查結果發佈到 PR（僅限 PR 目標；一則一般留言，而非 review）]' \
+    '(--post)--no-post[不將結果發佈到 PR（預設）]' \
     '(-h --help)'{-h,--help}'[顯示命令說明]' \
     '1:target:'
+}
+
+_claude_respawn() {
+  _arguments \
+    '(1)--all[重新啟動所有執行中的背景工作階段]' \
+    '(-h --help)'{-h,--help}'[顯示命令說明]' \
+    '(--all)::session:_claude_background_sessions'
+}
+
+_claude_rm() {
+  _arguments \
+    '--discard-unpushed[同時捨棄工作樹中未推送的提交與未提交的變更（傳入先前 claude rm 回報的 commit@worktree-id）]:commit@worktree-id:' \
+    '--force-remove-worktree[即使 WorktreeRemove 掛鉤或 git 無法移除，也刪除工作樹目錄（傳入先前 claude rm 回報的 worktree-id）]:worktree-id:' \
+    '(-h --help)'{-h,--help}'[顯示命令說明]' \
+    '1:session:_claude_background_sessions'
+}
+
+_claude_import() {
+  _arguments \
+    '--dry-run[顯示將匯入的內容但不寫入任何內容]' \
+    '--yes[略過互動式選擇器（在無頭環境中，傳入 /import 預覽中的 --yes=<digest>）]' \
+    '(-h --help)'{-h,--help}'[顯示命令說明]' \
+    '::source:(codex gemini cursor)'
 }
 
 (( $+_comps[claude] )) || compdef _claude claude
