@@ -45,6 +45,13 @@ Type "autoload -Uz compinit && compinit -u -d ${TMPDIR:-/tmp}/claude-demo-zcompd
 Enter
 Type "zstyle ':completion:*' menu select"
 Enter
+# Warm the completion up off camera: the first TAB on a freshly autoloaded
+# _claude only loads it, so a cold first scene would list without selecting
+Type "claude --resume "
+Tab@300ms 3
+Sleep 500ms
+Ctrl+C
+Ctrl+C
 Type "clear"
 Enter
 Sleep 500ms
@@ -88,7 +95,9 @@ Show
 Type "claude "
 Sleep 400ms
 Tab@300ms 2
-Sleep 2.5s
+Sleep 800ms
+Down@250ms 4
+Sleep 700ms
 
 Hide
 Ctrl+C
@@ -120,7 +129,9 @@ Show
 Type "claude mcp "
 Sleep 400ms
 Tab@300ms 2
-Sleep 2s
+Sleep 700ms
+Down@250ms 3
+Sleep 550ms
 
 Hide
 Ctrl+C
@@ -135,7 +146,9 @@ Show
 Type "claude --allow"
 Sleep 400ms
 Tab@300ms 2
-Sleep 2s
+Sleep 700ms
+Down@250ms 2
+Sleep 800ms
 
 Hide
 Ctrl+C
@@ -150,4 +163,6 @@ Show
 Type "claude --permission-mode "
 Sleep 400ms
 Tab@300ms 2
-Sleep 2.5s
+Sleep 800ms
+Down@250ms 3
+Sleep 950ms
