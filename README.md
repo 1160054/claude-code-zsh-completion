@@ -13,7 +13,7 @@ labelled with what you asked in it — instead of leaving you to remember a UUID
 
 ## Features
 
-- Sessions, MCP servers, agents, models and plugins completed from your own configuration, not from a fixed list
+- Sessions, background sessions, MCP servers, agents, models and plugins completed from your own configuration, not from a fixed list
 - Completion for every `claude` command, subcommand and option
 - Descriptions alongside each candidate, so you can pick without leaving the prompt
 - Values completed for options that have a fixed set (`--permission-mode`, `--output-format`, …)
@@ -161,6 +161,10 @@ claude --model <TAB>
 
 # Plugins you have installed
 claude plugin uninstall <TAB>
+
+# Background sessions started with claude --bg, by the short id they print
+claude attach <TAB>
+claude logs <TAB>
 ```
 
 `CLAUDE_CONFIG_DIR` is honoured, so this still works if your configuration does
@@ -173,6 +177,7 @@ Type `claude` and press `TAB`:
 ```bash
 claude <TAB>
 agents        -- Manage background agents
+attach        -- Open a background session in this terminal
 auth          -- Manage authentication
 mcp           -- Configure and manage MCP servers
 plugin        -- Manage Claude Code plugins

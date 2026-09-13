@@ -121,6 +121,39 @@ _claude_agent_names() {
   compadd -a agents
 }
 
+_claude_background_sessions() {
+  local -a sessions state_files
+  local -A names states
+  local state_dir state_file line id rest
+
+  # Background sessions (`claude --bg`) live in <config>/jobs/<id>/, where
+  # <id> is the short id that attach, logs, stop, respawn and rm take.
+  for state_dir in ${(f)"$(_claude_state_dirs)"}; do
+    # Newest first
+    state_files=(${state_dir}/jobs/*/state.json(Nom))
+    (( ${#state_files} )) || continue
+
+    # One grep for all of them; the first "name" and "state" it reports for a
+    # file are that file's top-level ones
+    names=() states=()
+    for line in ${(f)"$(grep -HoE '"(name|state)"[[:space:]]*:[[:space:]]*"[^"]*"' $state_files 2>/dev/null)"}; do
+      id=${${line%%/state.json:*}:t}
+      rest=${line#*/state.json:}
+      case $rest in
+        \"name\"*)  [[ -z $names[$id] ]]  && names[$id]=${${rest#*:*\"}%\"} ;;
+        \"state\"*) [[ -z $states[$id] ]] && states[$id]=${${rest#*:*\"}%\"} ;;
+      esac
+    done
+
+    for state_file in $state_files; do
+      id=${state_file:h:t}
+      sessions+=("${id}:${names[$id]:-no name}${states[$id]:+ (${states[$id]})}")
+    done
+  done
+
+  _describe -t sessions 'background session' sessions
+}
+
 _claude_model_names() {
   local -a models config_files
   local state_dir config_file
@@ -155,9 +188,15 @@ _claude() {
     'mcp:MCP sunucularını yapılandır ve yönet'
     'plugin:Claude Code eklentilerini yönet'
     'agents:Arka plan ajanlarını yönet'
+    'attach:Bir arka plan oturumunu bu terminalde aç'
+    'logs:Bir arka plan oturumunun son terminal çıktısını yazdır'
+    'stop:Bir arka plan oturumunu durdur (konuşması korunur)'
+    'respawn:Bir arka plan oturumunu mevcut Claude Code sürümüyle çalışacak şekilde yeniden başlat'
+    'rm:Bir arka plan oturumunu ve güvenliyse worktree'\''sini sil'
     'auth:Kimlik doğrulamayı yönet'
     'auto-mode:Otomatik mod sınıflandırıcı yapılandırmasını incele veya sıfırla'
     'gateway:Kurumsal kimlik doğrulama/telemetri ağ geçidini çalıştır'
+    'import:Başka bir yapay zekâ kodlama ajanının yapılandırmasını Claude Code'\''a aktar'
     'project:Claude Code proje durumunu yönet'
     'ultrareview:Bulut tabanlı çok ajanlı bir kod incelemesi çalıştır ve bulguları yazdır'
     'setup-token:Uzun süreli kimlik doğrulama belirteci ayarla (Claude aboneliği gerektirir)'
@@ -178,6 +217,7 @@ _claude() {
     '--mcp-debug[\[Kullanımdan kaldırıldı. Bunun yerine --debug kullanın\] MCP hata ayıklama modunu etkinleştir (MCP sunucu hatalarını gösterir)]'
     '--dangerously-skip-permissions[Tüm izin kontrollerini atla. Yalnızca internet erişimi olmayan korumalı alanlar için önerilir]'
     '--allow-dangerously-skip-permissions[Varsayılan olarak etkinleştirmeden izin kontrollerini atlama seçeneğini etkinleştir]'
+    '--restricted[Kısıtlı mod: komut veya kod çalıştıran araçları ve WebFetch'\''i kaldırır, user/project/local ayarlarını yok sayar ve dosya araçlarını çalışma dizinleriyle sınırlar]'
     '--max-budget-usd[API çağrılarına harcanacak maksimum dolar tutarı (yalnızca --print)]:amount:'
     '--replay-user-messages[Onay için stdin üzerinden kullanıcı mesajlarını stdout üzerine yeniden gönder]'
     '--allowed-tools[İzin verilen araç isimlerinin virgül veya boşlukla ayrılmış listesi (örn. "Bash(git:*) Edit")]:tools:'
@@ -187,8 +227,13 @@ _claude() {
     '--disallowedTools[İzin verilmeyen araç isimlerinin virgül veya boşlukla ayrılmış listesi (camelCase formatı)]:tools:'
     '--mcp-config[MCP sunucularını JSON dosyasından veya dizeden yükle (boşlukla ayrılmış)]:configs:'
     '--system-prompt[Oturum için kullanılacak sistem istemi]:prompt:'
+    '--system-prompt-file[Sistem istemini bir dosyadan oku]:file:_files'
     '--append-system-prompt[Varsayılan sistem istemine sistem istemi ekle]:prompt:'
+    '--append-system-prompt-file[Sistem istemini bir dosyadan oku ve varsayılan sistem istemine ekle]:file:_files'
+    '--system-prompt-snapshot[Sistem istemini konuşma başına bir kez kaydet ve her istekte ve devam ettirmede aynen yeniden kullan (on, varsayılan) ya da her istekte yeniden oluştur (off)]:mode:(on off)'
     '--permission-mode[Oturum için kullanılacak izin modu]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)'
+    '--permission-prompts[--print ile izin istemlerini kimin yanıtlayacağı: "host" (SDK ana bilgisayarı veya --permission-prompt-tool) ya da "none" (istem gerektiren her şey reddedilir)]:target:(host none)'
+    '--permission-prompt-tool[İzin istemleri için kullanılacak MCP aracı (yalnızca --print)]:tool:'
     '(-c --continue)'{-c,--continue}'[En son konuşmaya devam et]'
     '(-r --resume)'{-r,--resume}'[Bir konuşmayı sürdür - oturum kimliği belirt veya etkileşimli seç]:sessionId:_claude_sessions'
     '--fork-session[Sürdürürken orijinal oturum kimliğini yeniden kullanmak yerine yeni oturum kimliği oluştur (--resume veya --continue ile)]'
@@ -208,11 +253,15 @@ _claude() {
     '--disable-slash-commands[Tüm eğik çizgi komutlarını devre dışı bırak]'
     '(--bg --background)'{--bg,--background}'[Oturumu arka plan ajanı olarak başlat ve hemen dön]'
     '(-w --worktree)'{-w,--worktree}'[Bu oturum için yeni bir git worktree oluştur (isteğe bağlı olarak bir isim belirt)]::name:'
-    '--tmux[Worktree için bir tmux oturumu oluştur (--worktree gerektirir)]'
+    '--tmux=-[Worktree için bir tmux oturumu oluştur (--worktree gerektirir). Mümkün olduğunda yerel iTerm2 bölmelerini kullanır; geleneksel tmux için --tmux=classic]::mode:(classic)'
     '(-n --name)'{-n,--name}'[Bu oturum için bir görünen ad ayarla]:name:'
     '--effort[Mevcut oturum için çaba düzeyi]:level:(low medium high xhigh max)'
+    '--autocompact[Otomatik sıkıştırma pencere boyutu (auto veya 100k-1M jeton)]:size:(auto)'
     '--debug-file[Hata ayıklama günlüklerini belirli bir dosya yoluna yaz (dolaylı olarak hata ayıklama modunu etkinleştirir)]:path:_files'
     '--from-pr[Bir PR ile bağlantılı oturumu numara/URL ile sürdür veya etkileşimli seçici aç]::value:'
+    '--teleport[Bir teleport oturumunu sürdür, isteğe bağlı olarak oturum kimliği belirt]::session:'
+    '--cloud[Verilen açıklamayla bir bulut oturumu oluştur veya oturum kimliği ya da claude.ai/code URL'\''si ile mevcut bir oturuma bağlan]::description-or-session:'
+    '--environment[Belirtilen kendi barındırılan ortamda (ccpool_...) çalışan yeni bir bulut oturumu oluştur]:environment_id:'
     '--remote-control[Uzaktan Kontrol etkinleştirilmiş etkileşimli bir oturum başlat (isteğe bağlı olarak adlandırılmış)]::name:'
     '--remote-control-session-name-prefix[Otomatik oluşturulan Uzaktan Kontrol oturum adları için önek]:prefix:'
     '--chrome[Chrome entegrasyonunda Claude'\''u etkinleştir]'
@@ -254,6 +303,17 @@ _claude() {
         agents)
           _claude_agents
           ;;
+        attach|logs|stop|kill)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Komut için yardım göster]' \
+            '1:session:_claude_background_sessions'
+          ;;
+        respawn)
+          _claude_respawn
+          ;;
+        rm)
+          _claude_rm
+          ;;
         auth)
           _claude_auth
           ;;
@@ -262,6 +322,9 @@ _claude() {
           ;;
         gateway)
           _claude_gateway
+          ;;
+        import)
+          _claude_import
           ;;
         project)
           _claude_project
@@ -319,6 +382,9 @@ _claude_mcp() {
             '(-t --transport)'{-t,--transport}'[Taşıma türü (stdio, sse, http)]:transport:(stdio sse http)' \
             '(-e --env)'{-e,--env}'[Ortam değişkeni ayarla (örn. -e KEY=value)]:env:' \
             '(-H --header)'{-H,--header}'[WebSocket başlığı ayarla]:header:' \
+            '--client-id[HTTP/SSE sunucuları için OAuth istemci kimliği]:clientId:' \
+            '--client-secret[OAuth istemci gizli anahtarını sor (veya MCP_CLIENT_SECRET ortam değişkenini ayarla)]' \
+            '--callback-port[OAuth geri çağrısı için sabit bağlantı noktası (önceden kayıtlı yönlendirme URI'\''si gerektiren sunucular için)]:port:' \
             '(-h --help)'{-h,--help}'[Yardım göster]' \
             '1:name:' \
             '2:commandOrUrl:' \
@@ -342,6 +408,7 @@ _claude_mcp() {
         add-json)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Yapılandırma kapsamı (local, user, project)]:scope:(local user project)' \
+            '--client-secret[OAuth istemci gizli anahtarını sor (veya MCP_CLIENT_SECRET ortam değişkenini ayarla)]' \
             '(-h --help)'{-h,--help}'[Yardım göster]' \
             '1:name:' \
             '2:json:'
@@ -355,7 +422,13 @@ _claude_mcp() {
           _arguments \
             '(-h --help)'{-h,--help}'[Yardım göster]'
           ;;
-        login|logout)
+        login)
+          _arguments \
+            '--no-browser[Tarayıcı açmak yerine yetkilendirme URL'\''sini yazdır (SSH/başsız oturumlar için)]' \
+            '(-h --help)'{-h,--help}'[Yardım göster]' \
+            '1:name:_claude_mcp_servers'
+          ;;
+        logout)
           _arguments \
             '(-h --help)'{-h,--help}'[Yardım göster]' \
             '1:name:_claude_mcp_servers'
@@ -375,6 +448,7 @@ _claude_plugin() {
     'install:Mevcut pazar yerlerinden bir eklenti kur'
     'i:Mevcut pazar yerlerinden bir eklenti kur (install için kısa form)'
     'init:Yeni bir eklenti iskeleti oluştur (sonraki oturumda otomatik yüklenir)'
+    'new:Yeni bir eklenti iskeleti oluştur (init için takma ad)'
     'uninstall:Kurulu bir eklentiyi kaldır'
     'remove:Kurulu bir eklentiyi kaldır (uninstall için takma ad)'
     'enable:Devre dışı bir eklentiyi etkinleştir'
@@ -382,6 +456,7 @@ _claude_plugin() {
     'update:Bir eklentiyi en son sürüme güncelle'
     'eval:Bir eklentiye karşı değerlendirme durumlarını çalıştır ve puanlanan sonuçları raporla'
     'prune:Artık gerekmeyen otomatik kurulan bağımlılıkları kaldır'
+    'autoremove:Artık gerekmeyen otomatik kurulan bağımlılıkları kaldır (prune için takma ad)'
     'tag:Bir eklenti sürümü için {name}--v{version} git etiketi oluştur'
     'help:Yardım göster'
   )
@@ -402,6 +477,8 @@ _claude_plugin() {
       case $words[1] in
         validate)
           _arguments \
+            '--strict[Uyarıları hata olarak değerlendir (çıkış 1)]' \
+            '--json[Doğrulama raporunu JSON olarak çıktıla (aynı çıkış kodları)]' \
             '(-h --help)'{-h,--help}'[Yardım göster]' \
             '1:path:_files'
           ;;
@@ -411,29 +488,56 @@ _claude_plugin() {
         install|i)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Kurulum kapsamı]:scope:(user project local)' \
+            '*--config[Eklenti bildiriminde tanımlanan bir userConfig seçeneğini ayarla (tekrarlanabilir)]:key=value:' \
+            '(-y --yes)'{-y,--yes}'[Gösterilen pazar yeri tarafından bildirilen komutu onay istemi olmadan kabul et]' \
+            '--json[İnsan için mesaj yerine makine tarafından okunabilir tek satırlık sonuç yazdır]' \
             '(-h --help)'{-h,--help}'[Yardım göster]' \
             '1:plugin:'
           ;;
         uninstall|remove)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Kurulum kapsamı]:scope:(user project local)' \
+            '--keep-data[Eklentinin kalıcı veri dizinini koru]' \
+            '--prune[Artık gerekmeyen otomatik kurulan bağımlılıkları da kaldır]' \
+            '(-y --yes)'{-y,--yes}'[--prune onay istemini atla]' \
+            '--json[İnsan için mesaj yerine makine tarafından okunabilir tek satırlık sonuç yazdır (--prune ile birlikte kullanılamaz)]' \
             '(-h --help)'{-h,--help}'[Yardım göster]' \
             '1:plugin:_claude_installed_plugins'
           ;;
-        enable|disable)
+        enable)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Kurulum kapsamı]:scope:(user project local)' \
+            '--json[İnsan için mesaj yerine makine tarafından okunabilir tek satırlık sonuç yazdır]' \
             '(-h --help)'{-h,--help}'[Yardım göster]' \
             '1:plugin:_claude_installed_plugins'
+          ;;
+        disable)
+          _arguments \
+            '(-a --all)'{-a,--all}'[Etkin tüm eklentileri devre dışı bırak]' \
+            '(-s --scope)'{-s,--scope}'[Kurulum kapsamı]:scope:(user project local)' \
+            '--json[İnsan için mesaj yerine makine tarafından okunabilir tek satırlık sonuç yazdır]' \
+            '(-h --help)'{-h,--help}'[Yardım göster]' \
+            '::plugin:_claude_installed_plugins'
           ;;
         update)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Kurulum kapsamı]:scope:(user project local managed)' \
+            '(-y --yes)'{-y,--yes}'[Gösterilen pazar yeri tarafından bildirilen komutu onay istemi olmadan kabul et]' \
+            '--json[İnsan için mesaj yerine makine tarafından okunabilir tek satırlık sonuç yazdır]' \
             '(-h --help)'{-h,--help}'[Yardım göster]' \
             '1:plugin:_claude_installed_plugins'
           ;;
-        list|prune)
+        list)
           _arguments \
+            '--json[JSON olarak çıktıla]' \
+            '--available[Pazar yerlerindeki kullanılabilir eklentileri de dahil et (--json gerektirir)]' \
+            '(-h --help)'{-h,--help}'[Yardım göster]'
+          ;;
+        prune|autoremove)
+          _arguments \
+            '(-s --scope)'{-s,--scope}'[Temizlik yapılacak kapsam]:scope:(user project local)' \
+            '--dry-run[Kaldırmadan nelerin kaldırılacağını listele]' \
+            '(-y --yes)'{-y,--yes}'[Onay istemini atla]' \
             '(-h --help)'{-h,--help}'[Yardım göster]'
           ;;
         details)
@@ -441,20 +545,53 @@ _claude_plugin() {
             '(-h --help)'{-h,--help}'[Yardım göster]' \
             '1:plugin:_claude_installed_plugins'
           ;;
-        init)
+        init|new)
           _arguments \
+            '--description[Bildirim açıklaması]:text:' \
+            '--author[Yazar adı (varsayılan: git config user.name)]:name:' \
+            '--author-email[Yazar e-postası (varsayılan: git config user.email)]:email:' \
+            '--with[Ayrıca iskeleti oluşturulacak bileşenler]:components:' \
+            '(-f --force)'{-f,--force}'[Hedefteki mevcut .claude-plugin/ dizininin üzerine yaz]' \
             '(-h --help)'{-h,--help}'[Yardım göster]' \
             '1:name:'
           ;;
         eval)
           _arguments \
+            '--case[Vakaları ad glob'\''una göre filtrele]:glob:' \
+            '*--tag[Vakaları etikete göre filtrele (tekrarlanabilir)]:tag:' \
+            '--runs[Vaka başına çalıştırma sayısını geçersiz kıl (varsayılan: case.runs, yoksa 3)]:n:' \
+            '(-j --concurrency)'{-j,--concurrency}'[Aynı anda en fazla n ajan çalıştır (1-8; varsayılan 1)]:n:' \
+            '--model[Tüm vakalar için modeli geçersiz kıl]:model:_claude_model_names' \
+            '--judge-model[LLM değerlendirici modelini geçersiz kıl (varsayılan: haiku)]:model:_claude_model_names' \
+            '--max-cost-usd[Kesin maliyet tavanı; aşılırsa durdur ve kısmi sonuçları raporla (çıkış 2)]:usd:' \
+            '--output-dir[aggregate-result.json için dizin]:dir:_directories' \
+            '--eval-dir[Değerlendirme vakalarını tutan dizin adı (eklentinin altında)]:dir:' \
+            '--json[Tam çalıştırma sonucunu JSON olarak stdout'\''a yazdır veya bu .json dosyasına yaz]::path:_files' \
+            '--threshold[Herhangi bir vakanın puanı bu eşiğin altındaysa 1 ile çık (varsayılan: 1.0)]:threshold:' \
+            '*--allow-tools[Kısıtlı araçlar (Bash, Write, Edit, WebFetch, mcp__*) için operatör izni]:tools:' \
+            '(--no-scaffold)--scaffold[Her vakanın scaffold_script'\''ini çalıştır (yazarın sağladığı bash'\''i sizin adınıza çalıştırır; varsayılan olarak kapalı)]' \
+            '(--scaffold)--no-scaffold[scaffold_script'\''i açıkça atla]' \
+            '--trust-plugin[Bu eklentiye ve değerlendirme paketine güvendiğinizi belirterek ilk çalıştırmadaki güven istemini atla (CI için)]' \
+            '--ablation[Eklentisiz bir temel çalıştırma da yap ve puan farkını raporla]:mode:(none with-without)' \
+            '--mocks[MCP sunucuları için sahte yedekler (<eval dir>/mocks/ içinden)]:mode:(record off)' \
+            '--allow-real-servers[--mocks record ile: sahtesi olmayan gerçek MCP sunucu süreçlerini de başlat]' \
+            '--keep-temp[Hata ayıklama için scaffold dizinlerini koru]' \
+            '--verbose[Mesaj başına izleme olaylarını hata ayıklama günlüğüne kaydet]' \
+            '--report[Bağımsız HTML raporunu sonuç dizini yerine bu yola yaz]:path:_files' \
+            '(--no-publish)--publish-report[Raporun claude.ai'\''da yayımlanmasını da zorunlu kıl]' \
+            '(--publish-report)--no-publish[HTML raporunu yalnızca yerelde tut; claude.ai'\''da yayımlama]' \
             '(-h --help)'{-h,--help}'[Yardım göster]' \
-            '1:target:'
+            '::target: _alternative "plugins\:installed plugin\:_claude_installed_plugins" "files\:path\:_files"'
           ;;
         tag)
           _arguments \
+            '--push[Etiketi oluşturduktan sonra --remote'\''a gönder]' \
+            '--dry-run[Oluşturmadan nelerin etiketleneceğini yazdır]' \
+            '(-f --force)'{-f,--force}'[Kirli çalışma ağacı ve etiket zaten var denetimlerini atla]' \
+            '(-m --message)'{-m,--message}'[Etiket açıklama mesajı (sürüm için %s kullanın)]:msg:' \
+            '--remote[--push ile gönderilecek uzak depo]:name:' \
             '(-h --help)'{-h,--help}'[Yardım göster]' \
-            '1:path:_files'
+            '::path:_files'
           ;;
       esac
       ;;
@@ -488,15 +625,20 @@ _claude_plugin_marketplace() {
       case $words[1] in
         add)
           _arguments \
+            '--sparse[git sparse-checkout ile checkout'\''u belirli dizinlerle sınırla (monorepo'\''lar için)]:paths:' \
+            '--scope[Pazar yerinin nerede bildirileceği]:scope:(user project local)' \
+            '--claudeai[claude.ai'\''ın sizin için barındırdığı bu addaki pazar yerini ekle]' \
             '(-h --help)'{-h,--help}'[Yardım göster]' \
             '1:source:'
           ;;
         list)
           _arguments \
+            '--json[JSON olarak çıktıla]' \
             '(-h --help)'{-h,--help}'[Yardım göster]'
           ;;
         remove|rm)
           _arguments \
+            '--scope[Pazar yeri bildirimini belirli bir ayar kapsamından kaldır (tüm kapsamlardan kaldırmak için boş bırakın)]:scope:(user project local)' \
             '(-h --help)'{-h,--help}'[Yardım göster]' \
             '1:name:'
           ;;
@@ -534,6 +676,7 @@ _claude_agents() {
     '--setting-sources[Yüklenecek ayar kaynaklarının virgülle ayrılmış listesi (user, project, local)]:sources:' \
     '--settings[Uygulanacak ayarlar dosyası veya JSON dizesi]:file-or-json:_files' \
     '--strict-mcp-config[Görevlendirilen oturumlarda yalnızca --mcp-config üzerinden MCP sunucularını kullan]' \
+    '--restricted[Başlatılan oturumları kısıtlı modda başlat]' \
     '(-h --help)'{-h,--help}'[Komut için yardım göster]'
 }
 
@@ -560,7 +703,21 @@ _claude_auth() {
       ;;
     args)
       case $words[1] in
-        login|logout|status)
+        login)
+          _arguments \
+            '--email[Giriş sayfasında e-posta adresini önceden doldur]:email:' \
+            '--sso[SSO giriş akışını zorla]' \
+            '(--claudeai)--console[Claude aboneliği yerine Anthropic Console (API kullanım faturalandırması) kullan]' \
+            '(--console)--claudeai[Claude aboneliğini kullan (varsayılan)]' \
+            '(-h --help)'{-h,--help}'[Komut için yardım göster]'
+          ;;
+        status)
+          _arguments \
+            '(--text)--json[JSON olarak çıktıla (varsayılan)]' \
+            '(--json)--text[İnsan tarafından okunabilir metin olarak çıktıla]' \
+            '(-h --help)'{-h,--help}'[Komut için yardım göster]'
+          ;;
+        logout)
           _arguments \
             '(-h --help)'{-h,--help}'[Komut için yardım göster]'
           ;;
@@ -593,7 +750,22 @@ _claude_auto_mode() {
       ;;
     args)
       case $words[1] in
-        config|critique|defaults|reset)
+        critique)
+          _arguments \
+            '--model[Kullanılan modeli geçersiz kıl]:model:_claude_model_names' \
+            '(-h --help)'{-h,--help}'[Komut için yardım göster]'
+          ;;
+        defaults)
+          _arguments \
+            '--label[Yalnızca etiketi bu önekle başlayan kuralları göster (büyük/küçük harf duyarsız)]:prefix:' \
+            '(-h --help)'{-h,--help}'[Komut için yardım göster]'
+          ;;
+        reset)
+          _arguments \
+            '(-y --yes)'{-y,--yes}'[Onay istemini atla]' \
+            '(-h --help)'{-h,--help}'[Komut için yardım göster]'
+          ;;
+        config)
           _arguments \
             '(-h --help)'{-h,--help}'[Komut için yardım göster]'
           ;;
@@ -631,8 +803,12 @@ _claude_project() {
       case $words[1] in
         purge)
           _arguments \
+            '--dry-run[Hiçbir şeyi silmeden nelerin silineceğini listele]' \
+            '(-y --yes)'{-y,--yes}'[Onay istemini atla]' \
+            '(-i --interactive)'{-i,--interactive}'[Silmeden önce her öğe için sor]' \
+            '(1)--all[Tüm projelerin durumunu temizle (bir yolla birlikte kullanılamaz)]' \
             '(-h --help)'{-h,--help}'[Komut için yardım göster]' \
-            '1:path:_directories'
+            '(--all)::path:_directories'
           ;;
       esac
       ;;
@@ -642,9 +818,34 @@ _claude_project() {
 _claude_ultrareview() {
   _arguments \
     '--json[Biçimlendirilmiş bulgular yerine ham bugs.json içeriğini yazdır]' \
-    '--timeout[İncelemenin bitmesini beklemek için maksimum dakika]:minutes:' \
+    '--timeout[İncelemenin bitmesini beklemek için maksimum dakika (varsayılan: 45)]:minutes:' \
+    '(--no-post)--post[Tamamlanan inceleme bulgularını sizin adınıza PR'\''a gönder (yalnızca PR hedefleri; review değil, tek bir düz yorum)]' \
+    '(--post)--no-post[Bulguları PR'\''a gönderme (varsayılan)]' \
     '(-h --help)'{-h,--help}'[Komut için yardım göster]' \
     '1:target:'
+}
+
+_claude_respawn() {
+  _arguments \
+    '(1)--all[Çalışan tüm arka plan oturumlarını yeniden başlat]' \
+    '(-h --help)'{-h,--help}'[Komut için yardım göster]' \
+    '(--all)::session:_claude_background_sessions'
+}
+
+_claude_rm() {
+  _arguments \
+    '--discard-unpushed[Worktree'\''nin gönderilmemiş commit'\''lerini ve commit'\''lenmemiş değişikliklerini de at (önceki bir claude rm'\''in bildirdiği commit@worktree-id değerini geçirin)]:commit@worktree-id:' \
+    '--force-remove-worktree[WorktreeRemove kancası veya git kaldıramamış olsa bile worktree dizinini sil (önceki bir claude rm'\''in bildirdiği worktree-id değerini geçirin)]:worktree-id:' \
+    '(-h --help)'{-h,--help}'[Komut için yardım göster]' \
+    '1:session:_claude_background_sessions'
+}
+
+_claude_import() {
+  _arguments \
+    '--dry-run[Hiçbir şey yazmadan nelerin içe aktarılacağını göster]' \
+    '--yes[Etkileşimli seçiciyi atla (başsız ortamlarda /import önizlemesindeki --yes=<digest> değerini geçirin)]' \
+    '(-h --help)'{-h,--help}'[Komut için yardım göster]' \
+    '::source:(codex gemini cursor)'
 }
 
 (( $+_comps[claude] )) || compdef _claude claude
