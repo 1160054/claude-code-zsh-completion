@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Completion for the background-session commands the CLI gained: `attach`, `logs`, `stop` (and its `kill` alias), `respawn` (`--all`) and `rm` (`--discard-unpushed`, `--force-remove-worktree`). Their `<id>` argument is completed from `<config>/jobs/<id>/state.json` — the short ids `claude --bg` prints — each described by the session's name and state, so `claude attach <TAB>` shows what you would be attaching to
+- `import` command, with its `codex`/`gemini`/`cursor` sources and `--dry-run`/`--yes`
+- Session options: `--autocompact`, `--cloud`, `--environment`, `--teleport`, `--restricted`, `--permission-prompts` (`host`/`none`), `--permission-prompt-tool`, `--system-prompt-snapshot` (`on`/`off`), plus the file variants `--system-prompt-file` and `--append-system-prompt-file` (completed as files). `--tmux` now completes its `=classic` form
+- Options the subcommands had grown without the drift check noticing, since it only reads the top-level help: `agents --restricted`; `ultrareview --post`/`--no-post`; `auth login --email`/`--sso`/`--console`/`--claudeai` and `auth status --json`/`--text`; `auto-mode critique --model`, `defaults --label`, `reset --yes`; `project purge --dry-run`/`--yes`/`--interactive`/`--all`; `mcp add --client-id`/`--client-secret`/`--callback-port`, `mcp add-json --client-secret`, `mcp login --no-browser`; every `plugin` subcommand's options (`install --config`, `uninstall --keep-data`/`--prune`, `disable --all`, `list --available`, `validate --strict`, the `init`, `tag` and `eval` option sets, `--json`/`--yes` where they exist) and the `new`/`autoremove` aliases; `plugin marketplace add --sparse`/`--scope`/`--claudeai`, `list --json`, `remove --scope`
+- The English regional variants (`en-*`) carry all of the above; the other locales follow in a later release, as with 2.2.0
+
 ### Changed
 - README leads with the configuration-driven completion — `claude --resume <TAB>` and the descriptions it now carries — rather than the language count, and Usage opens with that section instead of ending on it
 - Demo re-recorded with `--resume` as the opening scene, and the fixtures rebuilt to match the layout the completion actually reads: sessions under `projects/`, plugins from `installed_plugins.json`. The recording clears `CLAUDE_CONFIG_DIR`, which would otherwise point it at the recorder's real configuration
