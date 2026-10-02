@@ -245,6 +245,7 @@ _claude() {
     '--settings[Pfad zur Einstellungs-JSON-Datei oder JSON-String zum Laden zusätzlicher Einstellungen]:file-or-json:_files'
     '--add-dir[Zusätzliche Verzeichnisse für Tool-Zugriff zulassen]:directories:_directories'
     '--ide[Beim Start automatisch mit IDE verbinden, wenn genau eine gültige IDE verfügbar ist]'
+    '--desktop[In der Claude Desktop-App statt im Terminal öffnen (mit --continue oder --resume <id> die Sitzung wählen)]'
     '--strict-mcp-config[Nur MCP-Server von --mcp-config verwenden und alle anderen MCP-Einstellungen ignorieren]'
     '--session-id[Spezifische Sitzungs-ID für Konversation verwenden (muss gültige UUID sein)]:uuid:'
     '--agents[JSON-Objekt zur Definition benutzerdefinierter Agenten]:json:'
@@ -445,6 +446,7 @@ _claude_plugin() {
     'marketplace:Claude Code-Marketplaces verwalten'
     'list:Installierte Plugins auflisten'
     'details:Komponenteninventar und voraussichtliche Token-Kosten für ein Plugin anzeigen'
+    'configure:Optionen eines Plugins und nicht gesetzte Werte anzeigen oder Werte aus stdin speichern'
     'install:Plugin aus verfügbaren Marketplaces installieren'
     'i:Plugin aus verfügbaren Marketplaces installieren (Kurzform für install)'
     'init:Neues Plugin gerüsten (wird in nächster Sitzung automatisch geladen)'
@@ -458,6 +460,7 @@ _claude_plugin() {
     'prune:Automatisch installierte Abhängigkeiten entfernen, die nicht mehr benötigt werden'
     'autoremove:Automatisch installierte Abhängigkeiten entfernen, die nicht mehr benötigt werden (Alias für prune)'
     'tag:Einen {name}--v{version} Git-Tag für eine Plugin-Veröffentlichung erstellen'
+    'test:Tests eines Mods ausführen'
     'help:Hilfe anzeigen'
   )
 
@@ -540,6 +543,13 @@ _claude_plugin() {
             '(-y --yes)'{-y,--yes}'[Bestätigungsabfrage überspringen]' \
             '(-h --help)'{-h,--help}'[Hilfe anzeigen]'
           ;;
+        configure)
+          _arguments \
+            '--json[Als JSON ausgeben]' \
+            '--values-stdin[Optionswerte aus stdin als JSON-Objekt einzeiliger Strings lesen; nicht angegebene Optionen behalten ihren Wert]' \
+            '(-h --help)'{-h,--help}'[Hilfe anzeigen]' \
+            '1:plugin:_claude_installed_plugins'
+          ;;
         details)
           _arguments \
             '(-h --help)'{-h,--help}'[Hilfe anzeigen]' \
@@ -592,6 +602,11 @@ _claude_plugin() {
             '--remote[Remote, zu dem mit --push gepusht wird]:name:' \
             '(-h --help)'{-h,--help}'[Hilfe anzeigen]' \
             '::path:_files'
+          ;;
+        test)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Hilfe anzeigen]' \
+            '::dir:_directories'
           ;;
       esac
       ;;

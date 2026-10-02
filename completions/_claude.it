@@ -245,6 +245,7 @@ _claude() {
     '--settings[Percorso al file JSON delle impostazioni o stringa JSON per caricare impostazioni aggiuntive]:file-or-json:_files'
     '--add-dir[Directory aggiuntive per consentire l'\''accesso agli strumenti]:directories:_directories'
     '--ide[Connette automaticamente all'\''IDE all'\''avvio se è disponibile esattamente un IDE valido]'
+    '--desktop[Apri nell'\''app Claude Desktop invece che nel terminale (con --continue o --resume <id> per scegliere la sessione)]'
     '--strict-mcp-config[Utilizza solo i server MCP da --mcp-config e ignora tutte le altre impostazioni MCP]'
     '--session-id[ID sessione specifico da utilizzare per la conversazione (deve essere un UUID valido)]:uuid:'
     '--agents[Oggetto JSON che definisce gli agenti personalizzati]:json:'
@@ -445,6 +446,7 @@ _claude_plugin() {
     'marketplace:Gestisce i marketplace di Claude Code'
     'list:Elenca i plugin installati'
     'details:Mostra l'\''inventario dei componenti e il costo previsto in token per un plugin'
+    'configure:Mostra le opzioni di un plugin e quelle non impostate, oppure salva i valori da stdin'
     'install:Installa un plugin dai marketplace disponibili'
     'i:Installa un plugin dai marketplace disponibili (abbreviazione di install)'
     'init:Crea la struttura di un nuovo plugin (caricato automaticamente alla sessione successiva)'
@@ -458,6 +460,7 @@ _claude_plugin() {
     'prune:Rimuove le dipendenze installate automaticamente che non sono più necessarie'
     'autoremove:Rimuove le dipendenze installate automaticamente che non sono più necessarie (alias di prune)'
     'tag:Crea un tag git {name}--v{version} per il rilascio di un plugin'
+    'test:Esegui i test di un mod'
     'help:Mostra la guida'
   )
 
@@ -540,6 +543,13 @@ _claude_plugin() {
             '(-y --yes)'{-y,--yes}'[Salta la richiesta di conferma]' \
             '(-h --help)'{-h,--help}'[Mostra la guida]'
           ;;
+        configure)
+          _arguments \
+            '--json[Output in JSON]' \
+            '--values-stdin[Leggi i valori delle opzioni da stdin come oggetto JSON di stringhe su una riga; le opzioni omesse mantengono il loro valore]' \
+            '(-h --help)'{-h,--help}'[Mostra la guida]' \
+            '1:plugin:_claude_installed_plugins'
+          ;;
         details)
           _arguments \
             '(-h --help)'{-h,--help}'[Mostra la guida]' \
@@ -592,6 +602,11 @@ _claude_plugin() {
             '--remote[Remote su cui fare push con --push]:name:' \
             '(-h --help)'{-h,--help}'[Mostra la guida]' \
             '::path:_files'
+          ;;
+        test)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Mostra la guida]' \
+            '::dir:_directories'
           ;;
       esac
       ;;

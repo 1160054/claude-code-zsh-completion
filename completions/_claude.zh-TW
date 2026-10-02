@@ -245,6 +245,7 @@ _claude() {
     '--settings[設定 JSON 檔案路徑或 JSON 字串以載入其他設定]:file-or-json:_files'
     '--add-dir[允許工具存取的其他目錄]:directories:_directories'
     '--ide[如果恰好有一個有效的 IDE，則在啟動時自動連線至 IDE]'
+    '--desktop[在 Claude Desktop 應用程式中開啟，而非終端機（搭配 --continue 或 --resume <id> 選擇工作階段）]'
     '--strict-mcp-config[僅使用 --mcp-config 中的 MCP 伺服器，忽略所有其他 MCP 設定]'
     '--session-id[用於對話的特定工作階段 ID（必須是有效的 UUID）]:uuid:'
     '--agents[定義自訂代理程式的 JSON 物件]:json:'
@@ -445,6 +446,7 @@ _claude_plugin() {
     'marketplace:管理 Claude Code 市集'
     'list:列出已安裝的外掛程式'
     'details:顯示外掛程式的元件清單和預估權杖成本'
+    'configure:顯示外掛的選項及未設定的項目，或從 stdin 儲存值'
     'install:從可用市集安裝外掛程式'
     'i:從可用市集安裝外掛程式（install 的簡寫）'
     'init:建立新外掛程式的骨架（下次工作階段自動載入）'
@@ -458,6 +460,7 @@ _claude_plugin() {
     'prune:移除不再需要的自動安裝相依項目'
     'autoremove:移除不再需要的自動安裝相依項目（prune 的別名）'
     'tag:為外掛程式版本建立 {name}--v{version} git 標籤'
+    'test:執行 mod 的測試'
     'help:顯示說明'
   )
 
@@ -540,6 +543,13 @@ _claude_plugin() {
             '(-y --yes)'{-y,--yes}'[略過確認提示]' \
             '(-h --help)'{-h,--help}'[顯示說明]'
           ;;
+        configure)
+          _arguments \
+            '--json[以 JSON 輸出]' \
+            '--values-stdin[從 stdin 讀取選項值，格式為單行字串組成的 JSON 物件（未提供的選項保留原值）]' \
+            '(-h --help)'{-h,--help}'[顯示說明]' \
+            '1:plugin:_claude_installed_plugins'
+          ;;
         details)
           _arguments \
             '(-h --help)'{-h,--help}'[顯示說明]' \
@@ -592,6 +602,11 @@ _claude_plugin() {
             '--remote[使用 --push 時推送到的遠端]:name:' \
             '(-h --help)'{-h,--help}'[顯示說明]' \
             '::path:_files'
+          ;;
+        test)
+          _arguments \
+            '(-h --help)'{-h,--help}'[顯示說明]' \
+            '::dir:_directories'
           ;;
       esac
       ;;

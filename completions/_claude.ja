@@ -245,6 +245,7 @@ _claude() {
     '--settings[設定JSONファイルへのパスまたは追加設定を読み込むJSON文字列]:file-or-json:_files'
     '--add-dir[ツールアクセスを許可する追加ディレクトリ]:directories:_directories'
     '--ide[正確に1つの有効なIDEが利用可能な場合、起動時に自動接続]'
+    '--desktop[ターミナルではなく Claude Desktop アプリで開く（--continue または --resume <id> でセッションを指定）]'
     '--strict-mcp-config[--mcp-configのMCPサーバーのみ使用し、他のすべてのMCP設定を無視]'
     '--session-id[会話で使用する特定のセッションID（有効なUUIDである必要あり）]:uuid:'
     '--agents[カスタムエージェントを定義するJSONオブジェクト]:json:'
@@ -445,6 +446,7 @@ _claude_plugin() {
     'marketplace:Claude Codeマーケットプレイスを管理'
     'list:インストール済みプラグインを一覧表示'
     'details:プラグインのコンポーネント一覧と予測トークンコストを表示'
+    'configure:プラグインのオプションと未設定の項目を表示、または stdin から値を保存'
     'install:利用可能なマーケットプレイスからプラグインをインストール'
     'i:利用可能なマーケットプレイスからプラグインをインストール（installの短縮形）'
     'init:新しいプラグインの雛形を作成（次のセッションで自動読み込み）'
@@ -458,6 +460,7 @@ _claude_plugin() {
     'prune:不要になった自動インストール済み依存関係を削除'
     'autoremove:不要になった自動インストール済み依存関係を削除（pruneのエイリアス）'
     'tag:プラグインリリース用に{name}--v{version}のgitタグを作成'
+    'test:mod のテストを実行'
     'help:ヘルプを表示'
   )
 
@@ -540,6 +543,13 @@ _claude_plugin() {
             '(-y --yes)'{-y,--yes}'[確認プロンプトをスキップ]' \
             '(-h --help)'{-h,--help}'[ヘルプを表示]'
           ;;
+        configure)
+          _arguments \
+            '--json[JSONで出力]' \
+            '--values-stdin[オプション値を stdin から単一行文字列の JSON オブジェクトとして読み込む（指定しなかったオプションは値を保持）]' \
+            '(-h --help)'{-h,--help}'[ヘルプを表示]' \
+            '1:plugin:_claude_installed_plugins'
+          ;;
         details)
           _arguments \
             '(-h --help)'{-h,--help}'[ヘルプを表示]' \
@@ -592,6 +602,11 @@ _claude_plugin() {
             '--remote[--pushでプッシュする先のリモート]:name:' \
             '(-h --help)'{-h,--help}'[ヘルプを表示]' \
             '::path:_files'
+          ;;
+        test)
+          _arguments \
+            '(-h --help)'{-h,--help}'[ヘルプを表示]' \
+            '::dir:_directories'
           ;;
       esac
       ;;
