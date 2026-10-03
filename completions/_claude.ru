@@ -198,6 +198,7 @@ _claude() {
     'gateway:Запустить корпоративный шлюз аутентификации/телеметрии'
     'import:Импортировать конфигурацию другого ИИ-агента для программирования в Claude Code'
     'project:Управление состоянием проекта Claude Code'
+    'purge:Удалить все состояние Claude Code для проекта (транскрипты, задачи, история файлов, запись конфигурации)'
     'ultrareview:Запустить облачную мультиагентную проверку кода и вывести результаты'
     'setup-token:Настройка токена долгосрочной аутентификации (требуется подписка Claude)'
     'doctor:Проверка работоспособности автообновления Claude Code'
@@ -259,6 +260,7 @@ _claude() {
     '--effort[Уровень усилий для текущей сессии]:level:(low medium high xhigh max)'
     '--autocompact[Размер окна автосжатия (auto или от 100k до 1M токенов)]:size:(auto)'
     '--debug-file[Записывать журналы отладки в указанный файл (неявно включает режим отладки)]:path:_files'
+    '--desktop[Открыть в приложении Claude Desktop, а не в терминале (с --continue или --resume для выбора сеанса)]'
     '--from-pr[Возобновить сессию, связанную с PR по номеру/URL, или открыть интерактивный выбор]::value:'
     '--teleport[Возобновить teleport-сессию, опционально указав ID сессии]::session:'
     '--cloud[Создать облачную сессию с указанным описанием или подключиться к существующей по ID сессии или URL claude.ai/code]::description-or-session:'
@@ -329,6 +331,9 @@ _claude() {
           ;;
         project)
           _claude_project
+          ;;
+        purge)
+          _claude_purge
           ;;
         ultrareview)
           _claude_ultrareview
@@ -491,7 +496,9 @@ _claude_plugin() {
         install|i)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Область установки]:scope:(user project local)' \
+            '--accept-command[Принять объявленную маркетплейсом команду, sha256 которой предыдущий запуск с --json сообщил как shownCommand.sha256]:sha256:' \
             '*--config[Задать опцию userConfig, объявленную в манифесте плагина (можно повторять)]:key=value:' \
+            '--registry[Для установки package@npm: разрешить и загрузить из этого реестра npm]:url:' \
             '(-y --yes)'{-y,--yes}'[Принять показанную команду, объявленную маркетплейсом, без запроса подтверждения]' \
             '--json[Вывести одну машиночитаемую строку результата вместо сообщения для человека]' \
             '(-h --help)'{-h,--help}'[Показать справку]' \
@@ -524,6 +531,7 @@ _claude_plugin() {
           ;;
         update)
           _arguments \
+            '--accept-command[Принять объявленную маркетплейсом команду, sha256 которой предыдущий запуск с --json сообщил как shownCommand.sha256]:sha256:' \
             '(-s --scope)'{-s,--scope}'[Область установки]:scope:(user project local managed)' \
             '(-y --yes)'{-y,--yes}'[Принять показанную команду, объявленную маркетплейсом, без запроса подтверждения]' \
             '--json[Вывести одну машиночитаемую строку результата вместо сообщения для человека]' \
@@ -534,6 +542,7 @@ _claude_plugin() {
           _arguments \
             '--json[Вывод в JSON]' \
             '--available[Включить доступные плагины из маркетплейсов (требуется --json)]' \
+            '--data-size[Измерить каталог сохранённых данных каждого установленного плагина или только указанного плагина (требуется --json)]::plugin:_claude_installed_plugins' \
             '(-h --help)'{-h,--help}'[Показать справку]'
           ;;
         prune|autoremove)
@@ -566,6 +575,15 @@ _claude_plugin() {
             '1:name:'
           ;;
         eval)
+          if [[ $words[2] == init ]]; then
+            _arguments \
+              '--bare[Записать пустой шаблон вместо запуска интервью]' \
+              '--eval-dir[Каталог внутри текущего каталога, куда записываются кейсы]:dir:_directories' \
+              '(-i --interactive)'{-i,--interactive}'[Запустить интервью по созданию (требуется интерактивный терминал)]' \
+              '(-h --help)'{-h,--help}'[Показать справку]' \
+              '::name:'
+            return
+          fi
           _arguments \
             '--case[Фильтровать кейсы по glob-шаблону имени]:glob:' \
             '*--tag[Фильтровать кейсы по тегу (можно повторять)]:tag:' \
@@ -591,7 +609,7 @@ _claude_plugin() {
             '(--no-publish)--publish-report[Также требовать публикации отчёта на claude.ai]' \
             '(--publish-report)--no-publish[Оставить HTML-отчёт только локально; не публиковать на claude.ai]' \
             '(-h --help)'{-h,--help}'[Показать справку]' \
-            '::target: _alternative "plugins\:installed plugin\:_claude_installed_plugins" "files\:path\:_files"'
+            '::target: _alternative "commands\:eval command\:(init)" "plugins\:installed plugin\:_claude_installed_plugins" "files\:path\:_files"'
           ;;
         tag)
           _arguments \
@@ -642,6 +660,7 @@ _claude_plugin_marketplace() {
           _arguments \
             '--sparse[Ограничить checkout отдельными каталогами через git sparse-checkout (для монорепозиториев)]:paths:' \
             '--scope[Где объявить маркетплейс]:scope:(user project local)' \
+            '--json[Вывести одну машиночитаемую строку результата последней строкой stdout]' \
             '--claudeai[Добавить маркетплейс с этим именем, который claude.ai размещает для вас]' \
             '(-h --help)'{-h,--help}'[Показать справку]' \
             '1:source:'
@@ -654,11 +673,13 @@ _claude_plugin_marketplace() {
         remove|rm)
           _arguments \
             '--scope[Удалить объявление маркетплейса из указанной области настроек (без указания — из всех областей)]:scope:(user project local)' \
+            '--json[Вывести одну машиночитаемую строку результата последней строкой stdout]' \
             '(-h --help)'{-h,--help}'[Показать справку]' \
             '1:name:'
           ;;
         update)
           _arguments \
+            '--json[С именем маркетплейса: вывести одну машиночитаемую строку результата последней строкой stdout]' \
             '(-h --help)'{-h,--help}'[Показать справку]' \
             '::name:'
           ;;
@@ -828,6 +849,16 @@ _claude_project() {
       esac
       ;;
   esac
+}
+
+_claude_purge() {
+  _arguments \
+    '--dry-run[Показать, что будет удалено, ничего не удаляя]' \
+    '(-y --yes)'{-y,--yes}'[Пропустить запрос подтверждения]' \
+    '(-i --interactive)'{-i,--interactive}'[Спрашивать подтверждение для каждого элемента перед удалением]' \
+    '(1)--all[Очистить состояние всех проектов (несовместимо с указанием пути)]' \
+    '(-h --help)'{-h,--help}'[Показать справку по команде]' \
+    '(--all)::path:_directories'
 }
 
 _claude_ultrareview() {

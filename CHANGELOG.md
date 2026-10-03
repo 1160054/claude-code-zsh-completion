@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Completion for the CLI 2.1.288 additions: `--desktop`, the top-level `purge` command (`project purge` is kept), `plugin install --accept-command`/`--registry`, `plugin update --accept-command`, `plugin list --data-size`, `plugin marketplace add`/`remove`/`update --json` and the `plugin eval init` subcommand, in `_claude`, the `en-*` variants and the twelve translated locales
+
 ### Changed
 - When the weekly drift check finds the CLI ahead of the completion, a new workflow has Claude update `completions/_claude`, the `en-*` variants and the twelve translated locales, and open a PR for review. It needs an `ANTHROPIC_API_KEY` or `CLAUDE_CODE_OAUTH_TOKEN` secret and skips without one
 - The Homebrew formula PR runs its tests directly, so its auto-merge no longer waits for an approval

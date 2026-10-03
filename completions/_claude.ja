@@ -198,6 +198,7 @@ _claude() {
     'gateway:エンタープライズ認証/テレメトリゲートウェイを実行'
     'import:他のAIコーディングエージェントの設定をClaude Codeに取り込む'
     'project:Claude Codeプロジェクトの状態を管理'
+    'purge:プロジェクトのすべてのClaude Code状態を削除（トランスクリプト、タスク、ファイル履歴、設定エントリ）'
     'ultrareview:クラウドホスト型のマルチエージェントコードレビューを実行し、指摘結果を出力'
     'setup-token:長期認証トークンの設定（Claude サブスクリプション必要）'
     'doctor:Claude Code自動アップデーターの健全性チェック'
@@ -259,6 +260,7 @@ _claude() {
     '--effort[現在のセッションの努力レベル]:level:(low medium high xhigh max)'
     '--autocompact[自動コンパクトのウィンドウサイズ（auto、または100k〜1Mトークン）]:size:(auto)'
     '--debug-file[デバッグログを特定のファイルパスに書き込む（暗黙的にデバッグモードを有効化）]:path:_files'
+    '--desktop[terminalではなくClaude Desktopアプリで開く（--continueまたは--resumeでセッションを選択）]'
     '--from-pr[番号/URLでPRにリンクされたセッションを再開、または対話的なピッカーを開く]::value:'
     '--teleport[テレポートセッションを再開（オプションでセッションIDを指定）]::session:'
     '--cloud[指定した説明でクラウドセッションを作成、またはセッションIDかclaude.ai/code URLで既存のものにアタッチ]::description-or-session:'
@@ -329,6 +331,9 @@ _claude() {
           ;;
         project)
           _claude_project
+          ;;
+        purge)
+          _claude_purge
           ;;
         ultrareview)
           _claude_ultrareview
@@ -491,7 +496,9 @@ _claude_plugin() {
         install|i)
           _arguments \
             '(-s --scope)'{-s,--scope}'[インストールスコープ]:scope:(user project local)' \
+            '--accept-command[直前の--json実行がshownCommand.sha256として報告したsha256のマーケットプレイス宣言コマンドを受け入れる]:sha256:' \
             '*--config[プラグインマニフェストで宣言されたuserConfigオプションを設定（繰り返し可）]:key=value:' \
+            '--registry[package@npmのインストール時：このnpmレジストリから解決してダウンロード]:url:' \
             '(-y --yes)'{-y,--yes}'[表示されたマーケットプレイス宣言のコマンドを確認なしで受け入れる]' \
             '--json[人向けのメッセージの代わりに機械可読な結果を1行出力]' \
             '(-h --help)'{-h,--help}'[ヘルプを表示]' \
@@ -524,6 +531,7 @@ _claude_plugin() {
           ;;
         update)
           _arguments \
+            '--accept-command[直前の--json実行がshownCommand.sha256として報告したsha256のマーケットプレイス宣言コマンドを受け入れる]:sha256:' \
             '(-s --scope)'{-s,--scope}'[インストールスコープ]:scope:(user project local managed)' \
             '(-y --yes)'{-y,--yes}'[表示されたマーケットプレイス宣言のコマンドを確認なしで受け入れる]' \
             '--json[人向けのメッセージの代わりに機械可読な結果を1行出力]' \
@@ -534,6 +542,7 @@ _claude_plugin() {
           _arguments \
             '--json[JSONで出力]' \
             '--available[マーケットプレイスで利用可能なプラグインも含める（--jsonが必要）]' \
+            '--data-size[インストール済みの各プラグインの保存データディレクトリ、または指定したプラグインのみのサイズを計測（--jsonが必要）]::plugin:_claude_installed_plugins' \
             '(-h --help)'{-h,--help}'[ヘルプを表示]'
           ;;
         prune|autoremove)
@@ -566,6 +575,15 @@ _claude_plugin() {
             '1:name:'
           ;;
         eval)
+          if [[ $words[2] == init ]]; then
+            _arguments \
+              '--bare[インタビューを実行せずに空のテンプレートを書き出す]' \
+              '--eval-dir[ケースの書き込み先となるカレントディレクトリ配下のディレクトリ]:dir:_directories' \
+              '(-i --interactive)'{-i,--interactive}'[作成インタビューを実行（対話型ターミナルが必要）]' \
+              '(-h --help)'{-h,--help}'[ヘルプを表示]' \
+              '::name:'
+            return
+          fi
           _arguments \
             '--case[ケースを名前のglobで絞り込む]:glob:' \
             '*--tag[ケースをタグで絞り込む（繰り返し可）]:tag:' \
@@ -591,7 +609,7 @@ _claude_plugin() {
             '(--no-publish)--publish-report[レポートのclaude.aiへの公開も必須にする]' \
             '(--publish-report)--no-publish[HTMLレポートをローカルのみに留め、claude.aiへ公開しない]' \
             '(-h --help)'{-h,--help}'[ヘルプを表示]' \
-            '::target: _alternative "plugins\:installed plugin\:_claude_installed_plugins" "files\:path\:_files"'
+            '::target: _alternative "commands\:eval command\:(init)" "plugins\:installed plugin\:_claude_installed_plugins" "files\:path\:_files"'
           ;;
         tag)
           _arguments \
@@ -642,6 +660,7 @@ _claude_plugin_marketplace() {
           _arguments \
             '--sparse[git sparse-checkoutで特定ディレクトリのみチェックアウト（モノレポ向け）]:paths:' \
             '--scope[マーケットプレイスを宣言する場所]:scope:(user project local)' \
+            '--json[機械可読な結果を標準出力の最終行として1行出力]' \
             '--claudeai[claude.aiがホストするこの名前のマーケットプレイスを追加]' \
             '(-h --help)'{-h,--help}'[ヘルプを表示]' \
             '1:source:'
@@ -654,11 +673,13 @@ _claude_plugin_marketplace() {
         remove|rm)
           _arguments \
             '--scope[特定の設定スコープからマーケットプレイス宣言を削除（省略時はすべてのスコープから削除）]:scope:(user project local)' \
+            '--json[機械可読な結果を標準出力の最終行として1行出力]' \
             '(-h --help)'{-h,--help}'[ヘルプを表示]' \
             '1:name:'
           ;;
         update)
           _arguments \
+            '--json[マーケットプレイス名を指定した場合：機械可読な結果を標準出力の最終行として1行出力]' \
             '(-h --help)'{-h,--help}'[ヘルプを表示]' \
             '::name:'
           ;;
@@ -828,6 +849,16 @@ _claude_project() {
       esac
       ;;
   esac
+}
+
+_claude_purge() {
+  _arguments \
+    '--dry-run[何も削除せずに削除対象を一覧表示]' \
+    '(-y --yes)'{-y,--yes}'[確認プロンプトをスキップ]' \
+    '(-i --interactive)'{-i,--interactive}'[削除前に項目ごとに確認]' \
+    '(1)--all[すべてのプロジェクトの状態を消去（パスとは併用不可）]' \
+    '(-h --help)'{-h,--help}'[コマンドのヘルプを表示]' \
+    '(--all)::path:_directories'
 }
 
 _claude_ultrareview() {
