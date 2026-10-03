@@ -12,7 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - When the weekly drift check finds the CLI ahead of the completion, a new workflow has Claude update `completions/_claude`, the `en-*` variants and the twelve translated locales, and open a PR for review. It needs an `ANTHROPIC_API_KEY` or `CLAUDE_CODE_OAUTH_TOKEN` secret and skips without one
-- The Homebrew formula PR runs its tests directly, so its auto-merge no longer waits for an approval
+- The Homebrew formula PR and the drift-fix PR are opened with a maintainer token (`WORKFLOW_TOKEN`), so their CI runs without an approval and the formula PR's auto-merge goes through
 
 ### Fixed
 - Icelandic and Sesotho: the existing `plugin init`/`prune` descriptions called dependencies "addictions" (is) and automatic installs "on purpose" (st)
