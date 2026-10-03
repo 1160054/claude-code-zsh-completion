@@ -121,6 +121,39 @@ _claude_agent_names() {
   compadd -a agents
 }
 
+_claude_background_sessions() {
+  local -a sessions state_files
+  local -A names states
+  local state_dir state_file line id rest
+
+  # Background sessions (`claude --bg`) live in <config>/jobs/<id>/, where
+  # <id> is the short id that attach, logs, stop, respawn and rm take.
+  for state_dir in ${(f)"$(_claude_state_dirs)"}; do
+    # Newest first
+    state_files=(${state_dir}/jobs/*/state.json(Nom))
+    (( ${#state_files} )) || continue
+
+    # One grep for all of them; the first "name" and "state" it reports for a
+    # file are that file's top-level ones
+    names=() states=()
+    for line in ${(f)"$(grep -HoE '"(name|state)"[[:space:]]*:[[:space:]]*"[^"]*"' $state_files 2>/dev/null)"}; do
+      id=${${line%%/state.json:*}:t}
+      rest=${line#*/state.json:}
+      case $rest in
+        \"name\"*)  [[ -z $names[$id] ]]  && names[$id]=${${rest#*:*\"}%\"} ;;
+        \"state\"*) [[ -z $states[$id] ]] && states[$id]=${${rest#*:*\"}%\"} ;;
+      esac
+    done
+
+    for state_file in $state_files; do
+      id=${state_file:h:t}
+      sessions+=("${id}:${names[$id]:-no name}${states[$id]:+ (${states[$id]})}")
+    done
+  done
+
+  _describe -t sessions 'background session' sessions
+}
+
 _claude_model_names() {
   local -a models config_files
   local state_dir config_file
@@ -155,9 +188,15 @@ _claude() {
     'mcp:Konfigureeri ja halda MCP servereid'
     'plugin:Halda Claude Code pluginaid'
     'agents:Halda taustaagente'
+    'attach:Ava taustsessioon selles terminalis'
+    'logs:Prindi taustsessiooni hiljutine terminaliväljund'
+    'stop:Peata taustsessioon (selle vestlus säilitatakse)'
+    'respawn:Taaskäivita taustsessioon, et see kasutaks Claude Code praegust versiooni'
+    'rm:Kustuta taustsessioon ja selle worktree, kui see on ohutu'
     'auth:Halda autentimist'
     'auto-mode:Kontrolli või lähtesta automaatrežiimi klassifikaatori konfiguratsioon'
     'gateway:Käivita ettevõtte autentimise/telemeetria lüüs'
+    'import:Impordi konfiguratsioon teisest AI kodeerimisagendist Claude Code-i'
     'project:Halda Claude Code projekti olekut'
     'ultrareview:Käivita pilves majutatud mitmeagendiline koodiülevaatus ja prindi leiud'
     'setup-token:Seadista pikaajaline autentimismärk (nõuab Claude tellingut)'
@@ -178,6 +217,7 @@ _claude() {
     '--mcp-debug[\[Aegunud. Kasuta selle asemel --debug\] Lülita sisse MCP silumisrežiim (näitab MCP serveri vigu)]'
     '--dangerously-skip-permissions[Mööduge kõigist loarekontrollidest. Soovitatav ainult liivakastidele ilma internetiühenduseta]'
     '--allow-dangerously-skip-permissions[Võimalda loarekontrollide möödumise valik ilma vaikimisi lubamiseta]'
+    '--restricted[Piiratud režiim: eemalda käske või koodi käivitavad tööriistad ja WebFetch, ignoreeri user/project/local seadeid ning piira failitööriistad töökataloogidega]'
     '--max-budget-usd[Maksimaalne dollarisumma API-kutsetele kulutamiseks (ainult --print)]:amount:'
     '--replay-user-messages[Saada kasutaja sõnumid uuesti stdin-ist stdout-i kinnitamiseks]'
     '--allowed-tools[Lubatud tööriistanimed komadega või tühikutega eraldatuna (nt "Bash(git:*) Edit")]:tools:'
@@ -187,8 +227,13 @@ _claude() {
     '--disallowedTools[Keelatud tööriistanimed komadega või tühikutega eraldatuna (camelCase formaat)]:tools:'
     '--mcp-config[Laadi MCP serverid JSON failist või stringist (tühikutega eraldatud)]:configs:'
     '--system-prompt[Süsteemipäring sessioonis kasutamiseks]:prompt:'
+    '--system-prompt-file[Loe süsteemipäring failist]:file:_files'
     '--append-system-prompt[Lisa süsteemipäring vaikimisi süsteemipäringule]:prompt:'
+    '--append-system-prompt-file[Loe süsteemipäring failist ja lisa see vaikimisi süsteemipäringule]:file:_files'
+    '--system-prompt-snapshot[Salvesta süsteemipäring üks kord vestluse kohta ja taaskasuta seda sõna-sõnalt igas päringus ja jätkamisel (on, vaikimisi) või koosta see igas päringus uuesti (off)]:mode:(on off)'
     '--permission-mode[Loarežiim sessioonis kasutamiseks]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)'
+    '--permission-prompts[Kes vastab loaküsimustele koos --print: "host" (SDK host või --permission-prompt-tool) või "none" (kõik, mis vajaks küsimist, keelatakse)]:target:(host none)'
+    '--permission-prompt-tool[MCP tööriist loaküsimuste jaoks (ainult --print)]:tool:'
     '(-c --continue)'{-c,--continue}'[Jätka viimasest vestlusest]'
     '(-r --resume)'{-r,--resume}'[Jätka vestlust - määra sessiooni identifikaator või vali interaktiivselt]:sessionId:_claude_sessions'
     '--fork-session[Loo uus sessiooni identifikaator jätkamisel originaali taaskasutamise asemel (koos --resume või --continue)]'
@@ -200,6 +245,7 @@ _claude() {
     '--settings[Tee JSON seadete failini või JSON string lisaseadete laadimiseks]:file-or-json:_files'
     '--add-dir[Lisaks kataloogid tööriistadele juurdepääsu võimaldamiseks]:directories:_directories'
     '--ide[Ühenda käivitamisel automaatselt IDE-ga, kui saadaval on täpselt üks kehtiv IDE]'
+    '--desktop[Ava terminali asemel Claude Desktop rakenduses (sessiooni valimiseks koos --continue või --resume <id>)]'
     '--strict-mcp-config[Kasuta ainult MCP servereid --mcp-config-ist ja ignoreeri kõiki teisi MCP seadeid]'
     '--session-id[Konkreetne sessiooni identifikaator vestluses kasutamiseks (peab olema kehtiv UUID)]:uuid:'
     '--agents[JSON objekt, mis määratleb kohandatud agendid]:json:'
@@ -208,11 +254,15 @@ _claude() {
     '--disable-slash-commands[Keela kõik kaldkriipsukäsud]'
     '(--bg --background)'{--bg,--background}'[Käivita sessioon taustaagendina ja naase kohe]'
     '(-w --worktree)'{-w,--worktree}'[Loo selle sessiooni jaoks uus git worktree (valikuliselt määra nimi)]::name:'
-    '--tmux[Loo worktree jaoks tmux sessioon (nõuab --worktree)]'
+    '--tmux=-[Loo worktree jaoks tmux sessioon (nõuab --worktree). Kasutab võimalusel iTerm2 natiivseid paane; traditsioonilise tmux-i jaoks --tmux=classic]::mode:(classic)'
     '(-n --name)'{-n,--name}'[Määra selle sessiooni kuvatav nimi]:name:'
     '--effort[Pingutuse tase praeguseks sessiooniks]:level:(low medium high xhigh max)'
+    '--autocompact[Automaatse tihendamise akna suurus (auto või 100k-1M tokenit)]:size:(auto)'
     '--debug-file[Kirjuta silumislogid konkreetsesse failiteesse (lubab kaudselt silumisrežiimi)]:path:_files'
     '--from-pr[Jätka PR-iga seotud sessioon numbri/URL-i järgi või ava interaktiivne valija]::value:'
+    '--teleport[Jätka teleport-sessiooni, valikuliselt määra sessiooni ID]::session:'
+    '--cloud[Loo antud kirjeldusega pilvesessioon või ühendu olemasolevaga sessiooni ID või claude.ai/code URL-i järgi]::description-or-session:'
+    '--environment[Loo uus pilvesessioon, mis töötab antud isemajutatud keskkonnas (ccpool_...)]:environment_id:'
     '--remote-control[Käivita interaktiivne sessioon lubatud kaugjuhtimisega (valikuliselt nimega)]::name:'
     '--remote-control-session-name-prefix[Eesliide automaatselt genereeritud kaugjuhtimise sessiooninimedele]:prefix:'
     '--chrome[Luba Claude Chrome'\''i integratsioon]'
@@ -254,6 +304,17 @@ _claude() {
         agents)
           _claude_agents
           ;;
+        attach|logs|stop|kill)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Kuva abi käsule]' \
+            '1:session:_claude_background_sessions'
+          ;;
+        respawn)
+          _claude_respawn
+          ;;
+        rm)
+          _claude_rm
+          ;;
         auth)
           _claude_auth
           ;;
@@ -262,6 +323,9 @@ _claude() {
           ;;
         gateway)
           _claude_gateway
+          ;;
+        import)
+          _claude_import
           ;;
         project)
           _claude_project
@@ -319,6 +383,9 @@ _claude_mcp() {
             '(-t --transport)'{-t,--transport}'[Transpordi tüüp (stdio, sse, http)]:transport:(stdio sse http)' \
             '(-e --env)'{-e,--env}'[Määra keskkonnamuutuja (nt -e KEY=value)]:env:' \
             '(-H --header)'{-H,--header}'[Määra WebSocket päis]:header:' \
+            '--client-id[OAuth kliendi ID HTTP/SSE serverite jaoks]:clientId:' \
+            '--client-secret[Küsi OAuth kliendi saladust (või määra keskkonnamuutuja MCP_CLIENT_SECRET)]' \
+            '--callback-port[Fikseeritud port OAuth tagasikutse jaoks (serveritele, mis nõuavad eelregistreeritud ümbersuunamise URI-sid)]:port:' \
             '(-h --help)'{-h,--help}'[Kuva abi]' \
             '1:name:' \
             '2:commandOrUrl:' \
@@ -342,6 +409,7 @@ _claude_mcp() {
         add-json)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Konfiguratsiooni ulatus (local, user, project)]:scope:(local user project)' \
+            '--client-secret[Küsi OAuth kliendi saladust (või määra keskkonnamuutuja MCP_CLIENT_SECRET)]' \
             '(-h --help)'{-h,--help}'[Kuva abi]' \
             '1:name:' \
             '2:json:'
@@ -355,7 +423,13 @@ _claude_mcp() {
           _arguments \
             '(-h --help)'{-h,--help}'[Kuva abi]'
           ;;
-        login|logout)
+        login)
+          _arguments \
+            '--no-browser[Prindi autoriseerimise URL brauseri avamise asemel (SSH/peata sessioonide jaoks)]' \
+            '(-h --help)'{-h,--help}'[Kuva abi]' \
+            '1:name:_claude_mcp_servers'
+          ;;
+        logout)
           _arguments \
             '(-h --help)'{-h,--help}'[Kuva abi]' \
             '1:name:_claude_mcp_servers'
@@ -372,9 +446,11 @@ _claude_plugin() {
     'marketplace:Halda Claude Code turuplatse'
     'list:Kuva installitud pluginate loend'
     'details:Näita plugina komponentide loendit ja prognoositud tokenikulu'
+    'configure:Näita plugina valikuid ja seda, millised pole määratud, või salvesta väärtused stdin-ist'
     'install:Installi plugin saadaolevatelt turuplatsdelt'
     'i:Installi plugin saadaolevatelt turuplatsdelt (install lühend)'
     'init:Genereeri uue plugina alusstruktuur (laadib automaatselt järgmisel sessioonil)'
+    'new:Genereeri uue plugina alusstruktuur (init sünonüüm)'
     'uninstall:Eemalda installitud plugin'
     'remove:Eemalda installitud plugin (uninstall sünonüüm)'
     'enable:Luba keelatud plugin'
@@ -382,7 +458,9 @@ _claude_plugin() {
     'update:Uuenda plugin uusimale versioonile'
     'eval:Käivita plugina hindamisjuhtumid ja raporteeri hinnatud tulemused'
     'prune:Eemalda automaatselt installitud sõltuvused, mida enam ei vajata'
+    'autoremove:Eemalda automaatselt installitud sõltuvused, mida enam ei vajata (prune sünonüüm)'
     'tag:Loo plugina väljalaske jaoks {name}--v{version} git silt'
+    'test:Käivita modi testid'
     'help:Kuva abi'
   )
 
@@ -402,6 +480,8 @@ _claude_plugin() {
       case $words[1] in
         validate)
           _arguments \
+            '--strict[Käsitle hoiatusi vigadena (väljumiskood 1)]' \
+            '--json[Väljasta valideerimisraport JSON-ina (samad väljumiskoodid)]' \
             '(-h --help)'{-h,--help}'[Kuva abi]' \
             '1:path:_files'
           ;;
@@ -411,50 +491,122 @@ _claude_plugin() {
         install|i)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Installimise ulatus]:scope:(user project local)' \
+            '*--config[Määra plugina manifestis deklareeritud userConfig valik (korratav)]:key=value:' \
+            '(-y --yes)'{-y,--yes}'[Nõustu kuvatud turuplatsi deklareeritud käsuga ilma kinnitusküsimuseta]' \
+            '--json[Prindi inimloetava sõnumi asemel üks masinloetav tulemusrida]' \
             '(-h --help)'{-h,--help}'[Kuva abi]' \
             '1:plugin:'
           ;;
         uninstall|remove)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Installimise ulatus]:scope:(user project local)' \
+            '--keep-data[Säilita plugina püsiandmete kataloog]' \
+            '--prune[Eemalda ka automaatselt installitud sõltuvused, mida enam ei vajata]' \
+            '(-y --yes)'{-y,--yes}'[Jäta --prune kinnitusküsimus vahele]' \
+            '--json[Prindi inimloetava sõnumi asemel üks masinloetav tulemusrida (mitte koos --prune)]' \
             '(-h --help)'{-h,--help}'[Kuva abi]' \
             '1:plugin:_claude_installed_plugins'
           ;;
-        enable|disable)
+        enable)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Installimise ulatus]:scope:(user project local)' \
+            '--json[Prindi inimloetava sõnumi asemel üks masinloetav tulemusrida]' \
             '(-h --help)'{-h,--help}'[Kuva abi]' \
             '1:plugin:_claude_installed_plugins'
+          ;;
+        disable)
+          _arguments \
+            '(-a --all)'{-a,--all}'[Keela kõik lubatud pluginad]' \
+            '(-s --scope)'{-s,--scope}'[Installimise ulatus]:scope:(user project local)' \
+            '--json[Prindi inimloetava sõnumi asemel üks masinloetav tulemusrida]' \
+            '(-h --help)'{-h,--help}'[Kuva abi]' \
+            '::plugin:_claude_installed_plugins'
           ;;
         update)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Installimise ulatus]:scope:(user project local managed)' \
+            '(-y --yes)'{-y,--yes}'[Nõustu kuvatud turuplatsi deklareeritud käsuga ilma kinnitusküsimuseta]' \
+            '--json[Prindi inimloetava sõnumi asemel üks masinloetav tulemusrida]' \
             '(-h --help)'{-h,--help}'[Kuva abi]' \
             '1:plugin:_claude_installed_plugins'
           ;;
-        list|prune)
+        list)
           _arguments \
+            '--json[Väljasta JSON-ina]' \
+            '--available[Kaasa turuplatside saadaolevad pluginad (nõuab --json)]' \
             '(-h --help)'{-h,--help}'[Kuva abi]'
+          ;;
+        prune|autoremove)
+          _arguments \
+            '(-s --scope)'{-s,--scope}'[Puhasta antud ulatuses]:scope:(user project local)' \
+            '--dry-run[Loetle, mis eemaldataks, ilma eemaldamata]' \
+            '(-y --yes)'{-y,--yes}'[Jäta kinnitusküsimus vahele]' \
+            '(-h --help)'{-h,--help}'[Kuva abi]'
+          ;;
+        configure)
+          _arguments \
+            '--json[Väljasta JSON-ina]' \
+            '--values-stdin[Loe valikute väärtused stdin-ist üherealiste stringide JSON objektina; välja jäetud valikud säilitavad oma väärtused]' \
+            '(-h --help)'{-h,--help}'[Kuva abi]' \
+            '1:plugin:_claude_installed_plugins'
           ;;
         details)
           _arguments \
             '(-h --help)'{-h,--help}'[Kuva abi]' \
             '1:plugin:_claude_installed_plugins'
           ;;
-        init)
+        init|new)
           _arguments \
+            '--description[Manifesti kirjeldus]:text:' \
+            '--author[Autori nimi (vaikimisi: git config user.name)]:name:' \
+            '--author-email[Autori e-post (vaikimisi: git config user.email)]:email:' \
+            '--with[Komponendid, mille alusstruktuur samuti genereerida]:components:' \
+            '(-f --force)'{-f,--force}'[Kirjuta sihtkohas olemasolev .claude-plugin/ üle]' \
             '(-h --help)'{-h,--help}'[Kuva abi]' \
             '1:name:'
           ;;
         eval)
           _arguments \
+            '--case[Filtreeri juhtumeid nime glob-mustri järgi]:glob:' \
+            '*--tag[Filtreeri juhtumeid sildi järgi (korratav)]:tag:' \
+            '--runs[Kirjuta üle käivituste arv juhtumi kohta (vaikimisi: case.runs, muidu 3)]:n:' \
+            '(-j --concurrency)'{-j,--concurrency}'[Käivita korraga kuni n agendikäivitust (1-8; vaikimisi 1)]:n:' \
+            '--model[Kirjuta üle mudel kõigi juhtumite jaoks]:model:_claude_model_names' \
+            '--judge-model[Kirjuta üle LLM-hindaja mudel (vaikimisi: haiku)]:model:_claude_model_names' \
+            '--max-cost-usd[Range kululagi; selle ületamisel katkesta ja raporteeri osalised tulemused (väljumiskood 2)]:usd:' \
+            '--output-dir[Kataloog faili aggregate-result.json jaoks]:dir:_directories' \
+            '--eval-dir[Kataloogi nimi (plugina all), mis sisaldab hindamisjuhtumeid]:dir:' \
+            '--json[Prindi kogu käivituse tulemus JSON-ina stdout-i või kirjuta see sellesse .json faili]::path:_files' \
+            '--threshold[Välju koodiga 1, kui mõne juhtumi skoor on sellest lävest madalam (vaikimisi: 1.0)]:threshold:' \
+            '*--allow-tools[Operaatori luba piiratud tööriistadele (Bash, Write, Edit, WebFetch, mcp__*)]:tools:' \
+            '(--no-scaffold)--scaffold[Käivita iga juhtumi scaffold_script (käivitab autori antud bashi sinu nimel; vaikimisi väljas)]' \
+            '(--scaffold)--no-scaffold[Jäta scaffold_script selgesõnaliselt vahele]' \
+            '--trust-plugin[Kinnita, et usaldad seda pluginat ja selle hindamiskomplekti, jättes esimese käivituse usaldusküsimuse vahele (CI jaoks)]' \
+            '--ablation[Käivita pluginata võrdlusrühm (baseline) ja raporteeri skooride erinevus]:mode:(none with-without)' \
+            '--mocks[MCP serverite mock-asendajad kataloogist <eval dir>/mocks/]:mode:(record off)' \
+            '--allow-real-servers[Koos --mocks record: käivita ka päris MCP serveri protsessid, millel pole mock-asendajat]' \
+            '--keep-temp[Säilita alusstruktuuri kataloogid silumiseks]' \
+            '--verbose[Logi sõnumipõhised jälitussündmused silumislogisse]' \
+            '--report[Kirjuta iseseisev HTML-raport tulemuste kataloogi asemel sellele teele]:path:_files' \
+            '(--no-publish)--publish-report[Nõua ka raporti avaldamist claude.ai-s]' \
+            '(--publish-report)--no-publish[Hoia HTML-raport ainult kohalikuna; jäta claude.ai-s avaldamine vahele]' \
             '(-h --help)'{-h,--help}'[Kuva abi]' \
-            '1:target:'
+            '::target: _alternative "plugins\:installed plugin\:_claude_installed_plugins" "files\:path\:_files"'
           ;;
         tag)
           _arguments \
+            '--push[Lükka silt pärast loomist --remote'\''i]' \
+            '--dry-run[Prindi, mis sildistataks, ilma silti loomata]' \
+            '(-f --force)'{-f,--force}'[Jäta vahele muudetud tööpuu ja juba olemasoleva sildi kontrollid]' \
+            '(-m --message)'{-m,--message}'[Sildi annotatsiooni sõnum (kasuta versiooni jaoks %s)]:msg:' \
+            '--remote[Remote, kuhu --push korral lükata]:name:' \
             '(-h --help)'{-h,--help}'[Kuva abi]' \
-            '1:path:_files'
+            '::path:_files'
+          ;;
+        test)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Kuva abi]' \
+            '::dir:_directories'
           ;;
       esac
       ;;
@@ -488,15 +640,20 @@ _claude_plugin_marketplace() {
       case $words[1] in
         add)
           _arguments \
+            '--sparse[Piira checkout kindlate kataloogidega git sparse-checkout abil (monorepode jaoks)]:paths:' \
+            '--scope[Kus turuplats deklareerida]:scope:(user project local)' \
+            '--claudeai[Lisa selle nimega turuplats, mida claude.ai sinu jaoks majutab]' \
             '(-h --help)'{-h,--help}'[Kuva abi]' \
             '1:source:'
           ;;
         list)
           _arguments \
+            '--json[Väljasta JSON-ina]' \
             '(-h --help)'{-h,--help}'[Kuva abi]'
           ;;
         remove|rm)
           _arguments \
+            '--scope[Eemalda turuplatsi deklaratsioon konkreetsest seadete ulatusest (jäta määramata, et eemaldada see kõigist ulatustest)]:scope:(user project local)' \
             '(-h --help)'{-h,--help}'[Kuva abi]' \
             '1:name:'
           ;;
@@ -534,6 +691,7 @@ _claude_agents() {
     '--setting-sources[Seadete allikate loend komadega eraldatuna laadimiseks (user, project, local)]:sources:' \
     '--settings[Rakendatav seadete fail või JSON string]:file-or-json:_files' \
     '--strict-mcp-config[Kasuta lähetatud sessioonides ainult MCP servereid --mcp-config-ist]' \
+    '--restricted[Käivita lähetatud sessioonid piiratud režiimis]' \
     '(-h --help)'{-h,--help}'[Kuva abi käsule]'
 }
 
@@ -560,7 +718,21 @@ _claude_auth() {
       ;;
     args)
       case $words[1] in
-        login|logout|status)
+        login)
+          _arguments \
+            '--email[Täida sisselogimislehel e-posti aadress eelnevalt]:email:' \
+            '--sso[Kasuta sunniviisiliselt SSO sisselogimisvoogu]' \
+            '(--claudeai)--console[Kasuta Claude tellimuse asemel Anthropic Console'\''i (API kasutuspõhine arveldus)]' \
+            '(--console)--claudeai[Kasuta Claude tellimust (vaikimisi)]' \
+            '(-h --help)'{-h,--help}'[Kuva abi käsule]'
+          ;;
+        status)
+          _arguments \
+            '(--text)--json[Väljasta JSON-ina (vaikimisi)]' \
+            '(--json)--text[Väljasta inimloetava tekstina]' \
+            '(-h --help)'{-h,--help}'[Kuva abi käsule]'
+          ;;
+        logout)
           _arguments \
             '(-h --help)'{-h,--help}'[Kuva abi käsule]'
           ;;
@@ -593,7 +765,22 @@ _claude_auto_mode() {
       ;;
     args)
       case $words[1] in
-        config|critique|defaults|reset)
+        critique)
+          _arguments \
+            '--model[Kirjuta üle kasutatav mudel]:model:_claude_model_names' \
+            '(-h --help)'{-h,--help}'[Kuva abi käsule]'
+          ;;
+        defaults)
+          _arguments \
+            '--label[Näita ainult reegleid, mille silt algab selle eesliitega (tõstutundetu)]:prefix:' \
+            '(-h --help)'{-h,--help}'[Kuva abi käsule]'
+          ;;
+        reset)
+          _arguments \
+            '(-y --yes)'{-y,--yes}'[Jäta kinnitusküsimus vahele]' \
+            '(-h --help)'{-h,--help}'[Kuva abi käsule]'
+          ;;
+        config)
           _arguments \
             '(-h --help)'{-h,--help}'[Kuva abi käsule]'
           ;;
@@ -631,8 +818,12 @@ _claude_project() {
       case $words[1] in
         purge)
           _arguments \
+            '--dry-run[Loetle, mis kustutataks, ilma midagi kustutamata]' \
+            '(-y --yes)'{-y,--yes}'[Jäta kinnitusküsimus vahele]' \
+            '(-i --interactive)'{-i,--interactive}'[Küsi iga üksuse kohta enne kustutamist]' \
+            '(1)--all[Kustuta kõigi projektide olek (välistab tee määramise)]' \
             '(-h --help)'{-h,--help}'[Kuva abi käsule]' \
-            '1:path:_directories'
+            '(--all)::path:_directories'
           ;;
       esac
       ;;
@@ -642,9 +833,34 @@ _claude_project() {
 _claude_ultrareview() {
   _arguments \
     '--json[Prindi töötlemata bugs.json andmed vormindatud leidude asemel]' \
-    '--timeout[Maksimaalne minutite arv ülevaatuse lõppemise ootamiseks]:minutes:' \
+    '--timeout[Maksimaalne minutite arv ülevaatuse lõppemise ootamiseks (vaikimisi: 45)]:minutes:' \
+    '(--no-post)--post[Postita lõpetatud ülevaatuse leiud PR-i sinu nimel (ainult PR-sihtmärkide puhul; üks lihtne kommentaar, mitte ülevaatus)]' \
+    '(--post)--no-post[Ära postita leide PR-i (vaikimisi)]' \
     '(-h --help)'{-h,--help}'[Kuva abi käsule]' \
     '1:target:'
+}
+
+_claude_respawn() {
+  _arguments \
+    '(1)--all[Taaskäivita kõik töötavad taustsessioonid]' \
+    '(-h --help)'{-h,--help}'[Kuva abi käsule]' \
+    '(--all)::session:_claude_background_sessions'
+}
+
+_claude_rm() {
+  _arguments \
+    '--discard-unpushed[Hülga ka worktree lükkamata commitid ja commitimata muudatused (anna eelmise claude rm teatatud commit@worktree-id)]:commit@worktree-id:' \
+    '--force-remove-worktree[Kustuta worktree kataloog ka siis, kui WorktreeRemove hook või git ei suutnud seda eemaldada (anna eelmise claude rm teatatud worktree-id)]:worktree-id:' \
+    '(-h --help)'{-h,--help}'[Kuva abi käsule]' \
+    '1:session:_claude_background_sessions'
+}
+
+_claude_import() {
+  _arguments \
+    '--dry-run[Näita, mis imporditaks, ilma midagi kirjutamata]' \
+    '--yes[Jäta interaktiivne valija vahele (peata keskkondades anna /import eelvaatest --yes=<digest>)]' \
+    '(-h --help)'{-h,--help}'[Kuva abi käsule]' \
+    '::source:(codex gemini cursor)'
 }
 
 (( $+_comps[claude] )) || compdef _claude claude
