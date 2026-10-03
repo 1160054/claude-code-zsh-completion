@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Completion for the CLI 2.1.288 additions the 2.7.0 update missed: the top-level `purge` command (`project purge` is kept), `plugin install --accept-command`/`--registry`, `plugin update --accept-command`, `plugin list --data-size`, `plugin marketplace add`/`remove`/`update --json` and the `plugin eval init` subcommand, in `_claude`, the `en-*` variants and the twelve translated locales
 
 ### Changed
+- README cut to what you need to install and use the completion (274 lines to about 60). It no longer lists Tamil, Telugu, Kannada, Malayalam, Odia, Urdu and Nepali, which were never shipped
 - When the weekly drift check finds the CLI ahead of the completion, a new workflow has Claude update `completions/_claude`, the `en-*` variants and the twelve translated locales, and open a PR for review. It needs an `ANTHROPIC_API_KEY` or `CLAUDE_CODE_OAUTH_TOKEN` secret and skips without one
 - The Homebrew formula PR and the drift-fix PR are opened with a maintainer token (`WORKFLOW_TOKEN`), so their CI runs without an approval and the formula PR's auto-merge goes through
 
