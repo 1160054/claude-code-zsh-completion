@@ -121,6 +121,39 @@ _claude_agent_names() {
   compadd -a agents
 }
 
+_claude_background_sessions() {
+  local -a sessions state_files
+  local -A names states
+  local state_dir state_file line id rest
+
+  # Background sessions (`claude --bg`) live in <config>/jobs/<id>/, where
+  # <id> is the short id that attach, logs, stop, respawn and rm take.
+  for state_dir in ${(f)"$(_claude_state_dirs)"}; do
+    # Newest first
+    state_files=(${state_dir}/jobs/*/state.json(Nom))
+    (( ${#state_files} )) || continue
+
+    # One grep for all of them; the first "name" and "state" it reports for a
+    # file are that file's top-level ones
+    names=() states=()
+    for line in ${(f)"$(grep -HoE '"(name|state)"[[:space:]]*:[[:space:]]*"[^"]*"' $state_files 2>/dev/null)"}; do
+      id=${${line%%/state.json:*}:t}
+      rest=${line#*/state.json:}
+      case $rest in
+        \"name\"*)  [[ -z $names[$id] ]]  && names[$id]=${${rest#*:*\"}%\"} ;;
+        \"state\"*) [[ -z $states[$id] ]] && states[$id]=${${rest#*:*\"}%\"} ;;
+      esac
+    done
+
+    for state_file in $state_files; do
+      id=${state_file:h:t}
+      sessions+=("${id}:${names[$id]:-no name}${states[$id]:+ (${states[$id]})}")
+    done
+  done
+
+  _describe -t sessions 'background session' sessions
+}
+
 _claude_model_names() {
   local -a models config_files
   local state_dir config_file
@@ -155,9 +188,15 @@ _claude() {
     'mcp:Cấu hình và quản lý các MCP server'
     'plugin:Quản lý các plugin của Claude Code'
     'agents:Quản lý các agent nền'
+    'attach:Mở một phiên nền trong terminal này'
+    'logs:In đầu ra terminal gần đây của một phiên nền'
+    'stop:Dừng một phiên nền (cuộc trò chuyện của phiên được giữ lại)'
+    'respawn:Khởi động lại một phiên nền để phiên chạy phiên bản Claude Code hiện tại'
+    'rm:Xóa một phiên nền, và cả worktree của phiên khi việc đó an toàn'
     'auth:Quản lý xác thực'
     'auto-mode:Kiểm tra hoặc đặt lại cấu hình bộ phân loại chế độ tự động'
     'gateway:Chạy gateway xác thực/telemetry cho doanh nghiệp'
+    'import:Nhập cấu hình từ một agent lập trình AI khác vào Claude Code'
     'project:Quản lý trạng thái dự án của Claude Code'
     'ultrareview:Chạy đánh giá mã đa agent lưu trữ trên đám mây và in ra các phát hiện'
     'setup-token:Thiết lập token xác thực dài hạn (yêu cầu đăng ký Claude)'
@@ -178,6 +217,7 @@ _claude() {
     '--mcp-debug[\[Không được khuyến nghị. Sử dụng --debug thay thế\] Bật chế độ gỡ lỗi MCP (hiển thị lỗi MCP server)]'
     '--dangerously-skip-permissions[Bỏ qua tất cả các kiểm tra quyền. Chỉ khuyến nghị cho sandbox không có truy cập internet]'
     '--allow-dangerously-skip-permissions[Bật tùy chọn bỏ qua kiểm tra quyền mà không bật theo mặc định]'
+    '--restricted[Chế độ hạn chế: loại bỏ các công cụ chạy lệnh hoặc mã và WebFetch, bỏ qua các cài đặt user/project/local, và giới hạn các công cụ file trong các thư mục làm việc]'
     '--max-budget-usd[Số tiền tối đa (đô la) để chi cho các lệnh gọi API (chỉ --print)]:amount:'
     '--replay-user-messages[Gửi lại tin nhắn người dùng từ stdin trên stdout để xác nhận]'
     '--allowed-tools[Danh sách tên công cụ được phép, phân tách bằng dấu phẩy hoặc khoảng trắng (ví dụ: "Bash(git:*) Edit")]:tools:'
@@ -187,8 +227,13 @@ _claude() {
     '--disallowedTools[Danh sách tên công cụ không được phép (định dạng camelCase)]:tools:'
     '--mcp-config[Tải MCP server từ file JSON hoặc chuỗi (phân tách bằng khoảng trắng)]:configs:'
     '--system-prompt[System prompt sử dụng cho phiên làm việc]:prompt:'
+    '--system-prompt-file[Đọc system prompt từ một file]:file:_files'
     '--append-system-prompt[Thêm system prompt vào system prompt mặc định]:prompt:'
+    '--append-system-prompt-file[Đọc system prompt từ một file và thêm vào system prompt mặc định]:file:_files'
+    '--system-prompt-snapshot[Ghi lại system prompt một lần cho mỗi cuộc trò chuyện và tái sử dụng nguyên văn ở mọi yêu cầu và khi tiếp tục (on, mặc định), hoặc tạo mới ở mỗi yêu cầu (off)]:mode:(on off)'
     '--permission-mode[Chế độ quyền sử dụng cho phiên làm việc]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)'
+    '--permission-prompts[Ai trả lời các lời nhắc cấp quyền khi dùng --print: "host" (SDK host hoặc --permission-prompt-tool) hoặc "none" (mọi thứ cần hỏi đều bị từ chối)]:target:(host none)'
+    '--permission-prompt-tool[Công cụ MCP dùng cho các lời nhắc cấp quyền (chỉ --print)]:tool:'
     '(-c --continue)'{-c,--continue}'[Tiếp tục cuộc trò chuyện gần nhất]'
     '(-r --resume)'{-r,--resume}'[Tiếp tục một cuộc trò chuyện - chỉ định ID phiên hoặc chọn tương tác]:sessionId:_claude_sessions'
     '--fork-session[Tạo ID phiên mới thay vì sử dụng lại ID phiên gốc khi tiếp tục (với --resume hoặc --continue)]'
@@ -200,6 +245,7 @@ _claude() {
     '--settings[Đường dẫn đến file JSON cài đặt hoặc chuỗi JSON để tải các cài đặt bổ sung]:file-or-json:_files'
     '--add-dir[Các thư mục bổ sung để cho phép truy cập công cụ]:directories:_directories'
     '--ide[Tự động kết nối với IDE khi khởi động nếu có đúng một IDE hợp lệ]'
+    '--desktop[Mở trong ứng dụng Claude Desktop thay vì terminal (với --continue hoặc --resume <id> để chọn phiên)]'
     '--strict-mcp-config[Chỉ sử dụng MCP server từ --mcp-config và bỏ qua tất cả các cài đặt MCP khác]'
     '--session-id[ID phiên cụ thể để sử dụng cho cuộc trò chuyện (phải là UUID hợp lệ)]:uuid:'
     '--agents[Đối tượng JSON định nghĩa các agent tùy chỉnh]:json:'
@@ -208,11 +254,15 @@ _claude() {
     '--disable-slash-commands[Tắt tất cả các lệnh slash]'
     '(--bg --background)'{--bg,--background}'[Khởi động phiên như một agent nền và trả về ngay lập tức]'
     '(-w --worktree)'{-w,--worktree}'[Tạo một git worktree mới cho phiên này (tùy chọn chỉ định tên)]::name:'
-    '--tmux[Tạo một phiên tmux cho worktree (yêu cầu --worktree)]'
+    '--tmux=-[Tạo một phiên tmux cho worktree (yêu cầu --worktree). Sử dụng các pane gốc của iTerm2 khi có sẵn; --tmux=classic cho tmux truyền thống]::mode:(classic)'
     '(-n --name)'{-n,--name}'[Đặt tên hiển thị cho phiên này]:name:'
     '--effort[Mức độ nỗ lực cho phiên hiện tại]:level:(low medium high xhigh max)'
+    '--autocompact[Kích thước cửa sổ tự động nén (auto, hoặc 100k-1M token)]:size:(auto)'
     '--debug-file[Ghi nhật ký gỡ lỗi vào một đường dẫn file cụ thể (ngầm bật chế độ gỡ lỗi)]:path:_files'
     '--from-pr[Tiếp tục một phiên được liên kết với PR theo số/URL, hoặc mở bộ chọn tương tác]::value:'
+    '--teleport[Tiếp tục một phiên teleport, tùy chọn chỉ định ID phiên]::session:'
+    '--cloud[Tạo một phiên đám mây với mô tả đã cho, hoặc gắn vào một phiên hiện có theo ID phiên hoặc URL claude.ai/code]::description-or-session:'
+    '--environment[Tạo một phiên đám mây mới chạy trên môi trường tự lưu trữ đã chỉ định (ccpool_...)]:environment_id:'
     '--remote-control[Khởi động một phiên tương tác với Remote Control được bật (tùy chọn đặt tên)]::name:'
     '--remote-control-session-name-prefix[Tiền tố cho tên phiên Remote Control được tạo tự động]:prefix:'
     '--chrome[Bật tích hợp Claude trong Chrome]'
@@ -254,6 +304,17 @@ _claude() {
         agents)
           _claude_agents
           ;;
+        attach|logs|stop|kill)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Hiển thị trợ giúp cho lệnh]' \
+            '1:session:_claude_background_sessions'
+          ;;
+        respawn)
+          _claude_respawn
+          ;;
+        rm)
+          _claude_rm
+          ;;
         auth)
           _claude_auth
           ;;
@@ -262,6 +323,9 @@ _claude() {
           ;;
         gateway)
           _claude_gateway
+          ;;
+        import)
+          _claude_import
           ;;
         project)
           _claude_project
@@ -319,6 +383,9 @@ _claude_mcp() {
             '(-t --transport)'{-t,--transport}'[Loại transport (stdio, sse, http)]:transport:(stdio sse http)' \
             '(-e --env)'{-e,--env}'[Đặt biến môi trường (ví dụ: -e KEY=value)]:env:' \
             '(-H --header)'{-H,--header}'[Đặt WebSocket header]:header:' \
+            '--client-id[OAuth client ID cho các server HTTP/SSE]:clientId:' \
+            '--client-secret[Hỏi nhập OAuth client secret (hoặc đặt biến môi trường MCP_CLIENT_SECRET)]' \
+            '--callback-port[Cổng cố định cho OAuth callback (cho các server yêu cầu redirect URI đăng ký trước)]:port:' \
             '(-h --help)'{-h,--help}'[Hiển thị trợ giúp]' \
             '1:name:' \
             '2:commandOrUrl:' \
@@ -342,6 +409,7 @@ _claude_mcp() {
         add-json)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Phạm vi cấu hình (local, user, project)]:scope:(local user project)' \
+            '--client-secret[Hỏi nhập OAuth client secret (hoặc đặt biến môi trường MCP_CLIENT_SECRET)]' \
             '(-h --help)'{-h,--help}'[Hiển thị trợ giúp]' \
             '1:name:' \
             '2:json:'
@@ -355,7 +423,13 @@ _claude_mcp() {
           _arguments \
             '(-h --help)'{-h,--help}'[Hiển thị trợ giúp]'
           ;;
-        login|logout)
+        login)
+          _arguments \
+            '--no-browser[In URL ủy quyền thay vì mở trình duyệt (cho các phiên SSH/headless)]' \
+            '(-h --help)'{-h,--help}'[Hiển thị trợ giúp]' \
+            '1:name:_claude_mcp_servers'
+          ;;
+        logout)
           _arguments \
             '(-h --help)'{-h,--help}'[Hiển thị trợ giúp]' \
             '1:name:_claude_mcp_servers'
@@ -372,9 +446,11 @@ _claude_plugin() {
     'marketplace:Quản lý các marketplace của Claude Code'
     'list:Liệt kê các plugin đã cài'
     'details:Hiển thị kho thành phần và chi phí token dự kiến cho một plugin'
+    'configure:Hiển thị các tùy chọn của một plugin và những tùy chọn chưa được đặt, hoặc lưu giá trị từ stdin'
     'install:Cài đặt một plugin từ các marketplace có sẵn'
     'i:Cài đặt một plugin từ các marketplace có sẵn (viết tắt của install)'
     'init:Tạo khung một plugin mới (tự động tải phiên tiếp theo)'
+    'new:Tạo khung một plugin mới (bí danh của init)'
     'uninstall:Gỡ cài đặt một plugin đã cài'
     'remove:Gỡ cài đặt một plugin đã cài (bí danh của uninstall)'
     'enable:Bật một plugin đã tắt'
@@ -382,7 +458,9 @@ _claude_plugin() {
     'update:Cập nhật một plugin lên phiên bản mới nhất'
     'eval:Chạy các trường hợp eval đối với một plugin và báo cáo kết quả được chấm điểm'
     'prune:Xóa các phụ thuộc được cài tự động không còn cần thiết'
+    'autoremove:Xóa các phụ thuộc được cài tự động không còn cần thiết (bí danh của prune)'
     'tag:Tạo một git tag {name}--v{version} cho một bản phát hành plugin'
+    'test:Chạy các bài kiểm thử của một mod'
     'help:Hiển thị trợ giúp'
   )
 
@@ -402,6 +480,8 @@ _claude_plugin() {
       case $words[1] in
         validate)
           _arguments \
+            '--strict[Coi cảnh báo là lỗi (mã thoát 1)]' \
+            '--json[Xuất báo cáo xác thực dưới dạng JSON (cùng các mã thoát)]' \
             '(-h --help)'{-h,--help}'[Hiển thị trợ giúp]' \
             '1:path:_files'
           ;;
@@ -411,50 +491,122 @@ _claude_plugin() {
         install|i)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Phạm vi cài đặt]:scope:(user project local)' \
+            '*--config[Đặt một tùy chọn userConfig được khai báo trong manifest của plugin (có thể lặp lại)]:key=value:' \
+            '(-y --yes)'{-y,--yes}'[Chấp nhận lệnh do marketplace khai báo đang hiển thị mà không cần lời nhắc xác nhận]' \
+            '--json[In một dòng kết quả máy đọc được thay vì thông báo cho người đọc]' \
             '(-h --help)'{-h,--help}'[Hiển thị trợ giúp]' \
             '1:plugin:'
           ;;
         uninstall|remove)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Phạm vi cài đặt]:scope:(user project local)' \
+            '--keep-data[Giữ lại thư mục dữ liệu lâu dài của plugin]' \
+            '--prune[Đồng thời xóa các phụ thuộc được cài tự động không còn cần thiết]' \
+            '(-y --yes)'{-y,--yes}'[Bỏ qua lời nhắc xác nhận của --prune]' \
+            '--json[In một dòng kết quả máy đọc được thay vì thông báo cho người đọc (không dùng với --prune)]' \
             '(-h --help)'{-h,--help}'[Hiển thị trợ giúp]' \
             '1:plugin:_claude_installed_plugins'
           ;;
-        enable|disable)
+        enable)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Phạm vi cài đặt]:scope:(user project local)' \
+            '--json[In một dòng kết quả máy đọc được thay vì thông báo cho người đọc]' \
             '(-h --help)'{-h,--help}'[Hiển thị trợ giúp]' \
             '1:plugin:_claude_installed_plugins'
+          ;;
+        disable)
+          _arguments \
+            '(-a --all)'{-a,--all}'[Tắt tất cả các plugin đang bật]' \
+            '(-s --scope)'{-s,--scope}'[Phạm vi cài đặt]:scope:(user project local)' \
+            '--json[In một dòng kết quả máy đọc được thay vì thông báo cho người đọc]' \
+            '(-h --help)'{-h,--help}'[Hiển thị trợ giúp]' \
+            '::plugin:_claude_installed_plugins'
           ;;
         update)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Phạm vi cài đặt]:scope:(user project local managed)' \
+            '(-y --yes)'{-y,--yes}'[Chấp nhận lệnh do marketplace khai báo đang hiển thị mà không cần lời nhắc xác nhận]' \
+            '--json[In một dòng kết quả máy đọc được thay vì thông báo cho người đọc]' \
             '(-h --help)'{-h,--help}'[Hiển thị trợ giúp]' \
             '1:plugin:_claude_installed_plugins'
           ;;
-        list|prune)
+        list)
           _arguments \
+            '--json[Xuất dưới dạng JSON]' \
+            '--available[Bao gồm các plugin có sẵn từ các marketplace (yêu cầu --json)]' \
             '(-h --help)'{-h,--help}'[Hiển thị trợ giúp]'
+          ;;
+        prune|autoremove)
+          _arguments \
+            '(-s --scope)'{-s,--scope}'[Dọn dẹp ở phạm vi]:scope:(user project local)' \
+            '--dry-run[Liệt kê những gì sẽ bị xóa mà không xóa]' \
+            '(-y --yes)'{-y,--yes}'[Bỏ qua lời nhắc xác nhận]' \
+            '(-h --help)'{-h,--help}'[Hiển thị trợ giúp]'
+          ;;
+        configure)
+          _arguments \
+            '--json[Xuất dưới dạng JSON]' \
+            '--values-stdin[Đọc giá trị tùy chọn từ stdin dưới dạng đối tượng JSON gồm các chuỗi một dòng; các tùy chọn không được cung cấp giữ nguyên giá trị]' \
+            '(-h --help)'{-h,--help}'[Hiển thị trợ giúp]' \
+            '1:plugin:_claude_installed_plugins'
           ;;
         details)
           _arguments \
             '(-h --help)'{-h,--help}'[Hiển thị trợ giúp]' \
             '1:plugin:_claude_installed_plugins'
           ;;
-        init)
+        init|new)
           _arguments \
+            '--description[Mô tả trong manifest]:text:' \
+            '--author[Tên tác giả (mặc định: git config user.name)]:name:' \
+            '--author-email[Email tác giả (mặc định: git config user.email)]:email:' \
+            '--with[Các thành phần cũng cần tạo khung]:components:' \
+            '(-f --force)'{-f,--force}'[Ghi đè .claude-plugin/ hiện có tại đích]' \
             '(-h --help)'{-h,--help}'[Hiển thị trợ giúp]' \
             '1:name:'
           ;;
         eval)
           _arguments \
+            '--case[Lọc các trường hợp theo glob tên]:glob:' \
+            '*--tag[Lọc các trường hợp theo tag (có thể lặp lại)]:tag:' \
+            '--runs[Ghi đè số lần chạy mỗi trường hợp (mặc định: case.runs, nếu không thì 3)]:n:' \
+            '(-j --concurrency)'{-j,--concurrency}'[Thực hiện tối đa n lượt chạy agent cùng lúc (1-8; mặc định 1)]:n:' \
+            '--model[Ghi đè mô hình cho tất cả các trường hợp]:model:_claude_model_names' \
+            '--judge-model[Ghi đè mô hình chấm điểm LLM (mặc định: haiku)]:model:_claude_model_names' \
+            '--max-cost-usd[Mức trần chi phí cứng; hủy và báo cáo kết quả một phần nếu chạm mức (mã thoát 2)]:usd:' \
+            '--output-dir[Thư mục cho aggregate-result.json]:dir:_directories' \
+            '--eval-dir[Tên thư mục (bên dưới plugin) chứa các trường hợp eval]:dir:' \
+            '--json[In toàn bộ kết quả chạy dưới dạng JSON ra stdout, hoặc ghi vào file .json này]::path:_files' \
+            '--threshold[Thoát với mã thoát 1 nếu điểm của bất kỳ trường hợp nào thấp hơn ngưỡng này (mặc định: 1.0)]:threshold:' \
+            '*--allow-tools[Cấp quyền của người vận hành cho các công cụ bị kiểm soát (Bash, Write, Edit, WebFetch, mcp__*)]:tools:' \
+            '(--no-scaffold)--scaffold[Chạy scaffold_script của từng trường hợp (chạy bash do tác giả cung cấp dưới tài khoản của bạn; tắt theo mặc định)]' \
+            '(--scaffold)--no-scaffold[Bỏ qua scaffold_script một cách tường minh]' \
+            '--trust-plugin[Khẳng định rằng bạn tin tưởng plugin này và bộ eval của nó, bỏ qua lời nhắc tin cậy ở lần chạy đầu (cho CI)]' \
+            '--ablation[Chạy một nhóm đối chứng cơ sở không có plugin và báo cáo chênh lệch điểm]:mode:(none with-without)' \
+            '--mocks[Các bản thay thế giả lập cho MCP server, từ <eval dir>/mocks/]:mode:(record off)' \
+            '--allow-real-servers[Với --mocks record: đồng thời khởi động các tiến trình MCP server thật chưa có bản giả lập]' \
+            '--keep-temp[Giữ lại các thư mục scaffold để gỡ lỗi]' \
+            '--verbose[Ghi các sự kiện trace theo từng tin nhắn vào nhật ký gỡ lỗi]' \
+            '--report[Ghi báo cáo HTML độc lập vào đường dẫn này thay vì thư mục kết quả]:path:_files' \
+            '(--no-publish)--publish-report[Đồng thời yêu cầu xuất bản báo cáo lên claude.ai]' \
+            '(--publish-report)--no-publish[Chỉ giữ báo cáo HTML cục bộ; bỏ qua việc xuất bản lên claude.ai]' \
             '(-h --help)'{-h,--help}'[Hiển thị trợ giúp]' \
-            '1:target:'
+            '::target: _alternative "plugins\:installed plugin\:_claude_installed_plugins" "files\:path\:_files"'
           ;;
         tag)
           _arguments \
+            '--push[Đẩy tag lên --remote sau khi tạo]' \
+            '--dry-run[In những gì sẽ được gắn tag mà không tạo tag]' \
+            '(-f --force)'{-f,--force}'[Bỏ qua các kiểm tra working tree có thay đổi chưa commit và tag đã tồn tại]' \
+            '(-m --message)'{-m,--message}'[Thông điệp chú thích của tag (dùng %s cho phiên bản)]:msg:' \
+            '--remote[Remote để đẩy lên khi dùng --push]:name:' \
             '(-h --help)'{-h,--help}'[Hiển thị trợ giúp]' \
-            '1:path:_files'
+            '::path:_files'
+          ;;
+        test)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Hiển thị trợ giúp]' \
+            '::dir:_directories'
           ;;
       esac
       ;;
@@ -488,15 +640,20 @@ _claude_plugin_marketplace() {
       case $words[1] in
         add)
           _arguments \
+            '--sparse[Giới hạn checkout vào các thư mục cụ thể qua git sparse-checkout (cho monorepo)]:paths:' \
+            '--scope[Nơi khai báo marketplace]:scope:(user project local)' \
+            '--claudeai[Thêm marketplace có tên này mà claude.ai lưu trữ cho bạn]' \
             '(-h --help)'{-h,--help}'[Hiển thị trợ giúp]' \
             '1:source:'
           ;;
         list)
           _arguments \
+            '--json[Xuất dưới dạng JSON]' \
             '(-h --help)'{-h,--help}'[Hiển thị trợ giúp]'
           ;;
         remove|rm)
           _arguments \
+            '--scope[Xóa khai báo marketplace khỏi một phạm vi cài đặt cụ thể (bỏ trống để xóa khỏi mọi phạm vi)]:scope:(user project local)' \
             '(-h --help)'{-h,--help}'[Hiển thị trợ giúp]' \
             '1:name:'
           ;;
@@ -534,6 +691,7 @@ _claude_agents() {
     '--setting-sources[Danh sách các nguồn cài đặt phân tách bằng dấu phẩy để tải (user, project, local)]:sources:' \
     '--settings[File cài đặt hoặc chuỗi JSON để áp dụng]:file-or-json:_files' \
     '--strict-mcp-config[Chỉ sử dụng MCP server từ --mcp-config trong các phiên được điều phối]' \
+    '--restricted[Khởi động các phiên được điều phối ở chế độ hạn chế]' \
     '(-h --help)'{-h,--help}'[Hiển thị trợ giúp cho lệnh]'
 }
 
@@ -560,7 +718,21 @@ _claude_auth() {
       ;;
     args)
       case $words[1] in
-        login|logout|status)
+        login)
+          _arguments \
+            '--email[Điền sẵn địa chỉ email trên trang đăng nhập]:email:' \
+            '--sso[Bắt buộc luồng đăng nhập SSO]' \
+            '(--claudeai)--console[Sử dụng Anthropic Console (tính phí theo mức sử dụng API) thay vì đăng ký Claude]' \
+            '(--console)--claudeai[Sử dụng đăng ký Claude (mặc định)]' \
+            '(-h --help)'{-h,--help}'[Hiển thị trợ giúp cho lệnh]'
+          ;;
+        status)
+          _arguments \
+            '(--text)--json[Xuất dưới dạng JSON (mặc định)]' \
+            '(--json)--text[Xuất dưới dạng văn bản dễ đọc cho người]' \
+            '(-h --help)'{-h,--help}'[Hiển thị trợ giúp cho lệnh]'
+          ;;
+        logout)
           _arguments \
             '(-h --help)'{-h,--help}'[Hiển thị trợ giúp cho lệnh]'
           ;;
@@ -593,7 +765,22 @@ _claude_auto_mode() {
       ;;
     args)
       case $words[1] in
-        config|critique|defaults|reset)
+        critique)
+          _arguments \
+            '--model[Ghi đè mô hình được sử dụng]:model:_claude_model_names' \
+            '(-h --help)'{-h,--help}'[Hiển thị trợ giúp cho lệnh]'
+          ;;
+        defaults)
+          _arguments \
+            '--label[Chỉ hiển thị các quy tắc có nhãn bắt đầu bằng tiền tố này (không phân biệt hoa thường)]:prefix:' \
+            '(-h --help)'{-h,--help}'[Hiển thị trợ giúp cho lệnh]'
+          ;;
+        reset)
+          _arguments \
+            '(-y --yes)'{-y,--yes}'[Bỏ qua lời nhắc xác nhận]' \
+            '(-h --help)'{-h,--help}'[Hiển thị trợ giúp cho lệnh]'
+          ;;
+        config)
           _arguments \
             '(-h --help)'{-h,--help}'[Hiển thị trợ giúp cho lệnh]'
           ;;
@@ -631,8 +818,12 @@ _claude_project() {
       case $words[1] in
         purge)
           _arguments \
+            '--dry-run[Liệt kê những gì sẽ bị xóa mà không xóa gì cả]' \
+            '(-y --yes)'{-y,--yes}'[Bỏ qua lời nhắc xác nhận]' \
+            '(-i --interactive)'{-i,--interactive}'[Hỏi xác nhận từng mục trước khi xóa]' \
+            '(1)--all[Xóa trạng thái cho mọi dự án (không dùng chung với một đường dẫn)]' \
             '(-h --help)'{-h,--help}'[Hiển thị trợ giúp cho lệnh]' \
-            '1:path:_directories'
+            '(--all)::path:_directories'
           ;;
       esac
       ;;
@@ -642,9 +833,34 @@ _claude_project() {
 _claude_ultrareview() {
   _arguments \
     '--json[In dữ liệu bugs.json thô thay vì các phát hiện được định dạng]' \
-    '--timeout[Số phút tối đa để chờ đánh giá hoàn thành]:minutes:' \
+    '--timeout[Số phút tối đa để chờ đánh giá hoàn thành (mặc định: 45)]:minutes:' \
+    '(--no-post)--post[Đăng các phát hiện của đánh giá đã hoàn thành lên PR dưới tài khoản của bạn (chỉ với mục tiêu là PR; một bình luận thông thường, không phải review)]' \
+    '(--post)--no-post[Không đăng các phát hiện lên PR (mặc định)]' \
     '(-h --help)'{-h,--help}'[Hiển thị trợ giúp cho lệnh]' \
     '1:target:'
+}
+
+_claude_respawn() {
+  _arguments \
+    '(1)--all[Khởi động lại mọi phiên nền đang chạy]' \
+    '(-h --help)'{-h,--help}'[Hiển thị trợ giúp cho lệnh]' \
+    '(--all)::session:_claude_background_sessions'
+}
+
+_claude_rm() {
+  _arguments \
+    '--discard-unpushed[Đồng thời loại bỏ các commit chưa push và thay đổi chưa commit của worktree (truyền commit@worktree-id mà lần claude rm trước đã báo)]:commit@worktree-id:' \
+    '--force-remove-worktree[Xóa thư mục worktree ngay cả khi hook WorktreeRemove hoặc git không thể xóa nó (truyền worktree-id mà lần claude rm trước đã báo)]:worktree-id:' \
+    '(-h --help)'{-h,--help}'[Hiển thị trợ giúp cho lệnh]' \
+    '1:session:_claude_background_sessions'
+}
+
+_claude_import() {
+  _arguments \
+    '--dry-run[Hiển thị những gì sẽ được nhập mà không ghi gì cả]' \
+    '--yes[Bỏ qua bộ chọn tương tác (trên môi trường headless, truyền --yes=<digest> từ bản xem trước /import)]' \
+    '(-h --help)'{-h,--help}'[Hiển thị trợ giúp cho lệnh]' \
+    '::source:(codex gemini cursor)'
 }
 
 (( $+_comps[claude] )) || compdef _claude claude
