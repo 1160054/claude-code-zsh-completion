@@ -121,6 +121,39 @@ _claude_agent_names() {
   compadd -a agents
 }
 
+_claude_background_sessions() {
+  local -a sessions state_files
+  local -A names states
+  local state_dir state_file line id rest
+
+  # Background sessions (`claude --bg`) live in <config>/jobs/<id>/, where
+  # <id> is the short id that attach, logs, stop, respawn and rm take.
+  for state_dir in ${(f)"$(_claude_state_dirs)"}; do
+    # Newest first
+    state_files=(${state_dir}/jobs/*/state.json(Nom))
+    (( ${#state_files} )) || continue
+
+    # One grep for all of them; the first "name" and "state" it reports for a
+    # file are that file's top-level ones
+    names=() states=()
+    for line in ${(f)"$(grep -HoE '"(name|state)"[[:space:]]*:[[:space:]]*"[^"]*"' $state_files 2>/dev/null)"}; do
+      id=${${line%%/state.json:*}:t}
+      rest=${line#*/state.json:}
+      case $rest in
+        \"name\"*)  [[ -z $names[$id] ]]  && names[$id]=${${rest#*:*\"}%\"} ;;
+        \"state\"*) [[ -z $states[$id] ]] && states[$id]=${${rest#*:*\"}%\"} ;;
+      esac
+    done
+
+    for state_file in $state_files; do
+      id=${state_file:h:t}
+      sessions+=("${id}:${names[$id]:-no name}${states[$id]:+ (${states[$id]})}")
+    done
+  done
+
+  _describe -t sessions 'background session' sessions
+}
+
 _claude_model_names() {
   local -a models config_files
   local state_dir config_file
@@ -155,9 +188,15 @@ _claude() {
     'mcp:Конфигурирање и управување со MCP сервери'
     'plugin:Управување со приклучоци на Claude Code'
     'agents:Управување со позадински агенти'
+    'attach:Отвори позадинска сесија во овој терминал'
+    'logs:Испечати го неодамнешниот излез од терминалот на позадинска сесија'
+    'stop:Запри позадинска сесија (нејзиниот разговор се зачувува)'
+    'respawn:Рестартирај позадинска сесија за да ја извршува тековната верзија на Claude Code'
+    'rm:Избриши позадинска сесија, и нејзиниот worktree кога тоа е безбедно'
     'auth:Управување со автентикација'
     'auto-mode:Прегледај или ресетирај ја конфигурацијата на класификаторот за автоматски режим'
     'gateway:Стартувај го gateway за автентикација/телеметрија за претпријатија'
+    'import:Увези конфигурација од друг AI агент за програмирање во Claude Code'
     'project:Управување со состојбата на проектот на Claude Code'
     'ultrareview:Стартувај повеќеагентски преглед на код хостиран во облак и испечати ги наодите'
     'setup-token:Поставување на токен за долгорочна автентикација (потребна е Claude претплата)'
@@ -178,6 +217,7 @@ _claude() {
     '--mcp-debug[\[Застарено. Користете --debug наместо тоа\] Вклучи режим на отстранување грешки на MCP (прикажува грешки на MCP серверот)]'
     '--dangerously-skip-permissions[Заобиколи ги сите проверки за дозволи. Препорачливо само за sandbox окружувања без пристап до интернет]'
     '--allow-dangerously-skip-permissions[Овозможи опција за заобиколување на проверки за дозволи без овозможување стандардно]'
+    '--restricted[Ограничен режим: отстрани ги алатките што извршуваат команди или код и WebFetch, игнорирај ги user/project/local поставките и ограничи ги алатките за датотеки на работните директориуми]'
     '--max-budget-usd[Максимален износ во долари за трошење на API повици (само --print)]:amount:'
     '--replay-user-messages[Повторно испрати кориснички пораки од stdin на stdout за потврда]'
     '--allowed-tools[Список на дозволени имиња на алатки одделени со запирка или празно место (на пр. "Bash(git:*) Edit")]:tools:'
@@ -187,8 +227,13 @@ _claude() {
     '--disallowedTools[Список на забранети имиња на алатки одделени со запирка или празно место (формат camelCase)]:tools:'
     '--mcp-config[Вчитај MCP сервери од JSON датотека или стринг (одделени со празни места)]:configs:'
     '--system-prompt[Системски prompt за употреба во сесијата]:prompt:'
+    '--system-prompt-file[Прочитај системски prompt од датотека]:file:_files'
     '--append-system-prompt[Додај системски prompt на стандардниот системски prompt]:prompt:'
+    '--append-system-prompt-file[Прочитај системски prompt од датотека и додај го на стандардниот системски prompt]:file:_files'
+    '--system-prompt-snapshot[Запиши го системскиот prompt еднаш по разговор и користи го дословно при секое барање и продолжување (on, стандардно) или генерирај го одново при секое барање (off)]:mode:(on off)'
     '--permission-mode[Режим на дозволи за употреба во сесијата]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)'
+    '--permission-prompts[Кој одговара на барањата за дозвола со --print: "host" (SDK хостот или --permission-prompt-tool) или "none" (сè што би барало дозвола се одбива)]:target:(host none)'
+    '--permission-prompt-tool[MCP алатка за барањата за дозвола (само --print)]:tool:'
     '(-c --continue)'{-c,--continue}'[Продолжи со последниот разговор]'
     '(-r --resume)'{-r,--resume}'[Продолжи разговор - наведете идентификатор на сесија или изберете интерактивно]:sessionId:_claude_sessions'
     '--fork-session[Креирај нов идентификатор на сесија наместо повторна употреба на оригиналниот при продолжување (со --resume или --continue)]'
@@ -200,6 +245,7 @@ _claude() {
     '--settings[Патека до JSON датотека со поставки или JSON стринг за вчитување на дополнителни поставки]:file-or-json:_files'
     '--add-dir[Дополнителни директориуми за обезбедување пристап на алатки]:directories:_directories'
     '--ide[Автоматски поврзи се со IDE при стартување ако е достапен точно еден валиден IDE]'
+    '--desktop[Отвори во апликацијата Claude Desktop наместо во терминалот (со --continue или --resume <id> за избор на сесијата)]'
     '--strict-mcp-config[Користи само MCP сервери од --mcp-config и игнорирај ги сите други MCP поставки]'
     '--session-id[Одреден идентификатор на сесија за употреба во разговор (мора да биде валиден UUID)]:uuid:'
     '--agents[JSON објект кој дефинира приспособени агенти]:json:'
@@ -208,11 +254,15 @@ _claude() {
     '--disable-slash-commands[Оневозможи ги сите slash команди]'
     '(--bg --background)'{--bg,--background}'[Стартувај ја сесијата како позадински агент и врати се веднаш]'
     '(-w --worktree)'{-w,--worktree}'[Креирај нов git worktree за оваа сесија (опционално наведете име)]::name:'
-    '--tmux[Креирај tmux сесија за worktree (потребно е --worktree)]'
+    '--tmux=-[Креирај tmux сесија за worktree (потребно е --worktree). Користи изворни панели на iTerm2 кога се достапни; --tmux=classic за традиционален tmux]::mode:(classic)'
     '(-n --name)'{-n,--name}'[Постави прикажано име за оваа сесија]:name:'
     '--effort[Ниво на напор за тековната сесија]:level:(low medium high xhigh max)'
+    '--autocompact[Големина на прозорецот за автоматско збивање (auto, или 100k-1M токени)]:size:(auto)'
     '--debug-file[Запиши дневници за отстранување грешки во одредена патека на датотека (имплицитно го овозможува режимот на отстранување грешки)]:path:_files'
     '--from-pr[Продолжи сесија поврзана со PR по број/URL, или отвори интерактивен избирач]::value:'
+    '--teleport[Продолжи teleport сесија, опционално наведете идентификатор на сесија]::session:'
+    '--cloud[Креирај сесија во облак со дадениот опис, или поврзи се со постоечка преку идентификатор на сесија или claude.ai/code URL]::description-or-session:'
+    '--environment[Креирај нова сесија во облак што се извршува на даденото самохостирано окружување (ccpool_...)]:environment_id:'
     '--remote-control[Стартувај интерактивна сесија со овозможена Далечинска контрола (опционално именувана)]::name:'
     '--remote-control-session-name-prefix[Префикс за автоматски генерирани имиња на сесии за Далечинска контрола]:prefix:'
     '--chrome[Овозможи интеграција на Claude во Chrome]'
@@ -254,6 +304,17 @@ _claude() {
         agents)
           _claude_agents
           ;;
+        attach|logs|stop|kill)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Прикажи помош за команда]' \
+            '1:session:_claude_background_sessions'
+          ;;
+        respawn)
+          _claude_respawn
+          ;;
+        rm)
+          _claude_rm
+          ;;
         auth)
           _claude_auth
           ;;
@@ -262,6 +323,9 @@ _claude() {
           ;;
         gateway)
           _claude_gateway
+          ;;
+        import)
+          _claude_import
           ;;
         project)
           _claude_project
@@ -319,6 +383,9 @@ _claude_mcp() {
             '(-t --transport)'{-t,--transport}'[Тип на пренос (stdio, sse, http)]:transport:(stdio sse http)' \
             '(-e --env)'{-e,--env}'[Постави променлива на околина (на пр. -e KEY=value)]:env:' \
             '(-H --header)'{-H,--header}'[Постави WebSocket заглавие]:header:' \
+            '--client-id[OAuth идентификатор на клиент за HTTP/SSE сервери]:clientId:' \
+            '--client-secret[Побарај OAuth тајна на клиент (или постави ја променливата на околина MCP_CLIENT_SECRET)]' \
+            '--callback-port[Фиксна порта за OAuth повратен повик (за сервери што бараат претходно регистрирани URI за пренасочување)]:port:' \
             '(-h --help)'{-h,--help}'[Прикажи помош]' \
             '1:name:' \
             '2:commandOrUrl:' \
@@ -342,6 +409,7 @@ _claude_mcp() {
         add-json)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Опсег на конфигурација (local, user, project)]:scope:(local user project)' \
+            '--client-secret[Побарај OAuth тајна на клиент (или постави ја променливата на околина MCP_CLIENT_SECRET)]' \
             '(-h --help)'{-h,--help}'[Прикажи помош]' \
             '1:name:' \
             '2:json:'
@@ -355,7 +423,13 @@ _claude_mcp() {
           _arguments \
             '(-h --help)'{-h,--help}'[Прикажи помош]'
           ;;
-        login|logout)
+        login)
+          _arguments \
+            '--no-browser[Испечати го URL-то за авторизација наместо да се отвора прелистувач (за SSH/headless сесии)]' \
+            '(-h --help)'{-h,--help}'[Прикажи помош]' \
+            '1:name:_claude_mcp_servers'
+          ;;
+        logout)
           _arguments \
             '(-h --help)'{-h,--help}'[Прикажи помош]' \
             '1:name:_claude_mcp_servers'
@@ -372,9 +446,11 @@ _claude_plugin() {
     'marketplace:Управување со пазари на Claude Code'
     'list:Прикажи список на инсталирани приклучоци'
     'details:Прикажи инвентар на компоненти и проектиран трошок на токени за приклучок'
+    'configure:Прикажи ги опциите на приклучок и кои не се поставени, или зачувај вредности од stdin'
     'install:Инсталирај приклучок од достапни пазари'
     'i:Инсталирај приклучок од достапни пазари (кратенка за install)'
     'init:Скицирај нов приклучок (автоматски се вчитува во следната сесија)'
+    'new:Скицирај нов приклучок (алијас за init)'
     'uninstall:Деинсталирај инсталиран приклучок'
     'remove:Деинсталирај инсталиран приклучок (алијас за uninstall)'
     'enable:Овозможи оневозможен приклучок'
@@ -382,7 +458,9 @@ _claude_plugin() {
     'update:Ажурирај приклучок на најновата верзија'
     'eval:Стартувај eval случаи против приклучок и извести за бодуваните резултати'
     'prune:Отстрани автоматски инсталирани зависности што повеќе не се потребни'
+    'autoremove:Отстрани автоматски инсталирани зависности што повеќе не се потребни (алијас за prune)'
     'tag:Креирај git таг {name}--v{version} за издание на приклучок'
+    'test:Изврши ги тестовите на мод'
     'help:Прикажи помош'
   )
 
@@ -402,6 +480,8 @@ _claude_plugin() {
       case $words[1] in
         validate)
           _arguments \
+            '--strict[Третирај ги предупредувањата како грешки (излезен код 1)]' \
+            '--json[Испечати го извештајот за валидација како JSON (исти излезни кодови)]' \
             '(-h --help)'{-h,--help}'[Прикажи помош]' \
             '1:path:_files'
           ;;
@@ -411,50 +491,122 @@ _claude_plugin() {
         install|i)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Опсег на инсталација]:scope:(user project local)' \
+            '*--config[Постави userConfig опција декларирана во манифестот на приклучокот (може да се повтори)]:key=value:' \
+            '(-y --yes)'{-y,--yes}'[Прифати ја прикажаната команда декларирана од пазарот без барање за потврда]' \
+            '--json[Испечати една машински читлива линија со резултат наместо пораката за луѓе]' \
             '(-h --help)'{-h,--help}'[Прикажи помош]' \
             '1:plugin:'
           ;;
         uninstall|remove)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Опсег на инсталација]:scope:(user project local)' \
+            '--keep-data[Зачувај го директориумот со трајни податоци на приклучокот]' \
+            '--prune[Отстрани ги и автоматски инсталираните зависности што повеќе не се потребни]' \
+            '(-y --yes)'{-y,--yes}'[Прескокни го барањето за потврда на --prune]' \
+            '--json[Испечати една машински читлива линија со резултат наместо пораката за луѓе (не со --prune)]' \
             '(-h --help)'{-h,--help}'[Прикажи помош]' \
             '1:plugin:_claude_installed_plugins'
           ;;
-        enable|disable)
+        enable)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Опсег на инсталација]:scope:(user project local)' \
+            '--json[Испечати една машински читлива линија со резултат наместо пораката за луѓе]' \
             '(-h --help)'{-h,--help}'[Прикажи помош]' \
             '1:plugin:_claude_installed_plugins'
+          ;;
+        disable)
+          _arguments \
+            '(-a --all)'{-a,--all}'[Оневозможи ги сите овозможени приклучоци]' \
+            '(-s --scope)'{-s,--scope}'[Опсег на инсталација]:scope:(user project local)' \
+            '--json[Испечати една машински читлива линија со резултат наместо пораката за луѓе]' \
+            '(-h --help)'{-h,--help}'[Прикажи помош]' \
+            '::plugin:_claude_installed_plugins'
           ;;
         update)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Опсег на инсталација]:scope:(user project local managed)' \
+            '(-y --yes)'{-y,--yes}'[Прифати ја прикажаната команда декларирана од пазарот без барање за потврда]' \
+            '--json[Испечати една машински читлива линија со резултат наместо пораката за луѓе]' \
             '(-h --help)'{-h,--help}'[Прикажи помош]' \
             '1:plugin:_claude_installed_plugins'
           ;;
-        list|prune)
+        list)
           _arguments \
+            '--json[Излез како JSON]' \
+            '--available[Вклучи ги достапните приклучоци од пазарите (потребно е --json)]' \
             '(-h --help)'{-h,--help}'[Прикажи помош]'
+          ;;
+        prune|autoremove)
+          _arguments \
+            '(-s --scope)'{-s,--scope}'[Исчисти во опсег]:scope:(user project local)' \
+            '--dry-run[Прикажи список на она што би се отстранило без отстранување]' \
+            '(-y --yes)'{-y,--yes}'[Прескокни го барањето за потврда]' \
+            '(-h --help)'{-h,--help}'[Прикажи помош]'
+          ;;
+        configure)
+          _arguments \
+            '--json[Излез како JSON]' \
+            '--values-stdin[Прочитај ги вредностите на опциите од stdin како JSON објект од едноредни стрингови; изоставените опции ги задржуваат своите вредности]' \
+            '(-h --help)'{-h,--help}'[Прикажи помош]' \
+            '1:plugin:_claude_installed_plugins'
           ;;
         details)
           _arguments \
             '(-h --help)'{-h,--help}'[Прикажи помош]' \
             '1:plugin:_claude_installed_plugins'
           ;;
-        init)
+        init|new)
           _arguments \
+            '--description[Опис во манифестот]:text:' \
+            '--author[Име на авторот (стандардно: git config user.name)]:name:' \
+            '--author-email[Е-пошта на авторот (стандардно: git config user.email)]:email:' \
+            '--with[Компоненти што исто така треба да се скицираат]:components:' \
+            '(-f --force)'{-f,--force}'[Презапиши го постоечкиот .claude-plugin/ во целта]' \
             '(-h --help)'{-h,--help}'[Прикажи помош]' \
             '1:name:'
           ;;
         eval)
           _arguments \
+            '--case[Филтрирај случаи по glob шаблон за име]:glob:' \
+            '*--tag[Филтрирај случаи по ознака (може да се повтори)]:tag:' \
+            '--runs[Препокриј го бројот на извршувања по случај (стандардно: case.runs, инаку 3)]:n:' \
+            '(-j --concurrency)'{-j,--concurrency}'[Изврши до n извршувања на агент истовремено (1-8; стандардно 1)]:n:' \
+            '--model[Препокриј го моделот за сите случаи]:model:_claude_model_names' \
+            '--judge-model[Препокриј го моделот за LLM оценување (стандардно: haiku)]:model:_claude_model_names' \
+            '--max-cost-usd[Строга горна граница на трошоци; прекини и извести за делумните резултати ако се достигне (излезен код 2)]:usd:' \
+            '--output-dir[Директориум за aggregate-result.json]:dir:_directories' \
+            '--eval-dir[Име на директориумот (под приклучокот) што ги содржи eval случаите]:dir:' \
+            '--json[Испечати го целиот резултат од извршувањето како JSON на stdout, или запиши го во оваа .json датотека]::path:_files' \
+            '--threshold[Излези со излезен код 1 ако резултатот на кој било случај е под овој праг (стандардно: 1.0)]:threshold:' \
+            '*--allow-tools[Дозвола од операторот за ограничени алатки (Bash, Write, Edit, WebFetch, mcp__*)]:tools:' \
+            '(--no-scaffold)--scaffold[Изврши го scaffold_script на секој случај (извршува bash обезбеден од авторот во твое име; стандардно исклучено)]' \
+            '(--scaffold)--no-scaffold[Експлицитно прескокни го scaffold_script]' \
+            '--trust-plugin[Потврди дека му веруваш на овој приклучок и на неговиот eval пакет, прескокнувајќи го барањето за доверба при првото извршување (за CI)]' \
+            '--ablation[Изврши контролна група без приклучок и извести за разликата во резултатот]:mode:(none with-without)' \
+            '--mocks[Лажни замени за MCP сервери, од <eval dir>/mocks/]:mode:(record off)' \
+            '--allow-real-servers[Со --mocks record: стартувај ги и вистинските процеси на MCP сервери што немаат лажна замена]' \
+            '--keep-temp[Зачувај ги директориумите на скицата за отстранување грешки]' \
+            '--verbose[Запиши настани за следење по порака во дневникот за отстранување грешки]' \
+            '--report[Запиши го самостојниот HTML извештај во оваа патека наместо во директориумот со резултати]:path:_files' \
+            '(--no-publish)--publish-report[Барај и објавување на извештајот на claude.ai]' \
+            '(--publish-report)--no-publish[Задржи го HTML извештајот само локално; прескокни го објавувањето на claude.ai]' \
             '(-h --help)'{-h,--help}'[Прикажи помош]' \
-            '1:target:'
+            '::target: _alternative "plugins\:installed plugin\:_claude_installed_plugins" "files\:path\:_files"'
           ;;
         tag)
           _arguments \
+            '--push[Испрати го (push) тагот на --remote откако ќе се креира]' \
+            '--dry-run[Испечати што би се означило со таг без да се креира]' \
+            '(-f --force)'{-f,--force}'[Прескокни ги проверките за неисчистено работно дрво и за веќе постоечки таг]' \
+            '(-m --message)'{-m,--message}'[Порака за анотација на тагот (користи %s за верзијата)]:msg:' \
+            '--remote[Remote на кој се испраќа (push) со --push]:name:' \
             '(-h --help)'{-h,--help}'[Прикажи помош]' \
-            '1:path:_files'
+            '::path:_files'
+          ;;
+        test)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Прикажи помош]' \
+            '::dir:_directories'
           ;;
       esac
       ;;
@@ -488,15 +640,20 @@ _claude_plugin_marketplace() {
       case $words[1] in
         add)
           _arguments \
+            '--sparse[Ограничи го checkout на одредени директориуми преку git sparse-checkout (за монорепозиториуми)]:paths:' \
+            '--scope[Каде да се декларира пазарот]:scope:(user project local)' \
+            '--claudeai[Додај го пазарот со ова име што claude.ai го хостира за тебе]' \
             '(-h --help)'{-h,--help}'[Прикажи помош]' \
             '1:source:'
           ;;
         list)
           _arguments \
+            '--json[Излез како JSON]' \
             '(-h --help)'{-h,--help}'[Прикажи помош]'
           ;;
         remove|rm)
           _arguments \
+            '--scope[Отстрани ја декларацијата на пазарот од одреден опсег на поставки (изостави за да се отстрани од секој опсег)]:scope:(user project local)' \
             '(-h --help)'{-h,--help}'[Прикажи помош]' \
             '1:name:'
           ;;
@@ -534,6 +691,7 @@ _claude_agents() {
     '--setting-sources[Список на извори на поставки одделени со запирка за вчитување (user, project, local)]:sources:' \
     '--settings[Датотека со поставки или JSON стринг за примена]:file-or-json:_files' \
     '--strict-mcp-config[Користи само MCP сервери од --mcp-config во испратени сесии]' \
+    '--restricted[Стартувај ги испратените сесии во ограничен режим]' \
     '(-h --help)'{-h,--help}'[Прикажи помош за команда]'
 }
 
@@ -560,7 +718,21 @@ _claude_auth() {
       ;;
     args)
       case $words[1] in
-        login|logout|status)
+        login)
+          _arguments \
+            '--email[Однапред пополни ја е-поштенската адреса на страницата за најава]:email:' \
+            '--sso[Принуди SSO тек на најава]' \
+            '(--claudeai)--console[Користи Anthropic Console (наплата според употреба на API) наместо Claude претплата]' \
+            '(--console)--claudeai[Користи Claude претплата (стандардно)]' \
+            '(-h --help)'{-h,--help}'[Прикажи помош за команда]'
+          ;;
+        status)
+          _arguments \
+            '(--text)--json[Излез како JSON (стандардно)]' \
+            '(--json)--text[Излез како текст читлив за луѓе]' \
+            '(-h --help)'{-h,--help}'[Прикажи помош за команда]'
+          ;;
+        logout)
           _arguments \
             '(-h --help)'{-h,--help}'[Прикажи помош за команда]'
           ;;
@@ -593,7 +765,22 @@ _claude_auto_mode() {
       ;;
     args)
       case $words[1] in
-        config|critique|defaults|reset)
+        critique)
+          _arguments \
+            '--model[Препокриј кој модел се користи]:model:_claude_model_names' \
+            '(-h --help)'{-h,--help}'[Прикажи помош за команда]'
+          ;;
+        defaults)
+          _arguments \
+            '--label[Прикажи само правила чија ознака започнува со овој префикс (без разлика на големи и мали букви)]:prefix:' \
+            '(-h --help)'{-h,--help}'[Прикажи помош за команда]'
+          ;;
+        reset)
+          _arguments \
+            '(-y --yes)'{-y,--yes}'[Прескокни го барањето за потврда]' \
+            '(-h --help)'{-h,--help}'[Прикажи помош за команда]'
+          ;;
+        config)
           _arguments \
             '(-h --help)'{-h,--help}'[Прикажи помош за команда]'
           ;;
@@ -631,8 +818,12 @@ _claude_project() {
       case $words[1] in
         purge)
           _arguments \
+            '--dry-run[Прикажи список на она што би се избришало без да се брише ништо]' \
+            '(-y --yes)'{-y,--yes}'[Прескокни го барањето за потврда]' \
+            '(-i --interactive)'{-i,--interactive}'[Побарај потврда за секоја ставка пред бришење]' \
+            '(1)--all[Избриши ја состојбата за секој проект (меѓусебно исклучиво со патека)]' \
             '(-h --help)'{-h,--help}'[Прикажи помош за команда]' \
-            '1:path:_directories'
+            '(--all)::path:_directories'
           ;;
       esac
       ;;
@@ -642,9 +833,34 @@ _claude_project() {
 _claude_ultrareview() {
   _arguments \
     '--json[Испечати го суровиот bugs.json товар наместо форматирани наоди]' \
-    '--timeout[Максимални минути за чекање прегледот да заврши]:minutes:' \
+    '--timeout[Максимални минути за чекање прегледот да заврши (стандардно: 45)]:minutes:' \
+    '(--no-post)--post[Објави ги наодите од завршениот преглед на PR во твое име (само за PR цели; еден обичен коментар, не преглед)]' \
+    '(--post)--no-post[Не ги објавувај наодите на PR (стандардно)]' \
     '(-h --help)'{-h,--help}'[Прикажи помош за команда]' \
     '1:target:'
+}
+
+_claude_respawn() {
+  _arguments \
+    '(1)--all[Рестартирај ја секоја активна позадинска сесија]' \
+    '(-h --help)'{-h,--help}'[Прикажи помош за команда]' \
+    '(--all)::session:_claude_background_sessions'
+}
+
+_claude_rm() {
+  _arguments \
+    '--discard-unpushed[Отфрли ги и неиспратените (unpushed) commit-и и некомитираните промени на worktree (проследи го commit@worktree-id што го пријавил претходен claude rm)]:commit@worktree-id:' \
+    '--force-remove-worktree[Избриши го директориумот на worktree иако hook-от WorktreeRemove или git не можеле да го отстранат (проследи го worktree-id што го пријавил претходен claude rm)]:worktree-id:' \
+    '(-h --help)'{-h,--help}'[Прикажи помош за команда]' \
+    '1:session:_claude_background_sessions'
+}
+
+_claude_import() {
+  _arguments \
+    '--dry-run[Прикажи што би се увезло без да се запишува ништо]' \
+    '--yes[Прескокни го интерактивниот избирач (на headless површини, проследи --yes=<digest> од прегледот на /import)]' \
+    '(-h --help)'{-h,--help}'[Прикажи помош за команда]' \
+    '::source:(codex gemini cursor)'
 }
 
 (( $+_comps[claude] )) || compdef _claude claude
