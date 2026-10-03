@@ -121,6 +121,39 @@ _claude_agent_names() {
   compadd -a agents
 }
 
+_claude_background_sessions() {
+  local -a sessions state_files
+  local -A names states
+  local state_dir state_file line id rest
+
+  # Background sessions (`claude --bg`) live in <config>/jobs/<id>/, where
+  # <id> is the short id that attach, logs, stop, respawn and rm take.
+  for state_dir in ${(f)"$(_claude_state_dirs)"}; do
+    # Newest first
+    state_files=(${state_dir}/jobs/*/state.json(Nom))
+    (( ${#state_files} )) || continue
+
+    # One grep for all of them; the first "name" and "state" it reports for a
+    # file are that file's top-level ones
+    names=() states=()
+    for line in ${(f)"$(grep -HoE '"(name|state)"[[:space:]]*:[[:space:]]*"[^"]*"' $state_files 2>/dev/null)"}; do
+      id=${${line%%/state.json:*}:t}
+      rest=${line#*/state.json:}
+      case $rest in
+        \"name\"*)  [[ -z $names[$id] ]]  && names[$id]=${${rest#*:*\"}%\"} ;;
+        \"state\"*) [[ -z $states[$id] ]] && states[$id]=${${rest#*:*\"}%\"} ;;
+      esac
+    done
+
+    for state_file in $state_files; do
+      id=${state_file:h:t}
+      sessions+=("${id}:${names[$id]:-no name}${states[$id]:+ (${states[$id]})}")
+    done
+  done
+
+  _describe -t sessions 'background session' sessions
+}
+
 _claude_model_names() {
   local -a models config_files
   local state_dir config_file
@@ -155,9 +188,15 @@ _claude() {
     'mcp:MCP zerbitzariak konfiguratu eta kudeatu'
     'plugin:Claude Code pluginak kudeatu'
     'agents:Atzeko planoko agenteak kudeatu'
+    'attach:Atzeko planoko saio bat terminal honetan ireki'
+    'logs:Atzeko planoko saio baten azken terminal irteera inprimatu'
+    'stop:Atzeko planoko saio bat gelditu (bere elkarrizketa gordetzen da)'
+    'respawn:Atzeko planoko saio bat berrabiarazi Claude Code-ren uneko bertsioa exekuta dezan'
+    'rm:Atzeko planoko saio bat ezabatu, baita bere worktree-a ere segurua denean'
     'auth:Autentifikazioa kudeatu'
     'auto-mode:Modu automatikoaren sailkatzailearen konfigurazioa ikuskatu edo berrezarri'
     'gateway:Enpresako autentifikazio/telemetria atebidea exekutatu'
+    'import:Beste AA kodetze agente baten konfigurazioa Claude Code-ra inportatu'
     'project:Claude Code proiektuaren egoera kudeatu'
     'ultrareview:Hodian ostatatutako agente anitzeko kode berrikuspena exekutatu eta aurkikuntzak inprimatu'
     'setup-token:Epe luzerako autentifikazio tokena konfiguratu (Claude harpidetza behar du)'
@@ -178,6 +217,7 @@ _claude() {
     '--mcp-debug[\[Zaharkitua. --debug erabili honen ordez\] MCP arazketaren modua aktibatu (MCP zerbitzariaren erroreak erakusten ditu)]'
     '--dangerously-skip-permissions[Baimen egiaztapen guztiak saltatu. Interneterako sarbiderik ez duten sandbox-etarako soilik gomendatua]'
     '--allow-dangerously-skip-permissions[Baimen egiaztapenak saltatzeko aukera gaitu lehenetsi gabe]'
+    '--restricted[Modu murriztua: komandoak edo kodea exekutatzen dituzten tresnak eta WebFetch kendu, user/project/local ezarpenak ezikusi, eta fitxategi tresnak lan direktorioetara mugatu]'
     '--max-budget-usd[API deietan gastatzeko gehienezko dolar kopurua (--print soilik)]:amount:'
     '--replay-user-messages[Erabiltzailearen mezuak stdin-etik stdout-era berriz bidali baieztapenerako]'
     '--allowed-tools[Komaz edo zuriunez bereizitako baimendutako tresna izenen zerrenda (adib: "Bash(git:*) Edit")]:tools:'
@@ -187,8 +227,13 @@ _claude() {
     '--disallowedTools[Komaz edo zuriunez bereizitako debekatutako tresna izenen zerrenda (camelCase formatua)]:tools:'
     '--mcp-config[MCP zerbitzariak JSON fitxategitik edo katetik kargatu (zuriunez bereizita)]:configs:'
     '--system-prompt[Saioan erabili beharreko sistemaren gonbita]:prompt:'
+    '--system-prompt-file[Sistemaren gonbita fitxategi batetik irakurri]:file:_files'
     '--append-system-prompt[Sistemaren gonbita lehenetsiari sistemaren gonbita gehitu]:prompt:'
+    '--append-system-prompt-file[Sistemaren gonbita fitxategi batetik irakurri eta sistemaren gonbita lehenetsiari gehitu]:file:_files'
+    '--system-prompt-snapshot[Sistemaren gonbita elkarrizketa bakoitzeko behin grabatu eta hitzez hitz berrerabili eskaera eta berrekite guztietan (on, lehenetsia) edo eskaera bakoitzean berriro errendatu (off)]:mode:(on off)'
     '--permission-mode[Saioan erabili beharreko baimen modua]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)'
+    '--permission-prompts[Nork erantzuten dien baimen galderei --print-ekin: "host" (SDK ostalaria edo --permission-prompt-tool) edo "none" (galdera eragingo lukeen guztia ukatzen da)]:target:(host none)'
+    '--permission-prompt-tool[Baimen galderetarako erabili beharreko MCP tresna (--print soilik)]:tool:'
     '(-c --continue)'{-c,--continue}'[Azken elkarrizketa jarraitu]'
     '(-r --resume)'{-r,--resume}'[Elkarrizketa berrekin - saio IDa zehaztu edo interaktiboki hautatu]:sessionId:_claude_sessions'
     '--fork-session[Saio ID berria sortu jatorrizko saio IDa berrerabili beharrean berriro hasieratzerakoan (--resume edo --continue-ekin)]'
@@ -200,6 +245,7 @@ _claude() {
     '--settings[Konfigurazio JSON fitxategirako bidea edo JSON katea konfigurazio gehigarria kargatzeko]:file-or-json:_files'
     '--add-dir[Tresnetarako sarbidea baimendu beharreko direktorio gehigarriak]:directories:_directories'
     '--ide[Hasieran IDEra automatikoki konektatu IDE baliozkoa bat soilik erabilgarri badago]'
+    '--desktop[Claude Desktop aplikazioan ireki terminalaren ordez (--continue edo --resume <id>-rekin saioa hautatzeko)]'
     '--strict-mcp-config[--mcp-config-ko MCP zerbitzariak soilik erabili eta beste MCP ezarpen guztiak ezikusi]'
     '--session-id[Elkarrizketarako erabili beharreko saio ID zehatza (UUID baliozkoa izan behar du)]:uuid:'
     '--agents[Agente pertsonalizatuak definitzen dituen JSON objektua]:json:'
@@ -208,11 +254,15 @@ _claude() {
     '--disable-slash-commands[Barra komando guztiak desgaitu]'
     '(--bg --background)'{--bg,--background}'[Saioa atzeko planoko agente gisa abiarazi eta berehala itzuli]'
     '(-w --worktree)'{-w,--worktree}'[Saio honetarako git worktree berri bat sortu (aukeran izena zehaztu)]::name:'
-    '--tmux[worktree-rako tmux saio bat sortu (--worktree behar du)]'
+    '--tmux=-[worktree-rako tmux saio bat sortu (--worktree behar du). iTerm2-ren panel natiboak erabiltzen ditu erabilgarri daudenean; --tmux=classic tmux tradizionalerako]::mode:(classic)'
     '(-n --name)'{-n,--name}'[Saio honetarako bistaratze izena ezarri]:name:'
     '--effort[Uneko saiorako esfortzu maila]:level:(low medium high xhigh max)'
+    '--autocompact[Trinkotze automatikoaren leiho tamaina (auto, edo 100k-1M token)]:size:(auto)'
     '--debug-file[Arazketa erregistroak fitxategi bide zehatz batean idatzi (arazketa modua inplizituki gaitzen du)]:path:_files'
     '--from-pr[PR bati zenbaki/URL bidez lotutako saio bat berrekin, edo hautatzaile interaktiboa ireki]::value:'
+    '--teleport[Teleport saio bat berrekin, aukeran saio IDa zehaztu]::session:'
+    '--cloud[Emandako deskribapenarekin hodeiko saio bat sortu, edo lehendik dagoen batera lotu saio IDaren edo claude.ai/code URLaren bidez]::description-or-session:'
+    '--environment[Emandako norberak ostatatutako ingurunean exekutatzen den hodeiko saio berri bat sortu (ccpool_...)]:environment_id:'
     '--remote-control[Urruneko Kontrola gaituta duen saio interaktibo bat abiarazi (aukeran izenduna)]::name:'
     '--remote-control-session-name-prefix[Automatikoki sortutako Urruneko Kontrol saio izenetarako aurrizkia]:prefix:'
     '--chrome[Chrome-n Claude integrazioa gaitu]'
@@ -254,6 +304,17 @@ _claude() {
         agents)
           _claude_agents
           ;;
+        attach|logs|stop|kill)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Komandoaren laguntza erakutsi]' \
+            '1:session:_claude_background_sessions'
+          ;;
+        respawn)
+          _claude_respawn
+          ;;
+        rm)
+          _claude_rm
+          ;;
         auth)
           _claude_auth
           ;;
@@ -262,6 +323,9 @@ _claude() {
           ;;
         gateway)
           _claude_gateway
+          ;;
+        import)
+          _claude_import
           ;;
         project)
           _claude_project
@@ -319,6 +383,9 @@ _claude_mcp() {
             '(-t --transport)'{-t,--transport}'[Garraio mota (stdio, sse, http)]:transport:(stdio sse http)' \
             '(-e --env)'{-e,--env}'[Ingurune aldagaia ezarri (adib: -e GAKOA=balioa)]:env:' \
             '(-H --header)'{-H,--header}'[WebSocket goiburua ezarri]:header:' \
+            '--client-id[HTTP/SSE zerbitzarietarako OAuth bezero IDa]:clientId:' \
+            '--client-secret[OAuth bezero sekretua eskatu (edo MCP_CLIENT_SECRET ingurune aldagaia ezarri)]' \
+            '--callback-port[OAuth callback-erako ataka finkoa (aurrez erregistratutako birbideratze URIak behar dituzten zerbitzarietarako)]:port:' \
             '(-h --help)'{-h,--help}'[Laguntza erakutsi]' \
             '1:name:' \
             '2:commandOrUrl:' \
@@ -342,6 +409,7 @@ _claude_mcp() {
         add-json)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Konfigurazio esparrua (local, user, project)]:scope:(local user project)' \
+            '--client-secret[OAuth bezero sekretua eskatu (edo MCP_CLIENT_SECRET ingurune aldagaia ezarri)]' \
             '(-h --help)'{-h,--help}'[Laguntza erakutsi]' \
             '1:name:' \
             '2:json:'
@@ -355,7 +423,13 @@ _claude_mcp() {
           _arguments \
             '(-h --help)'{-h,--help}'[Laguntza erakutsi]'
           ;;
-        login|logout)
+        login)
+          _arguments \
+            '--no-browser[Baimen URLa inprimatu nabigatzaile bat ireki beharrean (SSH/pantailarik gabeko saioetarako)]' \
+            '(-h --help)'{-h,--help}'[Laguntza erakutsi]' \
+            '1:name:_claude_mcp_servers'
+          ;;
+        logout)
           _arguments \
             '(-h --help)'{-h,--help}'[Laguntza erakutsi]' \
             '1:name:_claude_mcp_servers'
@@ -372,9 +446,11 @@ _claude_plugin() {
     'marketplace:Claude Code merkatuak kudeatu'
     'list:Instalatutako pluginak zerrendatu'
     'details:Plugin baten osagai inbentarioa eta aurreikusitako token kostua erakutsi'
+    'configure:Plugin baten aukerak eta ezarri gabe daudenak erakutsi, edo balioak stdin-etik gorde'
     'install:Plugina erabilgarri dauden merkatu-etatik instalatu'
     'i:Plugina erabilgarri dauden merkatu-etatik instalatu (install-en forma laburra)'
     'init:Plugin berri bat sortu (hurrengo saioan automatikoki kargatzen da)'
+    'new:Plugin berri baten egitura sortu (init-en aliasa)'
     'uninstall:Instalatutako plugina desinstalatu'
     'remove:Instalatutako plugina desinstalatu (uninstall-en aliasa)'
     'enable:Desgaitutako plugina gaitu'
@@ -382,7 +458,9 @@ _claude_plugin() {
     'update:Plugina azken bertsiora eguneratu'
     'eval:Ebaluazio kasuak plugin baten aurka exekutatu eta puntuatutako emaitzak jakinarazi'
     'prune:Jada behar ez diren automatikoki instalatutako mendekotasunak kendu'
+    'autoremove:Jada behar ez diren automatikoki instalatutako mendekotasunak kendu (prune-ren aliasa)'
     'tag:Plugin argitalpen baterako {name}--v{version} git etiketa sortu'
+    'test:Mod baten probak exekutatu'
     'help:Laguntza erakutsi'
   )
 
@@ -402,6 +480,8 @@ _claude_plugin() {
       case $words[1] in
         validate)
           _arguments \
+            '--strict[Abisuak errore gisa tratatu (1 irteera kodea)]' \
+            '--json[Balioztapen txostena JSON gisa atera (irteera kode berdinak)]' \
             '(-h --help)'{-h,--help}'[Laguntza erakutsi]' \
             '1:path:_files'
           ;;
@@ -411,50 +491,122 @@ _claude_plugin() {
         install|i)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Instalazio esparrua]:scope:(user project local)' \
+            '*--config[Plugin manifestuan deklaratutako userConfig aukera bat ezarri (errepikagarria)]:key=value:' \
+            '(-y --yes)'{-y,--yes}'[Merkatuak deklaratutako eta erakutsitako komandoa onartu berrespen galderarik gabe]' \
+            '--json[Makinak irakur dezakeen emaitza lerro bakarra inprimatu gizakientzako mezuaren ordez]' \
             '(-h --help)'{-h,--help}'[Laguntza erakutsi]' \
             '1:plugin:'
           ;;
         uninstall|remove)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Instalazio esparrua]:scope:(user project local)' \
+            '--keep-data[Pluginaren datu iraunkorren direktorioa gorde]' \
+            '--prune[Jada behar ez diren automatikoki instalatutako mendekotasunak ere kendu]' \
+            '(-y --yes)'{-y,--yes}'[--prune berrespen galdera saltatu]' \
+            '--json[Makinak irakur dezakeen emaitza lerro bakarra inprimatu gizakientzako mezuaren ordez (ez --prune-ekin)]' \
             '(-h --help)'{-h,--help}'[Laguntza erakutsi]' \
             '1:plugin:_claude_installed_plugins'
           ;;
-        enable|disable)
+        enable)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Instalazio esparrua]:scope:(user project local)' \
+            '--json[Makinak irakur dezakeen emaitza lerro bakarra inprimatu gizakientzako mezuaren ordez]' \
             '(-h --help)'{-h,--help}'[Laguntza erakutsi]' \
             '1:plugin:_claude_installed_plugins'
+          ;;
+        disable)
+          _arguments \
+            '(-a --all)'{-a,--all}'[Gaitutako plugin guztiak desgaitu]' \
+            '(-s --scope)'{-s,--scope}'[Instalazio esparrua]:scope:(user project local)' \
+            '--json[Makinak irakur dezakeen emaitza lerro bakarra inprimatu gizakientzako mezuaren ordez]' \
+            '(-h --help)'{-h,--help}'[Laguntza erakutsi]' \
+            '::plugin:_claude_installed_plugins'
           ;;
         update)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Instalazio esparrua]:scope:(user project local managed)' \
+            '(-y --yes)'{-y,--yes}'[Merkatuak deklaratutako eta erakutsitako komandoa onartu berrespen galderarik gabe]' \
+            '--json[Makinak irakur dezakeen emaitza lerro bakarra inprimatu gizakientzako mezuaren ordez]' \
             '(-h --help)'{-h,--help}'[Laguntza erakutsi]' \
             '1:plugin:_claude_installed_plugins'
           ;;
-        list|prune)
+        list)
           _arguments \
+            '--json[JSON gisa atera]' \
+            '--available[Merkatuetako plugin erabilgarriak sartu (--json behar du)]' \
             '(-h --help)'{-h,--help}'[Laguntza erakutsi]'
+          ;;
+        prune|autoremove)
+          _arguments \
+            '(-s --scope)'{-s,--scope}'[Esparru honetan garbitu]:scope:(user project local)' \
+            '--dry-run[Kenduko litzatekeena zerrendatu ezer kendu gabe]' \
+            '(-y --yes)'{-y,--yes}'[Berrespen galdera saltatu]' \
+            '(-h --help)'{-h,--help}'[Laguntza erakutsi]'
+          ;;
+        configure)
+          _arguments \
+            '--json[JSON gisa atera]' \
+            '--values-stdin[Aukeren balioak stdin-etik irakurri lerro bakarreko kateen JSON objektu gisa; kanpoan utzitako aukerek beren balioak mantentzen dituzte]' \
+            '(-h --help)'{-h,--help}'[Laguntza erakutsi]' \
+            '1:plugin:_claude_installed_plugins'
           ;;
         details)
           _arguments \
             '(-h --help)'{-h,--help}'[Laguntza erakutsi]' \
             '1:plugin:_claude_installed_plugins'
           ;;
-        init)
+        init|new)
           _arguments \
+            '--description[Manifestuaren deskribapena]:text:' \
+            '--author[Egilearen izena (lehenetsia: git config user.name)]:name:' \
+            '--author-email[Egilearen posta elektronikoa (lehenetsia: git config user.email)]:email:' \
+            '--with[Egitura ere sortu beharreko osagaiak]:components:' \
+            '(-f --force)'{-f,--force}'[Helburuan lehendik dagoen .claude-plugin/ gainidatzi]' \
             '(-h --help)'{-h,--help}'[Laguntza erakutsi]' \
             '1:name:'
           ;;
         eval)
           _arguments \
+            '--case[Kasuak izen glob bidez iragazi]:glob:' \
+            '*--tag[Kasuak etiketa bidez iragazi (errepikagarria)]:tag:' \
+            '--runs[Kasu bakoitzeko exekuzio kopurua gainidatzi (lehenetsia: case.runs, bestela 3)]:n:' \
+            '(-j --concurrency)'{-j,--concurrency}'[Gehienez n agente exekuzio aldi berean egin (1-8; lehenetsia 1)]:n:' \
+            '--model[Kasu guztietarako modeloa gainidatzi]:model:_claude_model_names' \
+            '--judge-model[LLM ebaluatzailearen modeloa gainidatzi (lehenetsia: haiku)]:model:_claude_model_names' \
+            '--max-cost-usd[Kostu muga zorrotza; iristen bada, eten eta emaitza partzialak jakinarazi (2 irteera kodea)]:usd:' \
+            '--output-dir[aggregate-result.json-erako direktorioa]:dir:_directories' \
+            '--eval-dir[Ebaluazio kasuak dituen direktorioaren izena (pluginaren azpian)]:dir:' \
+            '--json[Exekuzioaren emaitza osoa JSON gisa stdout-era inprimatu, edo .json fitxategi honetan idatzi]::path:_files' \
+            '--threshold[1 irteera kodearekin irten kasuren baten puntuazioa atalase honen azpitik badago (lehenetsia: 1.0)]:threshold:' \
+            '*--allow-tools[Operadorearen baimena babestutako tresnetarako (Bash, Write, Edit, WebFetch, mcp__*)]:tools:' \
+            '(--no-scaffold)--scaffold[Kasu bakoitzaren scaffold_script exekutatu (egileak emandako bash zure izenean exekutatzen du; lehenetsiz desgaituta)]' \
+            '(--scaffold)--no-scaffold[scaffold_script esplizituki saltatu]' \
+            '--trust-plugin[Plugin honetaz eta bere ebaluazio multzoaz fidatzen zarela baieztatu, lehen exekuzioko konfiantza galdera saltatuz (CIrako)]' \
+            '--ablation[Pluginik gabeko oinarri-lerroko kontrol taldea exekutatu eta puntuazio aldea jakinarazi]:mode:(none with-without)' \
+            '--mocks[MCP zerbitzarien ordezko simulazioak, <eval dir>/mocks/-etik]:mode:(record off)' \
+            '--allow-real-servers[--mocks record-ekin: simulaziorik ez duten MCP zerbitzari prozesu errealak ere abiarazi]' \
+            '--keep-temp[Egitura direktorioak gorde arazketarako]' \
+            '--verbose[Mezu bakoitzeko arrasto gertaerak arazketa erregistroan idatzi]' \
+            '--report[HTML txosten autonomoa bide honetan idatzi emaitzen direktorioaren ordez]:path:_files' \
+            '(--no-publish)--publish-report[Txostena claude.ai-n argitaratzea ere eskatu]' \
+            '(--publish-report)--no-publish[HTML txostena lokalean soilik mantendu; claude.ai-n argitaratzea saltatu]' \
             '(-h --help)'{-h,--help}'[Laguntza erakutsi]' \
-            '1:target:'
+            '::target: _alternative "plugins\:installed plugin\:_claude_installed_plugins" "files\:path\:_files"'
           ;;
         tag)
           _arguments \
+            '--push[Etiketa --remote-ra bidali sortu ondoren]' \
+            '--dry-run[Etiketatuko litzatekeena inprimatu etiketa sortu gabe]' \
+            '(-f --force)'{-f,--force}'[Lan zuhaitz zikinaren eta etiketa dagoeneko existitzearen egiaztapenak saltatu]' \
+            '(-m --message)'{-m,--message}'[Etiketaren oharpen mezua (erabili %s bertsiorako)]:msg:' \
+            '--remote[--push-ekin bidaltzeko urruneko biltegia]:name:' \
             '(-h --help)'{-h,--help}'[Laguntza erakutsi]' \
-            '1:path:_files'
+            '::path:_files'
+          ;;
+        test)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Laguntza erakutsi]' \
+            '::dir:_directories'
           ;;
       esac
       ;;
@@ -488,15 +640,20 @@ _claude_plugin_marketplace() {
       case $words[1] in
         add)
           _arguments \
+            '--sparse[Checkout-a direktorio zehatzetara mugatu git sparse-checkout bidez (monorepoetarako)]:paths:' \
+            '--scope[Merkatua non deklaratu]:scope:(user project local)' \
+            '--claudeai[claude.ai-k zuretzat ostatatzen duen izen honetako merkatua gehitu]' \
             '(-h --help)'{-h,--help}'[Laguntza erakutsi]' \
             '1:source:'
           ;;
         list)
           _arguments \
+            '--json[JSON gisa atera]' \
             '(-h --help)'{-h,--help}'[Laguntza erakutsi]'
           ;;
         remove|rm)
           _arguments \
+            '--scope[Merkatuaren deklarazioa ezarpen esparru zehatz batetik kendu (ez zehaztu esparru guztietatik kentzeko)]:scope:(user project local)' \
             '(-h --help)'{-h,--help}'[Laguntza erakutsi]' \
             '1:name:'
           ;;
@@ -534,6 +691,7 @@ _claude_agents() {
     '--setting-sources[Kargatu beharreko konfigurazio iturrien komaz bereizitako zerrenda (user, project, local)]:sources:' \
     '--settings[Aplikatzeko konfigurazio fitxategia edo JSON katea]:file-or-json:_files' \
     '--strict-mcp-config[Bidalitako saioetan --mcp-config-ko MCP zerbitzariak soilik erabili]' \
+    '--restricted[Bidalitako saioak modu murriztuan abiarazi]' \
     '(-h --help)'{-h,--help}'[Komandoaren laguntza erakutsi]'
 }
 
@@ -560,7 +718,21 @@ _claude_auth() {
       ;;
     args)
       case $words[1] in
-        login|logout|status)
+        login)
+          _arguments \
+            '--email[Saio hasierako orrian posta elektronikoko helbidea aurrez bete]:email:' \
+            '--sso[SSO saio hasiera fluxua derrigortu]' \
+            '(--claudeai)--console[Anthropic Console erabili (API erabileraren fakturazioa) Claude harpidetzaren ordez]' \
+            '(--console)--claudeai[Claude harpidetza erabili (lehenetsia)]' \
+            '(-h --help)'{-h,--help}'[Komandoaren laguntza erakutsi]'
+          ;;
+        status)
+          _arguments \
+            '(--text)--json[JSON gisa atera (lehenetsia)]' \
+            '(--json)--text[Gizakiek irakur dezaketen testu gisa atera]' \
+            '(-h --help)'{-h,--help}'[Komandoaren laguntza erakutsi]'
+          ;;
+        logout)
           _arguments \
             '(-h --help)'{-h,--help}'[Komandoaren laguntza erakutsi]'
           ;;
@@ -593,7 +765,22 @@ _claude_auto_mode() {
       ;;
     args)
       case $words[1] in
-        config|critique|defaults|reset)
+        critique)
+          _arguments \
+            '--model[Erabiltzen den modeloa gainidatzi]:model:_claude_model_names' \
+            '(-h --help)'{-h,--help}'[Komandoaren laguntza erakutsi]'
+          ;;
+        defaults)
+          _arguments \
+            '--label[Aurrizki honekin hasten den etiketa duten arauak soilik erakutsi (maiuskulak eta minuskulak bereizi gabe)]:prefix:' \
+            '(-h --help)'{-h,--help}'[Komandoaren laguntza erakutsi]'
+          ;;
+        reset)
+          _arguments \
+            '(-y --yes)'{-y,--yes}'[Berrespen galdera saltatu]' \
+            '(-h --help)'{-h,--help}'[Komandoaren laguntza erakutsi]'
+          ;;
+        config)
           _arguments \
             '(-h --help)'{-h,--help}'[Komandoaren laguntza erakutsi]'
           ;;
@@ -631,8 +818,12 @@ _claude_project() {
       case $words[1] in
         purge)
           _arguments \
+            '--dry-run[Ezabatuko litzatekeena zerrendatu ezer ezabatu gabe]' \
+            '(-y --yes)'{-y,--yes}'[Berrespen galdera saltatu]' \
+            '(-i --interactive)'{-i,--interactive}'[Elementu bakoitzeko galdetu ezabatu aurretik]' \
+            '(1)--all[Proiektu guztien egoera ezabatu (bide batekin elkarren baztertzailea)]' \
             '(-h --help)'{-h,--help}'[Komandoaren laguntza erakutsi]' \
-            '1:path:_directories'
+            '(--all)::path:_directories'
           ;;
       esac
       ;;
@@ -642,9 +833,34 @@ _claude_project() {
 _claude_ultrareview() {
   _arguments \
     '--json[Formateatutako aurkikuntzen ordez bugs.json karga gordina inprimatu]' \
-    '--timeout[Berrikuspena amaitzeko itxaroteko gehienezko minutuak]:minutes:' \
+    '--timeout[Berrikuspena amaitzeko itxaroteko gehienezko minutuak (lehenetsia: 45)]:minutes:' \
+    '(--no-post)--post[Amaitutako berrikuspenaren aurkikuntzak PRan argitaratu zure izenean (PR helburuetarako soilik; iruzkin arrunt bakarra, ez berrikuspen bat)]' \
+    '(--post)--no-post[Aurkikuntzak ez argitaratu PRan (lehenetsia)]' \
     '(-h --help)'{-h,--help}'[Komandoaren laguntza erakutsi]' \
     '1:target:'
+}
+
+_claude_respawn() {
+  _arguments \
+    '(1)--all[Exekutatzen ari diren atzeko planoko saio guztiak berrabiarazi]' \
+    '(-h --help)'{-h,--help}'[Komandoaren laguntza erakutsi]' \
+    '(--all)::session:_claude_background_sessions'
+}
+
+_claude_rm() {
+  _arguments \
+    '--discard-unpushed[worktree-aren bidali gabeko commit-ak eta commit gabeko aldaketak ere baztertu (aurreko claude rm batek jakinarazitako commit@worktree-id eman)]:commit@worktree-id:' \
+    '--force-remove-worktree[worktree direktorioa ezabatu WorktreeRemove hook-ak edo git-ek kendu ezin izan badute ere (aurreko claude rm batek jakinarazitako worktree-id eman)]:worktree-id:' \
+    '(-h --help)'{-h,--help}'[Komandoaren laguntza erakutsi]' \
+    '1:session:_claude_background_sessions'
+}
+
+_claude_import() {
+  _arguments \
+    '--dry-run[Inportatuko litzatekeena erakutsi ezer idatzi gabe]' \
+    '--yes[Hautatzaile interaktiboa saltatu (pantailarik gabeko inguruneetan, /import aurrebistako --yes=<digest> eman)]' \
+    '(-h --help)'{-h,--help}'[Komandoaren laguntza erakutsi]' \
+    '::source:(codex gemini cursor)'
 }
 
 (( $+_comps[claude] )) || compdef _claude claude
