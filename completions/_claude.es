@@ -260,7 +260,6 @@ _claude() {
     '--effort[Nivel de esfuerzo para la sesión actual]:level:(low medium high xhigh max)'
     '--autocompact[Tamaño de la ventana de compactación automática (auto, o de 100k a 1M de tokens)]:size:(auto)'
     '--debug-file[Escribir registros de depuración en una ruta de archivo específica (habilita implícitamente el modo de depuración)]:path:_files'
-    '--desktop[Abrir en la aplicación Claude Desktop en lugar del terminal (con --continue o --resume para elegir la sesión)]'
     '--from-pr[Reanudar una sesión vinculada a un PR por número/URL, o abrir el selector interactivo]::value:'
     '--teleport[Reanudar una sesión de teleport, opcionalmente especificar el ID de sesión]::session:'
     '--cloud[Crear una sesión en la nube con la descripción dada, o conectarse a una existente por ID de sesión o URL de claude.ai/code]::description-or-session:'

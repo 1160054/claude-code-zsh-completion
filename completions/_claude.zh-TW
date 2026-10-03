@@ -260,7 +260,6 @@ _claude() {
     '--effort[目前工作階段的努力程度]:level:(low medium high xhigh max)'
     '--autocompact[自動壓縮視窗大小（auto，或 100k 到 1M 個 token）]:size:(auto)'
     '--debug-file[將偵錯記錄寫入特定檔案路徑（隱含啟用偵錯模式）]:path:_files'
-    '--desktop[在 Claude Desktop 應用程式而非終端機中開啟（搭配 --continue 或 --resume 選擇工作階段）]'
     '--from-pr[繼續依編號/URL 連結至 PR 的工作階段，或開啟互動式選擇器]::value:'
     '--teleport[恢復傳送工作階段，可選擇指定工作階段 ID]::session:'
     '--cloud[使用指定的描述建立雲端工作階段，或透過工作階段 ID 或 claude.ai/code URL 附加到現有的工作階段]::description-or-session:'

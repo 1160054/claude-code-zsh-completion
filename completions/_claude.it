@@ -260,7 +260,6 @@ _claude() {
     '--effort[Livello di impegno per la sessione corrente]:level:(low medium high xhigh max)'
     '--autocompact[Dimensione della finestra di compattazione automatica (auto, oppure da 100k a 1M di token)]:size:(auto)'
     '--debug-file[Scrive i log di debug in un percorso di file specifico (attiva implicitamente la modalità debug)]:path:_files'
-    '--desktop[Apri nell'\''app Claude Desktop invece che nel terminale (con --continue o --resume per scegliere la sessione)]'
     '--from-pr[Riprende una sessione collegata a una PR per numero/URL, o apre il selettore interattivo]::value:'
     '--teleport[Riprende una sessione teleport, opzionalmente specificando l'\''ID di sessione]::session:'
     '--cloud[Crea una sessione cloud con la descrizione indicata, oppure si collega a una esistente tramite ID di sessione o URL claude.ai/code]::description-or-session:'
