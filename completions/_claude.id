@@ -121,6 +121,39 @@ _claude_agent_names() {
   compadd -a agents
 }
 
+_claude_background_sessions() {
+  local -a sessions state_files
+  local -A names states
+  local state_dir state_file line id rest
+
+  # Background sessions (`claude --bg`) live in <config>/jobs/<id>/, where
+  # <id> is the short id that attach, logs, stop, respawn and rm take.
+  for state_dir in ${(f)"$(_claude_state_dirs)"}; do
+    # Newest first
+    state_files=(${state_dir}/jobs/*/state.json(Nom))
+    (( ${#state_files} )) || continue
+
+    # One grep for all of them; the first "name" and "state" it reports for a
+    # file are that file's top-level ones
+    names=() states=()
+    for line in ${(f)"$(grep -HoE '"(name|state)"[[:space:]]*:[[:space:]]*"[^"]*"' $state_files 2>/dev/null)"}; do
+      id=${${line%%/state.json:*}:t}
+      rest=${line#*/state.json:}
+      case $rest in
+        \"name\"*)  [[ -z $names[$id] ]]  && names[$id]=${${rest#*:*\"}%\"} ;;
+        \"state\"*) [[ -z $states[$id] ]] && states[$id]=${${rest#*:*\"}%\"} ;;
+      esac
+    done
+
+    for state_file in $state_files; do
+      id=${state_file:h:t}
+      sessions+=("${id}:${names[$id]:-no name}${states[$id]:+ (${states[$id]})}")
+    done
+  done
+
+  _describe -t sessions 'background session' sessions
+}
+
 _claude_model_names() {
   local -a models config_files
   local state_dir config_file
@@ -155,9 +188,15 @@ _claude() {
     'mcp:Konfigurasi dan kelola server MCP'
     'plugin:Kelola plugin Claude Code'
     'agents:Kelola agen latar belakang'
+    'attach:Buka sesi latar belakang di terminal ini'
+    'logs:Cetak output terminal terbaru dari sesi latar belakang'
+    'stop:Hentikan sesi latar belakang (percakapannya tetap disimpan)'
+    'respawn:Mulai ulang sesi latar belakang agar menjalankan versi Claude Code saat ini'
+    'rm:Hapus sesi latar belakang, beserta worktree-nya jika aman'
     'auth:Kelola autentikasi'
     'auto-mode:Periksa atau reset konfigurasi klasifikator mode otomatis'
     'gateway:Jalankan gateway auth/telemetri enterprise'
+    'import:Impor konfigurasi dari agen coding AI lain ke Claude Code'
     'project:Kelola status proyek Claude Code'
     'ultrareview:Jalankan tinjauan kode multi-agen berbasis cloud dan cetak temuannya'
     'setup-token:Atur token autentikasi jangka panjang (memerlukan langganan Claude)'
@@ -178,6 +217,7 @@ _claude() {
     '--mcp-debug[\[Usang. Gunakan --debug sebagai gantinya\] Aktifkan mode debug MCP (menampilkan error server MCP)]'
     '--dangerously-skip-permissions[Lewati semua pemeriksaan izin. Disarankan hanya untuk sandbox tanpa akses internet]'
     '--allow-dangerously-skip-permissions[Aktifkan opsi untuk melewati pemeriksaan izin tanpa mengaktifkan secara default]'
+    '--restricted[Mode terbatas: hapus tool yang menjalankan perintah atau kode serta WebFetch, abaikan pengaturan user/project/local, dan batasi tool file ke direktori kerja]'
     '--max-budget-usd[Jumlah dolar maksimum untuk dibelanjakan pada panggilan API (hanya --print)]:amount:'
     '--replay-user-messages[Kirim ulang pesan pengguna dari stdin ke stdout untuk konfirmasi]'
     '--allowed-tools[Daftar nama tool yang diizinkan, dipisahkan koma atau spasi (mis., "Bash(git:*) Edit")]:tools:'
@@ -187,8 +227,13 @@ _claude() {
     '--disallowedTools[Daftar nama tool yang tidak diizinkan, dipisahkan koma atau spasi (format camelCase)]:tools:'
     '--mcp-config[Muat server MCP dari file atau string JSON (dipisahkan spasi)]:configs:'
     '--system-prompt[Prompt sistem untuk digunakan dalam sesi]:prompt:'
+    '--system-prompt-file[Baca prompt sistem dari file]:file:_files'
     '--append-system-prompt[Tambahkan prompt sistem ke prompt sistem default]:prompt:'
+    '--append-system-prompt-file[Baca prompt sistem dari file dan tambahkan ke prompt sistem default]:file:_files'
+    '--system-prompt-snapshot[Rekam prompt sistem sekali per percakapan dan gunakan ulang apa adanya pada setiap permintaan dan saat melanjutkan (on, default) atau render ulang pada setiap permintaan (off)]:mode:(on off)'
     '--permission-mode[Mode izin untuk digunakan dalam sesi]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)'
+    '--permission-prompts[Siapa yang menjawab prompt izin dengan --print: "host" (host SDK atau --permission-prompt-tool) atau "none" (apa pun yang akan memunculkan prompt ditolak)]:target:(host none)'
+    '--permission-prompt-tool[Tool MCP yang digunakan untuk prompt izin (hanya --print)]:tool:'
     '(-c --continue)'{-c,--continue}'[Lanjutkan percakapan terbaru]'
     '(-r --resume)'{-r,--resume}'[Lanjutkan percakapan - tentukan ID sesi atau pilih secara interaktif]:sessionId:_claude_sessions'
     '--fork-session[Buat ID sesi baru alih-alih menggunakan kembali ID sesi asli saat melanjutkan (dengan --resume atau --continue)]'
@@ -200,6 +245,7 @@ _claude() {
     '--settings[Jalur ke file JSON pengaturan atau string JSON untuk memuat pengaturan tambahan]:file-or-json:_files'
     '--add-dir[Direktori tambahan untuk mengizinkan akses tool]:directories:_directories'
     '--ide[Sambungkan otomatis ke IDE saat startup jika tepat satu IDE valid tersedia]'
+    '--desktop[Buka di aplikasi Claude Desktop alih-alih terminal (dengan --continue atau --resume <id> untuk memilih sesi)]'
     '--strict-mcp-config[Gunakan hanya server MCP dari --mcp-config dan abaikan semua pengaturan MCP lainnya]'
     '--session-id[ID sesi spesifik untuk digunakan dalam percakapan (harus UUID valid)]:uuid:'
     '--agents[Objek JSON yang mendefinisikan agen kustom]:json:'
@@ -208,11 +254,15 @@ _claude() {
     '--disable-slash-commands[Nonaktifkan semua perintah slash]'
     '(--bg --background)'{--bg,--background}'[Mulai sesi sebagai agen latar belakang dan langsung kembali]'
     '(-w --worktree)'{-w,--worktree}'[Buat git worktree baru untuk sesi ini (opsional tentukan nama)]::name:'
-    '--tmux[Buat sesi tmux untuk worktree (memerlukan --worktree)]'
+    '--tmux=-[Buat sesi tmux untuk worktree (memerlukan --worktree). Menggunakan panel native iTerm2 jika tersedia; --tmux=classic untuk tmux tradisional]::mode:(classic)'
     '(-n --name)'{-n,--name}'[Atur nama tampilan untuk sesi ini]:name:'
     '--effort[Tingkat upaya untuk sesi saat ini]:level:(low medium high xhigh max)'
+    '--autocompact[Ukuran jendela auto-compact (auto, atau 100k-1M token)]:size:(auto)'
     '--debug-file[Tulis log debug ke jalur file tertentu (secara implisit mengaktifkan mode debug)]:path:_files'
     '--from-pr[Lanjutkan sesi yang tertaut ke PR berdasarkan nomor/URL, atau buka pemilih interaktif]::value:'
+    '--teleport[Lanjutkan sesi teleport, opsional tentukan ID sesi]::session:'
+    '--cloud[Buat sesi cloud dengan deskripsi yang diberikan, atau sambungkan ke sesi yang ada berdasarkan ID sesi atau URL claude.ai/code]::description-or-session:'
+    '--environment[Buat sesi cloud baru yang berjalan di environment self-hosted yang diberikan (ccpool_...)]:environment_id:'
     '--remote-control[Mulai sesi interaktif dengan Remote Control diaktifkan (opsional diberi nama)]::name:'
     '--remote-control-session-name-prefix[Prefiks untuk nama sesi Remote Control yang dibuat otomatis]:prefix:'
     '--chrome[Aktifkan integrasi Claude in Chrome]'
@@ -254,6 +304,17 @@ _claude() {
         agents)
           _claude_agents
           ;;
+        attach|logs|stop|kill)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Tampilkan bantuan untuk perintah]' \
+            '1:session:_claude_background_sessions'
+          ;;
+        respawn)
+          _claude_respawn
+          ;;
+        rm)
+          _claude_rm
+          ;;
         auth)
           _claude_auth
           ;;
@@ -262,6 +323,9 @@ _claude() {
           ;;
         gateway)
           _claude_gateway
+          ;;
+        import)
+          _claude_import
           ;;
         project)
           _claude_project
@@ -319,6 +383,9 @@ _claude_mcp() {
             '(-t --transport)'{-t,--transport}'[Tipe transport (stdio, sse, http)]:transport:(stdio sse http)' \
             '(-e --env)'{-e,--env}'[Atur variabel environment (mis., -e KEY=value)]:env:' \
             '(-H --header)'{-H,--header}'[Atur header WebSocket]:header:' \
+            '--client-id[ID klien OAuth untuk server HTTP/SSE]:clientId:' \
+            '--client-secret[Minta secret klien OAuth (atau atur variabel environment MCP_CLIENT_SECRET)]' \
+            '--callback-port[Port tetap untuk callback OAuth (untuk server yang memerlukan URI pengalihan yang telah didaftarkan sebelumnya)]:port:' \
             '(-h --help)'{-h,--help}'[Tampilkan bantuan]' \
             '1:name:' \
             '2:commandOrUrl:' \
@@ -342,6 +409,7 @@ _claude_mcp() {
         add-json)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Cakupan konfigurasi (local, user, project)]:scope:(local user project)' \
+            '--client-secret[Minta secret klien OAuth (atau atur variabel environment MCP_CLIENT_SECRET)]' \
             '(-h --help)'{-h,--help}'[Tampilkan bantuan]' \
             '1:name:' \
             '2:json:'
@@ -355,7 +423,13 @@ _claude_mcp() {
           _arguments \
             '(-h --help)'{-h,--help}'[Tampilkan bantuan]'
           ;;
-        login|logout)
+        login)
+          _arguments \
+            '--no-browser[Cetak URL otorisasi alih-alih membuka browser (untuk sesi SSH/headless)]' \
+            '(-h --help)'{-h,--help}'[Tampilkan bantuan]' \
+            '1:name:_claude_mcp_servers'
+          ;;
+        logout)
           _arguments \
             '(-h --help)'{-h,--help}'[Tampilkan bantuan]' \
             '1:name:_claude_mcp_servers'
@@ -372,9 +446,11 @@ _claude_plugin() {
     'marketplace:Kelola marketplace Claude Code'
     'list:Tampilkan daftar plugin yang terinstal'
     'details:Tampilkan inventaris komponen dan perkiraan biaya token untuk plugin'
+    'configure:Tampilkan opsi plugin dan mana yang belum diatur, atau simpan nilai dari stdin'
     'install:Instal plugin dari marketplace yang tersedia'
     'i:Instal plugin dari marketplace yang tersedia (singkatan dari install)'
     'init:Buat kerangka plugin baru (dimuat otomatis pada sesi berikutnya)'
+    'new:Buat kerangka plugin baru (alias untuk init)'
     'uninstall:Hapus instalasi plugin yang terinstal'
     'remove:Hapus instalasi plugin yang terinstal (alias untuk uninstall)'
     'enable:Aktifkan plugin yang dinonaktifkan'
@@ -382,7 +458,9 @@ _claude_plugin() {
     'update:Perbarui plugin ke versi terbaru'
     'eval:Jalankan kasus eval terhadap plugin dan laporkan hasil yang dinilai'
     'prune:Hapus dependensi yang terinstal otomatis yang tidak lagi diperlukan'
+    'autoremove:Hapus dependensi yang terinstal otomatis yang tidak lagi diperlukan (alias untuk prune)'
     'tag:Buat git tag {name}--v{version} untuk rilis plugin'
+    'test:Jalankan pengujian mod'
     'help:Tampilkan bantuan'
   )
 
@@ -402,6 +480,8 @@ _claude_plugin() {
       case $words[1] in
         validate)
           _arguments \
+            '--strict[Perlakukan peringatan sebagai error (kode keluar 1)]' \
+            '--json[Keluarkan laporan validasi sebagai JSON (kode keluar sama)]' \
             '(-h --help)'{-h,--help}'[Tampilkan bantuan]' \
             '1:path:_files'
           ;;
@@ -411,50 +491,122 @@ _claude_plugin() {
         install|i)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Cakupan instalasi]:scope:(user project local)' \
+            '*--config[Atur opsi userConfig yang dideklarasikan di manifest plugin (dapat diulang)]:key=value:' \
+            '(-y --yes)'{-y,--yes}'[Terima perintah yang dideklarasikan marketplace yang ditampilkan tanpa prompt konfirmasi]' \
+            '--json[Cetak satu baris hasil yang dapat dibaca mesin alih-alih pesan untuk manusia]' \
             '(-h --help)'{-h,--help}'[Tampilkan bantuan]' \
             '1:plugin:'
           ;;
         uninstall|remove)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Cakupan instalasi]:scope:(user project local)' \
+            '--keep-data[Pertahankan direktori data persisten plugin]' \
+            '--prune[Juga hapus dependensi yang terinstal otomatis yang tidak lagi diperlukan]' \
+            '(-y --yes)'{-y,--yes}'[Lewati prompt konfirmasi --prune]' \
+            '--json[Cetak satu baris hasil yang dapat dibaca mesin alih-alih pesan untuk manusia (tidak dengan --prune)]' \
             '(-h --help)'{-h,--help}'[Tampilkan bantuan]' \
             '1:plugin:_claude_installed_plugins'
           ;;
-        enable|disable)
+        enable)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Cakupan instalasi]:scope:(user project local)' \
+            '--json[Cetak satu baris hasil yang dapat dibaca mesin alih-alih pesan untuk manusia]' \
             '(-h --help)'{-h,--help}'[Tampilkan bantuan]' \
             '1:plugin:_claude_installed_plugins'
+          ;;
+        disable)
+          _arguments \
+            '(-a --all)'{-a,--all}'[Nonaktifkan semua plugin yang aktif]' \
+            '(-s --scope)'{-s,--scope}'[Cakupan instalasi]:scope:(user project local)' \
+            '--json[Cetak satu baris hasil yang dapat dibaca mesin alih-alih pesan untuk manusia]' \
+            '(-h --help)'{-h,--help}'[Tampilkan bantuan]' \
+            '::plugin:_claude_installed_plugins'
           ;;
         update)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Cakupan instalasi]:scope:(user project local managed)' \
+            '(-y --yes)'{-y,--yes}'[Terima perintah yang dideklarasikan marketplace yang ditampilkan tanpa prompt konfirmasi]' \
+            '--json[Cetak satu baris hasil yang dapat dibaca mesin alih-alih pesan untuk manusia]' \
             '(-h --help)'{-h,--help}'[Tampilkan bantuan]' \
             '1:plugin:_claude_installed_plugins'
           ;;
-        list|prune)
+        list)
           _arguments \
+            '--json[Keluarkan sebagai JSON]' \
+            '--available[Sertakan plugin yang tersedia dari marketplace (memerlukan --json)]' \
             '(-h --help)'{-h,--help}'[Tampilkan bantuan]'
+          ;;
+        prune|autoremove)
+          _arguments \
+            '(-s --scope)'{-s,--scope}'[Pangkas pada cakupan]:scope:(user project local)' \
+            '--dry-run[Tampilkan daftar yang akan dihapus tanpa menghapus]' \
+            '(-y --yes)'{-y,--yes}'[Lewati prompt konfirmasi]' \
+            '(-h --help)'{-h,--help}'[Tampilkan bantuan]'
+          ;;
+        configure)
+          _arguments \
+            '--json[Keluarkan sebagai JSON]' \
+            '--values-stdin[Baca nilai opsi dari stdin sebagai objek JSON berisi string satu baris; opsi yang tidak disertakan mempertahankan nilainya]' \
+            '(-h --help)'{-h,--help}'[Tampilkan bantuan]' \
+            '1:plugin:_claude_installed_plugins'
           ;;
         details)
           _arguments \
             '(-h --help)'{-h,--help}'[Tampilkan bantuan]' \
             '1:plugin:_claude_installed_plugins'
           ;;
-        init)
+        init|new)
           _arguments \
+            '--description[Deskripsi manifest]:text:' \
+            '--author[Nama penulis (default: git config user.name)]:name:' \
+            '--author-email[Email penulis (default: git config user.email)]:email:' \
+            '--with[Komponen yang juga dibuatkan kerangkanya]:components:' \
+            '(-f --force)'{-f,--force}'[Timpa .claude-plugin/ yang sudah ada di target]' \
             '(-h --help)'{-h,--help}'[Tampilkan bantuan]' \
             '1:name:'
           ;;
         eval)
           _arguments \
+            '--case[Filter kasus berdasarkan glob nama]:glob:' \
+            '*--tag[Filter kasus berdasarkan tag (dapat diulang)]:tag:' \
+            '--runs[Timpa jumlah run per kasus (default: case.runs, jika tidak ada 3)]:n:' \
+            '(-j --concurrency)'{-j,--concurrency}'[Jalankan hingga n run agen sekaligus (1-8; default 1)]:n:' \
+            '--model[Timpa model untuk semua kasus]:model:_claude_model_names' \
+            '--judge-model[Timpa model penilai LLM (default: haiku)]:model:_claude_model_names' \
+            '--max-cost-usd[Batas biaya mutlak; batalkan dan laporkan hasil parsial jika tercapai (kode keluar 2)]:usd:' \
+            '--output-dir[Direktori untuk aggregate-result.json]:dir:_directories' \
+            '--eval-dir[Nama direktori (di bawah plugin) yang berisi kasus eval]:dir:' \
+            '--json[Cetak hasil run lengkap sebagai JSON ke stdout, atau tulis ke file .json ini]::path:_files' \
+            '--threshold[Keluar dengan kode keluar 1 jika skor kasus mana pun di bawah ambang ini (default: 1.0)]:threshold:' \
+            '*--allow-tools[Izin operator untuk tool yang dibatasi (Bash, Write, Edit, WebFetch, mcp__*)]:tools:' \
+            '(--no-scaffold)--scaffold[Jalankan scaffold_script setiap kasus (menjalankan bash dari penulis atas nama Anda; nonaktif secara default)]' \
+            '(--scaffold)--no-scaffold[Lewati scaffold_script secara eksplisit]' \
+            '--trust-plugin[Nyatakan bahwa Anda memercayai plugin ini dan suite eval-nya, melewati prompt kepercayaan saat pertama kali dijalankan (untuk CI)]' \
+            '--ablation[Jalankan kelompok pembanding baseline tanpa plugin dan laporkan selisih skornya]:mode:(none with-without)' \
+            '--mocks[Pengganti tiruan (mock) untuk server MCP, dari <eval dir>/mocks/]:mode:(record off)' \
+            '--allow-real-servers[Dengan --mocks record: juga jalankan proses server MCP asli yang tidak memiliki mock]' \
+            '--keep-temp[Pertahankan direktori scaffold untuk debugging]' \
+            '--verbose[Catat peristiwa trace per pesan ke log debug]' \
+            '--report[Tulis laporan HTML mandiri ke path ini alih-alih direktori hasil]:path:_files' \
+            '(--no-publish)--publish-report[Juga wajibkan publikasi laporan ke claude.ai]' \
+            '(--publish-report)--no-publish[Simpan laporan HTML hanya secara lokal; lewati publikasi ke claude.ai]' \
             '(-h --help)'{-h,--help}'[Tampilkan bantuan]' \
-            '1:target:'
+            '::target: _alternative "plugins\:installed plugin\:_claude_installed_plugins" "files\:path\:_files"'
           ;;
         tag)
           _arguments \
+            '--push[Push tag ke --remote setelah dibuat]' \
+            '--dry-run[Cetak apa yang akan di-tag tanpa membuatnya]' \
+            '(-f --force)'{-f,--force}'[Lewati pemeriksaan working tree kotor dan tag yang sudah ada]' \
+            '(-m --message)'{-m,--message}'[Pesan anotasi tag (gunakan %s untuk versi)]:msg:' \
+            '--remote[Remote tujuan push dengan --push]:name:' \
             '(-h --help)'{-h,--help}'[Tampilkan bantuan]' \
-            '1:path:_files'
+            '::path:_files'
+          ;;
+        test)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Tampilkan bantuan]' \
+            '::dir:_directories'
           ;;
       esac
       ;;
@@ -488,15 +640,20 @@ _claude_plugin_marketplace() {
       case $words[1] in
         add)
           _arguments \
+            '--sparse[Batasi checkout ke direktori tertentu melalui git sparse-checkout (untuk monorepo)]:paths:' \
+            '--scope[Tempat mendeklarasikan marketplace]:scope:(user project local)' \
+            '--claudeai[Tambahkan marketplace dengan nama ini yang di-host claude.ai untuk Anda]' \
             '(-h --help)'{-h,--help}'[Tampilkan bantuan]' \
             '1:source:'
           ;;
         list)
           _arguments \
+            '--json[Keluarkan sebagai JSON]' \
             '(-h --help)'{-h,--help}'[Tampilkan bantuan]'
           ;;
         remove|rm)
           _arguments \
+            '--scope[Hapus deklarasi marketplace dari cakupan pengaturan tertentu (jika tidak ditentukan, hapus dari semua cakupan)]:scope:(user project local)' \
             '(-h --help)'{-h,--help}'[Tampilkan bantuan]' \
             '1:name:'
           ;;
@@ -534,6 +691,7 @@ _claude_agents() {
     '--setting-sources[Daftar sumber pengaturan yang akan dimuat, dipisahkan koma (user, project, local)]:sources:' \
     '--settings[File pengaturan atau string JSON untuk diterapkan]:file-or-json:_files' \
     '--strict-mcp-config[Hanya gunakan server MCP dari --mcp-config dalam sesi yang dikirim]' \
+    '--restricted[Mulai sesi yang dikirim dalam mode terbatas]' \
     '(-h --help)'{-h,--help}'[Tampilkan bantuan untuk perintah]'
 }
 
@@ -560,7 +718,21 @@ _claude_auth() {
       ;;
     args)
       case $words[1] in
-        login|logout|status)
+        login)
+          _arguments \
+            '--email[Isi otomatis alamat email di halaman login]:email:' \
+            '--sso[Paksa alur login SSO]' \
+            '(--claudeai)--console[Gunakan Anthropic Console (penagihan berdasarkan penggunaan API) alih-alih langganan Claude]' \
+            '(--console)--claudeai[Gunakan langganan Claude (default)]' \
+            '(-h --help)'{-h,--help}'[Tampilkan bantuan untuk perintah]'
+          ;;
+        status)
+          _arguments \
+            '(--text)--json[Keluarkan sebagai JSON (default)]' \
+            '(--json)--text[Keluarkan sebagai teks yang dapat dibaca manusia]' \
+            '(-h --help)'{-h,--help}'[Tampilkan bantuan untuk perintah]'
+          ;;
+        logout)
           _arguments \
             '(-h --help)'{-h,--help}'[Tampilkan bantuan untuk perintah]'
           ;;
@@ -593,7 +765,22 @@ _claude_auto_mode() {
       ;;
     args)
       case $words[1] in
-        config|critique|defaults|reset)
+        critique)
+          _arguments \
+            '--model[Timpa model yang digunakan]:model:_claude_model_names' \
+            '(-h --help)'{-h,--help}'[Tampilkan bantuan untuk perintah]'
+          ;;
+        defaults)
+          _arguments \
+            '--label[Tampilkan hanya aturan yang labelnya diawali prefiks ini (tidak peka huruf besar/kecil)]:prefix:' \
+            '(-h --help)'{-h,--help}'[Tampilkan bantuan untuk perintah]'
+          ;;
+        reset)
+          _arguments \
+            '(-y --yes)'{-y,--yes}'[Lewati prompt konfirmasi]' \
+            '(-h --help)'{-h,--help}'[Tampilkan bantuan untuk perintah]'
+          ;;
+        config)
           _arguments \
             '(-h --help)'{-h,--help}'[Tampilkan bantuan untuk perintah]'
           ;;
@@ -631,8 +818,12 @@ _claude_project() {
       case $words[1] in
         purge)
           _arguments \
+            '--dry-run[Tampilkan daftar yang akan dihapus tanpa menghapus apa pun]' \
+            '(-y --yes)'{-y,--yes}'[Lewati prompt konfirmasi]' \
+            '(-i --interactive)'{-i,--interactive}'[Minta konfirmasi untuk setiap item sebelum menghapus]' \
+            '(1)--all[Hapus status untuk setiap proyek (tidak dapat digabung dengan path)]' \
             '(-h --help)'{-h,--help}'[Tampilkan bantuan untuk perintah]' \
-            '1:path:_directories'
+            '(--all)::path:_directories'
           ;;
       esac
       ;;
@@ -642,9 +833,34 @@ _claude_project() {
 _claude_ultrareview() {
   _arguments \
     '--json[Cetak payload bugs.json mentah alih-alih temuan yang diformat]' \
-    '--timeout[Menit maksimum untuk menunggu tinjauan selesai]:minutes:' \
+    '--timeout[Menit maksimum untuk menunggu tinjauan selesai (default: 45)]:minutes:' \
+    '(--no-post)--post[Posting temuan tinjauan yang selesai ke PR atas nama Anda (hanya target PR; satu komentar biasa, bukan review)]' \
+    '(--post)--no-post[Jangan posting temuan ke PR (default)]' \
     '(-h --help)'{-h,--help}'[Tampilkan bantuan untuk perintah]' \
     '1:target:'
+}
+
+_claude_respawn() {
+  _arguments \
+    '(1)--all[Mulai ulang setiap sesi latar belakang yang sedang berjalan]' \
+    '(-h --help)'{-h,--help}'[Tampilkan bantuan untuk perintah]' \
+    '(--all)::session:_claude_background_sessions'
+}
+
+_claude_rm() {
+  _arguments \
+    '--discard-unpushed[Juga buang commit yang belum di-push dan perubahan yang belum di-commit dari worktree (berikan commit@worktree-id yang dilaporkan claude rm sebelumnya)]:commit@worktree-id:' \
+    '--force-remove-worktree[Hapus direktori worktree meskipun hook WorktreeRemove atau git tidak dapat menghapusnya (berikan worktree-id yang dilaporkan claude rm sebelumnya)]:worktree-id:' \
+    '(-h --help)'{-h,--help}'[Tampilkan bantuan untuk perintah]' \
+    '1:session:_claude_background_sessions'
+}
+
+_claude_import() {
+  _arguments \
+    '--dry-run[Tampilkan apa yang akan diimpor tanpa menulis apa pun]' \
+    '--yes[Lewati pemilih interaktif (pada antarmuka headless, berikan --yes=<digest> dari pratinjau /import)]' \
+    '(-h --help)'{-h,--help}'[Tampilkan bantuan untuk perintah]' \
+    '::source:(codex gemini cursor)'
 }
 
 (( $+_comps[claude] )) || compdef _claude claude
