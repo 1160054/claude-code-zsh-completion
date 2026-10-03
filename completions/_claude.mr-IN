@@ -121,6 +121,39 @@ _claude_agent_names() {
   compadd -a agents
 }
 
+_claude_background_sessions() {
+  local -a sessions state_files
+  local -A names states
+  local state_dir state_file line id rest
+
+  # Background sessions (`claude --bg`) live in <config>/jobs/<id>/, where
+  # <id> is the short id that attach, logs, stop, respawn and rm take.
+  for state_dir in ${(f)"$(_claude_state_dirs)"}; do
+    # Newest first
+    state_files=(${state_dir}/jobs/*/state.json(Nom))
+    (( ${#state_files} )) || continue
+
+    # One grep for all of them; the first "name" and "state" it reports for a
+    # file are that file's top-level ones
+    names=() states=()
+    for line in ${(f)"$(grep -HoE '"(name|state)"[[:space:]]*:[[:space:]]*"[^"]*"' $state_files 2>/dev/null)"}; do
+      id=${${line%%/state.json:*}:t}
+      rest=${line#*/state.json:}
+      case $rest in
+        \"name\"*)  [[ -z $names[$id] ]]  && names[$id]=${${rest#*:*\"}%\"} ;;
+        \"state\"*) [[ -z $states[$id] ]] && states[$id]=${${rest#*:*\"}%\"} ;;
+      esac
+    done
+
+    for state_file in $state_files; do
+      id=${state_file:h:t}
+      sessions+=("${id}:${names[$id]:-no name}${states[$id]:+ (${states[$id]})}")
+    done
+  done
+
+  _describe -t sessions 'background session' sessions
+}
+
 _claude_model_names() {
   local -a models config_files
   local state_dir config_file
@@ -155,9 +188,15 @@ _claude() {
     'mcp:MCP सर्व्हर कॉन्फिगर आणि व्यवस्थापित करा'
     'plugin:Claude Code प्लगइन व्यवस्थापित करा'
     'agents:पार्श्वभूमी एजंट व्यवस्थापित करा'
+    'attach:या टर्मिनलमध्ये पार्श्वभूमी सत्र उघडा'
+    'logs:पार्श्वभूमी सत्राचे अलीकडील टर्मिनल आउटपुट प्रिंट करा'
+    'stop:पार्श्वभूमी सत्र थांबवा (त्याचे संभाषण जतन केले जाते)'
+    'respawn:पार्श्वभूमी सत्र पुन्हा सुरू करा जेणेकरून ते सध्याची Claude Code आवृत्ती चालवेल'
+    'rm:पार्श्वभूमी सत्र हटवा, आणि सुरक्षित असल्यास त्याचे worktree देखील'
     'auth:प्रमाणीकरण व्यवस्थापित करा'
     'auto-mode:ऑटो मोड क्लासिफायर कॉन्फिगरेशन तपासा किंवा रीसेट करा'
     'gateway:एंटरप्राइझ ऑथ/टेलिमेट्री गेटवे चालवा'
+    'import:दुसऱ्या AI कोडिंग एजंटमधून Claude Code मध्ये कॉन्फिग आयात करा'
     'project:Claude Code प्रकल्प स्थिती व्यवस्थापित करा'
     'ultrareview:क्लाउड-होस्टेड मल्टी-एजंट कोड पुनरावलोकन चालवा आणि निष्कर्ष प्रिंट करा'
     'setup-token:दीर्घकालीन प्रमाणीकरण टोकन सेट करा (Claude सदस्यता आवश्यक)'
@@ -178,6 +217,7 @@ _claude() {
     '--mcp-debug[\[बंद. त्याऐवजी --debug वापरा\] MCP डीबग मोड सक्षम करा (MCP सर्व्हर त्रुटी दर्शवते)]'
     '--dangerously-skip-permissions[सर्व परवानगी तपासण्या बायपास करा. इंटरनेट प्रवेशाशिवाय सँडबॉक्ससाठी फक्त शिफारस केली आहे]'
     '--allow-dangerously-skip-permissions[डीफॉल्टनुसार सक्षम न करता परवानगी तपासण्या बायपास करण्याचा पर्याय सक्षम करा]'
+    '--restricted[प्रतिबंधित मोड: कमांड किंवा कोड चालवणारी साधने आणि WebFetch काढा, user/project/local सेटिंग्ज दुर्लक्षित करा, आणि फाइल साधने कार्यरत निर्देशिकांपुरती मर्यादित करा]'
     '--max-budget-usd[API कॉलवर खर्च करण्यासाठी कमाल डॉलर रक्कम (केवळ --print)]:amount:'
     '--replay-user-messages[पुष्टीसाठी stdin वरून stdout वर वापरकर्ता संदेश पुन्हा पाठवा]'
     '--allowed-tools[परवानगी असलेल्या साधन नावांची स्वल्पविराम किंवा स्पेस-विभाजित यादी (उदा., "Bash(git:*) Edit")]:tools:'
@@ -187,8 +227,13 @@ _claude() {
     '--disallowedTools[परवानगी नसलेल्या साधन नावांची स्वल्पविराम किंवा स्पेस-विभाजित यादी (camelCase स्वरूप)]:tools:'
     '--mcp-config[JSON फाइल किंवा स्ट्रिंगमधून MCP सर्व्हर लोड करा (स्पेस-विभाजित)]:configs:'
     '--system-prompt[सत्रासाठी वापरण्यासाठी सिस्टम प्रॉम्प्ट]:prompt:'
+    '--system-prompt-file[फाइलमधून सिस्टम प्रॉम्प्ट वाचा]:file:_files'
     '--append-system-prompt[डीफॉल्ट सिस्टम प्रॉम्प्टमध्ये सिस्टम प्रॉम्प्ट जोडा]:prompt:'
+    '--append-system-prompt-file[फाइलमधून सिस्टम प्रॉम्प्ट वाचा आणि डीफॉल्ट सिस्टम प्रॉम्प्टमध्ये जोडा]:file:_files'
+    '--system-prompt-snapshot[प्रत्येक संभाषणात सिस्टम प्रॉम्प्ट एकदा नोंदवा आणि प्रत्येक विनंती व पुन्हा सुरू करताना तो जसाच्या तसा पुन्हा वापरा (on, डीफॉल्ट) किंवा प्रत्येक विनंतीवेळी तो नव्याने रेंडर करा (off)]:mode:(on off)'
     '--permission-mode[सत्रासाठी वापरण्यासाठी परवानगी मोड]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)'
+    '--permission-prompts[--print सह परवानगी प्रॉम्प्टना कोण उत्तर देते: "host" (SDK होस्ट किंवा --permission-prompt-tool) किंवा "none" (प्रॉम्प्ट करणारी कोणतीही गोष्ट नाकारली जाते)]:target:(host none)'
+    '--permission-prompt-tool[परवानगी प्रॉम्प्टसाठी वापरायचे MCP साधन (केवळ --print)]:tool:'
     '(-c --continue)'{-c,--continue}'[सर्वात अलीकडील संभाषण सुरू ठेवा]'
     '(-r --resume)'{-r,--resume}'[संभाषण पुन्हा सुरू करा - सत्र ID निर्दिष्ट करा किंवा परस्पर निवडा]:sessionId:_claude_sessions'
     '--fork-session[पुन्हा सुरू करताना मूळ सत्र ID चा पुनर्वापर करण्याऐवजी नवीन सत्र ID तयार करा (--resume किंवा --continue सह)]'
@@ -200,6 +245,7 @@ _claude() {
     '--settings[सेटिंग्ज JSON फाइल किंवा अतिरिक्त सेटिंग्ज लोड करण्यासाठी JSON स्ट्रिंगचा मार्ग]:file-or-json:_files'
     '--add-dir[साधन प्रवेशास परवानगी देण्यासाठी अतिरिक्त निर्देशिका]:directories:_directories'
     '--ide[जर अचूक एक वैध IDE उपलब्ध असेल तर स्टार्टअपवर IDE शी स्वयं-कनेक्ट करा]'
+    '--desktop[टर्मिनलऐवजी Claude Desktop अ‍ॅपमध्ये उघडा (सत्र निवडण्यासाठी --continue किंवा --resume <id> सह)]'
     '--strict-mcp-config[केवळ --mcp-config मधील MCP सर्व्हर वापरा आणि इतर सर्व MCP सेटिंग्ज दुर्लक्षित करा]'
     '--session-id[संभाषणासाठी वापरण्यासाठी विशिष्ट सत्र ID (वैध UUID असणे आवश्यक आहे)]:uuid:'
     '--agents[सानुकूल एजंट परिभाषित करणारा JSON ऑब्जेक्ट]:json:'
@@ -208,11 +254,15 @@ _claude() {
     '--disable-slash-commands[सर्व स्लॅश कमांड अक्षम करा]'
     '(--bg --background)'{--bg,--background}'[सत्र पार्श्वभूमी एजंट म्हणून सुरू करा आणि लगेच परत या]'
     '(-w --worktree)'{-w,--worktree}'[या सत्रासाठी नवीन git worktree तयार करा (पर्यायाने नाव निर्दिष्ट करा)]::name:'
-    '--tmux[worktree साठी tmux सत्र तयार करा (--worktree आवश्यक)]'
+    '--tmux=-[worktree साठी tmux सत्र तयार करा (--worktree आवश्यक). उपलब्ध असल्यास iTerm2 नेटिव्ह पेन वापरते; पारंपारिक tmux साठी --tmux=classic]::mode:(classic)'
     '(-n --name)'{-n,--name}'[या सत्रासाठी प्रदर्शन नाव सेट करा]:name:'
     '--effort[सध्याच्या सत्रासाठी प्रयत्न पातळी]:level:(low medium high xhigh max)'
+    '--autocompact[ऑटो-कॉम्पॅक्ट विंडो आकार (auto, किंवा 100k-1M टोकन)]:size:(auto)'
     '--debug-file[विशिष्ट फाइल मार्गावर डीबग लॉग लिहा (अप्रत्यक्षपणे डीबग मोड सक्षम करते)]:path:_files'
     '--from-pr[क्रमांक/URL द्वारे PR शी जोडलेले सत्र पुन्हा सुरू करा, किंवा परस्पर निवडक उघडा]::value:'
+    '--teleport[teleport सत्र पुन्हा सुरू करा, पर्यायाने सत्र ID निर्दिष्ट करा]::session:'
+    '--cloud[दिलेल्या वर्णनासह क्लाउड सत्र तयार करा, किंवा सत्र ID किंवा claude.ai/code URL द्वारे विद्यमान सत्राशी जोडा]::description-or-session:'
+    '--environment[दिलेल्या सेल्फ-होस्टेड वातावरणावर चालणारे नवीन क्लाउड सत्र तयार करा (ccpool_...)]:environment_id:'
     '--remote-control[रिमोट कंट्रोल सक्षम करून परस्पर सत्र सुरू करा (पर्यायाने नाव दिलेले)]::name:'
     '--remote-control-session-name-prefix[स्वयं-निर्मित रिमोट कंट्रोल सत्र नावांसाठी उपसर्ग]:prefix:'
     '--chrome[Chrome मध्ये Claude एकीकरण सक्षम करा]'
@@ -254,6 +304,17 @@ _claude() {
         agents)
           _claude_agents
           ;;
+        attach|logs|stop|kill)
+          _arguments \
+            '(-h --help)'{-h,--help}'[कमांडसाठी मदत प्रदर्शित करा]' \
+            '1:session:_claude_background_sessions'
+          ;;
+        respawn)
+          _claude_respawn
+          ;;
+        rm)
+          _claude_rm
+          ;;
         auth)
           _claude_auth
           ;;
@@ -262,6 +323,9 @@ _claude() {
           ;;
         gateway)
           _claude_gateway
+          ;;
+        import)
+          _claude_import
           ;;
         project)
           _claude_project
@@ -319,6 +383,9 @@ _claude_mcp() {
             '(-t --transport)'{-t,--transport}'[वाहतूक प्रकार (stdio, sse, http)]:transport:(stdio sse http)' \
             '(-e --env)'{-e,--env}'[पर्यावरण व्हेरिएबल सेट करा (उदा., -e KEY=value)]:env:' \
             '(-H --header)'{-H,--header}'[WebSocket हेडर सेट करा]:header:' \
+            '--client-id[HTTP/SSE सर्व्हरसाठी OAuth क्लायंट ID]:clientId:' \
+            '--client-secret[OAuth क्लायंट सीक्रेटसाठी प्रॉम्प्ट करा (किंवा MCP_CLIENT_SECRET पर्यावरण व्हेरिएबल सेट करा)]' \
+            '--callback-port[OAuth कॉलबॅकसाठी निश्चित पोर्ट (पूर्व-नोंदणीकृत रीडायरेक्ट URI आवश्यक असलेल्या सर्व्हरसाठी)]:port:' \
             '(-h --help)'{-h,--help}'[मदत प्रदर्शित करा]' \
             '1:name:' \
             '2:commandOrUrl:' \
@@ -342,6 +409,7 @@ _claude_mcp() {
         add-json)
           _arguments \
             '(-s --scope)'{-s,--scope}'[कॉन्फिग व्याप्ती (local, user, project)]:scope:(local user project)' \
+            '--client-secret[OAuth क्लायंट सीक्रेटसाठी प्रॉम्प्ट करा (किंवा MCP_CLIENT_SECRET पर्यावरण व्हेरिएबल सेट करा)]' \
             '(-h --help)'{-h,--help}'[मदत प्रदर्शित करा]' \
             '1:name:' \
             '2:json:'
@@ -355,7 +423,13 @@ _claude_mcp() {
           _arguments \
             '(-h --help)'{-h,--help}'[मदत प्रदर्शित करा]'
           ;;
-        login|logout)
+        login)
+          _arguments \
+            '--no-browser[ब्राउझर उघडण्याऐवजी अधिकृतता URL प्रिंट करा (SSH/हेडलेस सत्रांसाठी)]' \
+            '(-h --help)'{-h,--help}'[मदत प्रदर्शित करा]' \
+            '1:name:_claude_mcp_servers'
+          ;;
+        logout)
           _arguments \
             '(-h --help)'{-h,--help}'[मदत प्रदर्शित करा]' \
             '1:name:_claude_mcp_servers'
@@ -372,9 +446,11 @@ _claude_plugin() {
     'marketplace:Claude Code मार्केटप्लेस व्यवस्थापित करा'
     'list:इन्स्टॉल केलेल्या प्लगइनची यादी करा'
     'details:प्लगइनसाठी घटक यादी आणि अंदाजित टोकन खर्च दर्शवा'
+    'configure:प्लगइनचे पर्याय आणि कोणते सेट नाहीत ते दर्शवा, किंवा stdin वरून मूल्ये जतन करा'
     'install:उपलब्ध मार्केटप्लेसमधून प्लगइन इन्स्टॉल करा'
     'i:उपलब्ध मार्केटप्लेसमधून प्लगइन इन्स्टॉल करा (install साठी लहान)'
     'init:नवीन प्लगइन स्कॅफोल्ड करा (पुढील सत्रात स्वयं-लोड होते)'
+    'new:नवीन प्लगइन स्कॅफोल्ड करा (init साठी उपनाम)'
     'uninstall:इन्स्टॉल केलेले प्लगइन अनइन्स्टॉल करा'
     'remove:इन्स्टॉल केलेले प्लगइन अनइन्स्टॉल करा (uninstall साठी उपनाम)'
     'enable:अक्षम केलेले प्लगइन सक्षम करा'
@@ -382,7 +458,9 @@ _claude_plugin() {
     'update:प्लगइन नवीनतम आवृत्तीवर अद्यतनित करा'
     'eval:प्लगइनविरुद्ध eval प्रकरणे चालवा आणि गुणांकित निकाल नोंदवा'
     'prune:आता आवश्यक नसलेल्या स्वयं-इन्स्टॉल केलेल्या अवलंबित्वे काढा'
+    'autoremove:आता आवश्यक नसलेली स्वयं-इन्स्टॉल केलेली अवलंबित्वे काढा (prune साठी उपनाम)'
     'tag:प्लगइन रिलीझसाठी {name}--v{version} git टॅग तयार करा'
+    'test:mod च्या चाचण्या चालवा'
     'help:मदत प्रदर्शित करा'
   )
 
@@ -402,6 +480,8 @@ _claude_plugin() {
       case $words[1] in
         validate)
           _arguments \
+            '--strict[चेतावण्यांना त्रुटी म्हणून हाताळा (exit code 1)]' \
+            '--json[प्रमाणीकरण अहवाल JSON म्हणून आउटपुट करा (समान exit codes)]' \
             '(-h --help)'{-h,--help}'[मदत प्रदर्शित करा]' \
             '1:path:_files'
           ;;
@@ -411,50 +491,122 @@ _claude_plugin() {
         install|i)
           _arguments \
             '(-s --scope)'{-s,--scope}'[इन्स्टॉलेशन व्याप्ती]:scope:(user project local)' \
+            '*--config[प्लगइन मॅनिफेस्टमध्ये घोषित केलेला userConfig पर्याय सेट करा (पुनरावृत्ती करण्यायोग्य)]:key=value:' \
+            '(-y --yes)'{-y,--yes}'[मार्केटप्लेसने घोषित केलेली प्रदर्शित कमांड पुष्टी प्रॉम्प्टशिवाय स्वीकारा]' \
+            '--json[मानवी संदेशाऐवजी एक मशीन-वाचनीय परिणाम ओळ प्रिंट करा]' \
             '(-h --help)'{-h,--help}'[मदत प्रदर्शित करा]' \
             '1:plugin:'
           ;;
         uninstall|remove)
           _arguments \
             '(-s --scope)'{-s,--scope}'[इन्स्टॉलेशन व्याप्ती]:scope:(user project local)' \
+            '--keep-data[प्लगइनची कायमस्वरूपी डेटा निर्देशिका जतन करा]' \
+            '--prune[आता आवश्यक नसलेली स्वयं-इन्स्टॉल केलेली अवलंबित्वे देखील काढा]' \
+            '(-y --yes)'{-y,--yes}'[--prune पुष्टी प्रॉम्प्ट वगळा]' \
+            '--json[मानवी संदेशाऐवजी एक मशीन-वाचनीय परिणाम ओळ प्रिंट करा (--prune सह नाही)]' \
             '(-h --help)'{-h,--help}'[मदत प्रदर्शित करा]' \
             '1:plugin:_claude_installed_plugins'
           ;;
-        enable|disable)
+        enable)
           _arguments \
             '(-s --scope)'{-s,--scope}'[इन्स्टॉलेशन व्याप्ती]:scope:(user project local)' \
+            '--json[मानवी संदेशाऐवजी एक मशीन-वाचनीय परिणाम ओळ प्रिंट करा]' \
             '(-h --help)'{-h,--help}'[मदत प्रदर्शित करा]' \
             '1:plugin:_claude_installed_plugins'
+          ;;
+        disable)
+          _arguments \
+            '(-a --all)'{-a,--all}'[सर्व सक्षम केलेले प्लगइन अक्षम करा]' \
+            '(-s --scope)'{-s,--scope}'[इन्स्टॉलेशन व्याप्ती]:scope:(user project local)' \
+            '--json[मानवी संदेशाऐवजी एक मशीन-वाचनीय परिणाम ओळ प्रिंट करा]' \
+            '(-h --help)'{-h,--help}'[मदत प्रदर्शित करा]' \
+            '::plugin:_claude_installed_plugins'
           ;;
         update)
           _arguments \
             '(-s --scope)'{-s,--scope}'[इन्स्टॉलेशन व्याप्ती]:scope:(user project local managed)' \
+            '(-y --yes)'{-y,--yes}'[मार्केटप्लेसने घोषित केलेली प्रदर्शित कमांड पुष्टी प्रॉम्प्टशिवाय स्वीकारा]' \
+            '--json[मानवी संदेशाऐवजी एक मशीन-वाचनीय परिणाम ओळ प्रिंट करा]' \
             '(-h --help)'{-h,--help}'[मदत प्रदर्शित करा]' \
             '1:plugin:_claude_installed_plugins'
           ;;
-        list|prune)
+        list)
           _arguments \
+            '--json[JSON म्हणून आउटपुट करा]' \
+            '--available[मार्केटप्लेसमधील उपलब्ध प्लगइन समाविष्ट करा (--json आवश्यक)]' \
             '(-h --help)'{-h,--help}'[मदत प्रदर्शित करा]'
+          ;;
+        prune|autoremove)
+          _arguments \
+            '(-s --scope)'{-s,--scope}'[या व्याप्तीमध्ये prune करा]:scope:(user project local)' \
+            '--dry-run[काढल्याशिवाय काय काढले जाईल त्याची यादी करा]' \
+            '(-y --yes)'{-y,--yes}'[पुष्टी प्रॉम्प्ट वगळा]' \
+            '(-h --help)'{-h,--help}'[मदत प्रदर्शित करा]'
+          ;;
+        configure)
+          _arguments \
+            '--json[JSON म्हणून आउटपुट करा]' \
+            '--values-stdin[stdin वरून पर्याय मूल्ये एकल-ओळ स्ट्रिंगच्या JSON ऑब्जेक्ट म्हणून वाचा; वगळलेले पर्याय त्यांची मूल्ये कायम ठेवतात]' \
+            '(-h --help)'{-h,--help}'[मदत प्रदर्शित करा]' \
+            '1:plugin:_claude_installed_plugins'
           ;;
         details)
           _arguments \
             '(-h --help)'{-h,--help}'[मदत प्रदर्शित करा]' \
             '1:plugin:_claude_installed_plugins'
           ;;
-        init)
+        init|new)
           _arguments \
+            '--description[मॅनिफेस्ट वर्णन]:text:' \
+            '--author[लेखकाचे नाव (डीफॉल्ट: git config user.name)]:name:' \
+            '--author-email[लेखकाचा ईमेल (डीफॉल्ट: git config user.email)]:email:' \
+            '--with[सोबत स्कॅफोल्ड करायचे घटक]:components:' \
+            '(-f --force)'{-f,--force}'[लक्ष्यावरील विद्यमान .claude-plugin/ ओव्हरराइट करा]' \
             '(-h --help)'{-h,--help}'[मदत प्रदर्शित करा]' \
             '1:name:'
           ;;
         eval)
           _arguments \
+            '--case[नाव glob नुसार प्रकरणे फिल्टर करा]:glob:' \
+            '*--tag[टॅगनुसार प्रकरणे फिल्टर करा (पुनरावृत्ती करण्यायोग्य)]:tag:' \
+            '--runs[प्रति-प्रकरण रन संख्या ओव्हरराइड करा (डीफॉल्ट: case.runs, अन्यथा 3)]:n:' \
+            '(-j --concurrency)'{-j,--concurrency}'[एकाच वेळी जास्तीत जास्त n एजंट रन चालवा (1-8; डीफॉल्ट 1)]:n:' \
+            '--model[सर्व प्रकरणांसाठी मॉडेल ओव्हरराइड करा]:model:_claude_model_names' \
+            '--judge-model[LLM-ग्रेडर मॉडेल ओव्हरराइड करा (डीफॉल्ट: haiku)]:model:_claude_model_names' \
+            '--max-cost-usd[कठोर खर्च मर्यादा; गाठल्यास रद्द करा आणि आंशिक निकाल नोंदवा (exit code 2)]:usd:' \
+            '--output-dir[aggregate-result.json साठी निर्देशिका]:dir:_directories' \
+            '--eval-dir[eval प्रकरणे असलेल्या निर्देशिकेचे नाव (प्लगइनखाली)]:dir:' \
+            '--json[संपूर्ण रन निकाल JSON म्हणून stdout वर प्रिंट करा, किंवा या .json फाइलमध्ये लिहा]::path:_files' \
+            '--threshold[कोणत्याही प्रकरणाचा गुण या मर्यादेपेक्षा कमी असल्यास exit code 1 सह बाहेर पडा (डीफॉल्ट: 1.0)]:threshold:' \
+            '*--allow-tools[प्रतिबंधित साधनांसाठी ऑपरेटर परवानगी (Bash, Write, Edit, WebFetch, mcp__*)]:tools:' \
+            '(--no-scaffold)--scaffold[प्रत्येक प्रकरणाची scaffold_script चालवा (लेखकाने दिलेला bash तुमच्या खात्याने चालवते; डीफॉल्टनुसार बंद)]' \
+            '(--scaffold)--no-scaffold[scaffold_script स्पष्टपणे वगळा]' \
+            '--trust-plugin[तुम्ही या प्लगइनवर आणि त्याच्या eval संचावर विश्वास ठेवता असे नमूद करा, पहिल्या रनचा विश्वास प्रॉम्प्ट वगळून (CI साठी)]' \
+            '--ablation[प्लगइनशिवाय बेसलाइन तुलना गट चालवा आणि गुणांमधील फरक नोंदवा]:mode:(none with-without)' \
+            '--mocks[MCP सर्व्हरसाठी मॉक पर्याय, <eval dir>/mocks/ मधून]:mode:(record off)' \
+            '--allow-real-servers[--mocks record सह: मॉक नसलेल्या खऱ्या MCP सर्व्हर प्रक्रिया देखील सुरू करा]' \
+            '--keep-temp[डीबगिंगसाठी स्कॅफोल्ड निर्देशिका जतन करा]' \
+            '--verbose[प्रति-संदेश ट्रेस घटना डीबग लॉगमध्ये नोंदवा]' \
+            '--report[स्वयंपूर्ण HTML अहवाल निकाल निर्देशिकेऐवजी या मार्गावर लिहा]:path:_files' \
+            '(--no-publish)--publish-report[अहवाल claude.ai वर प्रकाशित करणे देखील आवश्यक करा]' \
+            '(--publish-report)--no-publish[HTML अहवाल केवळ स्थानिक ठेवा; तो claude.ai वर प्रकाशित करणे वगळा]' \
             '(-h --help)'{-h,--help}'[मदत प्रदर्शित करा]' \
-            '1:target:'
+            '::target: _alternative "plugins\:installed plugin\:_claude_installed_plugins" "files\:path\:_files"'
           ;;
         tag)
           _arguments \
+            '--push[टॅग तयार केल्यानंतर तो --remote वर पुश करा]' \
+            '--dry-run[टॅग तयार न करता काय टॅग केले जाईल ते प्रिंट करा]' \
+            '(-f --force)'{-f,--force}'[अस्वच्छ वर्किंग ट्री आणि टॅग आधीच अस्तित्वात असल्याच्या तपासण्या वगळा]' \
+            '(-m --message)'{-m,--message}'[टॅग भाष्य संदेश (आवृत्तीसाठी %s वापरा)]:msg:' \
+            '--remote[--push सह पुश करण्यासाठी रिमोट]:name:' \
             '(-h --help)'{-h,--help}'[मदत प्रदर्शित करा]' \
-            '1:path:_files'
+            '::path:_files'
+          ;;
+        test)
+          _arguments \
+            '(-h --help)'{-h,--help}'[मदत प्रदर्शित करा]' \
+            '::dir:_directories'
           ;;
       esac
       ;;
@@ -488,15 +640,20 @@ _claude_plugin_marketplace() {
       case $words[1] in
         add)
           _arguments \
+            '--sparse[git sparse-checkout द्वारे चेकआउट विशिष्ट निर्देशिकांपुरते मर्यादित करा (मोनोरेपोसाठी)]:paths:' \
+            '--scope[मार्केटप्लेस कुठे घोषित करायचे]:scope:(user project local)' \
+            '--claudeai[claude.ai तुमच्यासाठी होस्ट करत असलेले या नावाचे मार्केटप्लेस जोडा]' \
             '(-h --help)'{-h,--help}'[मदत प्रदर्शित करा]' \
             '1:source:'
           ;;
         list)
           _arguments \
+            '--json[JSON म्हणून आउटपुट करा]' \
             '(-h --help)'{-h,--help}'[मदत प्रदर्शित करा]'
           ;;
         remove|rm)
           _arguments \
+            '--scope[विशिष्ट सेटिंग्ज व्याप्तीमधून मार्केटप्लेस घोषणा काढा (प्रत्येक व्याप्तीमधून काढण्यासाठी वगळा)]:scope:(user project local)' \
             '(-h --help)'{-h,--help}'[मदत प्रदर्शित करा]' \
             '1:name:'
           ;;
@@ -534,6 +691,7 @@ _claude_agents() {
     '--setting-sources[लोड करण्यासाठी सेटिंग स्रोतांची स्वल्पविराम-विभाजित यादी (user, project, local)]:sources:' \
     '--settings[लागू करण्यासाठी सेटिंग्ज फाइल किंवा JSON स्ट्रिंग]:file-or-json:_files' \
     '--strict-mcp-config[पाठवलेल्या सत्रांमध्ये फक्त --mcp-config मधील MCP सर्व्हर वापरा]' \
+    '--restricted[पाठवलेली सत्रे प्रतिबंधित मोडमध्ये सुरू करा]' \
     '(-h --help)'{-h,--help}'[कमांडसाठी मदत प्रदर्शित करा]'
 }
 
@@ -560,7 +718,21 @@ _claude_auth() {
       ;;
     args)
       case $words[1] in
-        login|logout|status)
+        login)
+          _arguments \
+            '--email[लॉगिन पृष्ठावर ईमेल पत्ता आधीच भरा]:email:' \
+            '--sso[SSO लॉगिन प्रवाह सक्तीने वापरा]' \
+            '(--claudeai)--console[Claude सदस्यतेऐवजी Anthropic Console (API वापर बिलिंग) वापरा]' \
+            '(--console)--claudeai[Claude सदस्यता वापरा (डीफॉल्ट)]' \
+            '(-h --help)'{-h,--help}'[कमांडसाठी मदत प्रदर्शित करा]'
+          ;;
+        status)
+          _arguments \
+            '(--text)--json[JSON म्हणून आउटपुट करा (डीफॉल्ट)]' \
+            '(--json)--text[मानवी-वाचनीय मजकूर म्हणून आउटपुट करा]' \
+            '(-h --help)'{-h,--help}'[कमांडसाठी मदत प्रदर्शित करा]'
+          ;;
+        logout)
           _arguments \
             '(-h --help)'{-h,--help}'[कमांडसाठी मदत प्रदर्शित करा]'
           ;;
@@ -593,7 +765,22 @@ _claude_auto_mode() {
       ;;
     args)
       case $words[1] in
-        config|critique|defaults|reset)
+        critique)
+          _arguments \
+            '--model[कोणते मॉडेल वापरले जाते ते ओव्हरराइड करा]:model:_claude_model_names' \
+            '(-h --help)'{-h,--help}'[कमांडसाठी मदत प्रदर्शित करा]'
+          ;;
+        defaults)
+          _arguments \
+            '--label[ज्यांचे लेबल या उपसर्गाने सुरू होते असेच नियम दर्शवा (केस-असंवेदनशील)]:prefix:' \
+            '(-h --help)'{-h,--help}'[कमांडसाठी मदत प्रदर्शित करा]'
+          ;;
+        reset)
+          _arguments \
+            '(-y --yes)'{-y,--yes}'[पुष्टी प्रॉम्प्ट वगळा]' \
+            '(-h --help)'{-h,--help}'[कमांडसाठी मदत प्रदर्शित करा]'
+          ;;
+        config)
           _arguments \
             '(-h --help)'{-h,--help}'[कमांडसाठी मदत प्रदर्शित करा]'
           ;;
@@ -631,8 +818,12 @@ _claude_project() {
       case $words[1] in
         purge)
           _arguments \
+            '--dry-run[काहीही न हटवता काय हटवले जाईल त्याची यादी करा]' \
+            '(-y --yes)'{-y,--yes}'[पुष्टी प्रॉम्प्ट वगळा]' \
+            '(-i --interactive)'{-i,--interactive}'[हटवण्यापूर्वी प्रत्येक आयटमसाठी प्रॉम्प्ट करा]' \
+            '(1)--all[प्रत्येक प्रकल्पाची स्थिती पूर्णपणे हटवा (मार्गासह परस्पर अनन्य)]' \
             '(-h --help)'{-h,--help}'[कमांडसाठी मदत प्रदर्शित करा]' \
-            '1:path:_directories'
+            '(--all)::path:_directories'
           ;;
       esac
       ;;
@@ -642,9 +833,34 @@ _claude_project() {
 _claude_ultrareview() {
   _arguments \
     '--json[स्वरूपित निष्कर्षांऐवजी कच्चा bugs.json पेलोड प्रिंट करा]' \
-    '--timeout[पुनरावलोकन पूर्ण होण्याची वाट पाहण्यासाठी कमाल मिनिटे]:minutes:' \
+    '--timeout[पुनरावलोकन पूर्ण होण्याची वाट पाहण्यासाठी कमाल मिनिटे (डीफॉल्ट: 45)]:minutes:' \
+    '(--no-post)--post[पूर्ण झालेल्या पुनरावलोकनाचे निष्कर्ष तुमच्या खात्याने PR वर पोस्ट करा (केवळ PR लक्ष्ये; एक साधी टिप्पणी, पुनरावलोकन नाही)]' \
+    '(--post)--no-post[निष्कर्ष PR वर पोस्ट करू नका (डीफॉल्ट)]' \
     '(-h --help)'{-h,--help}'[कमांडसाठी मदत प्रदर्शित करा]' \
     '1:target:'
+}
+
+_claude_respawn() {
+  _arguments \
+    '(1)--all[चालू असलेले प्रत्येक पार्श्वभूमी सत्र पुन्हा सुरू करा]' \
+    '(-h --help)'{-h,--help}'[कमांडसाठी मदत प्रदर्शित करा]' \
+    '(--all)::session:_claude_background_sessions'
+}
+
+_claude_rm() {
+  _arguments \
+    '--discard-unpushed[worktree चे पुश न केलेले कमिट आणि कमिट न केलेले बदल देखील टाकून द्या (मागील claude rm ने नोंदवलेला commit@worktree-id द्या)]:commit@worktree-id:' \
+    '--force-remove-worktree[WorktreeRemove हुक किंवा git ती काढू शकले नाहीत तरीही worktree निर्देशिका हटवा (मागील claude rm ने नोंदवलेला worktree-id द्या)]:worktree-id:' \
+    '(-h --help)'{-h,--help}'[कमांडसाठी मदत प्रदर्शित करा]' \
+    '1:session:_claude_background_sessions'
+}
+
+_claude_import() {
+  _arguments \
+    '--dry-run[काहीही न लिहिता काय आयात केले जाईल ते दर्शवा]' \
+    '--yes[परस्पर निवडक वगळा (हेडलेस वातावरणात, /import पूर्वावलोकनातील --yes=<digest> द्या)]' \
+    '(-h --help)'{-h,--help}'[कमांडसाठी मदत प्रदर्शित करा]' \
+    '::source:(codex gemini cursor)'
 }
 
 (( $+_comps[claude] )) || compdef _claude claude
