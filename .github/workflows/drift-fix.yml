@@ -11,6 +11,10 @@ name: Drift Fix
 
 on:
   workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Branch to start from (main in normal use; another branch to test this workflow)'
+        default: main
 
 permissions:
   contents: write
@@ -49,6 +53,8 @@ jobs:
     - name: Checkout code
       if: steps.gate.outputs.run == 'true'
       uses: actions/checkout@v5
+      with:
+        ref: ${{ inputs.ref || 'main' }}
 
     - name: Install zsh
       if: steps.gate.outputs.run == 'true'
@@ -67,6 +73,7 @@ jobs:
       run: npm install -g @anthropic-ai/claude-code
 
     - name: Update the completion
+      id: claude
       if: steps.gate.outputs.run == 'true'
       uses: anthropics/claude-code-action@v1
       with:
@@ -98,5 +105,14 @@ jobs:
              so the required `test` check runs on it.
           Do not merge anything, create tags, or publish releases.
         claude_args: |
-          --max-turns 120
-          --allowedTools "Read,Edit,Write,Glob,Grep,Bash(zsh:*),Bash(claude --help),Bash(claude --version),Bash(claude * --help),Bash(cp:*),Bash(git status:*),Bash(git diff:*),Bash(git switch:*),Bash(git checkout -b:*),Bash(git add:*),Bash(git commit:*),Bash(git push:*),Bash(gh pr create:*),Bash(gh workflow run:*)"
+          --max-turns 150
+          --allowedTools "Read,Edit,Write,Glob,Grep,Bash"
+          --disallowedTools "Bash(gh pr merge:*),Bash(gh release:*),Bash(git tag:*),Bash(git push --force:*),Bash(git push -f:*),Bash(gh secret:*),Bash(gh api:*)"
+
+    - name: Keep Claude's transcript
+      if: always() && steps.claude.outputs.execution_file != ''
+      uses: actions/upload-artifact@v4
+      with:
+        name: drift-fix-transcript
+        path: ${{ steps.claude.outputs.execution_file }}
+        retention-days: 14
