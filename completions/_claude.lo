@@ -121,6 +121,39 @@ _claude_agent_names() {
   compadd -a agents
 }
 
+_claude_background_sessions() {
+  local -a sessions state_files
+  local -A names states
+  local state_dir state_file line id rest
+
+  # Background sessions (`claude --bg`) live in <config>/jobs/<id>/, where
+  # <id> is the short id that attach, logs, stop, respawn and rm take.
+  for state_dir in ${(f)"$(_claude_state_dirs)"}; do
+    # Newest first
+    state_files=(${state_dir}/jobs/*/state.json(Nom))
+    (( ${#state_files} )) || continue
+
+    # One grep for all of them; the first "name" and "state" it reports for a
+    # file are that file's top-level ones
+    names=() states=()
+    for line in ${(f)"$(grep -HoE '"(name|state)"[[:space:]]*:[[:space:]]*"[^"]*"' $state_files 2>/dev/null)"}; do
+      id=${${line%%/state.json:*}:t}
+      rest=${line#*/state.json:}
+      case $rest in
+        \"name\"*)  [[ -z $names[$id] ]]  && names[$id]=${${rest#*:*\"}%\"} ;;
+        \"state\"*) [[ -z $states[$id] ]] && states[$id]=${${rest#*:*\"}%\"} ;;
+      esac
+    done
+
+    for state_file in $state_files; do
+      id=${state_file:h:t}
+      sessions+=("${id}:${names[$id]:-no name}${states[$id]:+ (${states[$id]})}")
+    done
+  done
+
+  _describe -t sessions 'background session' sessions
+}
+
 _claude_model_names() {
   local -a models config_files
   local state_dir config_file
@@ -155,9 +188,15 @@ _claude() {
     'mcp:ກຳນົດຄ່າແລະຈັດການເຊີບເວີ MCP'
     'plugin:ຈັດການໂປລແກຼມເສີມ Claude Code'
     'agents:ຈັດການຕົວແທນທີ່ເຮັດວຽກພື້ນຫຼັງ'
+    'attach:ເປີດເຊສຊັນພື້ນຫຼັງໃນເທີມິນອລນີ້'
+    'logs:ພິມຜົນໄດ້ຮັບເທີມິນອລຫຼ້າສຸດຂອງເຊສຊັນພື້ນຫຼັງ'
+    'stop:ຢຸດເຊສຊັນພື້ນຫຼັງ (ການສົນທະນາຂອງມັນຍັງຖືກເກັບໄວ້)'
+    'respawn:ເລີ່ມເຊສຊັນພື້ນຫຼັງໃໝ່ ເພື່ອໃຫ້ມັນແລ່ນດ້ວຍເວີຊັນ Claude Code ປັດຈຸບັນ'
+    'rm:ລຶບເຊສຊັນພື້ນຫຼັງ ແລະ worktree ຂອງມັນເມື່ອປອດໄພ'
     'auth:ຈັດການການຢືນຢັນຕົວຕົນ'
     'auto-mode:ກວດສອບ ຫຼືຕັ້ງຄ່າໃໝ່ການຕັ້ງຄ່າຕົວຈັດປະເພດຂອງໂໝດອັດຕະໂນມັດ'
     'gateway:ແລ່ນເກດເວທ໌ການຢືນຢັນ/telemetry ສຳລັບອົງກອນ'
+    'import:ນຳເຂົ້າການຕັ້ງຄ່າຈາກຕົວແທນຂຽນໂຄດ AI ອື່ນເຂົ້າໃນ Claude Code'
     'project:ຈັດການສະຖານະໂຄງການ Claude Code'
     'ultrareview:ແລ່ນການກວດສອບໂຄດແບບຫຼາຍຕົວແທນທີ່ໂຮສຢູ່ຄລາວ ແລະພິມຜົນການຄົ້ນພົບ'
     'setup-token:ຕັ້ງຄ່າໂທເຄນຢືນຢັນໄລຍະຍາວ (ຕ້ອງການການສະໝັກໃຊ້ Claude)'
@@ -178,6 +217,7 @@ _claude() {
     '--mcp-debug[\[ຖືກຍົກເລີກແລ້ວ. ໃຊ້ --debug ແທນ\] ເປີດໃຊ້ໂໝດດີບັກ MCP (ສະແດງຂໍ້ຜິດພາດເຊີບເວີ MCP)]'
     '--dangerously-skip-permissions[ຂ້າມການກວດສອບການອະນຸຍາດທັງໝົດ. ແນະນຳພຽງແຕ່ສຳລັບ sandbox ທີ່ບໍ່ມີການເຂົ້າເຖິງອິນເຕີເນັດ]'
     '--allow-dangerously-skip-permissions[ເປີດໃຊ້ຕົວເລືອກການຂ້າມການກວດສອບການອະນຸຍາດ ແຕ່ບໍ່ເປີດໃຊ້ຕາມຄ່າເລີ່ມຕົ້ນ]'
+    '--restricted[ໂໝດຈຳກັດ: ເອົາເຄື່ອງມືທີ່ແລ່ນຄຳສັ່ງ ຫຼືໂຄດ ແລະ WebFetch ອອກ, ບໍ່ສົນໃຈການຕັ້ງຄ່າ user/project/local ແລະຈຳກັດເຄື່ອງມືໄຟລ໌ໄວ້ໃນໂຟນເດີເຮັດວຽກ]'
     '--max-budget-usd[ຈຳນວນເງິນໂດລາສູງສຸດທີ່ຈະໃຊ້ຈ່າຍໃນການເອີ້ນ API (ພຽງແຕ່ --print)]:amount:'
     '--replay-user-messages[ສົ່ງຂໍ້ຄວາມຜູ້ໃຊ້ຈາກ stdin ໃນ stdout ອີກຄັ້ງເພື່ອຢືນຢັນ]'
     '--allowed-tools[ລາຍຊື່ຊື່ເຄື່ອງມືທີ່ອະນຸຍາດ (ແຍກດ້ວຍເຄື່ອງໝາຍຈຸດຄໍາຫຼືເວັ້ນວ່າງ ຕົວຢ່າງ "Bash(git:*) Edit")]:tools:'
@@ -187,8 +227,13 @@ _claude() {
     '--disallowedTools[ລາຍຊື່ຊື່ເຄື່ອງມືທີ່ບໍ່ອະນຸຍາດ (ຮູບແບບ camelCase)]:tools:'
     '--mcp-config[ໂຫລດເຊີບເວີ MCP ຈາກໄຟລ໌ JSON ຫຼືສະຕຣິງ (ແຍກດ້ວຍເວັ້ນວ່າງ)]:configs:'
     '--system-prompt[ການກະຕຸ້ນລະບົບສຳລັບເຊສຊັນ]:prompt:'
+    '--system-prompt-file[ອ່ານການກະຕຸ້ນລະບົບຈາກໄຟລ໌]:file:_files'
     '--append-system-prompt[ຕື່ມການກະຕຸ້ນລະບົບໃສ່ການກະຕຸ້ນລະບົບເລີ່ມຕົ້ນ]:prompt:'
+    '--append-system-prompt-file[ອ່ານການກະຕຸ້ນລະບົບຈາກໄຟລ໌ ແລະຕື່ມໃສ່ການກະຕຸ້ນລະບົບເລີ່ມຕົ້ນ]:file:_files'
+    '--system-prompt-snapshot[ບັນທຶກການກະຕຸ້ນລະບົບຄັ້ງດຽວຕໍ່ການສົນທະນາ ແລະໃຊ້ຄືນແບບຄຳຕໍ່ຄຳໃນທຸກຄຳຂໍ ແລະການສືບຕໍ່ (on, ຄ່າເລີ່ມຕົ້ນ) ຫຼືສ້າງໃໝ່ທຸກຄຳຂໍ (off)]:mode:(on off)'
     '--permission-mode[ໂໝດການອະນຸຍາດສຳລັບເຊສຊັນ]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)'
+    '--permission-prompts[ຜູ້ທີ່ຕອບການຖາມການອະນຸຍາດກັບ --print: "host" (ໂຮສ SDK ຫຼື --permission-prompt-tool) ຫຼື "none" (ສິ່ງໃດທີ່ຈະຖາມຈະຖືກປະຕິເສດ)]:target:(host none)'
+    '--permission-prompt-tool[ເຄື່ອງມື MCP ທີ່ໃຊ້ສຳລັບການຖາມການອະນຸຍາດ (ພຽງແຕ່ --print)]:tool:'
     '(-c --continue)'{-c,--continue}'[ສືບຕໍ່ການສົນທະນາຫຼ້າສຸດ]'
     '(-r --resume)'{-r,--resume}'[ສືບຕໍ່ການສົນທະນາ - ລະບຸ ID ເຊສຊັນ ຫຼືເລືອກແບບໂຕ້ຕອບ]:sessionId:_claude_sessions'
     '--fork-session[ສ້າງ ID ເຊສຊັນໃໝ່ແທນການໃຊ້ຄືນ ID ເຊສຊັນດັ້ງເດີມ ເມື່ອສືບຕໍ່ (ກັບ --resume ຫຼື --continue)]'
@@ -200,6 +245,7 @@ _claude() {
     '--settings[ເສັ້ນທາງໄຟລ໌ JSON ຂອງການຕັ້ງຄ່າ ຫຼືສະຕຣິງ JSON ເພື່ອໂຫລດການຕັ້ງຄ່າເພີ່ມເຕີມ]:file-or-json:_files'
     '--add-dir[ໂຟນເດີເພີ່ມເຕີມເພື່ອອະນຸຍາດການເຂົ້າເຖິງເຄື່ອງມື]:directories:_directories'
     '--ide[ເຊື່ອມຕໍ່ກັບ IDE ອັດຕະໂນມັດເມື່ອເລີ່ມຕົ້ນ ຖ້າມີ IDE ທີ່ຖືກຕ້ອງພຽງອັນດຽວ]'
+    '--desktop[ເປີດໃນແອັບ Claude Desktop ແທນເທີມິນອລ (ກັບ --continue ຫຼື --resume <id> ເພື່ອເລືອກເຊສຊັນ)]'
     '--strict-mcp-config[ໃຊ້ພຽງແຕ່ເຊີບເວີ MCP ຈາກ --mcp-config ແລະປະຕິເສດການຕັ້ງຄ່າ MCP ອື່ນໆທັງໝົດ]'
     '--session-id[ID ເຊສຊັນສະເພາະສຳລັບການສົນທະນາ (ຕ້ອງເປັນ UUID ທີ່ຖືກຕ້ອງ)]:uuid:'
     '--agents[ອອບເຈັກ JSON ກຳນົດຕົວແທນທີ່ກຳນົດເອງ]:json:'
@@ -208,11 +254,15 @@ _claude() {
     '--disable-slash-commands[ປິດຄຳສັ່ງ slash ທັງໝົດ]'
     '(--bg --background)'{--bg,--background}'[ເລີ່ມເຊສຊັນເປັນຕົວແທນພື້ນຫຼັງ ແລະກັບຄືນທັນທີ]'
     '(-w --worktree)'{-w,--worktree}'[ສ້າງ git worktree ໃໝ່ສຳລັບເຊສຊັນນີ້ (ລະບຸຊື່ໄດ້ຕາມທາງເລືອກ)]::name:'
-    '--tmux[ສ້າງເຊສຊັນ tmux ສຳລັບ worktree (ຕ້ອງການ --worktree)]'
+    '--tmux=-[ສ້າງເຊສຊັນ tmux ສຳລັບ worktree (ຕ້ອງການ --worktree). ໃຊ້ pane ໃນຕົວຂອງ iTerm2 ເມື່ອມີ; --tmux=classic ສຳລັບ tmux ແບບດັ້ງເດີມ]::mode:(classic)'
     '(-n --name)'{-n,--name}'[ຕັ້ງຊື່ສະແດງສຳລັບເຊສຊັນນີ້]:name:'
     '--effort[ລະດັບຄວາມພະຍາຍາມສຳລັບເຊສຊັນປັດຈຸບັນ]:level:(low medium high xhigh max)'
+    '--autocompact[ຂະໜາດໜ້າຕ່າງການບີບອັດອັດຕະໂນມັດ (auto ຫຼື 100k-1M ໂທເຄນ)]:size:(auto)'
     '--debug-file[ຂຽນບັນທຶກດີບັກໄປຫາເສັ້ນທາງໄຟລ໌ສະເພາະ (ເປີດໃຊ້ໂໝດດີບັກໂດຍປະລິຍາຍ)]:path:_files'
     '--from-pr[ສືບຕໍ່ເຊສຊັນທີ່ເຊື່ອມກັບ PR ດ້ວຍໝາຍເລກ/URL ຫຼືເປີດຕົວເລືອກແບບໂຕ້ຕອບ]::value:'
+    '--teleport[ສືບຕໍ່ເຊສຊັນ teleport, ລະບຸ ID ເຊສຊັນໄດ້ຕາມທາງເລືອກ]::session:'
+    '--cloud[ສ້າງເຊສຊັນຄລາວດ້ວຍຄຳອະທິບາຍທີ່ລະບຸ ຫຼືເຊື່ອມຕໍ່ກັບເຊສຊັນທີ່ມີຢູ່ດ້ວຍ ID ເຊສຊັນ ຫຼື URL claude.ai/code]::description-or-session:'
+    '--environment[ສ້າງເຊສຊັນຄລາວໃໝ່ທີ່ແລ່ນໃນສະພາບແວດລ້ອມທີ່ໂຮສເອງທີ່ລະບຸ (ccpool_...)]:environment_id:'
     '--remote-control[ເລີ່ມເຊສຊັນແບບໂຕ້ຕອບໂດຍເປີດໃຊ້ Remote Control (ຕັ້ງຊື່ໄດ້ຕາມທາງເລືອກ)]::name:'
     '--remote-control-session-name-prefix[ຄຳນຳໜ້າສຳລັບຊື່ເຊສຊັນ Remote Control ທີ່ສ້າງອັດຕະໂນມັດ]:prefix:'
     '--chrome[ເປີດໃຊ້ການເຊື່ອມໂຍງ Claude ໃນ Chrome]'
@@ -254,6 +304,17 @@ _claude() {
         agents)
           _claude_agents
           ;;
+        attach|logs|stop|kill)
+          _arguments \
+            '(-h --help)'{-h,--help}'[ສະແດງຄຳແນະນຳຄຳສັ່ງ]' \
+            '1:session:_claude_background_sessions'
+          ;;
+        respawn)
+          _claude_respawn
+          ;;
+        rm)
+          _claude_rm
+          ;;
         auth)
           _claude_auth
           ;;
@@ -262,6 +323,9 @@ _claude() {
           ;;
         gateway)
           _claude_gateway
+          ;;
+        import)
+          _claude_import
           ;;
         project)
           _claude_project
@@ -319,6 +383,9 @@ _claude_mcp() {
             '(-t --transport)'{-t,--transport}'[ປະເພດການຂົນສົ່ງ (stdio, sse, http)]:transport:(stdio sse http)' \
             '(-e --env)'{-e,--env}'[ກຳນົດຕົວແປສະພາບແວດລ້ອມ (ຕົວຢ່າງ -e KEY=value)]:env:' \
             '(-H --header)'{-H,--header}'[ກຳນົດຫົວ WebSocket]:header:' \
+            '--client-id[ID ໄຄລເອັນ OAuth ສຳລັບເຊີບເວີ HTTP/SSE]:clientId:' \
+            '--client-secret[ຖາມຫາຄວາມລັບໄຄລເອັນ OAuth (ຫຼືຕັ້ງຕົວແປສະພາບແວດລ້ອມ MCP_CLIENT_SECRET)]' \
+            '--callback-port[ພອດຄົງທີ່ສຳລັບ callback OAuth (ສຳລັບເຊີບເວີທີ່ຕ້ອງການ redirect URI ທີ່ລົງທະບຽນໄວ້ລ່ວງໜ້າ)]:port:' \
             '(-h --help)'{-h,--help}'[ສະແດງຄຳແນະນຳ]' \
             '1:name:' \
             '2:commandOrUrl:' \
@@ -342,6 +409,7 @@ _claude_mcp() {
         add-json)
           _arguments \
             '(-s --scope)'{-s,--scope}'[ຂອບເຂດການຕັ້ງຄ່າ (local, user, project)]:scope:(local user project)' \
+            '--client-secret[ຖາມຫາຄວາມລັບໄຄລເອັນ OAuth (ຫຼືຕັ້ງຕົວແປສະພາບແວດລ້ອມ MCP_CLIENT_SECRET)]' \
             '(-h --help)'{-h,--help}'[ສະແດງຄຳແນະນຳ]' \
             '1:name:' \
             '2:json:'
@@ -355,7 +423,13 @@ _claude_mcp() {
           _arguments \
             '(-h --help)'{-h,--help}'[ສະແດງຄຳແນະນຳ]'
           ;;
-        login|logout)
+        login)
+          _arguments \
+            '--no-browser[ພິມ URL ການອະນຸຍາດແທນການເປີດບຣາວເຊີ (ສຳລັບເຊສຊັນ SSH/headless)]' \
+            '(-h --help)'{-h,--help}'[ສະແດງຄຳແນະນຳ]' \
+            '1:name:_claude_mcp_servers'
+          ;;
+        logout)
           _arguments \
             '(-h --help)'{-h,--help}'[ສະແດງຄຳແນະນຳ]' \
             '1:name:_claude_mcp_servers'
@@ -372,9 +446,11 @@ _claude_plugin() {
     'marketplace:ຈັດການຕະຫຼາດ Claude Code'
     'list:ສະແດງລາຍຊື່ໂປລແກຼມເສີມທີ່ຕິດຕັ້ງແລ້ວ'
     'details:ສະແດງລາຍການອົງປະກອບ ແລະຄ່າໃຊ້ຈ່າຍໂທເຄນທີ່ຄາດຄະເນສຳລັບໂປລແກຼມເສີມ'
+    'configure:ສະແດງຕົວເລືອກຂອງໂປລແກຼມເສີມ ແລະອັນໃດທີ່ຍັງບໍ່ໄດ້ຕັ້ງ ຫຼືບັນທຶກຄ່າຈາກ stdin'
     'install:ຕິດຕັ້ງໂປລແກຼມເສີມຈາກຕະຫຼາດທີ່ມີ'
     'i:ຕິດຕັ້ງໂປລແກຼມເສີມຈາກຕະຫຼາດທີ່ມີ (ຮູບແບບສັ້ນຂອງ install)'
     'init:ສ້າງໂຄງໂປລແກຼມເສີມໃໝ່ (ໂຫລດອັດຕະໂນມັດໃນເຊສຊັນຖັດໄປ)'
+    'new:ສ້າງໂຄງໂປລແກຼມເສີມໃໝ່ (ຊື່ອື່ນຂອງ init)'
     'uninstall:ຖອນການຕິດຕັ້ງໂປລແກຼມເສີມທີ່ຕິດຕັ້ງແລ້ວ'
     'remove:ຖອນການຕິດຕັ້ງໂປລແກຼມເສີມທີ່ຕິດຕັ້ງແລ້ວ (ຊື່ອື່ນຂອງ uninstall)'
     'enable:ເປີດໃຊ້ໂປລແກຼມເສີມທີ່ປິດໄວ້'
@@ -382,7 +458,9 @@ _claude_plugin() {
     'update:ອັບເດດໂປລແກຼມເສີມໄປຫາເວີຊັນຫຼ້າສຸດ'
     'eval:ແລ່ນກໍລະນີປະເມີນຕໍ່ໂປລແກຼມເສີມ ແລະລາຍງານຜົນທີ່ໃຫ້ຄະແນນ'
     'prune:ລຶບ dependency ທີ່ຕິດຕັ້ງອັດຕະໂນມັດທີ່ບໍ່ຕ້ອງການອີກຕໍ່ໄປ'
+    'autoremove:ລຶບ dependency ທີ່ຕິດຕັ້ງອັດຕະໂນມັດທີ່ບໍ່ຕ້ອງການອີກຕໍ່ໄປ (ຊື່ອື່ນຂອງ prune)'
     'tag:ສ້າງ git tag {name}--v{version} ສຳລັບການປ່ອຍໂປລແກຼມເສີມ'
+    'test:ແລ່ນການທົດສອບຂອງ mod'
     'help:ສະແດງຄຳແນະນຳ'
   )
 
@@ -402,6 +480,8 @@ _claude_plugin() {
       case $words[1] in
         validate)
           _arguments \
+            '--strict[ຖືຄຳເຕືອນເປັນຂໍ້ຜິດພາດ (ລະຫັດອອກ 1)]' \
+            '--json[ສະແດງລາຍງານການກວດສອບເປັນ JSON (ລະຫັດອອກຄືເກົ່າ)]' \
             '(-h --help)'{-h,--help}'[ສະແດງຄຳແນະນຳ]' \
             '1:path:_files'
           ;;
@@ -411,50 +491,122 @@ _claude_plugin() {
         install|i)
           _arguments \
             '(-s --scope)'{-s,--scope}'[ຂອບເຂດການຕິດຕັ້ງ]:scope:(user project local)' \
+            '*--config[ຕັ້ງຕົວເລືອກ userConfig ທີ່ປະກາດໄວ້ໃນ manifest ຂອງໂປລແກຼມເສີມ (ສາມາດຊ້ຳໄດ້)]:key=value:' \
+            '(-y --yes)'{-y,--yes}'[ຍອມຮັບຄຳສັ່ງທີ່ຕະຫຼາດປະກາດໄວ້ທີ່ສະແດງຢູ່ ໂດຍບໍ່ມີການຖາມຢືນຢັນ]' \
+            '--json[ພິມຜົນໄດ້ຮັບໜຶ່ງແຖວທີ່ເຄື່ອງອ່ານໄດ້ ແທນຂໍ້ຄວາມສຳລັບຄົນອ່ານ]' \
             '(-h --help)'{-h,--help}'[ສະແດງຄຳແນະນຳ]' \
             '1:plugin:'
           ;;
         uninstall|remove)
           _arguments \
             '(-s --scope)'{-s,--scope}'[ຂອບເຂດການຕິດຕັ້ງ]:scope:(user project local)' \
+            '--keep-data[ຮັກສາໂຟນເດີຂໍ້ມູນຖາວອນຂອງໂປລແກຼມເສີມໄວ້]' \
+            '--prune[ລຶບ dependency ທີ່ຕິດຕັ້ງອັດຕະໂນມັດທີ່ບໍ່ຕ້ອງການອີກຕໍ່ໄປນຳ]' \
+            '(-y --yes)'{-y,--yes}'[ຂ້າມການຖາມຢືນຢັນຂອງ --prune]' \
+            '--json[ພິມຜົນໄດ້ຮັບໜຶ່ງແຖວທີ່ເຄື່ອງອ່ານໄດ້ ແທນຂໍ້ຄວາມສຳລັບຄົນອ່ານ (ບໍ່ໃຊ້ກັບ --prune)]' \
             '(-h --help)'{-h,--help}'[ສະແດງຄຳແນະນຳ]' \
             '1:plugin:_claude_installed_plugins'
           ;;
-        enable|disable)
+        enable)
           _arguments \
             '(-s --scope)'{-s,--scope}'[ຂອບເຂດການຕິດຕັ້ງ]:scope:(user project local)' \
+            '--json[ພິມຜົນໄດ້ຮັບໜຶ່ງແຖວທີ່ເຄື່ອງອ່ານໄດ້ ແທນຂໍ້ຄວາມສຳລັບຄົນອ່ານ]' \
             '(-h --help)'{-h,--help}'[ສະແດງຄຳແນະນຳ]' \
             '1:plugin:_claude_installed_plugins'
+          ;;
+        disable)
+          _arguments \
+            '(-a --all)'{-a,--all}'[ປິດໂປລແກຼມເສີມທີ່ເປີດໃຊ້ຢູ່ທັງໝົດ]' \
+            '(-s --scope)'{-s,--scope}'[ຂອບເຂດການຕິດຕັ້ງ]:scope:(user project local)' \
+            '--json[ພິມຜົນໄດ້ຮັບໜຶ່ງແຖວທີ່ເຄື່ອງອ່ານໄດ້ ແທນຂໍ້ຄວາມສຳລັບຄົນອ່ານ]' \
+            '(-h --help)'{-h,--help}'[ສະແດງຄຳແນະນຳ]' \
+            '::plugin:_claude_installed_plugins'
           ;;
         update)
           _arguments \
             '(-s --scope)'{-s,--scope}'[ຂອບເຂດການຕິດຕັ້ງ]:scope:(user project local managed)' \
+            '(-y --yes)'{-y,--yes}'[ຍອມຮັບຄຳສັ່ງທີ່ຕະຫຼາດປະກາດໄວ້ທີ່ສະແດງຢູ່ ໂດຍບໍ່ມີການຖາມຢືນຢັນ]' \
+            '--json[ພິມຜົນໄດ້ຮັບໜຶ່ງແຖວທີ່ເຄື່ອງອ່ານໄດ້ ແທນຂໍ້ຄວາມສຳລັບຄົນອ່ານ]' \
             '(-h --help)'{-h,--help}'[ສະແດງຄຳແນະນຳ]' \
             '1:plugin:_claude_installed_plugins'
           ;;
-        list|prune)
+        list)
           _arguments \
+            '--json[ສະແດງຜົນເປັນ JSON]' \
+            '--available[ລວມໂປລແກຼມເສີມທີ່ມີຈາກຕະຫຼາດ (ຕ້ອງການ --json)]' \
             '(-h --help)'{-h,--help}'[ສະແດງຄຳແນະນຳ]'
+          ;;
+        prune|autoremove)
+          _arguments \
+            '(-s --scope)'{-s,--scope}'[ລຶບສິ່ງທີ່ບໍ່ຕ້ອງການໃນຂອບເຂດ]:scope:(user project local)' \
+            '--dry-run[ສະແດງລາຍການສິ່ງທີ່ຈະຖືກລຶບ ໂດຍບໍ່ລຶບ]' \
+            '(-y --yes)'{-y,--yes}'[ຂ້າມການຖາມຢືນຢັນ]' \
+            '(-h --help)'{-h,--help}'[ສະແດງຄຳແນະນຳ]'
+          ;;
+        configure)
+          _arguments \
+            '--json[ສະແດງຜົນເປັນ JSON]' \
+            '--values-stdin[ອ່ານຄ່າຕົວເລືອກຈາກ stdin ເປັນອອບເຈັກ JSON ຂອງສະຕຣິງແຖວດຽວ; ຕົວເລືອກທີ່ບໍ່ໄດ້ລະບຸຈະຮັກສາຄ່າເດີມໄວ້]' \
+            '(-h --help)'{-h,--help}'[ສະແດງຄຳແນະນຳ]' \
+            '1:plugin:_claude_installed_plugins'
           ;;
         details)
           _arguments \
             '(-h --help)'{-h,--help}'[ສະແດງຄຳແນະນຳ]' \
             '1:plugin:_claude_installed_plugins'
           ;;
-        init)
+        init|new)
           _arguments \
+            '--description[ຄຳອະທິບາຍໃນ manifest]:text:' \
+            '--author[ຊື່ຜູ້ຂຽນ (ຄ່າເລີ່ມຕົ້ນ: git config user.name)]:name:' \
+            '--author-email[ອີເມວຜູ້ຂຽນ (ຄ່າເລີ່ມຕົ້ນ: git config user.email)]:email:' \
+            '--with[ອົງປະກອບທີ່ຈະສ້າງໂຄງນຳ]:components:' \
+            '(-f --force)'{-f,--force}'[ຂຽນທັບ .claude-plugin/ ທີ່ມີຢູ່ແລ້ວໃນເປົ້າໝາຍ]' \
             '(-h --help)'{-h,--help}'[ສະແດງຄຳແນະນຳ]' \
             '1:name:'
           ;;
         eval)
           _arguments \
+            '--case[ກັ່ນຕອງກໍລະນີດ້ວຍ glob ຂອງຊື່]:glob:' \
+            '*--tag[ກັ່ນຕອງກໍລະນີດ້ວຍແທັກ (ສາມາດຊ້ຳໄດ້)]:tag:' \
+            '--runs[ຂຽນທັບຈຳນວນການແລ່ນຕໍ່ກໍລະນີ (ຄ່າເລີ່ມຕົ້ນ: case.runs, ຖ້າບໍ່ມີແມ່ນ 3)]:n:' \
+            '(-j --concurrency)'{-j,--concurrency}'[ແລ່ນການແລ່ນຕົວແທນພ້ອມກັນໄດ້ສູງສຸດ n ຄັ້ງ (1-8; ຄ່າເລີ່ມຕົ້ນ 1)]:n:' \
+            '--model[ຂຽນທັບຮູບແບບສຳລັບທຸກກໍລະນີ]:model:_claude_model_names' \
+            '--judge-model[ຂຽນທັບຮູບແບບຂອງຕົວໃຫ້ຄະແນນ LLM (ຄ່າເລີ່ມຕົ້ນ: haiku)]:model:_claude_model_names' \
+            '--max-cost-usd[ເພດານຄ່າໃຊ້ຈ່າຍແບບເຂັ້ມງວດ; ຖ້າເຖິງຈະຍົກເລີກ ແລະລາຍງານຜົນບາງສ່ວນ (ລະຫັດອອກ 2)]:usd:' \
+            '--output-dir[ໂຟນເດີສຳລັບ aggregate-result.json]:dir:_directories' \
+            '--eval-dir[ຊື່ໂຟນເດີ (ພາຍໃຕ້ໂປລແກຼມເສີມ) ທີ່ເກັບກໍລະນີປະເມີນ]:dir:' \
+            '--json[ພິມຜົນການແລ່ນທັງໝົດເປັນ JSON ໄປຫາ stdout ຫຼືຂຽນໃສ່ໄຟລ໌ .json ນີ້]::path:_files' \
+            '--threshold[ອອກດ້ວຍລະຫັດອອກ 1 ຖ້າຄະແນນຂອງກໍລະນີໃດຕໍ່າກວ່າເກນນີ້ (ຄ່າເລີ່ມຕົ້ນ: 1.0)]:threshold:' \
+            '*--allow-tools[ການອະນຸຍາດຈາກຜູ້ດຳເນີນການສຳລັບເຄື່ອງມືທີ່ຖືກຄວບຄຸມ (Bash, Write, Edit, WebFetch, mcp__*)]:tools:' \
+            '(--no-scaffold)--scaffold[ແລ່ນ scaffold_script ຂອງແຕ່ລະກໍລະນີ (ແລ່ນ bash ທີ່ຜູ້ຂຽນສະໜອງໃນນາມຂອງທ່ານ; ປິດຕາມຄ່າເລີ່ມຕົ້ນ)]' \
+            '(--scaffold)--no-scaffold[ຂ້າມ scaffold_script ຢ່າງຊັດເຈນ]' \
+            '--trust-plugin[ຢືນຢັນວ່າທ່ານເຊື່ອຖືໂປລແກຼມເສີມນີ້ ແລະຊຸດການປະເມີນຂອງມັນ ໂດຍຂ້າມການຖາມຄວາມເຊື່ອຖືໃນການແລ່ນຄັ້ງທຳອິດ (ສຳລັບ CI)]' \
+            '--ablation[ແລ່ນກຸ່ມປຽບທຽບພື້ນຖານທີ່ບໍ່ມີໂປລແກຼມເສີມ ແລະລາຍງານຄວາມແຕກຕ່າງຂອງຄະແນນ]:mode:(none with-without)' \
+            '--mocks[ຕົວຈຳລອງແທນເຊີບເວີ MCP ຈາກ <eval dir>/mocks/]:mode:(record off)' \
+            '--allow-real-servers[ກັບ --mocks record: ເລີ່ມໂປຣເຊສເຊີບເວີ MCP ຕົວຈິງທີ່ບໍ່ມີຕົວຈຳລອງນຳ]' \
+            '--keep-temp[ຮັກສາໂຟນເດີ scaffold ໄວ້ສຳລັບການດີບັກ]' \
+            '--verbose[ບັນທຶກເຫດການ trace ຕໍ່ຂໍ້ຄວາມລົງໃນບັນທຶກດີບັກ]' \
+            '--report[ຂຽນລາຍງານ HTML ແບບຄົບໃນຕົວໄປຫາເສັ້ນທາງນີ້ ແທນໂຟນເດີຜົນໄດ້ຮັບ]:path:_files' \
+            '(--no-publish)--publish-report[ກຳນົດໃຫ້ເຜີຍແຜ່ລາຍງານໄປຫາ claude.ai ນຳ]' \
+            '(--publish-report)--no-publish[ເກັບລາຍງານ HTML ໄວ້ໃນເຄື່ອງເທົ່ານັ້ນ; ຂ້າມການເຜີຍແຜ່ໄປຫາ claude.ai]' \
             '(-h --help)'{-h,--help}'[ສະແດງຄຳແນະນຳ]' \
-            '1:target:'
+            '::target: _alternative "plugins\:installed plugin\:_claude_installed_plugins" "files\:path\:_files"'
           ;;
         tag)
           _arguments \
+            '--push[push tag ໄປຫາ --remote ຫຼັງຈາກສ້າງແລ້ວ]' \
+            '--dry-run[ພິມສິ່ງທີ່ຈະຖືກໃສ່ tag ໂດຍບໍ່ສ້າງມັນ]' \
+            '(-f --force)'{-f,--force}'[ຂ້າມການກວດສອບ working tree ທີ່ມີການປ່ຽນແປງ ແລະ tag ທີ່ມີຢູ່ແລ້ວ]' \
+            '(-m --message)'{-m,--message}'[ຂໍ້ຄວາມໝາຍເຫດຂອງ tag (ໃຊ້ %s ສຳລັບເວີຊັນ)]:msg:' \
+            '--remote[remote ທີ່ຈະ push ໄປກັບ --push]:name:' \
             '(-h --help)'{-h,--help}'[ສະແດງຄຳແນະນຳ]' \
-            '1:path:_files'
+            '::path:_files'
+          ;;
+        test)
+          _arguments \
+            '(-h --help)'{-h,--help}'[ສະແດງຄຳແນະນຳ]' \
+            '::dir:_directories'
           ;;
       esac
       ;;
@@ -488,15 +640,20 @@ _claude_plugin_marketplace() {
       case $words[1] in
         add)
           _arguments \
+            '--sparse[ຈຳກັດການ checkout ໄວ້ສະເພາະໂຟນເດີທີ່ລະບຸຜ່ານ git sparse-checkout (ສຳລັບ monorepo)]:paths:' \
+            '--scope[ບ່ອນທີ່ຈະປະກາດຕະຫຼາດ]:scope:(user project local)' \
+            '--claudeai[ເພີ່ມຕະຫຼາດຊື່ນີ້ທີ່ claude.ai ໂຮສໃຫ້ທ່ານ]' \
             '(-h --help)'{-h,--help}'[ສະແດງຄຳແນະນຳ]' \
             '1:source:'
           ;;
         list)
           _arguments \
+            '--json[ສະແດງຜົນເປັນ JSON]' \
             '(-h --help)'{-h,--help}'[ສະແດງຄຳແນະນຳ]'
           ;;
         remove|rm)
           _arguments \
+            '--scope[ລຶບການປະກາດຕະຫຼາດອອກຈາກຂອບເຂດການຕັ້ງຄ່າສະເພາະ (ຖ້າບໍ່ລະບຸ ຈະລຶບອອກຈາກທຸກຂອບເຂດ)]:scope:(user project local)' \
             '(-h --help)'{-h,--help}'[ສະແດງຄຳແນະນຳ]' \
             '1:name:'
           ;;
@@ -534,6 +691,7 @@ _claude_agents() {
     '--setting-sources[ລາຍຊື່ແຫຼ່ງການຕັ້ງຄ່າທີ່ຈະໂຫລດ (ແຍກດ້ວຍເຄື່ອງໝາຍຈຸດຄໍາ: user, project, local)]:sources:' \
     '--settings[ໄຟລ໌ການຕັ້ງຄ່າ ຫຼືສະຕຣິງ JSON ທີ່ຈະນຳໃຊ້]:file-or-json:_files' \
     '--strict-mcp-config[ໃຊ້ພຽງແຕ່ເຊີບເວີ MCP ຈາກ --mcp-config ໃນເຊສຊັນທີ່ຖືກສົ່ງໄປ]' \
+    '--restricted[ເລີ່ມເຊສຊັນທີ່ຖືກສົ່ງໄປໃນໂໝດຈຳກັດ]' \
     '(-h --help)'{-h,--help}'[ສະແດງຄຳແນະນຳຄຳສັ່ງ]'
 }
 
@@ -560,7 +718,21 @@ _claude_auth() {
       ;;
     args)
       case $words[1] in
-        login|logout|status)
+        login)
+          _arguments \
+            '--email[ຕື່ມທີ່ຢູ່ອີເມວລ່ວງໜ້າໃນໜ້າເຂົ້າສູ່ລະບົບ]:email:' \
+            '--sso[ບັງຄັບໃຊ້ຂັ້ນຕອນການເຂົ້າສູ່ລະບົບ SSO]' \
+            '(--claudeai)--console[ໃຊ້ Anthropic Console (ຄິດໄລ່ເງິນຕາມການໃຊ້ API) ແທນການສະໝັກໃຊ້ Claude]' \
+            '(--console)--claudeai[ໃຊ້ການສະໝັກໃຊ້ Claude (ຄ່າເລີ່ມຕົ້ນ)]' \
+            '(-h --help)'{-h,--help}'[ສະແດງຄຳແນະນຳຄຳສັ່ງ]'
+          ;;
+        status)
+          _arguments \
+            '(--text)--json[ສະແດງຜົນເປັນ JSON (ຄ່າເລີ່ມຕົ້ນ)]' \
+            '(--json)--text[ສະແດງຜົນເປັນຂໍ້ຄວາມທີ່ຄົນອ່ານໄດ້]' \
+            '(-h --help)'{-h,--help}'[ສະແດງຄຳແນະນຳຄຳສັ່ງ]'
+          ;;
+        logout)
           _arguments \
             '(-h --help)'{-h,--help}'[ສະແດງຄຳແນະນຳຄຳສັ່ງ]'
           ;;
@@ -593,7 +765,22 @@ _claude_auto_mode() {
       ;;
     args)
       case $words[1] in
-        config|critique|defaults|reset)
+        critique)
+          _arguments \
+            '--model[ຂຽນທັບຮູບແບບທີ່ຈະໃຊ້]:model:_claude_model_names' \
+            '(-h --help)'{-h,--help}'[ສະແດງຄຳແນະນຳຄຳສັ່ງ]'
+          ;;
+        defaults)
+          _arguments \
+            '--label[ສະແດງພຽງແຕ່ກົດທີ່ປ້າຍກຳກັບເລີ່ມຕົ້ນດ້ວຍຄຳນຳໜ້ານີ້ (ບໍ່ແຍກຕົວພິມໃຫຍ່-ນ້ອຍ)]:prefix:' \
+            '(-h --help)'{-h,--help}'[ສະແດງຄຳແນະນຳຄຳສັ່ງ]'
+          ;;
+        reset)
+          _arguments \
+            '(-y --yes)'{-y,--yes}'[ຂ້າມການຖາມຢືນຢັນ]' \
+            '(-h --help)'{-h,--help}'[ສະແດງຄຳແນະນຳຄຳສັ່ງ]'
+          ;;
+        config)
           _arguments \
             '(-h --help)'{-h,--help}'[ສະແດງຄຳແນະນຳຄຳສັ່ງ]'
           ;;
@@ -631,8 +818,12 @@ _claude_project() {
       case $words[1] in
         purge)
           _arguments \
+            '--dry-run[ສະແດງລາຍການສິ່ງທີ່ຈະຖືກລຶບ ໂດຍບໍ່ລຶບຫຍັງເລີຍ]' \
+            '(-y --yes)'{-y,--yes}'[ຂ້າມການຖາມຢືນຢັນ]' \
+            '(-i --interactive)'{-i,--interactive}'[ຖາມຢືນຢັນແຕ່ລະລາຍການກ່ອນລຶບ]' \
+            '(1)--all[ລຶບສະຖານະຂອງທຸກໂຄງການ (ໃຊ້ຮ່ວມກັບເສັ້ນທາງບໍ່ໄດ້)]' \
             '(-h --help)'{-h,--help}'[ສະແດງຄຳແນະນຳຄຳສັ່ງ]' \
-            '1:path:_directories'
+            '(--all)::path:_directories'
           ;;
       esac
       ;;
@@ -642,9 +833,34 @@ _claude_project() {
 _claude_ultrareview() {
   _arguments \
     '--json[ພິມ payload bugs.json ດິບ ແທນທີ່ຈະເປັນຜົນການຄົ້ນພົບທີ່ຈັດຮູບແບບແລ້ວ]' \
-    '--timeout[ນາທີສູງສຸດທີ່ຈະລໍຖ້າໃຫ້ການກວດສອບສຳເລັດ]:minutes:' \
+    '--timeout[ນາທີສູງສຸດທີ່ຈະລໍຖ້າໃຫ້ການກວດສອບສຳເລັດ (ຄ່າເລີ່ມຕົ້ນ: 45)]:minutes:' \
+    '(--no-post)--post[ໂພສຜົນການຄົ້ນພົບຂອງການກວດສອບທີ່ສຳເລັດແລ້ວໄປຫາ PR ໃນນາມຂອງທ່ານ (ສະເພາະເປົ້າໝາຍ PR; ເປັນຄຳເຫັນທຳມະດາອັນດຽວ ບໍ່ແມ່ນ review)]' \
+    '(--post)--no-post[ບໍ່ໂພສຜົນການຄົ້ນພົບໄປຫາ PR (ຄ່າເລີ່ມຕົ້ນ)]' \
     '(-h --help)'{-h,--help}'[ສະແດງຄຳແນະນຳຄຳສັ່ງ]' \
     '1:target:'
+}
+
+_claude_respawn() {
+  _arguments \
+    '(1)--all[ເລີ່ມເຊສຊັນພື້ນຫຼັງທີ່ກຳລັງແລ່ນຢູ່ທັງໝົດໃໝ່]' \
+    '(-h --help)'{-h,--help}'[ສະແດງຄຳແນະນຳຄຳສັ່ງ]' \
+    '(--all)::session:_claude_background_sessions'
+}
+
+_claude_rm() {
+  _arguments \
+    '--discard-unpushed[ຖິ້ມ commit ທີ່ຍັງບໍ່ໄດ້ push ແລະການປ່ຽນແປງທີ່ຍັງບໍ່ໄດ້ commit ຂອງ worktree ນຳ (ສົ່ງ commit@worktree-id ທີ່ claude rm ຄັ້ງກ່ອນລາຍງານ)]:commit@worktree-id:' \
+    '--force-remove-worktree[ລຶບໂຟນເດີ worktree ເຖິງວ່າ hook WorktreeRemove ຫຼື git ລຶບມັນບໍ່ໄດ້ກໍຕາມ (ສົ່ງ worktree-id ທີ່ claude rm ຄັ້ງກ່ອນລາຍງານ)]:worktree-id:' \
+    '(-h --help)'{-h,--help}'[ສະແດງຄຳແນະນຳຄຳສັ່ງ]' \
+    '1:session:_claude_background_sessions'
+}
+
+_claude_import() {
+  _arguments \
+    '--dry-run[ສະແດງສິ່ງທີ່ຈະຖືກນຳເຂົ້າ ໂດຍບໍ່ຂຽນຫຍັງເລີຍ]' \
+    '--yes[ຂ້າມຕົວເລືອກແບບໂຕ້ຕອບ (ໃນສະພາບແວດລ້ອມ headless ໃຫ້ສົ່ງ --yes=<digest> ຈາກການເບິ່ງຕົວຢ່າງ /import)]' \
+    '(-h --help)'{-h,--help}'[ສະແດງຄຳແນະນຳຄຳສັ່ງ]' \
+    '::source:(codex gemini cursor)'
 }
 
 (( $+_comps[claude] )) || compdef _claude claude
