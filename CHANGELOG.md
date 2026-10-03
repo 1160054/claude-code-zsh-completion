@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.8.0] - 2026-10-03
+
 ### Added
 - `claude --resume <TAB>` labels a session with the name it was given (`/rename` or `--name`) when it has one, and with its first prompt otherwise. Only the last 100 KB of each transcript is read for the name
 - Completion for the CLI 2.1.288 additions the 2.7.0 update missed: the top-level `purge` command (`project purge` is kept), `plugin install --accept-command`/`--registry`, `plugin update --accept-command`, `plugin list --data-size`, `plugin marketplace add`/`remove`/`update --json` and the `plugin eval init` subcommand, in `_claude`, the `en-*` variants and the twelve translated locales
