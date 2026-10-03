@@ -121,6 +121,39 @@ _claude_agent_names() {
   compadd -a agents
 }
 
+_claude_background_sessions() {
+  local -a sessions state_files
+  local -A names states
+  local state_dir state_file line id rest
+
+  # Background sessions (`claude --bg`) live in <config>/jobs/<id>/, where
+  # <id> is the short id that attach, logs, stop, respawn and rm take.
+  for state_dir in ${(f)"$(_claude_state_dirs)"}; do
+    # Newest first
+    state_files=(${state_dir}/jobs/*/state.json(Nom))
+    (( ${#state_files} )) || continue
+
+    # One grep for all of them; the first "name" and "state" it reports for a
+    # file are that file's top-level ones
+    names=() states=()
+    for line in ${(f)"$(grep -HoE '"(name|state)"[[:space:]]*:[[:space:]]*"[^"]*"' $state_files 2>/dev/null)"}; do
+      id=${${line%%/state.json:*}:t}
+      rest=${line#*/state.json:}
+      case $rest in
+        \"name\"*)  [[ -z $names[$id] ]]  && names[$id]=${${rest#*:*\"}%\"} ;;
+        \"state\"*) [[ -z $states[$id] ]] && states[$id]=${${rest#*:*\"}%\"} ;;
+      esac
+    done
+
+    for state_file in $state_files; do
+      id=${state_file:h:t}
+      sessions+=("${id}:${names[$id]:-no name}${states[$id]:+ (${states[$id]})}")
+    done
+  done
+
+  _describe -t sessions 'background session' sessions
+}
+
 _claude_model_names() {
   local -a models config_files
   local state_dir config_file
@@ -155,9 +188,15 @@ _claude() {
     'mcp:Konfigurēt un pārvaldīt MCP serverus'
     'plugin:Pārvaldīt Claude Code spraudņus'
     'agents:Pārvaldīt fona aģentus'
+    'attach:Atvērt fona sesiju šajā terminālī'
+    'logs:Izdrukāt fona sesijas neseno termināļa izvadi'
+    'stop:Apturēt fona sesiju (tās saruna tiek saglabāta)'
+    'respawn:Restartēt fona sesiju, lai tā darbotos ar pašreizējo Claude Code versiju'
+    'rm:Dzēst fona sesiju un, ja tas ir droši, arī tās worktree'
     'auth:Pārvaldīt autentifikāciju'
     'auto-mode:Pārbaudīt vai atiestatīt automātiskā režīma klasifikatora konfigurāciju'
     'gateway:Palaist uzņēmuma autentifikācijas/telemetrijas vārteju'
+    'import:Importēt konfigurāciju no cita AI programmēšanas aģenta uz Claude Code'
     'project:Pārvaldīt Claude Code projekta stāvokli'
     'ultrareview:Palaist mākonī mitinātu daudzaģentu koda pārskatīšanu un izdrukāt atradumus'
     'setup-token:Iestatīt ilgtermiņa autentifikācijas pilnvaru (nepieciešams Claude abonements)'
@@ -178,6 +217,7 @@ _claude() {
     '--mcp-debug[\[Novecojis. Izmantojiet --debug tā vietā\] Ieslēgt MCP atkļūdošanas režīmu (rāda MCP servera kļūdas)]'
     '--dangerously-skip-permissions[Apiet visas atļauju pārbaudes. Ieteicams tikai smilškastēm bez interneta piekļuves]'
     '--allow-dangerously-skip-permissions[Iespējot atļauju pārbaužu apiešanas opciju bez iespējošanas pēc noklusējuma]'
+    '--restricted[Ierobežotais režīms: noņemt rīkus, kas izpilda komandas vai kodu, un WebFetch, ignorēt user/project/local iestatījumus un ierobežot failu rīkus ar darba direktorijām]'
     '--max-budget-usd[Maksimālā dolāru summa, ko tērēt API izsaukumiem (tikai --print)]:amount:'
     '--replay-user-messages[Atkārtoti nosūtīt lietotāja ziņojumus no stdin uz stdout apstiprinājumam]'
     '--allowed-tools[Atļauto rīku nosaukumu saraksts, atdalīts ar komatiem vai atstarpēm (piem., "Bash(git:*) Edit")]:tools:'
@@ -187,8 +227,13 @@ _claude() {
     '--disallowedTools[Neatļauto rīku nosaukumu saraksts, atdalīts ar komatiem vai atstarpēm (camelCase formāts)]:tools:'
     '--mcp-config[Ielādēt MCP serverus no JSON faila vai virknes (atdalīti ar atstarpēm)]:configs:'
     '--system-prompt[Sistēmas uzvedne lietošanai sesijā]:prompt:'
+    '--system-prompt-file[Nolasīt sistēmas uzvedni no faila]:file:_files'
     '--append-system-prompt[Pievienot sistēmas uzvedni noklusējuma sistēmas uzvednei]:prompt:'
+    '--append-system-prompt-file[Nolasīt sistēmas uzvedni no faila un pievienot to noklusējuma sistēmas uzvednei]:file:_files'
+    '--system-prompt-snapshot[Ierakstīt sistēmas uzvedni vienreiz katrai sarunai un atkārtoti izmantot to burtiski katrā pieprasījumā un atsākšanā (on, noklusējuma) vai katram pieprasījumam veidot to no jauna (off)]:mode:(on off)'
     '--permission-mode[Atļauju režīms lietošanai sesijā]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)'
+    '--permission-prompts[Kas atbild uz atļauju uzvednēm ar --print: "host" (SDK resursdators vai --permission-prompt-tool) vai "none" (viss, kam būtu nepieciešama uzvedne, tiek noraidīts)]:target:(host none)'
+    '--permission-prompt-tool[MCP rīks, ko izmantot atļauju uzvednēm (tikai --print)]:tool:'
     '(-c --continue)'{-c,--continue}'[Turpināt pēdējo sarunu]'
     '(-r --resume)'{-r,--resume}'[Atsākt sarunu - norādiet sesijas identifikatoru vai izvēlieties interaktīvi]:sessionId:_claude_sessions'
     '--fork-session[Izveidot jaunu sesijas identifikatoru, nevis atkārtoti izmantot oriģinālo, atsākot (ar --resume vai --continue)]'
@@ -200,6 +245,7 @@ _claude() {
     '--settings[Ceļš uz JSON iestatījumu failu vai JSON virkni papildu iestatījumu ielādei]:file-or-json:_files'
     '--add-dir[Papildu direktorijas rīku piekļuves nodrošināšanai]:directories:_directories'
     '--ide[Automātiski savienoties ar IDE startēšanas laikā, ja ir pieejams tieši viens derīgs IDE]'
+    '--desktop[Atvērt Claude Desktop lietotnē termināļa vietā (ar --continue vai --resume <id>, lai izvēlētos sesiju)]'
     '--strict-mcp-config[Izmantot tikai MCP serverus no --mcp-config un ignorēt visus citus MCP iestatījumus]'
     '--session-id[Konkrēts sesijas identifikators lietošanai sarunā (jābūt derīgam UUID)]:uuid:'
     '--agents[JSON objekts, kas definē pielāgotus aģentus]:json:'
@@ -208,11 +254,15 @@ _claude() {
     '--disable-slash-commands[Atspējot visas slīpsvītras komandas]'
     '(--bg --background)'{--bg,--background}'[Palaist sesiju kā fona aģentu un nekavējoties atgriezties]'
     '(-w --worktree)'{-w,--worktree}'[Izveidot jaunu git worktree šai sesijai (pēc izvēles norādīt nosaukumu)]::name:'
-    '--tmux[Izveidot tmux sesiju worktree (nepieciešams --worktree)]'
+    '--tmux=-[Izveidot tmux sesiju worktree (nepieciešams --worktree). Izmanto iTerm2 iebūvētos paneļus, ja pieejami; --tmux=classic tradicionālajam tmux]::mode:(classic)'
     '(-n --name)'{-n,--name}'[Iestatīt attēlojamo nosaukumu šai sesijai]:name:'
     '--effort[Piepūles līmenis pašreizējai sesijai]:level:(low medium high xhigh max)'
+    '--autocompact[Automātiskās saspiešanas loga izmērs (auto vai 100k-1M marķieru)]:size:(auto)'
     '--debug-file[Rakstīt atkļūdošanas žurnālus uz noteiktu faila ceļu (netieši ieslēdz atkļūdošanas režīmu)]:path:_files'
     '--from-pr[Atsākt ar PR saistītu sesiju pēc numura/URL vai atvērt interaktīvo atlasītāju]::value:'
+    '--teleport[Atsākt teleport sesiju, pēc izvēles norādot sesijas identifikatoru]::session:'
+    '--cloud[Izveidot mākoņa sesiju ar norādīto aprakstu vai pievienoties esošai pēc sesijas identifikatora vai claude.ai/code URL]::description-or-session:'
+    '--environment[Izveidot jaunu mākoņa sesiju, kas darbojas norādītajā pašmitinātajā vidē (ccpool_...)]:environment_id:'
     '--remote-control[Sākt interaktīvu sesiju ar iespējotu Remote Control (pēc izvēles ar nosaukumu)]::name:'
     '--remote-control-session-name-prefix[Prefikss automātiski ģenerētiem Remote Control sesiju nosaukumiem]:prefix:'
     '--chrome[Iespējot Claude in Chrome integrāciju]'
@@ -254,6 +304,17 @@ _claude() {
         agents)
           _claude_agents
           ;;
+        attach|logs|stop|kill)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Rādīt palīdzību komandai]' \
+            '1:session:_claude_background_sessions'
+          ;;
+        respawn)
+          _claude_respawn
+          ;;
+        rm)
+          _claude_rm
+          ;;
         auth)
           _claude_auth
           ;;
@@ -262,6 +323,9 @@ _claude() {
           ;;
         gateway)
           _claude_gateway
+          ;;
+        import)
+          _claude_import
           ;;
         project)
           _claude_project
@@ -319,6 +383,9 @@ _claude_mcp() {
             '(-t --transport)'{-t,--transport}'[Transporta tips (stdio, sse, http)]:transport:(stdio sse http)' \
             '(-e --env)'{-e,--env}'[Iestatīt vides mainīgo (piem., -e KEY=value)]:env:' \
             '(-H --header)'{-H,--header}'[Iestatīt WebSocket galveni]:header:' \
+            '--client-id[OAuth klienta ID HTTP/SSE serveriem]:clientId:' \
+            '--client-secret[Pieprasīt OAuth klienta noslēpumu (vai iestatiet vides mainīgo MCP_CLIENT_SECRET)]' \
+            '--callback-port[Fiksēts ports OAuth atzvanam (serveriem, kuriem nepieciešami iepriekš reģistrēti novirzīšanas URI)]:port:' \
             '(-h --help)'{-h,--help}'[Rādīt palīdzību]' \
             '1:name:' \
             '2:commandOrUrl:' \
@@ -342,6 +409,7 @@ _claude_mcp() {
         add-json)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Konfigurācijas apjoms (local, user, project)]:scope:(local user project)' \
+            '--client-secret[Pieprasīt OAuth klienta noslēpumu (vai iestatiet vides mainīgo MCP_CLIENT_SECRET)]' \
             '(-h --help)'{-h,--help}'[Rādīt palīdzību]' \
             '1:name:' \
             '2:json:'
@@ -355,7 +423,13 @@ _claude_mcp() {
           _arguments \
             '(-h --help)'{-h,--help}'[Rādīt palīdzību]'
           ;;
-        login|logout)
+        login)
+          _arguments \
+            '--no-browser[Izdrukāt autorizācijas URL, nevis atvērt pārlūku (SSH/bezgalvas sesijām)]' \
+            '(-h --help)'{-h,--help}'[Rādīt palīdzību]' \
+            '1:name:_claude_mcp_servers'
+          ;;
+        logout)
           _arguments \
             '(-h --help)'{-h,--help}'[Rādīt palīdzību]' \
             '1:name:_claude_mcp_servers'
@@ -372,9 +446,11 @@ _claude_plugin() {
     'marketplace:Pārvaldīt Claude Code tirgus'
     'list:Rādīt instalēto spraudņu sarakstu'
     'details:Rādīt komponentu inventāru un prognozēto marķieru izmaksu spraudnim'
+    'configure:Rādīt spraudņa opcijas un to, kuras nav iestatītas, vai saglabāt vērtības no stdin'
     'install:Instalēt spraudni no pieejamajiem tirgiem'
     'i:Instalēt spraudni no pieejamajiem tirgiem (install saīsinājums)'
     'init:Izveidot jauna spraudņa sagatavi (automātiski ielādējas nākamajā sesijā)'
+    'new:Izveidot jauna spraudņa sagatavi (init sinonīms)'
     'uninstall:Noņemt instalēto spraudni'
     'remove:Noņemt instalēto spraudni (uninstall sinonīms)'
     'enable:Iespējot atspējotu spraudni'
@@ -382,7 +458,9 @@ _claude_plugin() {
     'update:Atjaunināt spraudni uz jaunāko versiju'
     'eval:Palaist novērtēšanas gadījumus pret spraudni un ziņot novērtētos rezultātus'
     'prune:Noņemt automātiski instalētās atkarības, kas vairs nav nepieciešamas'
+    'autoremove:Noņemt automātiski instalētās atkarības, kas vairs nav nepieciešamas (prune sinonīms)'
     'tag:Izveidot {name}--v{version} git tagu spraudņa laidienam'
+    'test:Palaist moda (spraudņa) testus'
     'help:Rādīt palīdzību'
   )
 
@@ -402,6 +480,8 @@ _claude_plugin() {
       case $words[1] in
         validate)
           _arguments \
+            '--strict[Uzskatīt brīdinājumus par kļūdām (izejas kods 1)]' \
+            '--json[Izvadīt validācijas atskaiti kā JSON (tie paši izejas kodi)]' \
             '(-h --help)'{-h,--help}'[Rādīt palīdzību]' \
             '1:path:_files'
           ;;
@@ -411,50 +491,122 @@ _claude_plugin() {
         install|i)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Instalācijas apjoms]:scope:(user project local)' \
+            '*--config[Iestatīt spraudņa manifestā deklarētu userConfig opciju (var atkārtot)]:key=value:' \
+            '(-y --yes)'{-y,--yes}'[Pieņemt parādīto tirgus deklarēto komandu bez apstiprinājuma uzvednes]' \
+            '--json[Izdrukāt vienu mašīnlasāmu rezultāta rindu cilvēkam paredzētā ziņojuma vietā]' \
             '(-h --help)'{-h,--help}'[Rādīt palīdzību]' \
             '1:plugin:'
           ;;
         uninstall|remove)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Instalācijas apjoms]:scope:(user project local)' \
+            '--keep-data[Saglabāt spraudņa pastāvīgo datu direktoriju]' \
+            '--prune[Noņemt arī automātiski instalētās atkarības, kas vairs nav nepieciešamas]' \
+            '(-y --yes)'{-y,--yes}'[Izlaist --prune apstiprinājuma uzvedni]' \
+            '--json[Izdrukāt vienu mašīnlasāmu rezultāta rindu cilvēkam paredzētā ziņojuma vietā (ne ar --prune)]' \
             '(-h --help)'{-h,--help}'[Rādīt palīdzību]' \
             '1:plugin:_claude_installed_plugins'
           ;;
-        enable|disable)
+        enable)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Instalācijas apjoms]:scope:(user project local)' \
+            '--json[Izdrukāt vienu mašīnlasāmu rezultāta rindu cilvēkam paredzētā ziņojuma vietā]' \
             '(-h --help)'{-h,--help}'[Rādīt palīdzību]' \
             '1:plugin:_claude_installed_plugins'
+          ;;
+        disable)
+          _arguments \
+            '(-a --all)'{-a,--all}'[Atspējot visus iespējotos spraudņus]' \
+            '(-s --scope)'{-s,--scope}'[Instalācijas apjoms]:scope:(user project local)' \
+            '--json[Izdrukāt vienu mašīnlasāmu rezultāta rindu cilvēkam paredzētā ziņojuma vietā]' \
+            '(-h --help)'{-h,--help}'[Rādīt palīdzību]' \
+            '::plugin:_claude_installed_plugins'
           ;;
         update)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Instalācijas apjoms]:scope:(user project local managed)' \
+            '(-y --yes)'{-y,--yes}'[Pieņemt parādīto tirgus deklarēto komandu bez apstiprinājuma uzvednes]' \
+            '--json[Izdrukāt vienu mašīnlasāmu rezultāta rindu cilvēkam paredzētā ziņojuma vietā]' \
             '(-h --help)'{-h,--help}'[Rādīt palīdzību]' \
             '1:plugin:_claude_installed_plugins'
           ;;
-        list|prune)
+        list)
           _arguments \
+            '--json[Izvadīt kā JSON]' \
+            '--available[Iekļaut pieejamos spraudņus no tirgiem (nepieciešams --json)]' \
             '(-h --help)'{-h,--help}'[Rādīt palīdzību]'
+          ;;
+        prune|autoremove)
+          _arguments \
+            '(-s --scope)'{-s,--scope}'[Tīrīt norādītajā apjomā]:scope:(user project local)' \
+            '--dry-run[Uzskaitīt, kas tiktu noņemts, neko nenoņemot]' \
+            '(-y --yes)'{-y,--yes}'[Izlaist apstiprinājuma uzvedni]' \
+            '(-h --help)'{-h,--help}'[Rādīt palīdzību]'
+          ;;
+        configure)
+          _arguments \
+            '--json[Izvadīt kā JSON]' \
+            '--values-stdin[Nolasīt opciju vērtības no stdin kā JSON objektu ar vienrindas virknēm; neiekļautās opcijas saglabā savas vērtības]' \
+            '(-h --help)'{-h,--help}'[Rādīt palīdzību]' \
+            '1:plugin:_claude_installed_plugins'
           ;;
         details)
           _arguments \
             '(-h --help)'{-h,--help}'[Rādīt palīdzību]' \
             '1:plugin:_claude_installed_plugins'
           ;;
-        init)
+        init|new)
           _arguments \
+            '--description[Manifesta apraksts]:text:' \
+            '--author[Autora vārds (noklusējums: git config user.name)]:name:' \
+            '--author-email[Autora e-pasts (noklusējums: git config user.email)]:email:' \
+            '--with[Komponenti, kuru sagatavi izveidot papildus]:components:' \
+            '(-f --force)'{-f,--force}'[Pārrakstīt esošo .claude-plugin/ mērķī]' \
             '(-h --help)'{-h,--help}'[Rādīt palīdzību]' \
             '1:name:'
           ;;
         eval)
           _arguments \
+            '--case[Filtrēt gadījumus pēc nosaukuma glob šablona]:glob:' \
+            '*--tag[Filtrēt gadījumus pēc taga (var atkārtot)]:tag:' \
+            '--runs[Pārrakstīt palaišanu skaitu katram gadījumam (noklusējums: case.runs, citādi 3)]:n:' \
+            '(-j --concurrency)'{-j,--concurrency}'[Izpildīt līdz n aģenta palaišanām vienlaikus (1-8; noklusējums 1)]:n:' \
+            '--model[Pārrakstīt modeli visiem gadījumiem]:model:_claude_model_names' \
+            '--judge-model[Pārrakstīt LLM vērtētāja modeli (noklusējums: haiku)]:model:_claude_model_names' \
+            '--max-cost-usd[Stingri izmaksu griesti; tos sasniedzot, pārtraukt un ziņot daļējos rezultātus (izejas kods 2)]:usd:' \
+            '--output-dir[Direktorija failam aggregate-result.json]:dir:_directories' \
+            '--eval-dir[Direktorijas nosaukums (spraudņa iekšienē), kurā atrodas novērtēšanas gadījumi]:dir:' \
+            '--json[Izdrukāt pilnu palaišanas rezultātu kā JSON uz stdout vai ierakstīt to šajā .json failā]::path:_files' \
+            '--threshold[Iziet ar izejas kodu 1, ja kāda gadījuma vērtējums ir zem šī sliekšņa (noklusējums: 1.0)]:threshold:' \
+            '*--allow-tools[Operatora atļauja ierobežotajiem rīkiem (Bash, Write, Edit, WebFetch, mcp__*)]:tools:' \
+            '(--no-scaffold)--scaffold[Palaist katra gadījuma scaffold_script (izpilda autora sniegto bash jūsu vārdā; pēc noklusējuma izslēgts)]' \
+            '(--scaffold)--no-scaffold[Skaidri izlaist scaffold_script]' \
+            '--trust-plugin[Apliecināt, ka uzticaties šim spraudnim un tā novērtēšanas komplektam, izlaižot pirmās palaišanas uzticamības uzvedni (CI vajadzībām)]' \
+            '--ablation[Palaist bāzlīnijas salīdzinājuma grupu bez spraudņa un ziņot vērtējuma starpību]:mode:(none with-without)' \
+            '--mocks[Imitācijas aizstājēji MCP serveriem no <eval dir>/mocks/]:mode:(record off)' \
+            '--allow-real-servers[Ar --mocks record: palaist arī īstos MCP serveru procesus, kuriem nav imitācijas]' \
+            '--keep-temp[Saglabāt sagatavju direktorijas atkļūdošanai]' \
+            '--verbose[Reģistrēt katra ziņojuma izsekošanas notikumus atkļūdošanas žurnālā]' \
+            '--report[Ierakstīt pašpietiekamo HTML atskaiti šajā ceļā, nevis rezultātu direktorijā]:path:_files' \
+            '(--no-publish)--publish-report[Pieprasīt arī atskaites publicēšanu claude.ai]' \
+            '(--publish-report)--no-publish[Paturēt HTML atskaiti tikai lokāli; izlaist tās publicēšanu claude.ai]' \
             '(-h --help)'{-h,--help}'[Rādīt palīdzību]' \
-            '1:target:'
+            '::target: _alternative "plugins\:installed plugin\:_claude_installed_plugins" "files\:path\:_files"'
           ;;
         tag)
           _arguments \
+            '--push[Nosūtīt tagu uz --remote pēc tā izveides]' \
+            '--dry-run[Izdrukāt, kas tiktu atzīmēts ar tagu, to neizveidojot]' \
+            '(-f --force)'{-f,--force}'[Izlaist neiesūtītu izmaiņu darba kokā un jau esoša taga pārbaudes]' \
+            '(-m --message)'{-m,--message}'[Taga anotācijas ziņojums (izmantojiet %s versijai)]:msg:' \
+            '--remote[Attālā krātuve, uz kuru nosūtīt ar --push]:name:' \
             '(-h --help)'{-h,--help}'[Rādīt palīdzību]' \
-            '1:path:_files'
+            '::path:_files'
+          ;;
+        test)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Rādīt palīdzību]' \
+            '::dir:_directories'
           ;;
       esac
       ;;
@@ -488,15 +640,20 @@ _claude_plugin_marketplace() {
       case $words[1] in
         add)
           _arguments \
+            '--sparse[Ierobežot izgūšanu ar noteiktām direktorijām, izmantojot git sparse-checkout (monorepozitorijiem)]:paths:' \
+            '--scope[Kur deklarēt tirgu]:scope:(user project local)' \
+            '--claudeai[Pievienot šī nosaukuma tirgu, ko claude.ai mitina jums]' \
             '(-h --help)'{-h,--help}'[Rādīt palīdzību]' \
             '1:source:'
           ;;
         list)
           _arguments \
+            '--json[Izvadīt kā JSON]' \
             '(-h --help)'{-h,--help}'[Rādīt palīdzību]'
           ;;
         remove|rm)
           _arguments \
+            '--scope[Noņemt tirgus deklarāciju no konkrēta iestatījumu apjoma (izlaidiet, lai noņemtu to no visiem apjomiem)]:scope:(user project local)' \
             '(-h --help)'{-h,--help}'[Rādīt palīdzību]' \
             '1:name:'
           ;;
@@ -534,6 +691,7 @@ _claude_agents() {
     '--setting-sources[Iestatījumu avotu saraksts, atdalīts ar komatiem, ielādei (user, project, local)]:sources:' \
     '--settings[Iestatījumu fails vai JSON virkne, ko piemērot]:file-or-json:_files' \
     '--strict-mcp-config[Izmantot tikai MCP serverus no --mcp-config nosūtītajās sesijās]' \
+    '--restricted[Sākt nosūtītās sesijas ierobežotajā režīmā]' \
     '(-h --help)'{-h,--help}'[Rādīt palīdzību komandai]'
 }
 
@@ -560,7 +718,21 @@ _claude_auth() {
       ;;
     args)
       case $words[1] in
-        login|logout|status)
+        login)
+          _arguments \
+            '--email[Iepriekš aizpildīt e-pasta adresi pieteikšanās lapā]:email:' \
+            '--sso[Piespiedu kārtā izmantot SSO pieteikšanās plūsmu]' \
+            '(--claudeai)--console[Izmantot Anthropic Console (norēķini par API lietojumu) Claude abonementa vietā]' \
+            '(--console)--claudeai[Izmantot Claude abonementu (noklusējuma)]' \
+            '(-h --help)'{-h,--help}'[Rādīt palīdzību komandai]'
+          ;;
+        status)
+          _arguments \
+            '(--text)--json[Izvadīt kā JSON (noklusējuma)]' \
+            '(--json)--text[Izvadīt kā cilvēkam lasāmu tekstu]' \
+            '(-h --help)'{-h,--help}'[Rādīt palīdzību komandai]'
+          ;;
+        logout)
           _arguments \
             '(-h --help)'{-h,--help}'[Rādīt palīdzību komandai]'
           ;;
@@ -593,7 +765,22 @@ _claude_auto_mode() {
       ;;
     args)
       case $words[1] in
-        config|critique|defaults|reset)
+        critique)
+          _arguments \
+            '--model[Pārrakstīt izmantojamo modeli]:model:_claude_model_names' \
+            '(-h --help)'{-h,--help}'[Rādīt palīdzību komandai]'
+          ;;
+        defaults)
+          _arguments \
+            '--label[Rādīt tikai noteikumus, kuru etiķete sākas ar šo prefiksu (reģistrnejutīgi)]:prefix:' \
+            '(-h --help)'{-h,--help}'[Rādīt palīdzību komandai]'
+          ;;
+        reset)
+          _arguments \
+            '(-y --yes)'{-y,--yes}'[Izlaist apstiprinājuma uzvedni]' \
+            '(-h --help)'{-h,--help}'[Rādīt palīdzību komandai]'
+          ;;
+        config)
           _arguments \
             '(-h --help)'{-h,--help}'[Rādīt palīdzību komandai]'
           ;;
@@ -631,8 +818,12 @@ _claude_project() {
       case $words[1] in
         purge)
           _arguments \
+            '--dry-run[Uzskaitīt, kas tiktu dzēsts, neko nedzēšot]' \
+            '(-y --yes)'{-y,--yes}'[Izlaist apstiprinājuma uzvedni]' \
+            '(-i --interactive)'{-i,--interactive}'[Vaicāt par katru vienumu pirms dzēšanas]' \
+            '(1)--all[Dzēst stāvokli visiem projektiem (savstarpēji izslēdzošs ar ceļu)]' \
             '(-h --help)'{-h,--help}'[Rādīt palīdzību komandai]' \
-            '1:path:_directories'
+            '(--all)::path:_directories'
           ;;
       esac
       ;;
@@ -642,9 +833,34 @@ _claude_project() {
 _claude_ultrareview() {
   _arguments \
     '--json[Izdrukāt neapstrādāto bugs.json kravu formatētu atradumu vietā]' \
-    '--timeout[Maksimālais minūšu skaits, cik gaidīt pārskatīšanas pabeigšanu]:minutes:' \
+    '--timeout[Maksimālais minūšu skaits, cik gaidīt pārskatīšanas pabeigšanu (noklusējums: 45)]:minutes:' \
+    '(--no-post)--post[Publicēt pabeigtās pārskatīšanas atradumus PR jūsu vārdā (tikai PR mērķiem; viens vienkāršs komentārs, nevis pārskatīšana)]' \
+    '(--post)--no-post[Nepublicēt atradumus PR (noklusējuma)]' \
     '(-h --help)'{-h,--help}'[Rādīt palīdzību komandai]' \
     '1:target:'
+}
+
+_claude_respawn() {
+  _arguments \
+    '(1)--all[Restartēt katru darbojošos fona sesiju]' \
+    '(-h --help)'{-h,--help}'[Rādīt palīdzību komandai]' \
+    '(--all)::session:_claude_background_sessions'
+}
+
+_claude_rm() {
+  _arguments \
+    '--discard-unpushed[Atmest arī worktree nenosūtītās iesūtes un neiesūtītās izmaiņas (norādiet commit@worktree-id, ko ziņoja iepriekšējā claude rm izpilde)]:commit@worktree-id:' \
+    '--force-remove-worktree[Dzēst worktree direktoriju, pat ja WorktreeRemove āķis vai git to nevarēja noņemt (norādiet worktree-id, ko ziņoja iepriekšējā claude rm izpilde)]:worktree-id:' \
+    '(-h --help)'{-h,--help}'[Rādīt palīdzību komandai]' \
+    '1:session:_claude_background_sessions'
+}
+
+_claude_import() {
+  _arguments \
+    '--dry-run[Rādīt, kas tiktu importēts, neko neierakstot]' \
+    '--yes[Izlaist interaktīvo atlasītāju (bezgalvas vidēs norādiet --yes=<digest> no /import priekšskatījuma)]' \
+    '(-h --help)'{-h,--help}'[Rādīt palīdzību komandai]' \
+    '::source:(codex gemini cursor)'
 }
 
 (( $+_comps[claude] )) || compdef _claude claude
