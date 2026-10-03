@@ -51,9 +51,9 @@ Type "claude() { : }"
 Enter
 Type "zmodload zsh/complist"
 Enter
-# Recording only: flash a TAB marker at the right edge so the viewer sees the
-# key being pressed, then complete as usual
-Type `tab-flash() { RPROMPT='%K{green}%F{black}%B TAB %b%f%k'; zle reset-prompt; zle -R; sleep 0.45; RPROMPT=''; zle reset-prompt; zle tab-complete }`
+# Recording only: flash <TAB> where the cursor is so the viewer sees the key
+# being pressed, then complete as usual
+Type `tab-flash() { echoti civis; POSTDISPLAY="<TAB>"; zle -R; sleep 0.45; POSTDISPLAY=""; echoti cnorm; zle tab-complete }`
 Enter
 # A completion widget has to be called through zle -C: a plain widget calling
 # menu-select completes nothing

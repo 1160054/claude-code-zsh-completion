@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Demo: `<TAB>` now flashes in plain text where the cursor is, instead of as a green badge at the right edge
+
 ## [2.8.0] - 2026-10-03
 
 ### Added
