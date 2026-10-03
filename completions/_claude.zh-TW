@@ -260,7 +260,6 @@ _claude() {
     '--effort[目前工作階段的努力程度]:level:(low medium high xhigh max)'
     '--autocompact[自動壓縮視窗大小（auto，或 100k 到 1M 個 token）]:size:(auto)'
     '--debug-file[將偵錯記錄寫入特定檔案路徑（隱含啟用偵錯模式）]:path:_files'
-    '--from-pr[繼續依編號/URL 連結至 PR 的工作階段，或開啟互動式選擇器]::value:'
     '--teleport[恢復傳送工作階段，可選擇指定工作階段 ID]::session:'
     '--cloud[使用指定的描述建立雲端工作階段，或透過工作階段 ID 或 claude.ai/code URL 附加到現有的工作階段]::description-or-session:'
     '--environment[建立在指定自架環境（ccpool_...）上執行的新雲端工作階段]:environment_id:'

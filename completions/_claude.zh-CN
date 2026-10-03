@@ -260,7 +260,6 @@ _claude() {
     '--effort[当前会话的努力程度]:level:(low medium high xhigh max)'
     '--autocompact[自动压缩窗口大小（auto，或100k到1M个token）]:size:(auto)'
     '--debug-file[将调试日志写入特定文件路径（隐式启用调试模式）]:path:_files'
-    '--from-pr[恢复通过编号/URL链接到PR的会话，或打开交互式选择器]::value:'
     '--teleport[恢复传送会话，可选指定会话ID]::session:'
     '--cloud[使用给定描述创建云会话，或通过会话ID或claude.ai/code URL附加到现有会话]::description-or-session:'
     '--environment[创建在指定自托管环境（ccpool_...）上运行的新云会话]:environment_id:'

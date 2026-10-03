@@ -260,7 +260,6 @@ _claude() {
     '--effort[Effort level for the current session]:level:(low medium high xhigh max)'
     '--autocompact[Auto-compact window size (auto, or 100k-1M tokens)]:size:(auto)'
     '--debug-file[Write debug logs to a specific file path (implicitly enables debug mode)]:path:_files'
-    '--from-pr[Resume a session linked to a PR by number/URL, or open interactive picker]::value:'
     '--teleport[Resume a teleport session, optionally specify session ID]::session:'
     '--cloud[Create a cloud session with the given description, or attach to an existing one by session ID or claude.ai/code URL]::description-or-session:'
     '--environment[Create a new cloud session that runs on the given self-hosted environment (ccpool_...)]:environment_id:'
