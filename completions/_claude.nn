@@ -121,6 +121,39 @@ _claude_agent_names() {
   compadd -a agents
 }
 
+_claude_background_sessions() {
+  local -a sessions state_files
+  local -A names states
+  local state_dir state_file line id rest
+
+  # Background sessions (`claude --bg`) live in <config>/jobs/<id>/, where
+  # <id> is the short id that attach, logs, stop, respawn and rm take.
+  for state_dir in ${(f)"$(_claude_state_dirs)"}; do
+    # Newest first
+    state_files=(${state_dir}/jobs/*/state.json(Nom))
+    (( ${#state_files} )) || continue
+
+    # One grep for all of them; the first "name" and "state" it reports for a
+    # file are that file's top-level ones
+    names=() states=()
+    for line in ${(f)"$(grep -HoE '"(name|state)"[[:space:]]*:[[:space:]]*"[^"]*"' $state_files 2>/dev/null)"}; do
+      id=${${line%%/state.json:*}:t}
+      rest=${line#*/state.json:}
+      case $rest in
+        \"name\"*)  [[ -z $names[$id] ]]  && names[$id]=${${rest#*:*\"}%\"} ;;
+        \"state\"*) [[ -z $states[$id] ]] && states[$id]=${${rest#*:*\"}%\"} ;;
+      esac
+    done
+
+    for state_file in $state_files; do
+      id=${state_file:h:t}
+      sessions+=("${id}:${names[$id]:-no name}${states[$id]:+ (${states[$id]})}")
+    done
+  done
+
+  _describe -t sessions 'background session' sessions
+}
+
 _claude_model_names() {
   local -a models config_files
   local state_dir config_file
@@ -155,9 +188,15 @@ _claude() {
     'mcp:Konfigurer og administrer MCP-tenarar'
     'plugin:Administrer Claude Code-tillegg'
     'agents:Administrer bakgrunnsagentar'
+    'attach:Opne ei bakgrunnsøkt i denne terminalen'
+    'logs:Skriv ut nyleg terminalutdata frå ei bakgrunnsøkt'
+    'stop:Stopp ei bakgrunnsøkt (samtalen vert teken vare på)'
+    'respawn:Start ei bakgrunnsøkt på nytt slik at ho køyrer gjeldande Claude Code-versjon'
+    'rm:Slett ei bakgrunnsøkt, og arbeidstreet hennar når det er trygt'
     'auth:Administrer autentisering'
     'auto-mode:Inspiser eller tilbakestill konfigurasjon for auto-modus-klassifisering'
     'gateway:Køyr autentiserings-/telemetrigatewayen for verksemd'
+    'import:Importer konfigurasjon frå ein annan AI-kodeagent til Claude Code'
     'project:Administrer Claude Code-prosjekttilstand'
     'ultrareview:Køyr ein skybasert kodegjennomgang med fleire agentar og skriv ut funna'
     'setup-token:Konfigurer langsiktig autentiseringstoken (krev Claude-abonnement)'
@@ -178,6 +217,7 @@ _claude() {
     '--mcp-debug[\[Forelda. Bruk --debug i staden\] Aktiver MCP-feilsøkingsmodus (viser MCP-tenarar feil)]'
     '--dangerously-skip-permissions[Omgå alle tillatelseskontrollar. Tilrådd berre for sandkasser utan internettilgang]'
     '--allow-dangerously-skip-permissions[Aktiver moglegheit for å omgå tillatelseskontrollar utan å aktivere som standard]'
+    '--restricted[Avgrensa modus: fjern verktøya som køyrer kommandoar eller kode samt WebFetch, ignorer user/project/local-innstillingar, og avgrens filverktøy til arbeidsmappene]'
     '--max-budget-usd[Maksimalt dollarbeløp å bruke på API-kall (berre --print)]:amount:'
     '--replay-user-messages[Send brukarmeldingar frå stdin på stdout for stadfesting]'
     '--allowed-tools[Komma- eller mellomromseparert liste over tillatne verktøynamn (t.d. "Bash(git:*) Edit")]:tools:'
@@ -187,8 +227,13 @@ _claude() {
     '--disallowedTools[Komma- eller mellomromseparert liste over ikkje-tillatne verktøynamn (camelCase-format)]:tools:'
     '--mcp-config[Last inn MCP-tenarar frå JSON-fil eller streng (mellomromseparert)]:configs:'
     '--system-prompt[Systemprompt å bruke for økt]:prompt:'
+    '--system-prompt-file[Les systemprompt frå ei fil]:file:_files'
     '--append-system-prompt[Legg til systemprompt til standard systemprompt]:prompt:'
+    '--append-system-prompt-file[Les systemprompt frå ei fil og legg han til standard systemprompt]:file:_files'
+    '--system-prompt-snapshot[Registrer systemprompten éin gong per samtale og gjenbruk han ordrett ved kvar førespurnad og gjenopptak (on, standard), eller generer han på nytt ved kvar førespurnad (off)]:mode:(on off)'
     '--permission-mode[Tillatelsesmodus å bruke for økt]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)'
+    '--permission-prompts[Kven som svarar på tillatelsesførespurnader med --print: "host" (SDK-verten eller --permission-prompt-tool) eller "none" (alt som ville kravd ein førespurnad vert avvist)]:target:(host none)'
+    '--permission-prompt-tool[MCP-verktøy å bruke for tillatelsesførespurnader (berre --print)]:tool:'
     '(-c --continue)'{-c,--continue}'[Hald fram den siste samtalen]'
     '(-r --resume)'{-r,--resume}'[Gjenoppta ei samtale - angi økt-ID eller vel interaktivt]:sessionId:_claude_sessions'
     '--fork-session[Opprett ny økt-ID i staden for å gjenbruke original økt-ID ved gjenopptak (med --resume eller --continue)]'
@@ -200,6 +245,7 @@ _claude() {
     '--settings[Sti til innstillingar JSON-fil eller JSON-streng for å laste ytterlegare innstillingar]:file-or-json:_files'
     '--add-dir[Ytterlegare mapper å tillate verktøytilgang]:directories:_directories'
     '--ide[Kople automatisk til IDE ved oppstart dersom nøyaktig éin gyldig IDE er tilgjengeleg]'
+    '--desktop[Opne i Claude Desktop-appen i staden for terminalen (med --continue eller --resume <id> for å velje økta)]'
     '--strict-mcp-config[Bruk berre MCP-tenarar frå --mcp-config og ignorer alle andre MCP-innstillingar]'
     '--session-id[Spesifikk økt-ID å bruke for samtale (må vere gyldig UUID)]:uuid:'
     '--agents[JSON-objekt som definerer tilpassa agentar]:json:'
@@ -208,11 +254,15 @@ _claude() {
     '--disable-slash-commands[Deaktiver alle skråstrekkommandoar]'
     '(--bg --background)'{--bg,--background}'[Start økta som ein bakgrunnsagent og returner umiddelbart]'
     '(-w --worktree)'{-w,--worktree}'[Opprett eit nytt git-arbeidstre for denne økta (angi eventuelt eit namn)]::name:'
-    '--tmux[Opprett ei tmux-økt for arbeidstreet (krev --worktree)]'
+    '--tmux=-[Opprett ei tmux-økt for arbeidstreet (krev --worktree). Brukar iTerm2 sine eigne panel når dei er tilgjengelege; --tmux=classic for tradisjonell tmux]::mode:(classic)'
     '(-n --name)'{-n,--name}'[Set eit visingsnamn for denne økta]:name:'
     '--effort[Innsatsnivå for gjeldande økt]:level:(low medium high xhigh max)'
+    '--autocompact[Vindaugsstorleik for automatisk komprimering (auto, eller 100k-1M tokens)]:size:(auto)'
     '--debug-file[Skriv feilsøkingsloggar til ein spesifikk filsti (aktiverer implisitt feilsøkingsmodus)]:path:_files'
     '--from-pr[Gjenoppta ei økt kopla til ein PR via nummer/URL, eller opne interaktiv veljar]::value:'
+    '--teleport[Gjenoppta ei teleport-økt, angi eventuelt økt-ID]::session:'
+    '--cloud[Opprett ei skyøkt med den angitte skildringa, eller kople til ei eksisterande via økt-ID eller claude.ai/code-URL]::description-or-session:'
+    '--environment[Opprett ei ny skyøkt som køyrer i det angitte sjølvdrifta miljøet (ccpool_...)]:environment_id:'
     '--remote-control[Start ei interaktiv økt med Fjernstyring aktivert (eventuelt namngitt)]::name:'
     '--remote-control-session-name-prefix[Prefiks for automatisk genererte Fjernstyring-øktnamn]:prefix:'
     '--chrome[Aktiver Claude i Chrome-integrasjon]'
@@ -254,6 +304,17 @@ _claude() {
         agents)
           _claude_agents
           ;;
+        attach|logs|stop|kill)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Vis hjelp for kommando]' \
+            '1:session:_claude_background_sessions'
+          ;;
+        respawn)
+          _claude_respawn
+          ;;
+        rm)
+          _claude_rm
+          ;;
         auth)
           _claude_auth
           ;;
@@ -262,6 +323,9 @@ _claude() {
           ;;
         gateway)
           _claude_gateway
+          ;;
+        import)
+          _claude_import
           ;;
         project)
           _claude_project
@@ -319,6 +383,9 @@ _claude_mcp() {
             '(-t --transport)'{-t,--transport}'[Transporttype (stdio, sse, http)]:transport:(stdio sse http)' \
             '(-e --env)'{-e,--env}'[Angi miljøvariabel (t.d. -e KEY=value)]:env:' \
             '(-H --header)'{-H,--header}'[Angi WebSocket-header]:header:' \
+            '--client-id[OAuth-klient-ID for HTTP/SSE-tenarar]:clientId:' \
+            '--client-secret[Spør etter OAuth-klientløyndom (eller set miljøvariabelen MCP_CLIENT_SECRET)]' \
+            '--callback-port[Fast port for OAuth-tilbakekall (for tenarar som krev førehandsregistrerte omdirigerings-URI-ar)]:port:' \
             '(-h --help)'{-h,--help}'[Vis hjelp]' \
             '1:name:' \
             '2:commandOrUrl:' \
@@ -342,6 +409,7 @@ _claude_mcp() {
         add-json)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Konfigurasjonsomfang (local, user, project)]:scope:(local user project)' \
+            '--client-secret[Spør etter OAuth-klientløyndom (eller set miljøvariabelen MCP_CLIENT_SECRET)]' \
             '(-h --help)'{-h,--help}'[Vis hjelp]' \
             '1:name:' \
             '2:json:'
@@ -355,7 +423,13 @@ _claude_mcp() {
           _arguments \
             '(-h --help)'{-h,--help}'[Vis hjelp]'
           ;;
-        login|logout)
+        login)
+          _arguments \
+            '--no-browser[Skriv ut autorisasjons-URL-en i staden for å opne ein nettlesar (for SSH-/hovudlause økter)]' \
+            '(-h --help)'{-h,--help}'[Vis hjelp]' \
+            '1:name:_claude_mcp_servers'
+          ;;
+        logout)
           _arguments \
             '(-h --help)'{-h,--help}'[Vis hjelp]' \
             '1:name:_claude_mcp_servers'
@@ -372,9 +446,11 @@ _claude_plugin() {
     'marketplace:Administrer Claude Code-marknadsplassar'
     'list:Vis installerte tillegg'
     'details:Vis komponentoversikt og forventa tokenkostnad for eit tillegg'
+    'configure:Vis alternativa til eit tillegg og kva for nokre som ikkje er sette, eller lagra verdiar frå stdin'
     'install:Installer eit tillegg frå tilgjengelege marknadsplassar'
     'i:Installer eit tillegg frå tilgjengelege marknadsplassar (kort for install)'
     'init:Lag stillas for eit nytt tillegg (autolastar neste økt)'
+    'new:Lag stillas for eit nytt tillegg (alias for init)'
     'uninstall:Avinstaller eit installert tillegg'
     'remove:Avinstaller eit installert tillegg (alias for uninstall)'
     'enable:Aktiver eit deaktivert tillegg'
@@ -382,7 +458,9 @@ _claude_plugin() {
     'update:Oppdater eit tillegg til nyaste versjon'
     'eval:Køyr evalueringstilfelle mot eit tillegg og rapporter poengsette resultat'
     'prune:Fjern autoinstallerte avhengigheiter som ikkje lenger trengst'
+    'autoremove:Fjern autoinstallerte avhengigheiter som ikkje lenger trengst (alias for prune)'
     'tag:Opprett ein {name}--v{version} git-tag for ei tilleggsutgjeving'
+    'test:Køyr testane til ein mod'
     'help:Vis hjelp'
   )
 
@@ -402,6 +480,8 @@ _claude_plugin() {
       case $words[1] in
         validate)
           _arguments \
+            '--strict[Handsam åtvaringar som feil (avslutningskode 1)]' \
+            '--json[Skriv ut valideringsrapporten som JSON (same avslutningskodar)]' \
             '(-h --help)'{-h,--help}'[Vis hjelp]' \
             '1:path:_files'
           ;;
@@ -411,50 +491,122 @@ _claude_plugin() {
         install|i)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Installasjonsomfang]:scope:(user project local)' \
+            '*--config[Set eit userConfig-alternativ deklarert i tilleggsmanifestet (kan gjentakast)]:key=value:' \
+            '(-y --yes)'{-y,--yes}'[Godta den viste kommandoen deklarert av marknadsplassen utan stadfestingsførespurnad]' \
+            '--json[Skriv ut éi maskinlesbar resultatlinje i staden for den menneskelesbare meldinga]' \
             '(-h --help)'{-h,--help}'[Vis hjelp]' \
             '1:plugin:'
           ;;
         uninstall|remove)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Installasjonsomfang]:scope:(user project local)' \
+            '--keep-data[Ta vare på mappa for varige data til tillegget]' \
+            '--prune[Fjern òg autoinstallerte avhengigheiter som ikkje lenger trengst]' \
+            '(-y --yes)'{-y,--yes}'[Hopp over stadfestingsførespurnaden for --prune]' \
+            '--json[Skriv ut éi maskinlesbar resultatlinje i staden for den menneskelesbare meldinga (ikkje med --prune)]' \
             '(-h --help)'{-h,--help}'[Vis hjelp]' \
             '1:plugin:_claude_installed_plugins'
           ;;
-        enable|disable)
+        enable)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Installasjonsomfang]:scope:(user project local)' \
+            '--json[Skriv ut éi maskinlesbar resultatlinje i staden for den menneskelesbare meldinga]' \
             '(-h --help)'{-h,--help}'[Vis hjelp]' \
             '1:plugin:_claude_installed_plugins'
+          ;;
+        disable)
+          _arguments \
+            '(-a --all)'{-a,--all}'[Deaktiver alle aktiverte tillegg]' \
+            '(-s --scope)'{-s,--scope}'[Installasjonsomfang]:scope:(user project local)' \
+            '--json[Skriv ut éi maskinlesbar resultatlinje i staden for den menneskelesbare meldinga]' \
+            '(-h --help)'{-h,--help}'[Vis hjelp]' \
+            '::plugin:_claude_installed_plugins'
           ;;
         update)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Installasjonsomfang]:scope:(user project local managed)' \
+            '(-y --yes)'{-y,--yes}'[Godta den viste kommandoen deklarert av marknadsplassen utan stadfestingsførespurnad]' \
+            '--json[Skriv ut éi maskinlesbar resultatlinje i staden for den menneskelesbare meldinga]' \
             '(-h --help)'{-h,--help}'[Vis hjelp]' \
             '1:plugin:_claude_installed_plugins'
           ;;
-        list|prune)
+        list)
           _arguments \
+            '--json[Skriv ut som JSON]' \
+            '--available[Inkluder tilgjengelege tillegg frå marknadsplassar (krev --json)]' \
             '(-h --help)'{-h,--help}'[Vis hjelp]'
+          ;;
+        prune|autoremove)
+          _arguments \
+            '(-s --scope)'{-s,--scope}'[Rydd opp i det angitte omfanget]:scope:(user project local)' \
+            '--dry-run[Vis kva som ville blitt fjerna utan å fjerne]' \
+            '(-y --yes)'{-y,--yes}'[Hopp over stadfestingsførespurnaden]' \
+            '(-h --help)'{-h,--help}'[Vis hjelp]'
+          ;;
+        configure)
+          _arguments \
+            '--json[Skriv ut som JSON]' \
+            '--values-stdin[Les alternativverdiar frå stdin som eit JSON-objekt med einlinjes strengar; alternativ som vert utelatne, held på verdiane sine]' \
+            '(-h --help)'{-h,--help}'[Vis hjelp]' \
+            '1:plugin:_claude_installed_plugins'
           ;;
         details)
           _arguments \
             '(-h --help)'{-h,--help}'[Vis hjelp]' \
             '1:plugin:_claude_installed_plugins'
           ;;
-        init)
+        init|new)
           _arguments \
+            '--description[Manifestskildring]:text:' \
+            '--author[Namn på forfattaren (standard: git config user.name)]:name:' \
+            '--author-email[E-post til forfattaren (standard: git config user.email)]:email:' \
+            '--with[Komponentar det òg skal lagast stillas for]:components:' \
+            '(-f --force)'{-f,--force}'[Skriv over ein eksisterande .claude-plugin/ i målet]' \
             '(-h --help)'{-h,--help}'[Vis hjelp]' \
             '1:name:'
           ;;
         eval)
           _arguments \
+            '--case[Filtrer tilfelle etter namne-glob]:glob:' \
+            '*--tag[Filtrer tilfelle etter tagg (kan gjentakast)]:tag:' \
+            '--runs[Overstyr talet på køyringar per tilfelle (standard: case.runs, elles 3)]:n:' \
+            '(-j --concurrency)'{-j,--concurrency}'[Utfør opptil n agentkøyringar samtidig (1-8; standard 1)]:n:' \
+            '--model[Overstyr modell for alle tilfelle]:model:_claude_model_names' \
+            '--judge-model[Overstyr modell for LLM-vurderaren (standard: haiku)]:model:_claude_model_names' \
+            '--max-cost-usd[Fast kostnadstak; avbryt og rapporter delvise resultat dersom det vert nådd (avslutningskode 2)]:usd:' \
+            '--output-dir[Mappe for aggregate-result.json]:dir:_directories' \
+            '--eval-dir[Mappenamn (under tillegget) som inneheld eval-tilfella]:dir:' \
+            '--json[Skriv ut heile køyringsresultatet som JSON til stdout, eller skriv det til denne .json-fila]::path:_files' \
+            '--threshold[Avslutt med avslutningskode 1 dersom poengsummen til eit tilfelle er under denne terskelen (standard: 1.0)]:threshold:' \
+            '*--allow-tools[Operatørløyve for avgrensa verktøy (Bash, Write, Edit, WebFetch, mcp__*)]:tools:' \
+            '(--no-scaffold)--scaffold[Køyr scaffold_script for kvart tilfelle (køyrer bash levert av forfattaren under brukaren din; av som standard)]' \
+            '(--scaffold)--no-scaffold[Hopp eksplisitt over scaffold_script]' \
+            '--trust-plugin[Stadfest at du stolar på dette tillegget og eval-pakken det har, og hopp over tillitsførespurnaden ved første køyring (for CI)]' \
+            '--ablation[Køyr ei referansegruppe utan tillegg og rapporter skilnaden i poengsum]:mode:(none with-without)' \
+            '--mocks[Mock-erstatningar for MCP-tenarar, frå <eval dir>/mocks/]:mode:(record off)' \
+            '--allow-real-servers[Med --mocks record: start òg dei ekte MCP-tenarprosessane som ikkje har nokon mock]' \
+            '--keep-temp[Ta vare på stillasmapper for feilsøking]' \
+            '--verbose[Logg sporingshendingar per melding til feilsøkingsloggen]' \
+            '--report[Skriv den sjølvstendige HTML-rapporten til denne stien i staden for resultatmappa]:path:_files' \
+            '(--no-publish)--publish-report[Krev òg publisering av rapporten til claude.ai]' \
+            '(--publish-report)--no-publish[Behald HTML-rapporten berre lokalt; hopp over publisering til claude.ai]' \
             '(-h --help)'{-h,--help}'[Vis hjelp]' \
-            '1:target:'
+            '::target: _alternative "plugins\:installed plugin\:_claude_installed_plugins" "files\:path\:_files"'
           ;;
         tag)
           _arguments \
+            '--push[Push taggen til --remote etter at han er oppretta]' \
+            '--dry-run[Skriv ut kva som ville blitt tagga utan å opprette taggen]' \
+            '(-f --force)'{-f,--force}'[Hopp over kontrollane for ucommitta endringar i arbeidstreet og eksisterande tagg]' \
+            '(-m --message)'{-m,--message}'[Annoteringsmelding for taggen (bruk %s for versjonen)]:msg:' \
+            '--remote[Remote å pushe til med --push]:name:' \
             '(-h --help)'{-h,--help}'[Vis hjelp]' \
-            '1:path:_files'
+            '::path:_files'
+          ;;
+        test)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Vis hjelp]' \
+            '::dir:_directories'
           ;;
       esac
       ;;
@@ -488,15 +640,20 @@ _claude_plugin_marketplace() {
       case $words[1] in
         add)
           _arguments \
+            '--sparse[Avgrens utsjekking til bestemte mapper via git sparse-checkout (for monorepo)]:paths:' \
+            '--scope[Kvar marknadsplassen skal deklarerast]:scope:(user project local)' \
+            '--claudeai[Legg til marknadsplassen med dette namnet som claude.ai driv for deg]' \
             '(-h --help)'{-h,--help}'[Vis hjelp]' \
             '1:source:'
           ;;
         list)
           _arguments \
+            '--json[Skriv ut som JSON]' \
             '(-h --help)'{-h,--help}'[Vis hjelp]'
           ;;
         remove|rm)
           _arguments \
+            '--scope[Fjern marknadsplassdeklarasjonen frå eit bestemt innstillingsomfang (utelat for å fjerne han frå alle omfang)]:scope:(user project local)' \
             '(-h --help)'{-h,--help}'[Vis hjelp]' \
             '1:name:'
           ;;
@@ -534,6 +691,7 @@ _claude_agents() {
     '--setting-sources[Kommaseparert liste over innstillingskjelder å laste (user, project, local)]:sources:' \
     '--settings[Innstillingsfil eller JSON-streng å bruke]:file-or-json:_files' \
     '--strict-mcp-config[Bruk berre MCP-tenarar frå --mcp-config i utsende økter]' \
+    '--restricted[Start utsende økter i avgrensa modus]' \
     '(-h --help)'{-h,--help}'[Vis hjelp for kommando]'
 }
 
@@ -560,7 +718,21 @@ _claude_auth() {
       ;;
     args)
       case $words[1] in
-        login|logout|status)
+        login)
+          _arguments \
+            '--email[Fyll ut e-postadresse på førehand på innloggingssida]:email:' \
+            '--sso[Tving SSO-innloggingsflyt]' \
+            '(--claudeai)--console[Bruk Anthropic Console (fakturering etter API-bruk) i staden for Claude-abonnement]' \
+            '(--console)--claudeai[Bruk Claude-abonnement (standard)]' \
+            '(-h --help)'{-h,--help}'[Vis hjelp for kommando]'
+          ;;
+        status)
+          _arguments \
+            '(--text)--json[Skriv ut som JSON (standard)]' \
+            '(--json)--text[Skriv ut som menneskelesbar tekst]' \
+            '(-h --help)'{-h,--help}'[Vis hjelp for kommando]'
+          ;;
+        logout)
           _arguments \
             '(-h --help)'{-h,--help}'[Vis hjelp for kommando]'
           ;;
@@ -593,7 +765,22 @@ _claude_auto_mode() {
       ;;
     args)
       case $words[1] in
-        config|critique|defaults|reset)
+        critique)
+          _arguments \
+            '--model[Overstyr kva modell som vert brukt]:model:_claude_model_names' \
+            '(-h --help)'{-h,--help}'[Vis hjelp for kommando]'
+          ;;
+        defaults)
+          _arguments \
+            '--label[Vis berre reglar der etiketten startar med dette prefikset (skil ikkje mellom store og små bokstavar)]:prefix:' \
+            '(-h --help)'{-h,--help}'[Vis hjelp for kommando]'
+          ;;
+        reset)
+          _arguments \
+            '(-y --yes)'{-y,--yes}'[Hopp over stadfestingsførespurnaden]' \
+            '(-h --help)'{-h,--help}'[Vis hjelp for kommando]'
+          ;;
+        config)
           _arguments \
             '(-h --help)'{-h,--help}'[Vis hjelp for kommando]'
           ;;
@@ -631,8 +818,12 @@ _claude_project() {
       case $words[1] in
         purge)
           _arguments \
+            '--dry-run[Vis kva som ville blitt sletta utan å slette noko]' \
+            '(-y --yes)'{-y,--yes}'[Hopp over stadfestingsførespurnaden]' \
+            '(-i --interactive)'{-i,--interactive}'[Spør for kvart element før sletting]' \
+            '(1)--all[Slett tilstand for alle prosjekt (gjensidig utelukkande med ein sti)]' \
             '(-h --help)'{-h,--help}'[Vis hjelp for kommando]' \
-            '1:path:_directories'
+            '(--all)::path:_directories'
           ;;
       esac
       ;;
@@ -642,9 +833,34 @@ _claude_project() {
 _claude_ultrareview() {
   _arguments \
     '--json[Skriv ut den rå bugs.json-nyttelasta i staden for formaterte funn]' \
-    '--timeout[Maksimalt tal minutt å vente på at gjennomgangen skal fullførast]:minutes:' \
+    '--timeout[Maksimalt tal minutt å vente på at gjennomgangen skal fullførast (standard: 45)]:minutes:' \
+    '(--no-post)--post[Publiser funna frå den ferdige gjennomgangen på PR-en i ditt namn (berre PR-mål; éin vanleg kommentar, ikkje ein gjennomgang)]' \
+    '(--post)--no-post[Ikkje publiser funna på PR-en (standard)]' \
     '(-h --help)'{-h,--help}'[Vis hjelp for kommando]' \
     '1:target:'
+}
+
+_claude_respawn() {
+  _arguments \
+    '(1)--all[Start alle køyrande bakgrunnsøkter på nytt]' \
+    '(-h --help)'{-h,--help}'[Vis hjelp for kommando]' \
+    '(--all)::session:_claude_background_sessions'
+}
+
+_claude_rm() {
+  _arguments \
+    '--discard-unpushed[Forkast òg ikkje-pusha commits og ucommitta endringar i arbeidstreet (angi commit@worktree-id som ein tidlegare claude rm rapporterte)]:commit@worktree-id:' \
+    '--force-remove-worktree[Slett arbeidstremappa sjølv om WorktreeRemove-hooken eller git ikkje kunne fjerne ho (angi worktree-id som ein tidlegare claude rm rapporterte)]:worktree-id:' \
+    '(-h --help)'{-h,--help}'[Vis hjelp for kommando]' \
+    '1:session:_claude_background_sessions'
+}
+
+_claude_import() {
+  _arguments \
+    '--dry-run[Vis kva som ville blitt importert utan å skrive noko]' \
+    '--yes[Hopp over den interaktive veljaren (på hovudlause flater, angi --yes=<digest> frå /import-førehandsvisinga)]' \
+    '(-h --help)'{-h,--help}'[Vis hjelp for kommando]' \
+    '::source:(codex gemini cursor)'
 }
 
 (( $+_comps[claude] )) || compdef _claude claude
