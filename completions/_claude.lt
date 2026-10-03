@@ -121,6 +121,39 @@ _claude_agent_names() {
   compadd -a agents
 }
 
+_claude_background_sessions() {
+  local -a sessions state_files
+  local -A names states
+  local state_dir state_file line id rest
+
+  # Background sessions (`claude --bg`) live in <config>/jobs/<id>/, where
+  # <id> is the short id that attach, logs, stop, respawn and rm take.
+  for state_dir in ${(f)"$(_claude_state_dirs)"}; do
+    # Newest first
+    state_files=(${state_dir}/jobs/*/state.json(Nom))
+    (( ${#state_files} )) || continue
+
+    # One grep for all of them; the first "name" and "state" it reports for a
+    # file are that file's top-level ones
+    names=() states=()
+    for line in ${(f)"$(grep -HoE '"(name|state)"[[:space:]]*:[[:space:]]*"[^"]*"' $state_files 2>/dev/null)"}; do
+      id=${${line%%/state.json:*}:t}
+      rest=${line#*/state.json:}
+      case $rest in
+        \"name\"*)  [[ -z $names[$id] ]]  && names[$id]=${${rest#*:*\"}%\"} ;;
+        \"state\"*) [[ -z $states[$id] ]] && states[$id]=${${rest#*:*\"}%\"} ;;
+      esac
+    done
+
+    for state_file in $state_files; do
+      id=${state_file:h:t}
+      sessions+=("${id}:${names[$id]:-no name}${states[$id]:+ (${states[$id]})}")
+    done
+  done
+
+  _describe -t sessions 'background session' sessions
+}
+
 _claude_model_names() {
   local -a models config_files
   local state_dir config_file
@@ -155,9 +188,15 @@ _claude() {
     'mcp:Konfigūruoti ir valdyti MCP serverius'
     'plugin:Valdyti Claude Code papildinius'
     'agents:Valdyti foninius agentus'
+    'attach:Atidaryti foninį seansą šiame terminale'
+    'logs:Atspausdinti naujausią foninio seanso terminalo išvestį'
+    'stop:Sustabdyti foninį seansą (jo pokalbis išsaugomas)'
+    'respawn:Iš naujo paleisti foninį seansą, kad jis veiktų su dabartine Claude Code versija'
+    'rm:Ištrinti foninį seansą ir, kai tai saugu, jo darbo medį'
     'auth:Valdyti autentifikaciją'
     'auto-mode:Peržiūrėti arba iš naujo nustatyti automatinio režimo klasifikatoriaus konfigūraciją'
     'gateway:Paleisti įmonės autentifikacijos/telemetrijos tinklų sietuvą'
+    'import:Importuoti konfigūraciją iš kito DI programavimo agento į Claude Code'
     'project:Valdyti Claude Code projekto būseną'
     'ultrareview:Paleisti debesyje talpinamą daugiaagentę kodo peržiūrą ir atspausdinti radinius'
     'setup-token:Nustatyti ilgalaikės autentifikacijos prieigos raktą (reikalinga Claude prenumerata)'
@@ -178,6 +217,7 @@ _claude() {
     '--mcp-debug[\[Pasenęs. Naudokite --debug vietoj to\] Įjungti MCP derinimo režimą (rodo MCP serverio klaidas)]'
     '--dangerously-skip-permissions[Apeiti visas leidimų patikras. Rekomenduojama tik smėlio dėžėms be interneto prieigos]'
     '--allow-dangerously-skip-permissions[Įgalinti leidimų patikrų apėjimo parinktį be įgalinimo pagal numatytuosius nustatymus]'
+    '--restricted[Apribotas režimas: pašalinti įrankius, kurie vykdo komandas ar kodą, ir WebFetch, nepaisyti user/project/local nustatymų ir apriboti failų įrankius darbiniais katalogais]'
     '--max-budget-usd[Maksimali dolerių suma API iškvietimams (tik --print)]:amount:'
     '--replay-user-messages[Pakartotinai išsiųsti vartotojo pranešimus iš stdin į stdout patvirtinimui]'
     '--allowed-tools[Leidžiamų įrankių pavadinimų sąrašas atskirtas kableliais arba tarpais (pvz., "Bash(git:*) Edit")]:tools:'
@@ -187,8 +227,13 @@ _claude() {
     '--disallowedTools[Neleidžiamų įrankių pavadinimų sąrašas atskirtas kableliais arba tarpais (camelCase formatas)]:tools:'
     '--mcp-config[Įkelti MCP serverius iš JSON failo arba eilutės (atskirti tarpais)]:configs:'
     '--system-prompt[Sisteminė užklausa naudojimui seanse]:prompt:'
+    '--system-prompt-file[Nuskaityti sisteminę užklausą iš failo]:file:_files'
     '--append-system-prompt[Pridėti sisteminę užklausą prie numatytosios sisteminės užklausos]:prompt:'
+    '--append-system-prompt-file[Nuskaityti sisteminę užklausą iš failo ir pridėti ją prie numatytosios sisteminės užklausos]:file:_files'
+    '--system-prompt-snapshot[Įrašyti sisteminę užklausą vieną kartą per pokalbį ir pažodžiui naudoti ją pakartotinai kiekvienoje užklausoje ir atnaujinant (on, numatytasis) arba kiekvienai užklausai generuoti ją iš naujo (off)]:mode:(on off)'
     '--permission-mode[Leidimų režimas naudojimui seanse]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)'
+    '--permission-prompts[Kas atsako į leidimų užklausas su --print: "host" (SDK host arba --permission-prompt-tool) arba "none" (viskas, kas reikalautų užklausos, atmetama)]:target:(host none)'
+    '--permission-prompt-tool[MCP įrankis, naudojamas leidimų užklausoms (tik --print)]:tool:'
     '(-c --continue)'{-c,--continue}'[Tęsti paskutinį pokalbį]'
     '(-r --resume)'{-r,--resume}'[Atnaujinti pokalbį - nurodykite seanso identifikatorių arba pasirinkite interaktyviai]:sessionId:_claude_sessions'
     '--fork-session[Sukurti naują seanso identifikatorių vietoj originalaus pakartotinio naudojimo atnaujinant (su --resume arba --continue)]'
@@ -200,6 +245,7 @@ _claude() {
     '--settings[Kelias į JSON nustatymų failą arba JSON eilutę papildomų nustatymų įkėlimui]:file-or-json:_files'
     '--add-dir[Papildomi katalogai įrankių prieigai suteikti]:directories:_directories'
     '--ide[Automatiškai prisijungti prie IDE paleidžiant, jei yra prieinama tiksliai viena galiojanti IDE]'
+    '--desktop[Atidaryti Claude Desktop programėlėje vietoj terminalo (su --continue arba --resume <id> seansui pasirinkti)]'
     '--strict-mcp-config[Naudoti tik MCP serverius iš --mcp-config ir nepaisyti visų kitų MCP nustatymų]'
     '--session-id[Konkretus seanso identifikatorius naudojimui pokalbyje (turi būti galiojantis UUID)]:uuid:'
     '--agents[JSON objektas, apibrėžiantis pasirinktus agentus]:json:'
@@ -208,11 +254,15 @@ _claude() {
     '--disable-slash-commands[Išjungti visas pasvirojo brūkšnio komandas]'
     '(--bg --background)'{--bg,--background}'[Paleisti seansą kaip foninį agentą ir nedelsiant grįžti]'
     '(-w --worktree)'{-w,--worktree}'[Sukurti naują git darbo medį šiam seansui (galima nurodyti pavadinimą)]::name:'
-    '--tmux[Sukurti tmux seansą darbo medžiui (reikalauja --worktree)]'
+    '--tmux=-[Sukurti tmux seansą darbo medžiui (reikalauja --worktree). Naudoja iTerm2 vietinius skydelius, kai jie prieinami; --tmux=classic tradiciniam tmux]::mode:(classic)'
     '(-n --name)'{-n,--name}'[Nustatyti šio seanso rodomą pavadinimą]:name:'
     '--effort[Pastangų lygis dabartiniam seansui]:level:(low medium high xhigh max)'
+    '--autocompact[Automatinio glaudinimo lango dydis (auto arba 100k-1M žetonų)]:size:(auto)'
     '--debug-file[Rašyti derinimo žurnalus į konkretų failo kelią (netiesiogiai įjungia derinimo režimą)]:path:_files'
     '--from-pr[Atnaujinti seansą, susietą su PR pagal numerį/URL, arba atidaryti interaktyvų parinkiklį]::value:'
+    '--teleport[Atnaujinti teleport seansą, galima nurodyti seanso identifikatorių]::session:'
+    '--cloud[Sukurti debesies seansą su nurodytu aprašymu arba prisijungti prie esamo pagal seanso identifikatorių ar claude.ai/code URL]::description-or-session:'
+    '--environment[Sukurti naują debesies seansą, veikiantį nurodytoje savarankiškai talpinamoje aplinkoje (ccpool_...)]:environment_id:'
     '--remote-control[Paleisti interaktyvų seansą su įjungtu nuotoliniu valdymu (galima nurodyti pavadinimą)]::name:'
     '--remote-control-session-name-prefix[Automatiškai generuojamų nuotolinio valdymo seansų pavadinimų priešdėlis]:prefix:'
     '--chrome[Įjungti Claude in Chrome integraciją]'
@@ -254,6 +304,17 @@ _claude() {
         agents)
           _claude_agents
           ;;
+        attach|logs|stop|kill)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Rodyti pagalbą komandai]' \
+            '1:session:_claude_background_sessions'
+          ;;
+        respawn)
+          _claude_respawn
+          ;;
+        rm)
+          _claude_rm
+          ;;
         auth)
           _claude_auth
           ;;
@@ -262,6 +323,9 @@ _claude() {
           ;;
         gateway)
           _claude_gateway
+          ;;
+        import)
+          _claude_import
           ;;
         project)
           _claude_project
@@ -319,6 +383,9 @@ _claude_mcp() {
             '(-t --transport)'{-t,--transport}'[Transporto tipas (stdio, sse, http)]:transport:(stdio sse http)' \
             '(-e --env)'{-e,--env}'[Nustatyti aplinkos kintamąjį (pvz., -e KEY=value)]:env:' \
             '(-H --header)'{-H,--header}'[Nustatyti WebSocket antraštę]:header:' \
+            '--client-id[OAuth kliento ID HTTP/SSE serveriams]:clientId:' \
+            '--client-secret[Paprašyti įvesti OAuth kliento paslaptį (arba nustatyti aplinkos kintamąjį MCP_CLIENT_SECRET)]' \
+            '--callback-port[Fiksuotas prievadas OAuth atgaliniam iškvietimui (serveriams, reikalaujantiems iš anksto užregistruotų peradresavimo URI)]:port:' \
             '(-h --help)'{-h,--help}'[Rodyti pagalbą]' \
             '1:name:' \
             '2:commandOrUrl:' \
@@ -342,6 +409,7 @@ _claude_mcp() {
         add-json)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Konfigūracijos apimtis (local, user, project)]:scope:(local user project)' \
+            '--client-secret[Paprašyti įvesti OAuth kliento paslaptį (arba nustatyti aplinkos kintamąjį MCP_CLIENT_SECRET)]' \
             '(-h --help)'{-h,--help}'[Rodyti pagalbą]' \
             '1:name:' \
             '2:json:'
@@ -355,7 +423,13 @@ _claude_mcp() {
           _arguments \
             '(-h --help)'{-h,--help}'[Rodyti pagalbą]'
           ;;
-        login|logout)
+        login)
+          _arguments \
+            '--no-browser[Atspausdinti autorizacijos URL vietoj naršyklės atidarymo (SSH/be grafinės sąsajos seansams)]' \
+            '(-h --help)'{-h,--help}'[Rodyti pagalbą]' \
+            '1:name:_claude_mcp_servers'
+          ;;
+        logout)
           _arguments \
             '(-h --help)'{-h,--help}'[Rodyti pagalbą]' \
             '1:name:_claude_mcp_servers'
@@ -372,9 +446,11 @@ _claude_plugin() {
     'marketplace:Valdyti Claude Code rinkas'
     'list:Rodyti įdiegtų papildinių sąrašą'
     'details:Rodyti komponentų inventorių ir numatomą prieigos raktų sąnaudą papildiniui'
+    'configure:Rodyti papildinio parinktis ir kurios iš jų nenustatytos, arba išsaugoti reikšmes iš stdin'
     'install:Įdiegti papildinį iš prieinamų rinkų'
     'i:Įdiegti papildinį iš prieinamų rinkų (sutrumpinimas install)'
     'init:Sukurti naujo papildinio karkasą (automatiškai įkeliamas kitą seansą)'
+    'new:Sukurti naujo papildinio karkasą (init sinonimas)'
     'uninstall:Pašalinti įdiegtą papildinį'
     'remove:Pašalinti įdiegtą papildinį (uninstall sinonimas)'
     'enable:Įgalinti išjungtą papildinį'
@@ -382,7 +458,9 @@ _claude_plugin() {
     'update:Atnaujinti papildinį iki naujausios versijos'
     'eval:Paleisti vertinimo atvejus prieš papildinį ir pateikti įvertintus rezultatus'
     'prune:Pašalinti automatiškai įdiegtas priklausomybes, kurių nebereikia'
+    'autoremove:Pašalinti automatiškai įdiegtas priklausomybes, kurių nebereikia (prune sinonimas)'
     'tag:Sukurti {name}--v{version} git žymą papildinio leidimui'
+    'test:Paleisti modifikacijos (mod) testus'
     'help:Rodyti pagalbą'
   )
 
@@ -402,6 +480,8 @@ _claude_plugin() {
       case $words[1] in
         validate)
           _arguments \
+            '--strict[Laikyti įspėjimus klaidomis (išėjimo kodas 1)]' \
+            '--json[Išvesti tikrinimo ataskaitą kaip JSON (tie patys išėjimo kodai)]' \
             '(-h --help)'{-h,--help}'[Rodyti pagalbą]' \
             '1:path:_files'
           ;;
@@ -411,50 +491,122 @@ _claude_plugin() {
         install|i)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Diegimo apimtis]:scope:(user project local)' \
+            '*--config[Nustatyti papildinio manifeste deklaruotą userConfig parinktį (galima kartoti)]:key=value:' \
+            '(-y --yes)'{-y,--yes}'[Priimti rodomą rinkos deklaruotą komandą be patvirtinimo užklausos]' \
+            '--json[Atspausdinti vieną mašininiu būdu nuskaitomą rezultato eilutę vietoj žmogui skirto pranešimo]' \
             '(-h --help)'{-h,--help}'[Rodyti pagalbą]' \
             '1:plugin:'
           ;;
         uninstall|remove)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Diegimo apimtis]:scope:(user project local)' \
+            '--keep-data[Išsaugoti papildinio nuolatinių duomenų katalogą]' \
+            '--prune[Taip pat pašalinti automatiškai įdiegtas priklausomybes, kurių nebereikia]' \
+            '(-y --yes)'{-y,--yes}'[Praleisti --prune patvirtinimo užklausą]' \
+            '--json[Atspausdinti vieną mašininiu būdu nuskaitomą rezultato eilutę vietoj žmogui skirto pranešimo (ne su --prune)]' \
             '(-h --help)'{-h,--help}'[Rodyti pagalbą]' \
             '1:plugin:_claude_installed_plugins'
           ;;
-        enable|disable)
+        enable)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Diegimo apimtis]:scope:(user project local)' \
+            '--json[Atspausdinti vieną mašininiu būdu nuskaitomą rezultato eilutę vietoj žmogui skirto pranešimo]' \
             '(-h --help)'{-h,--help}'[Rodyti pagalbą]' \
             '1:plugin:_claude_installed_plugins'
+          ;;
+        disable)
+          _arguments \
+            '(-a --all)'{-a,--all}'[Išjungti visus įgalintus papildinius]' \
+            '(-s --scope)'{-s,--scope}'[Diegimo apimtis]:scope:(user project local)' \
+            '--json[Atspausdinti vieną mašininiu būdu nuskaitomą rezultato eilutę vietoj žmogui skirto pranešimo]' \
+            '(-h --help)'{-h,--help}'[Rodyti pagalbą]' \
+            '::plugin:_claude_installed_plugins'
           ;;
         update)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Diegimo apimtis]:scope:(user project local managed)' \
+            '(-y --yes)'{-y,--yes}'[Priimti rodomą rinkos deklaruotą komandą be patvirtinimo užklausos]' \
+            '--json[Atspausdinti vieną mašininiu būdu nuskaitomą rezultato eilutę vietoj žmogui skirto pranešimo]' \
             '(-h --help)'{-h,--help}'[Rodyti pagalbą]' \
             '1:plugin:_claude_installed_plugins'
           ;;
-        list|prune)
+        list)
           _arguments \
+            '--json[Išvesti kaip JSON]' \
+            '--available[Įtraukti prieinamus papildinius iš rinkų (reikalauja --json)]' \
             '(-h --help)'{-h,--help}'[Rodyti pagalbą]'
+          ;;
+        prune|autoremove)
+          _arguments \
+            '(-s --scope)'{-s,--scope}'[Valyti nurodytoje apimtyje]:scope:(user project local)' \
+            '--dry-run[Išvardyti, kas būtų pašalinta, nieko nepašalinant]' \
+            '(-y --yes)'{-y,--yes}'[Praleisti patvirtinimo užklausą]' \
+            '(-h --help)'{-h,--help}'[Rodyti pagalbą]'
+          ;;
+        configure)
+          _arguments \
+            '--json[Išvesti kaip JSON]' \
+            '--values-stdin[Nuskaityti parinkčių reikšmes iš stdin kaip JSON objektą su vienos eilutės tekstinėmis reikšmėmis; nenurodytos parinktys išlaiko savo reikšmes]' \
+            '(-h --help)'{-h,--help}'[Rodyti pagalbą]' \
+            '1:plugin:_claude_installed_plugins'
           ;;
         details)
           _arguments \
             '(-h --help)'{-h,--help}'[Rodyti pagalbą]' \
             '1:plugin:_claude_installed_plugins'
           ;;
-        init)
+        init|new)
           _arguments \
+            '--description[Manifesto aprašymas]:text:' \
+            '--author[Autoriaus vardas (numatytasis: git config user.name)]:name:' \
+            '--author-email[Autoriaus el. paštas (numatytasis: git config user.email)]:email:' \
+            '--with[Komponentai, kurių karkasą taip pat sukurti]:components:' \
+            '(-f --force)'{-f,--force}'[Perrašyti esamą .claude-plugin/ paskirties vietoje]' \
             '(-h --help)'{-h,--help}'[Rodyti pagalbą]' \
             '1:name:'
           ;;
         eval)
           _arguments \
+            '--case[Filtruoti atvejus pagal pavadinimo glob šabloną]:glob:' \
+            '*--tag[Filtruoti atvejus pagal žymą (galima kartoti)]:tag:' \
+            '--runs[Perrašyti vykdymų skaičių kiekvienam atvejui (numatytasis: case.runs, kitaip 3)]:n:' \
+            '(-j --concurrency)'{-j,--concurrency}'[Vienu metu vykdyti iki n agento vykdymų (1-8; numatytasis 1)]:n:' \
+            '--model[Perrašyti modelį visiems atvejams]:model:_claude_model_names' \
+            '--judge-model[Perrašyti LLM vertintojo modelį (numatytasis: haiku)]:model:_claude_model_names' \
+            '--max-cost-usd[Griežta išlaidų riba; ją pasiekus nutraukti ir pateikti dalinius rezultatus (išėjimo kodas 2)]:usd:' \
+            '--output-dir[Katalogas failui aggregate-result.json]:dir:_directories' \
+            '--eval-dir[Katalogo pavadinimas (papildinio viduje), kuriame laikomi vertinimo atvejai]:dir:' \
+            '--json[Atspausdinti visą vykdymo rezultatą kaip JSON į stdout arba įrašyti jį į šį .json failą]::path:_files' \
+            '--threshold[Išeiti su išėjimo kodu 1, jei kurio nors atvejo įvertinimas žemesnis už šią ribą (numatytasis: 1.0)]:threshold:' \
+            '*--allow-tools[Operatoriaus leidimas ribojamiems įrankiams (Bash, Write, Edit, WebFetch, mcp__*)]:tools:' \
+            '(--no-scaffold)--scaffold[Vykdyti kiekvieno atvejo scaffold_script (vykdo autoriaus pateiktą bash jūsų vardu; pagal numatytuosius nustatymus išjungta)]' \
+            '(--scaffold)--no-scaffold[Aiškiai praleisti scaffold_script]' \
+            '--trust-plugin[Patvirtinti, kad pasitikite šiuo papildiniu ir jo vertinimo rinkiniu, praleidžiant pirmojo paleidimo pasitikėjimo užklausą (CI)]' \
+            '--ablation[Vykdyti bazinę palyginamąją grupę be papildinio ir pateikti įvertinimų skirtumą]:mode:(none with-without)' \
+            '--mocks[Imitaciniai MCP serverių pakaitalai iš <eval dir>/mocks/]:mode:(record off)' \
+            '--allow-real-servers[Su --mocks record: taip pat paleisti tikrus MCP serverių procesus, kurie neturi imitacijos]' \
+            '--keep-temp[Išsaugoti karkaso katalogus derinimui]' \
+            '--verbose[Registruoti kiekvieno pranešimo sekimo įvykius derinimo žurnale]' \
+            '--report[Įrašyti savarankišką HTML ataskaitą šiuo keliu vietoj rezultatų katalogo]:path:_files' \
+            '(--no-publish)--publish-report[Taip pat reikalauti paskelbti ataskaitą claude.ai]' \
+            '(--publish-report)--no-publish[Laikyti HTML ataskaitą tik vietoje; praleisti jos paskelbimą claude.ai]' \
             '(-h --help)'{-h,--help}'[Rodyti pagalbą]' \
-            '1:target:'
+            '::target: _alternative "plugins\:installed plugin\:_claude_installed_plugins" "files\:path\:_files"'
           ;;
         tag)
           _arguments \
+            '--push[Sukūrus išsiųsti žymą į --remote]' \
+            '--dry-run[Atspausdinti, kas būtų pažymėta, nesukuriant žymos]' \
+            '(-f --force)'{-f,--force}'[Praleisti neįrašytų darbinio medžio pakeitimų ir jau egzistuojančios žymos patikras]' \
+            '(-m --message)'{-m,--message}'[Žymos anotacijos pranešimas (naudokite %s versijai)]:msg:' \
+            '--remote[Nuotolinė saugykla, į kurią siųsti su --push]:name:' \
             '(-h --help)'{-h,--help}'[Rodyti pagalbą]' \
-            '1:path:_files'
+            '::path:_files'
+          ;;
+        test)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Rodyti pagalbą]' \
+            '::dir:_directories'
           ;;
       esac
       ;;
@@ -488,15 +640,20 @@ _claude_plugin_marketplace() {
       case $words[1] in
         add)
           _arguments \
+            '--sparse[Apriboti checkout konkrečiais katalogais per git sparse-checkout (monorepozitorijoms)]:paths:' \
+            '--scope[Kur deklaruoti rinką]:scope:(user project local)' \
+            '--claudeai[Pridėti šio pavadinimo rinką, kurią claude.ai talpina jums]' \
             '(-h --help)'{-h,--help}'[Rodyti pagalbą]' \
             '1:source:'
           ;;
         list)
           _arguments \
+            '--json[Išvesti kaip JSON]' \
             '(-h --help)'{-h,--help}'[Rodyti pagalbą]'
           ;;
         remove|rm)
           _arguments \
+            '--scope[Pašalinti rinkos deklaraciją iš konkrečios nustatymų apimties (nenurodžius pašalinama iš visų apimčių)]:scope:(user project local)' \
             '(-h --help)'{-h,--help}'[Rodyti pagalbą]' \
             '1:name:'
           ;;
@@ -534,6 +691,7 @@ _claude_agents() {
     '--setting-sources[Nustatymų šaltinių sąrašas atskirtas kableliais įkėlimui (user, project, local)]:sources:' \
     '--settings[Nustatymų failas arba JSON eilutė taikymui]:file-or-json:_files' \
     '--strict-mcp-config[Naudoti tik MCP serverius iš --mcp-config išsiųstuose seansuose]' \
+    '--restricted[Paleisti išsiųstus seansus apribotu režimu]' \
     '(-h --help)'{-h,--help}'[Rodyti pagalbą komandai]'
 }
 
@@ -560,7 +718,21 @@ _claude_auth() {
       ;;
     args)
       case $words[1] in
-        login|logout|status)
+        login)
+          _arguments \
+            '--email[Iš anksto užpildyti el. pašto adresą prisijungimo puslapyje]:email:' \
+            '--sso[Priverstinai naudoti SSO prisijungimo eigą]' \
+            '(--claudeai)--console[Naudoti Anthropic Console (atsiskaitymas pagal API naudojimą) vietoj Claude prenumeratos]' \
+            '(--console)--claudeai[Naudoti Claude prenumeratą (numatytasis)]' \
+            '(-h --help)'{-h,--help}'[Rodyti pagalbą komandai]'
+          ;;
+        status)
+          _arguments \
+            '(--text)--json[Išvesti kaip JSON (numatytasis)]' \
+            '(--json)--text[Išvesti kaip žmogui skaitomą tekstą]' \
+            '(-h --help)'{-h,--help}'[Rodyti pagalbą komandai]'
+          ;;
+        logout)
           _arguments \
             '(-h --help)'{-h,--help}'[Rodyti pagalbą komandai]'
           ;;
@@ -593,7 +765,22 @@ _claude_auto_mode() {
       ;;
     args)
       case $words[1] in
-        config|critique|defaults|reset)
+        critique)
+          _arguments \
+            '--model[Perrašyti naudojamą modelį]:model:_claude_model_names' \
+            '(-h --help)'{-h,--help}'[Rodyti pagalbą komandai]'
+          ;;
+        defaults)
+          _arguments \
+            '--label[Rodyti tik taisykles, kurių etiketė prasideda šiuo priešdėliu (neskiriant didžiųjų ir mažųjų raidžių)]:prefix:' \
+            '(-h --help)'{-h,--help}'[Rodyti pagalbą komandai]'
+          ;;
+        reset)
+          _arguments \
+            '(-y --yes)'{-y,--yes}'[Praleisti patvirtinimo užklausą]' \
+            '(-h --help)'{-h,--help}'[Rodyti pagalbą komandai]'
+          ;;
+        config)
           _arguments \
             '(-h --help)'{-h,--help}'[Rodyti pagalbą komandai]'
           ;;
@@ -631,8 +818,12 @@ _claude_project() {
       case $words[1] in
         purge)
           _arguments \
+            '--dry-run[Išvardyti, kas būtų ištrinta, nieko neištrinant]' \
+            '(-y --yes)'{-y,--yes}'[Praleisti patvirtinimo užklausą]' \
+            '(-i --interactive)'{-i,--interactive}'[Klausti dėl kiekvieno elemento prieš ištrinant]' \
+            '(1)--all[Ištrinti būseną visiems projektams (negalima naudoti kartu su keliu)]' \
             '(-h --help)'{-h,--help}'[Rodyti pagalbą komandai]' \
-            '1:path:_directories'
+            '(--all)::path:_directories'
           ;;
       esac
       ;;
@@ -642,9 +833,34 @@ _claude_project() {
 _claude_ultrareview() {
   _arguments \
     '--json[Atspausdinti neapdorotą bugs.json turinį vietoj suformatuotų radinių]' \
-    '--timeout[Maksimalus minučių skaičius laukti, kol peržiūra bus baigta]:minutes:' \
+    '--timeout[Maksimalus minučių skaičius laukti, kol peržiūra bus baigta (numatytasis: 45)]:minutes:' \
+    '(--no-post)--post[Paskelbti baigtos peržiūros radinius PR jūsų vardu (tik PR tikslams; vienas paprastas komentaras, ne peržiūra)]' \
+    '(--post)--no-post[Neskelbti radinių PR (numatytasis)]' \
     '(-h --help)'{-h,--help}'[Rodyti pagalbą komandai]' \
     '1:target:'
+}
+
+_claude_respawn() {
+  _arguments \
+    '(1)--all[Iš naujo paleisti visus veikiančius foninius seansus]' \
+    '(-h --help)'{-h,--help}'[Rodyti pagalbą komandai]' \
+    '(--all)::session:_claude_background_sessions'
+}
+
+_claude_rm() {
+  _arguments \
+    '--discard-unpushed[Taip pat atmesti neišsiųstus komitus ir nekomituotus darbo medžio pakeitimus (perduokite commit@worktree-id, kurį pranešė ankstesnis claude rm)]:commit@worktree-id:' \
+    '--force-remove-worktree[Ištrinti darbo medžio katalogą, net jei WorktreeRemove kabliukas ar git negalėjo jo pašalinti (perduokite worktree-id, kurį pranešė ankstesnis claude rm)]:worktree-id:' \
+    '(-h --help)'{-h,--help}'[Rodyti pagalbą komandai]' \
+    '1:session:_claude_background_sessions'
+}
+
+_claude_import() {
+  _arguments \
+    '--dry-run[Rodyti, kas būtų importuota, nieko neįrašant]' \
+    '--yes[Praleisti interaktyvų parinkiklį (aplinkose be grafinės sąsajos perduokite --yes=<digest> iš /import peržiūros)]' \
+    '(-h --help)'{-h,--help}'[Rodyti pagalbą komandai]' \
+    '::source:(codex gemini cursor)'
 }
 
 (( $+_comps[claude] )) || compdef _claude claude
