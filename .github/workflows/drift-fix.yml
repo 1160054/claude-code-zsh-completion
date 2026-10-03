@@ -76,10 +76,11 @@ jobs:
       if: steps.gate.outputs.run == 'true'
       uses: anthropics/claude-code-action@v1
       env:
-        # Commits are authored by the maintainer (the committer stays the
-        # workflow), so the change shows up as theirs, co-authored with Claude.
+        # Commits are the maintainer's: author and committer, no AI attribution.
         GIT_AUTHOR_NAME: Yudai Onodera
         GIT_AUTHOR_EMAIL: 9334235+1160054@users.noreply.github.com
+        GIT_COMMITTER_NAME: Yudai Onodera
+        GIT_COMMITTER_EMAIL: 9334235+1160054@users.noreply.github.com
       with:
         anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
         claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
@@ -104,11 +105,14 @@ jobs:
              matching the earlier entries). Create that heading above the newest release if missing.
           6. Run `zsh .github/workflows/test.zsh` and fix until it passes.
           7. Create a branch named `drift/<cli version>`, commit with plain `git commit` and a
-             one-line message (leave the author as configured), and push it.
+             one-line message (leave the author and committer as configured), and push it.
+             Add no Co-authored-by trailer and no AI attribution to the commit or the PR body.
              Do not open the PR yourself; a later step does. Write the branch name to
              /tmp/drift-pr/branch, a one-line PR title to /tmp/drift-pr/title, and a short PR body
              (what changed, and the CLI version) to /tmp/drift-pr/body.md.
           Do not merge anything, create tags, or publish releases.
+        settings: |
+          {"includeCoAuthoredBy": false, "attribution": {"commit": "", "pr": ""}}
         claude_args: |
           --max-turns 150
           --allowedTools "Read,Edit,Write,Glob,Grep,Bash"
