@@ -121,6 +121,39 @@ _claude_agent_names() {
   compadd -a agents
 }
 
+_claude_background_sessions() {
+  local -a sessions state_files
+  local -A names states
+  local state_dir state_file line id rest
+
+  # Background sessions (`claude --bg`) live in <config>/jobs/<id>/, where
+  # <id> is the short id that attach, logs, stop, respawn and rm take.
+  for state_dir in ${(f)"$(_claude_state_dirs)"}; do
+    # Newest first
+    state_files=(${state_dir}/jobs/*/state.json(Nom))
+    (( ${#state_files} )) || continue
+
+    # One grep for all of them; the first "name" and "state" it reports for a
+    # file are that file's top-level ones
+    names=() states=()
+    for line in ${(f)"$(grep -HoE '"(name|state)"[[:space:]]*:[[:space:]]*"[^"]*"' $state_files 2>/dev/null)"}; do
+      id=${${line%%/state.json:*}:t}
+      rest=${line#*/state.json:}
+      case $rest in
+        \"name\"*)  [[ -z $names[$id] ]]  && names[$id]=${${rest#*:*\"}%\"} ;;
+        \"state\"*) [[ -z $states[$id] ]] && states[$id]=${${rest#*:*\"}%\"} ;;
+      esac
+    done
+
+    for state_file in $state_files; do
+      id=${state_file:h:t}
+      sessions+=("${id}:${names[$id]:-no name}${states[$id]:+ (${states[$id]})}")
+    done
+  done
+
+  _describe -t sessions 'background session' sessions
+}
+
 _claude_model_names() {
   local -a models config_files
   local state_dir config_file
@@ -155,9 +188,15 @@ _claude() {
     'mcp:Stilla og stjórna MCP-þjónum'
     'plugin:Stjórna Claude Code viðbótum'
     'agents:Stjórna bakgrunnsumboðsmönnum'
+    'attach:Opna bakgrunnslotu í þessari útstöð'
+    'logs:Prenta nýlegt útstöðvarúttak bakgrunnslotu'
+    'stop:Stöðva bakgrunnslotu (samtalið er varðveitt)'
+    'respawn:Endurræsa bakgrunnslotu svo hún keyri núverandi útgáfu af Claude Code'
+    'rm:Eyða bakgrunnslotu, og worktree hennar þegar það er öruggt'
     'auth:Stjórna auðkenningu'
     'auto-mode:Skoða eða endurstilla stillingar auto mode flokkara'
     'gateway:Keyra fyrirtækja auðkennis-/fjarmælingargátt'
+    'import:Flytja inn stillingar frá öðrum gervigreindar kóðunarumboðsmanni í Claude Code'
     'project:Stjórna stöðu Claude Code verkefnis'
     'ultrareview:Keyra skýhýsta fjölumboðsmanna kóðarýni og prenta niðurstöður'
     'setup-token:Stilla langtíma auðkenningarmerki (krefst Claude áskriftar)'
@@ -178,6 +217,7 @@ _claude() {
     '--mcp-debug[\[Úrelt. Notaðu --debug í staðinn\] Virkja MCP kembiham (sýnir MCP-þjóns villur)]'
     '--dangerously-skip-permissions[Fara framhjá öllum heimildaathugunum. Mælt með aðeins fyrir sandkassa án netaðgangs]'
     '--allow-dangerously-skip-permissions[Virkja valkost til að fara framhjá heimildaathugunum án þess að virkja sem sjálfgefið]'
+    '--restricted[Takmarkaður hamur: fjarlægja verkfæri sem keyra skipanir eða kóða og WebFetch, hunsa user/project/local stillingar og takmarka skráarverkfæri við vinnumöppurnar]'
     '--max-budget-usd[Hámarks dollaraupphæð til að eyða í API köll (aðeins --print)]:amount:'
     '--replay-user-messages[Endursenda notendarskilaboð frá stdin á stdout til staðfestingar]'
     '--allowed-tools[Komma eða bil aðskilinn listi yfir leyfileg verkfæranöfn (t.d. "Bash(git:*) Edit")]:tools:'
@@ -187,8 +227,13 @@ _claude() {
     '--disallowedTools[Komma eða bil aðskilinn listi yfir óleyfileg verkfæranöfn (camelCase snið)]:tools:'
     '--mcp-config[Hlaða MCP-þjónum úr JSON skrá eða strengi (bil aðskilinn)]:configs:'
     '--system-prompt[Kerfis fyrirspurn til að nota fyrir lotu]:prompt:'
+    '--system-prompt-file[Lesa kerfis fyrirspurn úr skrá]:file:_files'
     '--append-system-prompt[Bæta kerfis fyrirspurn við sjálfgefna kerfis fyrirspurn]:prompt:'
+    '--append-system-prompt-file[Lesa kerfis fyrirspurn úr skrá og bæta henni við sjálfgefna kerfis fyrirspurn]:file:_files'
+    '--system-prompt-snapshot[Skrá kerfis fyrirspurn einu sinni í hverju samtali og endurnýta hana orðrétt í hverri beiðni og við áframhald (on, sjálfgefið) eða mynda hana upp á nýtt í hverri beiðni (off)]:mode:(on off)'
     '--permission-mode[Heimildarhamur til að nota fyrir lotu]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)'
+    '--permission-prompts[Hver svarar heimildabeiðnum með --print: "host" (SDK hýsillinn eða --permission-prompt-tool) eða "none" (öllu sem myndi kalla á beiðni er hafnað)]:target:(host none)'
+    '--permission-prompt-tool[MCP verkfæri til að nota fyrir heimildabeiðnir (aðeins --print)]:tool:'
     '(-c --continue)'{-c,--continue}'[Halda áfram nýjustu samtalinu]'
     '(-r --resume)'{-r,--resume}'[Halda áfram samtali - tilgreina lotu-auðkenni eða velja gagnvirkt]:sessionId:_claude_sessions'
     '--fork-session[Búa til nýtt lotu-auðkenni í stað þess að endurnýta upprunalegt lotu-auðkenni við áframhald (með --resume eða --continue)]'
@@ -200,6 +245,7 @@ _claude() {
     '--settings[Slóð að stillingum JSON skrá eða JSON strengi til að hlaða viðbótar stillingum]:file-or-json:_files'
     '--add-dir[Viðbótar möppur til að leyfa verkfæra aðgang]:directories:_directories'
     '--ide[Tengja sjálfkrafa við IDE við ræsingu ef nákvæmlega eitt gilt IDE er tiltækt]'
+    '--desktop[Opna í Claude Desktop forritinu í stað útstöðvarinnar (með --continue eða --resume <id> til að velja lotuna)]'
     '--strict-mcp-config[Nota aðeins MCP-þjóna frá --mcp-config og hunsa allar aðrar MCP stillingar]'
     '--session-id[Sérstakt lotu-auðkenni til að nota fyrir samtal (verður að vera gilt UUID)]:uuid:'
     '--agents[JSON hlutur sem skilgreinir sérsniðna umboðsmenn]:json:'
@@ -208,11 +254,15 @@ _claude() {
     '--disable-slash-commands[Slökkva á öllum skástriksskipunum]'
     '(--bg --background)'{--bg,--background}'[Ræsa lotuna sem bakgrunnsumboðsmann og skila strax]'
     '(-w --worktree)'{-w,--worktree}'[Búa til nýtt git worktree fyrir þessa lotu (valkvætt tilgreina nafn)]::name:'
-    '--tmux[Búa til tmux lotu fyrir worktree (krefst --worktree)]'
+    '--tmux=-[Búa til tmux lotu fyrir worktree (krefst --worktree). Notar innbyggða iTerm2 glugga þegar tiltækt; --tmux=classic fyrir hefðbundið tmux]::mode:(classic)'
     '(-n --name)'{-n,--name}'[Setja birtingarnafn fyrir þessa lotu]:name:'
     '--effort[Áreynslustig fyrir núverandi lotu]:level:(low medium high xhigh max)'
+    '--autocompact[Gluggastærð sjálfvirkrar þjöppunar (auto, eða 100k-1M tákn)]:size:(auto)'
     '--debug-file[Skrifa kembilog í tiltekna skráarslóð (virkjar óbeint kembiham)]:path:_files'
     '--from-pr[Halda áfram lotu tengdri PR eftir númeri/URL, eða opna gagnvirkan valmynd]::value:'
+    '--teleport[Halda áfram teleport lotu, valkvætt tilgreina lotu-auðkenni]::session:'
+    '--cloud[Búa til skýlotu með gefinni lýsingu, eða tengjast fyrirliggjandi lotu eftir lotu-auðkenni eða claude.ai/code URL]::description-or-session:'
+    '--environment[Búa til nýja skýlotu sem keyrir á gefnu sjálfhýstu umhverfi (ccpool_...)]:environment_id:'
     '--remote-control[Ræsa gagnvirka lotu með Remote Control virkt (valkvætt nefnt)]::name:'
     '--remote-control-session-name-prefix[Forskeyti fyrir sjálfvirkt mynduð Remote Control lotunöfn]:prefix:'
     '--chrome[Virkja Claude í Chrome samþættingu]'
@@ -254,6 +304,17 @@ _claude() {
         agents)
           _claude_agents
           ;;
+        attach|logs|stop|kill)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Sýna hjálp fyrir skipun]' \
+            '1:session:_claude_background_sessions'
+          ;;
+        respawn)
+          _claude_respawn
+          ;;
+        rm)
+          _claude_rm
+          ;;
         auth)
           _claude_auth
           ;;
@@ -262,6 +323,9 @@ _claude() {
           ;;
         gateway)
           _claude_gateway
+          ;;
+        import)
+          _claude_import
           ;;
         project)
           _claude_project
@@ -319,6 +383,9 @@ _claude_mcp() {
             '(-t --transport)'{-t,--transport}'[Flutningsgerð (stdio, sse, http)]:transport:(stdio sse http)' \
             '(-e --env)'{-e,--env}'[Tilgreina umhverfisbreytu (t.d. -e KEY=value)]:env:' \
             '(-H --header)'{-H,--header}'[Tilgreina WebSocket haus]:header:' \
+            '--client-id[OAuth biðlaraauðkenni fyrir HTTP/SSE þjóna]:clientId:' \
+            '--client-secret[Biðja um OAuth biðlaraleyndarmál (eða stilla MCP_CLIENT_SECRET umhverfisbreytu)]' \
+            '--callback-port[Fast tengi fyrir OAuth svarkall (fyrir þjóna sem krefjast fyrirfram skráðra áframsendingar-URI)]:port:' \
             '(-h --help)'{-h,--help}'[Sýna hjálp]' \
             '1:name:' \
             '2:commandOrUrl:' \
@@ -342,6 +409,7 @@ _claude_mcp() {
         add-json)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Stillinga umfang (local, user, project)]:scope:(local user project)' \
+            '--client-secret[Biðja um OAuth biðlaraleyndarmál (eða stilla MCP_CLIENT_SECRET umhverfisbreytu)]' \
             '(-h --help)'{-h,--help}'[Sýna hjálp]' \
             '1:name:' \
             '2:json:'
@@ -355,7 +423,13 @@ _claude_mcp() {
           _arguments \
             '(-h --help)'{-h,--help}'[Sýna hjálp]'
           ;;
-        login|logout)
+        login)
+          _arguments \
+            '--no-browser[Prenta heimildar-URL í stað þess að opna vafra (fyrir SSH/skjálausar lotur)]' \
+            '(-h --help)'{-h,--help}'[Sýna hjálp]' \
+            '1:name:_claude_mcp_servers'
+          ;;
+        logout)
           _arguments \
             '(-h --help)'{-h,--help}'[Sýna hjálp]' \
             '1:name:_claude_mcp_servers'
@@ -372,9 +446,11 @@ _claude_plugin() {
     'marketplace:Stjórna Claude Code markaðstorgum'
     'list:Sýna uppsettar viðbætur'
     'details:Sýna íhlutaskrá og áætlaðan tákna kostnað fyrir viðbót'
+    'configure:Sýna valkosti viðbótar og hverjir eru óstilltir, eða vista gildi frá stdin'
     'install:Setja upp viðbót úr tiltækum markaðstorgum'
     'i:Setja upp viðbót úr tiltækum markaðstorgum (stutt fyrir install)'
     'init:Beinagrind fyrir nýja viðbót (hleðst sjálfkrafa næstu lotu)'
+    'new:Beinagrind fyrir nýja viðbót (samheiti fyrir init)'
     'uninstall:Fjarlægja uppsetta viðbót'
     'remove:Fjarlægja uppsetta viðbót (samheiti fyrir uninstall)'
     'enable:Virkja óvirka viðbót'
@@ -382,7 +458,9 @@ _claude_plugin() {
     'update:Uppfæra viðbót í nýjustu útgáfu'
     'eval:Keyra eval tilvik gegn viðbót og skila stigagefnum niðurstöðum'
     'prune:Fjarlægja sjálfvirkt uppsettar ávanabindingar sem eru ekki lengur nauðsynlegar'
+    'autoremove:Fjarlægja sjálfvirkt uppsetta háða pakka sem er ekki lengur þörf á (samheiti fyrir prune)'
     'tag:Búa til {name}--v{version} git merki fyrir viðbótarútgáfu'
+    'test:Keyra prófanir mods'
     'help:Sýna hjálp'
   )
 
@@ -402,6 +480,8 @@ _claude_plugin() {
       case $words[1] in
         validate)
           _arguments \
+            '--strict[Meðhöndla viðvaranir sem villur (útgangskóði 1)]' \
+            '--json[Skila villuleitarskýrslunni sem JSON (sömu útgangskóðar)]' \
             '(-h --help)'{-h,--help}'[Sýna hjálp]' \
             '1:path:_files'
           ;;
@@ -411,50 +491,122 @@ _claude_plugin() {
         install|i)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Uppsetningar umfang]:scope:(user project local)' \
+            '*--config[Stilla userConfig valkost sem er skilgreindur í lýsiskrá viðbótarinnar (má endurtaka)]:key=value:' \
+            '(-y --yes)'{-y,--yes}'[Samþykkja birtu skipunina sem markaðstorgið skilgreinir án staðfestingarbeiðni]' \
+            '--json[Prenta eina véllesanlega niðurstöðulínu í stað skilaboða fyrir menn]' \
             '(-h --help)'{-h,--help}'[Sýna hjálp]' \
             '1:plugin:'
           ;;
         uninstall|remove)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Uppsetningar umfang]:scope:(user project local)' \
+            '--keep-data[Varðveita varanlega gagnamöppu viðbótarinnar]' \
+            '--prune[Einnig fjarlægja sjálfvirkt uppsetta háða pakka sem er ekki lengur þörf á]' \
+            '(-y --yes)'{-y,--yes}'[Sleppa --prune staðfestingarbeiðninni]' \
+            '--json[Prenta eina véllesanlega niðurstöðulínu í stað skilaboða fyrir menn (ekki með --prune)]' \
             '(-h --help)'{-h,--help}'[Sýna hjálp]' \
             '1:plugin:_claude_installed_plugins'
           ;;
-        enable|disable)
+        enable)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Uppsetningar umfang]:scope:(user project local)' \
+            '--json[Prenta eina véllesanlega niðurstöðulínu í stað skilaboða fyrir menn]' \
             '(-h --help)'{-h,--help}'[Sýna hjálp]' \
             '1:plugin:_claude_installed_plugins'
+          ;;
+        disable)
+          _arguments \
+            '(-a --all)'{-a,--all}'[Gera allar virkar viðbætur óvirkar]' \
+            '(-s --scope)'{-s,--scope}'[Uppsetningar umfang]:scope:(user project local)' \
+            '--json[Prenta eina véllesanlega niðurstöðulínu í stað skilaboða fyrir menn]' \
+            '(-h --help)'{-h,--help}'[Sýna hjálp]' \
+            '::plugin:_claude_installed_plugins'
           ;;
         update)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Uppsetningar umfang]:scope:(user project local managed)' \
+            '(-y --yes)'{-y,--yes}'[Samþykkja birtu skipunina sem markaðstorgið skilgreinir án staðfestingarbeiðni]' \
+            '--json[Prenta eina véllesanlega niðurstöðulínu í stað skilaboða fyrir menn]' \
             '(-h --help)'{-h,--help}'[Sýna hjálp]' \
             '1:plugin:_claude_installed_plugins'
           ;;
-        list|prune)
+        list)
           _arguments \
+            '--json[Úttak sem JSON]' \
+            '--available[Taka með tiltækar viðbætur úr markaðstorgum (krefst --json)]' \
             '(-h --help)'{-h,--help}'[Sýna hjálp]'
+          ;;
+        prune|autoremove)
+          _arguments \
+            '(-s --scope)'{-s,--scope}'[Hreinsa í umfangi]:scope:(user project local)' \
+            '--dry-run[Sýna hvað yrði fjarlægt án þess að fjarlægja]' \
+            '(-y --yes)'{-y,--yes}'[Sleppa staðfestingarbeiðninni]' \
+            '(-h --help)'{-h,--help}'[Sýna hjálp]'
+          ;;
+        configure)
+          _arguments \
+            '--json[Úttak sem JSON]' \
+            '--values-stdin[Lesa valkostagildi frá stdin sem JSON hlut með einnar línu strengjum; valkostir sem sleppt er halda gildum sínum]' \
+            '(-h --help)'{-h,--help}'[Sýna hjálp]' \
+            '1:plugin:_claude_installed_plugins'
           ;;
         details)
           _arguments \
             '(-h --help)'{-h,--help}'[Sýna hjálp]' \
             '1:plugin:_claude_installed_plugins'
           ;;
-        init)
+        init|new)
           _arguments \
+            '--description[Lýsing í lýsiskrá]:text:' \
+            '--author[Nafn höfundar (sjálfgefið: git config user.name)]:name:' \
+            '--author-email[Netfang höfundar (sjálfgefið: git config user.email)]:email:' \
+            '--with[Íhlutir sem einnig á að búa til beinagrind fyrir]:components:' \
+            '(-f --force)'{-f,--force}'[Skrifa yfir fyrirliggjandi .claude-plugin/ í markinu]' \
             '(-h --help)'{-h,--help}'[Sýna hjálp]' \
             '1:name:'
           ;;
         eval)
           _arguments \
+            '--case[Sía tilvik eftir nafnamynstri (glob)]:glob:' \
+            '*--tag[Sía tilvik eftir merki (má endurtaka)]:tag:' \
+            '--runs[Hnekkja fjölda keyrslna á hvert tilvik (sjálfgefið: case.runs, annars 3)]:n:' \
+            '(-j --concurrency)'{-j,--concurrency}'[Keyra allt að n umboðsmannskeyrslur í einu (1-8; sjálfgefið 1)]:n:' \
+            '--model[Hnekkja líkani fyrir öll tilvik]:model:_claude_model_names' \
+            '--judge-model[Hnekkja líkani LLM-matsaðila (sjálfgefið: haiku)]:model:_claude_model_names' \
+            '--max-cost-usd[Hart kostnaðarþak; hætta við og skila hlutaniðurstöðum ef því er náð (útgangskóði 2)]:usd:' \
+            '--output-dir[Mappa fyrir aggregate-result.json]:dir:_directories' \
+            '--eval-dir[Nafn möppu (undir viðbótinni) sem geymir eval tilvikin]:dir:' \
+            '--json[Prenta alla keyrsluniðurstöðuna sem JSON á stdout, eða skrifa hana í þessa .json skrá]::path:_files' \
+            '--threshold[Hætta með útgangskóða 1 ef stig einhvers tilviks eru undir þessum þröskuldi (sjálfgefið: 1.0)]:threshold:' \
+            '*--allow-tools[Heimild rekstraraðila fyrir læst verkfæri (Bash, Write, Edit, WebFetch, mcp__*)]:tools:' \
+            '(--no-scaffold)--scaffold[Keyra scaffold_script hvers tilviks (keyrir bash frá höfundi í þínu nafni; óvirkt sjálfgefið)]' \
+            '(--scaffold)--no-scaffold[Sleppa scaffold_script sérstaklega]' \
+            '--trust-plugin[Staðfesta að þú treystir þessari viðbót og eval safni hennar, og sleppa traustbeiðni fyrstu keyrslu (fyrir CI)]' \
+            '--ablation[Keyra viðmiðunarhóp án viðbótar og skila stigamuninum]:mode:(none with-without)' \
+            '--mocks[Gervistaðgenglar fyrir MCP-þjóna, úr <eval dir>/mocks/]:mode:(record off)' \
+            '--allow-real-servers[Með --mocks record: einnig ræsa raunverulegu MCP-þjónsferlin sem hafa engan gervistaðgengil]' \
+            '--keep-temp[Varðveita beinagrindarmöppur til kembingar]' \
+            '--verbose[Skrá rakningaratburði fyrir hver skilaboð í kembiloggið]' \
+            '--report[Skrifa sjálfstæðu HTML skýrsluna á þessa slóð í stað niðurstöðumöppunnar]:path:_files' \
+            '(--no-publish)--publish-report[Einnig krefjast þess að skýrslan sé birt á claude.ai]' \
+            '(--publish-report)--no-publish[Halda HTML skýrslunni aðeins staðbundinni; sleppa því að birta hana á claude.ai]' \
             '(-h --help)'{-h,--help}'[Sýna hjálp]' \
-            '1:target:'
+            '::target: _alternative "plugins\:installed plugin\:_claude_installed_plugins" "files\:path\:_files"'
           ;;
         tag)
           _arguments \
+            '--push[Ýta merkinu á --remote eftir að það er búið til]' \
+            '--dry-run[Prenta hvað yrði merkt án þess að búa merkið til]' \
+            '(-f --force)'{-f,--force}'[Sleppa athugunum á óhreinu vinnutré og hvort merkið sé þegar til]' \
+            '(-m --message)'{-m,--message}'[Athugasemdaskilaboð merkis (nota %s fyrir útgáfuna)]:msg:' \
+            '--remote[Fjargeymsla til að ýta á með --push]:name:' \
             '(-h --help)'{-h,--help}'[Sýna hjálp]' \
-            '1:path:_files'
+            '::path:_files'
+          ;;
+        test)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Sýna hjálp]' \
+            '::dir:_directories'
           ;;
       esac
       ;;
@@ -488,15 +640,20 @@ _claude_plugin_marketplace() {
       case $words[1] in
         add)
           _arguments \
+            '--sparse[Takmarka git checkout við tilteknar möppur með git sparse-checkout (fyrir monorepos)]:paths:' \
+            '--scope[Hvar á að skilgreina markaðstorgið]:scope:(user project local)' \
+            '--claudeai[Bæta við markaðstorginu með þessu nafni sem claude.ai hýsir fyrir þig]' \
             '(-h --help)'{-h,--help}'[Sýna hjálp]' \
             '1:source:'
           ;;
         list)
           _arguments \
+            '--json[Úttak sem JSON]' \
             '(-h --help)'{-h,--help}'[Sýna hjálp]'
           ;;
         remove|rm)
           _arguments \
+            '--scope[Fjarlægja skilgreiningu markaðstorgsins úr tilteknu stillinga umfangi (sleppa til að fjarlægja hana úr öllum umföngum)]:scope:(user project local)' \
             '(-h --help)'{-h,--help}'[Sýna hjálp]' \
             '1:name:'
           ;;
@@ -534,6 +691,7 @@ _claude_agents() {
     '--setting-sources[Kommu aðskilinn listi yfir stillingarheimildir til að hlaða (user, project, local)]:sources:' \
     '--settings[Stillingaskrá eða JSON strengur til að beita]:file-or-json:_files' \
     '--strict-mcp-config[Nota aðeins MCP-þjóna frá --mcp-config í útsendum lotum]' \
+    '--restricted[Ræsa útsendar lotur í takmörkuðum ham]' \
     '(-h --help)'{-h,--help}'[Sýna hjálp fyrir skipun]'
 }
 
@@ -560,7 +718,21 @@ _claude_auth() {
       ;;
     args)
       case $words[1] in
-        login|logout|status)
+        login)
+          _arguments \
+            '--email[Forfylla netfang á innskráningarsíðunni]:email:' \
+            '--sso[Þvinga SSO innskráningarferli]' \
+            '(--claudeai)--console[Nota Anthropic Console (gjaldfærsla eftir API notkun) í stað Claude áskriftar]' \
+            '(--console)--claudeai[Nota Claude áskrift (sjálfgefið)]' \
+            '(-h --help)'{-h,--help}'[Sýna hjálp fyrir skipun]'
+          ;;
+        status)
+          _arguments \
+            '(--text)--json[Úttak sem JSON (sjálfgefið)]' \
+            '(--json)--text[Úttak sem læsilegur texti]' \
+            '(-h --help)'{-h,--help}'[Sýna hjálp fyrir skipun]'
+          ;;
+        logout)
           _arguments \
             '(-h --help)'{-h,--help}'[Sýna hjálp fyrir skipun]'
           ;;
@@ -593,7 +765,22 @@ _claude_auto_mode() {
       ;;
     args)
       case $words[1] in
-        config|critique|defaults|reset)
+        critique)
+          _arguments \
+            '--model[Hnekkja hvaða líkan er notað]:model:_claude_model_names' \
+            '(-h --help)'{-h,--help}'[Sýna hjálp fyrir skipun]'
+          ;;
+        defaults)
+          _arguments \
+            '--label[Sýna aðeins reglur þar sem merkimiðinn byrjar á þessu forskeyti (óháð há- og lágstöfum)]:prefix:' \
+            '(-h --help)'{-h,--help}'[Sýna hjálp fyrir skipun]'
+          ;;
+        reset)
+          _arguments \
+            '(-y --yes)'{-y,--yes}'[Sleppa staðfestingarbeiðninni]' \
+            '(-h --help)'{-h,--help}'[Sýna hjálp fyrir skipun]'
+          ;;
+        config)
           _arguments \
             '(-h --help)'{-h,--help}'[Sýna hjálp fyrir skipun]'
           ;;
@@ -631,8 +818,12 @@ _claude_project() {
       case $words[1] in
         purge)
           _arguments \
+            '--dry-run[Sýna hvað yrði eytt án þess að eyða neinu]' \
+            '(-y --yes)'{-y,--yes}'[Sleppa staðfestingarbeiðninni]' \
+            '(-i --interactive)'{-i,--interactive}'[Spyrja um hvert atriði áður en því er eytt]' \
+            '(1)--all[Eyða stöðu fyrir öll verkefni (útilokar slóð)]' \
             '(-h --help)'{-h,--help}'[Sýna hjálp fyrir skipun]' \
-            '1:path:_directories'
+            '(--all)::path:_directories'
           ;;
       esac
       ;;
@@ -642,9 +833,34 @@ _claude_project() {
 _claude_ultrareview() {
   _arguments \
     '--json[Prenta hráa bugs.json gögnin í stað sniðinna niðurstaðna]' \
-    '--timeout[Hámarks mínútur til að bíða eftir að rýnin ljúki]:minutes:' \
+    '--timeout[Hámarks mínútur til að bíða eftir að rýnin ljúki (sjálfgefið: 45)]:minutes:' \
+    '(--no-post)--post[Birta niðurstöður lokinnar rýni á PR í þínu nafni (aðeins þegar rýnt er í PR; ein venjuleg athugasemd, ekki rýni)]' \
+    '(--post)--no-post[Ekki birta niðurstöðurnar á PR (sjálfgefið)]' \
     '(-h --help)'{-h,--help}'[Sýna hjálp fyrir skipun]' \
     '1:target:'
+}
+
+_claude_respawn() {
+  _arguments \
+    '(1)--all[Endurræsa allar bakgrunnslotur í keyrslu]' \
+    '(-h --help)'{-h,--help}'[Sýna hjálp fyrir skipun]' \
+    '(--all)::session:_claude_background_sessions'
+}
+
+_claude_rm() {
+  _arguments \
+    '--discard-unpushed[Einnig henda óýttum commits og óskráðum breytingum worktree (gefa upp commit@worktree-id sem fyrri claude rm tilkynnti)]:commit@worktree-id:' \
+    '--force-remove-worktree[Eyða worktree möppunni þótt WorktreeRemove hook eða git hafi ekki getað fjarlægt hana (gefa upp worktree-id sem fyrri claude rm tilkynnti)]:worktree-id:' \
+    '(-h --help)'{-h,--help}'[Sýna hjálp fyrir skipun]' \
+    '1:session:_claude_background_sessions'
+}
+
+_claude_import() {
+  _arguments \
+    '--dry-run[Sýna hvað yrði flutt inn án þess að skrifa neitt]' \
+    '--yes[Sleppa gagnvirka valinu (á skjálausum yfirborðum, gefa upp --yes=<digest> úr /import forskoðuninni)]' \
+    '(-h --help)'{-h,--help}'[Sýna hjálp fyrir skipun]' \
+    '::source:(codex gemini cursor)'
 }
 
 (( $+_comps[claude] )) || compdef _claude claude
