@@ -121,6 +121,39 @@ _claude_agent_names() {
   compadd -a agents
 }
 
+_claude_background_sessions() {
+  local -a sessions state_files
+  local -A names states
+  local state_dir state_file line id rest
+
+  # Background sessions (`claude --bg`) live in <config>/jobs/<id>/, where
+  # <id> is the short id that attach, logs, stop, respawn and rm take.
+  for state_dir in ${(f)"$(_claude_state_dirs)"}; do
+    # Newest first
+    state_files=(${state_dir}/jobs/*/state.json(Nom))
+    (( ${#state_files} )) || continue
+
+    # One grep for all of them; the first "name" and "state" it reports for a
+    # file are that file's top-level ones
+    names=() states=()
+    for line in ${(f)"$(grep -HoE '"(name|state)"[[:space:]]*:[[:space:]]*"[^"]*"' $state_files 2>/dev/null)"}; do
+      id=${${line%%/state.json:*}:t}
+      rest=${line#*/state.json:}
+      case $rest in
+        \"name\"*)  [[ -z $names[$id] ]]  && names[$id]=${${rest#*:*\"}%\"} ;;
+        \"state\"*) [[ -z $states[$id] ]] && states[$id]=${${rest#*:*\"}%\"} ;;
+      esac
+    done
+
+    for state_file in $state_files; do
+      id=${state_file:h:t}
+      sessions+=("${id}:${names[$id]:-no name}${states[$id]:+ (${states[$id]})}")
+    done
+  done
+
+  _describe -t sessions 'background session' sessions
+}
+
 _claude_model_names() {
   local -a models config_files
   local state_dir config_file
@@ -155,9 +188,15 @@ _claude() {
     'mcp:Kònfigùrëjë ë sprôwiô serwerama MCP'
     'plugin:Sprôwiô wtëkama Claude Code'
     'agents:Sprôwiô agentama w tle'
+    'attach:Òtmikô sesjã w tle w tim terminalu'
+    'logs:Wëpisëje slédné wińdzenié terminala sesje w tle'
+    'stop:Zatrzëmiwô sesjã w tle (ji rozmòwa òstôwô zachòwónô)'
+    'respawn:Pòwtórno zrëszô sesjã w tle, żebë dzejała na aktualny wersje Claude Code'
+    'rm:Rëmô sesjã w tle, a téż ji worktree, czej to je bezpieczné'
     'auth:Sprôwiô ùwierzëtelnianim'
     'auto-mode:Przezérô abò resetëje kònfigùracjã klasyfikatora auto mòdusa'
     'gateway:Zrëszô przedsãbiorstwòwą bramã aùth/telemetrie'
+    'import:Impòrtëje kònfigùracjã z jinégò agenta AI do pisaniô kòdu do Claude Code'
     'project:Sprôwiô stanã projektu Claude Code'
     'ultrareview:Zrëszô wielo-agentowi przezérk kòdu w chmùrze ë wëpisëje nalôzczi'
     'setup-token:Nastôwi dłudżotrwałi tokén ùwierzëtelnianiô (wëmôgô abònamentu Claude)'
@@ -178,6 +217,7 @@ _claude() {
     '--mcp-debug[\[Òprzestóné. Brëkùj --debug w môl tegò\] Włączë MCP debug mòdus (pòkazëje felë serwera MCP)]'
     '--dangerously-skip-permissions[Òbińdzë wszëtczé kòntrolë zezwòleniów. Zalécóné le dlô sandboxów bez przistãpù do internetu]'
     '--allow-dangerously-skip-permissions[Włączë òpcjã òbeńdzeniô kòntrolów zezwòleniów bez włączaniô domëslno]'
+    '--restricted[Ògrańczony mòdus: ùsuń nôrzãdza, chtërne zrëszają kòmandë abò kòd, ë WebFetch, ignorëj nastôwë user/project/local ë ògrańczë nôrzãdza plików do robòczich katalogów]'
     '--max-budget-usd[Maksymalnô kwòta w dolarach do wëdaniô na wołania API (le --print)]:amount:'
     '--replay-user-messages[Pòwtórno wëslë wiadła brëkòwnika ze stdin na stdout do pòcwierdzeniô]'
     '--allowed-tools[Lësta dozwòlonych mionów nôrzãdzów òddzelonô kòmą abò spacją (np. "Bash(git:*) Edit")]:tools:'
@@ -187,8 +227,13 @@ _claude() {
     '--disallowedTools[Lësta zakôzónych mionów nôrzãdzów òddzelonô kòmą abò spacją (fòrmat camelCase)]:tools:'
     '--mcp-config[Wczëtôj serwerë MCP z plika JSON abò cygù (òddzelonégò spacją)]:configs:'
     '--system-prompt[Systemòwi prompt do ùżëcô dlô sesje]:prompt:'
+    '--system-prompt-file[Wczëtôj systemòwi prompt z plika]:file:_files'
     '--append-system-prompt[Dodôj systemòwi prompt do domëslnégò systemòwégò promptu]:prompt:'
+    '--append-system-prompt-file[Wczëtôj systemòwi prompt z plika ë dodôj gò do domëslnégò systemòwégò promptu]:file:_files'
+    '--system-prompt-snapshot[Zapiszë systemòwi prompt rôz na rozmòwã ë brëkùj gò dosłowno przë kòżdi prosbie ë wznowienim (on, domëslno) abò renderëjë gò nowò przë kòżdi prosbie (off)]:mode:(on off)'
     '--permission-mode[Mòdus zezwòleniów do ùżëcô dlô sesje]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)'
+    '--permission-prompts[Chto òdpòwiôdô na pëtania ò zezwòlenié z --print: "host" (host SDK abò --permission-prompt-tool) abò "none" (wszëtkò, co bë pëtało, je òdrzuconé)]:target:(host none)'
+    '--permission-prompt-tool[Nôrzãdzé MCP do ùżëcô przë pëtaniach ò zezwòlenié (le --print)]:tool:'
     '(-c --continue)'{-c,--continue}'[Kòntinuùjë nônowszą rozmòwã]'
     '(-r --resume)'{-r,--resume}'[Wznowi rozmòwã - pòdôj ID sesje abò wëbierzë interaktiwno]:sessionId:_claude_sessions'
     '--fork-session[Ùsôdzë nowé ID sesje w môl brëkòwaniô òriginalnégò ID sesje przë wznôwianim (z --resume abò --continue)]'
@@ -200,6 +245,7 @@ _claude() {
     '--settings[Stegna do plika JSON z nastôwama abò cygù JSON do wczëtaniô dodôwkòwëch nastôwów]:file-or-json:_files'
     '--add-dir[Dodôwkòwé katalodżi do zezwòleniô przistãpù nôrzãdzóm]:directories:_directories'
     '--ide[Aùtomatno pòłączë z IDE przë sztarce, jeżlë je przistãpné akùrat jedno wôżné IDE]'
+    '--desktop[Òtemkni w aplikacji Claude Desktop w môl terminala (z --continue abò --resume <id>, żebë wëbrac sesjã)]'
     '--strict-mcp-config[Brëkùj le serwerów MCP z --mcp-config ë ignorëj wszëtczé jiné nastôwë MCP]'
     '--session-id[Kònkretné ID sesje do ùżëcô dlô rozmòwë (mùszi bëc wôżny UUID)]:uuid:'
     '--agents[Òbiekt JSON òpisëjący włôsné agentë]:json:'
@@ -208,11 +254,15 @@ _claude() {
     '--disable-slash-commands[Wëłączë wszëtczé slash-kòmandë]'
     '(--bg --background)'{--bg,--background}'[Zrëszë sesjã jakò agent w tle ë zarô wrócë]'
     '(-w --worktree)'{-w,--worktree}'[Ùsôdzë nowi git worktree dlô ti sesje (òpcjonalno pòdôj miono)]::name:'
-    '--tmux[Ùsôdzë sesjã tmux dlô worktree (wëmôgô --worktree)]'
+    '--tmux=-[Ùsôdzë sesjã tmux dlô worktree (wëmôgô --worktree). Brëkùje nôtëwnëch panelów iTerm2, czej są przistãpné; --tmux=classic dlô tradicjowégò tmux]::mode:(classic)'
     '(-n --name)'{-n,--name}'[Nastôwi wëskrzënioné miono dlô ti sesje]:name:'
     '--effort[Rówizna wësiłkù dlô aktualny sesje]:level:(low medium high xhigh max)'
+    '--autocompact[Wiôlgòsc òkna aùto-kòmpaktowaniô (auto, abò 100k-1M tokenów)]:size:(auto)'
     '--debug-file[Zapiszë debug logi do kònkretny stegnë plika (dorozëmno włączô debug mòdus)]:path:_files'
     '--from-pr[Wznowi sesjã sparłãczoną z PR przez numer/URL, abò òtemkni interaktiwny wëbiérnik]::value:'
+    '--teleport[Wznowi sesjã teleport, òpcjonalno pòdôj ID sesje]::session:'
+    '--cloud[Ùsôdzë sesjã w chmùrze z pòdónym òpisënkã abò pòdłączë sã do jistniejący przez ID sesje abò URL claude.ai/code]::description-or-session:'
+    '--environment[Ùsôdzë nową sesjã w chmùrze, chtërna dzejô w pòdónym samòhòstowónym strzodowiskù (ccpool_...)]:environment_id:'
     '--remote-control[Zrëszë interaktiwną sesjã z włączonym Remote Control (òpcjonalno z mionã)]::name:'
     '--remote-control-session-name-prefix[Prefiks dlô aùtomatno generowónëch mionów sesji Remote Control]:prefix:'
     '--chrome[Włączë integracjã Claude w Chrome]'
@@ -254,6 +304,17 @@ _claude() {
         agents)
           _claude_agents
           ;;
+        attach|logs|stop|kill)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Pòkôżë pòmòc dlô kòmandë]' \
+            '1:session:_claude_background_sessions'
+          ;;
+        respawn)
+          _claude_respawn
+          ;;
+        rm)
+          _claude_rm
+          ;;
         auth)
           _claude_auth
           ;;
@@ -262,6 +323,9 @@ _claude() {
           ;;
         gateway)
           _claude_gateway
+          ;;
+        import)
+          _claude_import
           ;;
         project)
           _claude_project
@@ -319,6 +383,9 @@ _claude_mcp() {
             '(-t --transport)'{-t,--transport}'[Ôrt transpòrtu (stdio, sse, http)]:transport:(stdio sse http)' \
             '(-e --env)'{-e,--env}'[Nastôwi zmienną strzodowiskòwą (np. -e KEY=value)]:env:' \
             '(-H --header)'{-H,--header}'[Nastôwi nagłówk WebSocket]:header:' \
+            '--client-id[ID klienta OAuth dlô serwerów HTTP/SSE]:clientId:' \
+            '--client-secret[Pëtôj ò tajemnicã klienta OAuth (abò nastôwi zmienną strzodowiskòwą MCP_CLIENT_SECRET)]' \
+            '--callback-port[Stałi pòrt dlô callbacku OAuth (dlô serwerów, chtërne wëmôgają wczasniészi registracje URI przekierowaniô)]:port:' \
             '(-h --help)'{-h,--help}'[Pòkôżë pòmòc]' \
             '1:name:' \
             '2:commandOrUrl:' \
@@ -342,6 +409,7 @@ _claude_mcp() {
         add-json)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Zasyg kònfigùracje (local, user, project)]:scope:(local user project)' \
+            '--client-secret[Pëtôj ò tajemnicã klienta OAuth (abò nastôwi zmienną strzodowiskòwą MCP_CLIENT_SECRET)]' \
             '(-h --help)'{-h,--help}'[Pòkôżë pòmòc]' \
             '1:name:' \
             '2:json:'
@@ -355,7 +423,13 @@ _claude_mcp() {
           _arguments \
             '(-h --help)'{-h,--help}'[Pòkôżë pòmòc]'
           ;;
-        login|logout)
+        login)
+          _arguments \
+            '--no-browser[Wëpiszë URL ùwierzëtelnianiô w môl òtmikaniô przezérnika (dlô sesji SSH/bez ekranu)]' \
+            '(-h --help)'{-h,--help}'[Pòkôżë pòmòc]' \
+            '1:name:_claude_mcp_servers'
+          ;;
+        logout)
           _arguments \
             '(-h --help)'{-h,--help}'[Pòkôżë pòmòc]' \
             '1:name:_claude_mcp_servers'
@@ -372,9 +446,11 @@ _claude_plugin() {
     'marketplace:Sprôwiô rënkama Claude Code'
     'list:Lëstëje zainstalowóné wtëczi'
     'details:Pòkazëje inwentôrz kòmpònentów ë przewidzóny kòszt tokenów dlô wtëkù'
+    'configure:Pòkazëje òpcje wtëkù ë chtërne nie są nastôwioné, abò zapisëje wôrtnoscë ze stdin'
     'install:Instalëje wtëk z przistãpnëch rënków'
     'i:Instalëje wtëk z przistãpnëch rënków (skrócenié dlô install)'
     'init:Ùsôdzô rusztowanié nowégò wtëkù (aùtomatno wczëtô w pòstãpny sesje)'
+    'new:Ùsôdzô rusztowanié nowégò wtëkù (alias dlô init)'
     'uninstall:Òdinstalëje zainstalowóny wtëk'
     'remove:Òdinstalëje zainstalowóny wtëk (alias dlô uninstall)'
     'enable:Włączô wëłączony wtëk'
@@ -382,7 +458,9 @@ _claude_plugin() {
     'update:Aktualizëje wtëk do nônowszi wersje'
     'eval:Zrëszô przëpôdczi eval procëm wtëkòwi ë rapòrtëje òcenioné realtatë'
     'prune:Ùsëwô aùtomatno zainstalowóné zanôleżnoscë, chtërne ju nie są nótné'
+    'autoremove:Ùsëwô aùtomatno zainstalowóné zanôleżnoscë, chtërne ju nie są nótné (alias dlô prune)'
     'tag:Ùsôdzô git tag {name}--v{version} dlô wëdôwkù wtëkù'
+    'test:Zrëszô testë modu'
     'help:Pòkôżë pòmòc'
   )
 
@@ -402,6 +480,8 @@ _claude_plugin() {
       case $words[1] in
         validate)
           _arguments \
+            '--strict[Traktëjë òstrzeżenia jakò felë (kòd zakùńczeniô 1)]' \
+            '--json[Wëpiszë rapòrt walidacje jakò JSON (te same kòdë zakùńczeniô)]' \
             '(-h --help)'{-h,--help}'[Pòkôżë pòmòc]' \
             '1:path:_files'
           ;;
@@ -411,50 +491,122 @@ _claude_plugin() {
         install|i)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Zasyg instalacje]:scope:(user project local)' \
+            '*--config[Nastôwi òpcjã userConfig zadeklarowóną w manifesce wtëkù (mòże pòwtôrzac)]:key=value:' \
+            '(-y --yes)'{-y,--yes}'[Przëjmi wëskrzënioną kòmandã zadeklarowóną przez rënk bez pëtaniô ò pòcwierdzenié]' \
+            '--json[Wëpiszë jedną réżkã realtatu do czëtaniô przez maszinã w môl wiadła dlô człowieka]' \
             '(-h --help)'{-h,--help}'[Pòkôżë pòmòc]' \
             '1:plugin:'
           ;;
         uninstall|remove)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Zasyg instalacje]:scope:(user project local)' \
+            '--keep-data[Zachòwôj katalog trwałëch pòdôwków wtëkù]' \
+            '--prune[Ùsuń téż aùtomatno zainstalowóné zanôleżnoscë, chtërne ju nie są nótné]' \
+            '(-y --yes)'{-y,--yes}'[Przeskòczë pëtanié ò pòcwierdzenié --prune]' \
+            '--json[Wëpiszë jedną réżkã realtatu do czëtaniô przez maszinã w môl wiadła dlô człowieka (nie z --prune)]' \
             '(-h --help)'{-h,--help}'[Pòkôżë pòmòc]' \
             '1:plugin:_claude_installed_plugins'
           ;;
-        enable|disable)
+        enable)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Zasyg instalacje]:scope:(user project local)' \
+            '--json[Wëpiszë jedną réżkã realtatu do czëtaniô przez maszinã w môl wiadła dlô człowieka]' \
             '(-h --help)'{-h,--help}'[Pòkôżë pòmòc]' \
             '1:plugin:_claude_installed_plugins'
+          ;;
+        disable)
+          _arguments \
+            '(-a --all)'{-a,--all}'[Wëłączë wszëtczé włączoné wtëczi]' \
+            '(-s --scope)'{-s,--scope}'[Zasyg instalacje]:scope:(user project local)' \
+            '--json[Wëpiszë jedną réżkã realtatu do czëtaniô przez maszinã w môl wiadła dlô człowieka]' \
+            '(-h --help)'{-h,--help}'[Pòkôżë pòmòc]' \
+            '::plugin:_claude_installed_plugins'
           ;;
         update)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Zasyg instalacje]:scope:(user project local managed)' \
+            '(-y --yes)'{-y,--yes}'[Przëjmi wëskrzënioną kòmandã zadeklarowóną przez rënk bez pëtaniô ò pòcwierdzenié]' \
+            '--json[Wëpiszë jedną réżkã realtatu do czëtaniô przez maszinã w môl wiadła dlô człowieka]' \
             '(-h --help)'{-h,--help}'[Pòkôżë pòmòc]' \
             '1:plugin:_claude_installed_plugins'
           ;;
-        list|prune)
+        list)
           _arguments \
+            '--json[Wińdzenié jakò JSON]' \
+            '--available[Dołączë przistãpné wtëczi z rënków (wëmôgô --json)]' \
             '(-h --help)'{-h,--help}'[Pòkôżë pòmòc]'
+          ;;
+        prune|autoremove)
+          _arguments \
+            '(-s --scope)'{-s,--scope}'[Wëczëszczë w zasygù]:scope:(user project local)' \
+            '--dry-run[Wëpiszë, co bë bëło ùsënióné, bez ùsëwaniô]' \
+            '(-y --yes)'{-y,--yes}'[Przeskòczë pëtanié ò pòcwierdzenié]' \
+            '(-h --help)'{-h,--help}'[Pòkôżë pòmòc]'
+          ;;
+        configure)
+          _arguments \
+            '--json[Wińdzenié jakò JSON]' \
+            '--values-stdin[Wczëtôj wôrtnoscë òpcji ze stdin jakò òbiekt JSON z jednoréżkòwëch cygów; pòminiãté òpcje zachòwëją swòje wôrtnoscë]' \
+            '(-h --help)'{-h,--help}'[Pòkôżë pòmòc]' \
+            '1:plugin:_claude_installed_plugins'
           ;;
         details)
           _arguments \
             '(-h --help)'{-h,--help}'[Pòkôżë pòmòc]' \
             '1:plugin:_claude_installed_plugins'
           ;;
-        init)
+        init|new)
           _arguments \
+            '--description[Òpisënk manifestu]:text:' \
+            '--author[Miono ùsôdzcë (domëslno: git config user.name)]:name:' \
+            '--author-email[E-mail ùsôdzcë (domëslno: git config user.email)]:email:' \
+            '--with[Kòmpònentë, do chtërnëch téż ùsadzëc rusztowanié]:components:' \
+            '(-f --force)'{-f,--force}'[Nadpiszë jistniejący .claude-plugin/ w môlu docélowim]' \
             '(-h --help)'{-h,--help}'[Pòkôżë pòmòc]' \
             '1:name:'
           ;;
         eval)
           _arguments \
+            '--case[Filtrëjë przëpôdczi wedle wzorca glob miona]:glob:' \
+            '*--tag[Filtrëjë przëpôdczi wedle tagù (mòże pòwtôrzac)]:tag:' \
+            '--runs[Nadpiszë lëczbã przebiegów na przëpôdk (domëslno: case.runs, jinak 3)]:n:' \
+            '(-j --concurrency)'{-j,--concurrency}'[Zrëszôj do n przebiegów agenta naròz (1-8; domëslno 1)]:n:' \
+            '--model[Nadpiszë model dlô wszëtczich przëpôdków]:model:_claude_model_names' \
+            '--judge-model[Nadpiszë model òceniwôcza LLM (domëslno: haiku)]:model:_claude_model_names' \
+            '--max-cost-usd[Twardi górny limit kòsztów; przë jegò dosygniãcu przerwi ë zrapòrtëjë dzélowé realtatë (kòd zakùńczeniô 2)]:usd:' \
+            '--output-dir[Katalog dlô aggregate-result.json]:dir:_directories' \
+            '--eval-dir[Miono katalogù (pòd wtëkã), w chtërnym są przëpôdczi eval]:dir:' \
+            '--json[Wëpiszë fùl realtat przebiegù jakò JSON na stdout abò zapiszë gò do tegò plika .json]::path:_files' \
+            '--threshold[Zakùńczë z kòdã zakùńczeniô 1, jeżlë jaczi wënik przëpôdkù je niżi tegò prógù (domëslno: 1.0)]:threshold:' \
+            '*--allow-tools[Zezwòlenié òperatora dlô zabezpieczonëch nôrzãdzów (Bash, Write, Edit, WebFetch, mcp__*)]:tools:' \
+            '(--no-scaffold)--scaffold[Zrëszë scaffold_script kòżdégò przëpôdkù (zrëszô bash dostarczony przez ùsôdzcã pòd twòjim kòntã; domëslno wëłączoné)]' \
+            '(--scaffold)--no-scaffold[Wprost przeskòczë scaffold_script]' \
+            '--trust-plugin[Pòcwierdzë, że ùfôsz temù wtëkòwi ë jegò zestôwòwi eval, przeskakùjąc pëtanié ò zaùfanié przë pierszim zrëszenim (dlô CI)]' \
+            '--ablation[Zrëszë kòntrolną grëpã bez wtëkù ë zrapòrtëjë różnicã wëników]:mode:(none with-without)' \
+            '--mocks[Zastãpné atrapë dlô serwerów MCP, z <eval dir>/mocks/]:mode:(record off)' \
+            '--allow-real-servers[Z --mocks record: zrëszë téż prôwdzëwé procesë serwerów MCP, chtërne ni mają atrapë]' \
+            '--keep-temp[Zachòwôj katalodżi rusztowaniô do debugòwaniô]' \
+            '--verbose[Zapisëjë eventë szlachù dlô kòżdégò wiadła w debug logù]' \
+            '--report[Zapiszë samòstójny rapòrt HTML na tã stegnã w môl katalogù realtatów]:path:_files' \
+            '(--no-publish)--publish-report[Wëmôgôj téż òpùblikòwaniô rapòrtu na claude.ai]' \
+            '(--publish-report)--no-publish[Trzëmôj rapòrt HTML le lokalno; przeskòczë jegò pùblikòwanié na claude.ai]' \
             '(-h --help)'{-h,--help}'[Pòkôżë pòmòc]' \
-            '1:target:'
+            '::target: _alternative "plugins\:installed plugin\:_claude_installed_plugins" "files\:path\:_files"'
           ;;
         tag)
           _arguments \
+            '--push[Wëslë tag do --remote pò jegò ùsôdzenim]' \
+            '--dry-run[Wëpiszë, co bë bëło òtagòwóné, bez ùsôdzaniô tagù]' \
+            '(-f --force)'{-f,--force}'[Przeskòczë kòntrolë zmienionégò robòczégò drzewa ë ju jistniejącégò tagù]' \
+            '(-m --message)'{-m,--message}'[Wiadło adnotacje tagù (brëkùj %s dlô wersje)]:msg:' \
+            '--remote[Remote, do chtërnégò wësłac z --push]:name:' \
             '(-h --help)'{-h,--help}'[Pòkôżë pòmòc]' \
-            '1:path:_files'
+            '::path:_files'
+          ;;
+        test)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Pòkôżë pòmòc]' \
+            '::dir:_directories'
           ;;
       esac
       ;;
@@ -488,15 +640,20 @@ _claude_plugin_marketplace() {
       case $words[1] in
         add)
           _arguments \
+            '--sparse[Ògrańczë checkout do òkreslonëch katalogów przez git sparse-checkout (dlô monorepò)]:paths:' \
+            '--scope[Dze zadeklarowac rënk]:scope:(user project local)' \
+            '--claudeai[Dodôj rënk ò tim mionie, chtëren claude.ai hòstëje dlô ce]' \
             '(-h --help)'{-h,--help}'[Pòkôżë pòmòc]' \
             '1:source:'
           ;;
         list)
           _arguments \
+            '--json[Wińdzenié jakò JSON]' \
             '(-h --help)'{-h,--help}'[Pòkôżë pòmòc]'
           ;;
         remove|rm)
           _arguments \
+            '--scope[Ùsuń deklaracjã rënkù z òkreslonégò zasygù nastôwów (pòmiń, żebë ùsënąc jã z kòżdégò zasygù)]:scope:(user project local)' \
             '(-h --help)'{-h,--help}'[Pòkôżë pòmòc]' \
             '1:name:'
           ;;
@@ -534,6 +691,7 @@ _claude_agents() {
     '--setting-sources[Lësta zdrojów nastôwów do wczëtaniô òddzelonô kòmą (user, project, local)]:sources:' \
     '--settings[Plik z nastôwama abò cyg JSON do zastosowaniô]:file-or-json:_files' \
     '--strict-mcp-config[Brëkùj le serwerów MCP z --mcp-config w wësłónëch sesjach]' \
+    '--restricted[Zrëszôj wësłóné sesje w ògrańczonym mòdusu]' \
     '(-h --help)'{-h,--help}'[Pòkôżë pòmòc dlô kòmandë]'
 }
 
@@ -560,7 +718,21 @@ _claude_auth() {
       ;;
     args)
       case $words[1] in
-        login|logout|status)
+        login)
+          _arguments \
+            '--email[Wstãpno wpiszë adresã e-mail na starnie logòwaniô]:email:' \
+            '--sso[Wëmùszë logòwanié przez SSO]' \
+            '(--claudeai)--console[Brëkùj Anthropic Console (płacenié za ùżëcé API) w môl abònamentu Claude]' \
+            '(--console)--claudeai[Brëkùj abònamentu Claude (domëslno)]' \
+            '(-h --help)'{-h,--help}'[Pòkôżë pòmòc dlô kòmandë]'
+          ;;
+        status)
+          _arguments \
+            '(--text)--json[Wińdzenié jakò JSON (domëslno)]' \
+            '(--json)--text[Wińdzenié jakò tekst do czëtaniô przez człowieka]' \
+            '(-h --help)'{-h,--help}'[Pòkôżë pòmòc dlô kòmandë]'
+          ;;
+        logout)
           _arguments \
             '(-h --help)'{-h,--help}'[Pòkôżë pòmòc dlô kòmandë]'
           ;;
@@ -593,7 +765,22 @@ _claude_auto_mode() {
       ;;
     args)
       case $words[1] in
-        config|critique|defaults|reset)
+        critique)
+          _arguments \
+            '--model[Nadpiszë, jaczi model je brëkòwóny]:model:_claude_model_names' \
+            '(-h --help)'{-h,--help}'[Pòkôżë pòmòc dlô kòmandë]'
+          ;;
+        defaults)
+          _arguments \
+            '--label[Pòkôżë le regùłë, chtërnëch etikéta zaczinô sã tim prefiksã (bez różnicë wiôldżich ë môłëch lëterów)]:prefix:' \
+            '(-h --help)'{-h,--help}'[Pòkôżë pòmòc dlô kòmandë]'
+          ;;
+        reset)
+          _arguments \
+            '(-y --yes)'{-y,--yes}'[Przeskòczë pëtanié ò pòcwierdzenié]' \
+            '(-h --help)'{-h,--help}'[Pòkôżë pòmòc dlô kòmandë]'
+          ;;
+        config)
           _arguments \
             '(-h --help)'{-h,--help}'[Pòkôżë pòmòc dlô kòmandë]'
           ;;
@@ -631,8 +818,12 @@ _claude_project() {
       case $words[1] in
         purge)
           _arguments \
+            '--dry-run[Wëpiszë, co bë bëło rëmniãté, bez rëmaniô czegòkòlwiek]' \
+            '(-y --yes)'{-y,--yes}'[Przeskòczë pëtanié ò pòcwierdzenié]' \
+            '(-i --interactive)'{-i,--interactive}'[Pëtôj ò kòżdi element przed rëmanim]' \
+            '(1)--all[Rëmôj stón dlô kòżdégò projektu (wzajemno wëkluczô sã ze stegną)]' \
             '(-h --help)'{-h,--help}'[Pòkôżë pòmòc dlô kòmandë]' \
-            '1:path:_directories'
+            '(--all)::path:_directories'
           ;;
       esac
       ;;
@@ -642,9 +833,34 @@ _claude_project() {
 _claude_ultrareview() {
   _arguments \
     '--json[Wëpiszë sërowi ładënk bugs.json w môl sfòrmatowónëch nalôzków]' \
-    '--timeout[Maksymalnô lëczba minut na żdanié na zakùńczenié przezérkù]:minutes:' \
+    '--timeout[Maksymalnô lëczba minut na żdanié na zakùńczenié przezérkù (domëslno: 45)]:minutes:' \
+    '(--no-post)--post[Òpùblikùjë nalôzczi zakùńczonégò przezérkù w PR pòd twòjim kòntã (le dlô célów PR; jeden prosti kòmentôrz, nie przezérk)]' \
+    '(--post)--no-post[Nie pùblikùjë nalôzków w PR (domëslno)]' \
     '(-h --help)'{-h,--help}'[Pòkôżë pòmòc dlô kòmandë]' \
     '1:target:'
+}
+
+_claude_respawn() {
+  _arguments \
+    '(1)--all[Pòwtórno zrëszë kòżdą dzejającą sesjã w tle]' \
+    '(-h --help)'{-h,--help}'[Pòkôżë pòmòc dlô kòmandë]' \
+    '(--all)::session:_claude_background_sessions'
+}
+
+_claude_rm() {
+  _arguments \
+    '--discard-unpushed[Òdrzëni téż niewësłóné kòmitë ë niezakòmitowóné zmianë worktree (pòdôj commit@worktree-id, jaczi zgłosył wczasniészi claude rm)]:commit@worktree-id:' \
+    '--force-remove-worktree[Rëmôj katalog worktree, nawetka jeżlë hook WorktreeRemove abò git nie mògł gò ùsënąc (pòdôj worktree-id, jaczi zgłosył wczasniészi claude rm)]:worktree-id:' \
+    '(-h --help)'{-h,--help}'[Pòkôżë pòmòc dlô kòmandë]' \
+    '1:session:_claude_background_sessions'
+}
+
+_claude_import() {
+  _arguments \
+    '--dry-run[Pòkôżë, co bë bëło zaimpòrtowóné, bez zapisywaniô czegòkòlwiek]' \
+    '--yes[Przeskòczë interaktiwny wëbiérnik (na pòwierzchniach bez ekranu pòdôj --yes=<digest> z pòdzéraniô /import)]' \
+    '(-h --help)'{-h,--help}'[Pòkôżë pòmòc dlô kòmandë]' \
+    '::source:(codex gemini cursor)'
 }
 
 (( $+_comps[claude] )) || compdef _claude claude
