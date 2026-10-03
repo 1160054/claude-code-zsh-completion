@@ -3,14 +3,15 @@
 
 # claude-code-zsh-completion
 
-Zsh completion for the Claude Code CLI. It reads your own configuration, so
-`claude --resume <TAB>` lists the sessions you can actually resume — each one
-labelled with what you asked in it — instead of leaving you to remember a UUID.
+Zsh completion for the Claude Code CLI. Press TAB after `claude` and every
+command, subcommand and option shows up with what it does, so you can build a
+command without opening `--help`.
 
 ![Demo](demo.gif)
 
-The same goes for MCP servers, agents, models, plugins and background sessions.
-Every command and option completes with a description, in 120 languages and regional variants.
+Names from your own setup complete too: sessions (by their name or first
+prompt), MCP servers, agents, models, plugins and background sessions.
+In 120 languages and regional variants.
 
 ## Install
 

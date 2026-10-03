@@ -14,7 +14,7 @@ Output ../demo.gif
 Set Shell zsh
 Set FontSize 20
 Set Width 1100
-Set Height 540
+Set Height 620
 Set Theme "Dracula"
 Set Padding 20
 Set TypingSpeed 30ms
@@ -47,7 +47,7 @@ Type "zstyle ':completion:*' menu select"
 Enter
 # Warm the completion up off camera: the first TAB on a freshly autoloaded
 # _claude only loads it, so a cold first scene would list without selecting
-Type "claude --resume "
+Type "claude "
 Tab@300ms 3
 Sleep 500ms
 Ctrl+C
@@ -57,112 +57,39 @@ Enter
 Sleep 500ms
 Show
 
-# 1. The one that sells it: resumable sessions, described by what you asked
-Type "claude --resume "
-Sleep 400ms
-Tab@300ms 2
-Sleep 1.2s
-Down@250ms 2
-Sleep 2s
+# One command line, built only with TAB, the arrow keys and Enter: every step
+# lists what comes next, with a description, so --help is never needed.
 
-Hide
-Ctrl+C
-Ctrl+C
-Sleep 200ms
-Type "clear"
-Enter
-Sleep 700ms
-Show
-
-# 2. Background sessions, by the short id claude --bg prints
-Type "claude attach "
-Sleep 400ms
-Tab@300ms 2
-Sleep 1.2s
-Down@250ms 2
-Sleep 1.5s
-
-Hide
-Ctrl+C
-Ctrl+C
-Sleep 200ms
-Type "clear"
-Enter
-Sleep 700ms
-Show
-
-# 3. All top-level commands, with descriptions
+# 1. The commands
 Type "claude "
-Sleep 400ms
+Sleep 500ms
 Tab@300ms 2
-Sleep 800ms
-Down@250ms 4
-Sleep 700ms
-
-Hide
-Ctrl+C
-Ctrl+C
-Sleep 200ms
-Type "clear"
-Enter
-Sleep 700ms
-Show
-
-# 4. MCP servers read from your own configuration
-Type "claude mcp get "
-Sleep 400ms
-Tab@300ms 2
-Sleep 1.2s
-Down@250ms 2
 Sleep 1.5s
-
-Hide
-Ctrl+C
-Ctrl+C
-Sleep 200ms
-Type "clear"
+Down@180ms 9
+Sleep 700ms
 Enter
-Sleep 700ms
-Show
+Sleep 600ms
 
-# 5. Subcommands of a command group
-Type "claude mcp "
-Sleep 400ms
+# 2. The subcommands of mcp
 Tab@300ms 2
-Sleep 700ms
-Down@250ms 3
-Sleep 550ms
-
-Hide
-Ctrl+C
-Ctrl+C
-Sleep 200ms
-Type "clear"
+Sleep 1.3s
 Enter
-Sleep 700ms
-Show
+Sleep 600ms
 
-# 6. Options are filtered by what you typed
-Type "claude --allow"
-Sleep 400ms
+# 3. The options of mcp add
+Type "--"
+Sleep 300ms
 Tab@300ms 2
+Sleep 1.3s
+Down@200ms 7
 Sleep 700ms
-Down@250ms 2
-Sleep 800ms
-
-Hide
-Ctrl+C
-Ctrl+C
-Sleep 200ms
-Type "clear"
 Enter
-Sleep 700ms
-Show
+Sleep 600ms
 
-# 7. Options that know their own values
-Type "claude --permission-mode "
-Sleep 400ms
+# 4. The values --transport takes
 Tab@300ms 2
-Sleep 800ms
-Down@250ms 3
-Sleep 950ms
+Sleep 1s
+Enter
+Sleep 500ms
+Type "my-server https://example.com/mcp"
+Sleep 2.5s
