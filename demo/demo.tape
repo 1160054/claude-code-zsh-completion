@@ -53,7 +53,7 @@ Type "zmodload zsh/complist"
 Enter
 # Recording only: flash <TAB> where the cursor is so the viewer sees the key
 # being pressed, then complete as usual
-Type `tab-flash() { echoti civis; POSTDISPLAY="<TAB>"; zle -R; sleep 0.45; POSTDISPLAY=""; echoti cnorm; zle tab-complete }`
+Type `tab-flash() { echoti civis; sleep 0.05; POSTDISPLAY="<TAB>"; zle -R; sleep 0.45; POSTDISPLAY=""; echoti cnorm; zle tab-complete }`
 Enter
 # A completion widget has to be called through zle -C: a plain widget calling
 # menu-select completes nothing
@@ -123,7 +123,7 @@ Sleep 1.1s
 Down@170ms 5
 Sleep 500ms
 Enter
-Type ` --name "triage open issues" "triage this week's issues"`
+Type ` --name "review PR #42" "review PR #42 and leave comments"`
 Sleep 1.8s
 
 Hide
