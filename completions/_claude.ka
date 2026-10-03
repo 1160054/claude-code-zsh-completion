@@ -121,6 +121,39 @@ _claude_agent_names() {
   compadd -a agents
 }
 
+_claude_background_sessions() {
+  local -a sessions state_files
+  local -A names states
+  local state_dir state_file line id rest
+
+  # Background sessions (`claude --bg`) live in <config>/jobs/<id>/, where
+  # <id> is the short id that attach, logs, stop, respawn and rm take.
+  for state_dir in ${(f)"$(_claude_state_dirs)"}; do
+    # Newest first
+    state_files=(${state_dir}/jobs/*/state.json(Nom))
+    (( ${#state_files} )) || continue
+
+    # One grep for all of them; the first "name" and "state" it reports for a
+    # file are that file's top-level ones
+    names=() states=()
+    for line in ${(f)"$(grep -HoE '"(name|state)"[[:space:]]*:[[:space:]]*"[^"]*"' $state_files 2>/dev/null)"}; do
+      id=${${line%%/state.json:*}:t}
+      rest=${line#*/state.json:}
+      case $rest in
+        \"name\"*)  [[ -z $names[$id] ]]  && names[$id]=${${rest#*:*\"}%\"} ;;
+        \"state\"*) [[ -z $states[$id] ]] && states[$id]=${${rest#*:*\"}%\"} ;;
+      esac
+    done
+
+    for state_file in $state_files; do
+      id=${state_file:h:t}
+      sessions+=("${id}:${names[$id]:-no name}${states[$id]:+ (${states[$id]})}")
+    done
+  done
+
+  _describe -t sessions 'background session' sessions
+}
+
 _claude_model_names() {
   local -a models config_files
   local state_dir config_file
@@ -155,9 +188,15 @@ _claude() {
     'mcp:MCP სერვერების კონფიგურაცია და მართვა'
     'plugin:Claude Code დამატებების მართვა'
     'agents:ფონური აგენტების მართვა'
+    'attach:ფონური სესიის გახსნა ამ ტერმინალში'
+    'logs:ფონური სესიის ბოლო ტერმინალური გამოტანის დაბეჭდვა'
+    'stop:ფონური სესიის შეჩერება (მისი საუბარი ინახება)'
+    'respawn:ფონური სესიის გადატვირთვა, რათა გაეშვას Claude Code-ის მიმდინარე ვერსია'
+    'rm:ფონური სესიის და, როცა ეს უსაფრთხოა, მისი worktree-ის წაშლა'
     'auth:ავთენტიფიკაციის მართვა'
     'auto-mode:ავტო რეჟიმის კლასიფიკატორის კონფიგურაციის დათვალიერება ან გადატვირთვა'
     'gateway:საწარმოო ავთენტიფიკაცია/ტელემეტრიის gateway-ის გაშვება'
+    'import:კონფიგურაციის იმპორტი სხვა AI კოდირების აგენტიდან Claude Code-ში'
     'project:Claude Code პროექტის მდგომარეობის მართვა'
     'ultrareview:ღრუბელზე მასპინძლებული მრავალაგენტიანი კოდის მიმოხილვის გაშვება და შედეგების დაბეჭდვა'
     'setup-token:გრძელვადიანი ავთენტიფიკაციის ტოკენის დაყენება (საჭიროებს Claude გამოწერას)'
@@ -178,6 +217,7 @@ _claude() {
     '--mcp-debug[\[მოძველებული. გამოიყენეთ --debug\] MCP დებაგ რეჟიმის ჩართვა (აჩვენებს MCP სერვერის შეცდომებს)]'
     '--dangerously-skip-permissions[ყველა ნებართვის შემოწმების გვერდის ავლა. რეკომენდებულია მხოლოდ ინტერნეტის გარეშე sandbox გარემოებისთვის]'
     '--allow-dangerously-skip-permissions[ნებართვის შემოწმების გვერდის ავლის ოფციის ჩართვა ნაგულისხმევად გააქტიურების გარეშე]'
+    '--restricted[შეზღუდული რეჟიმი: ბრძანებების ან კოდის გამშვები ინსტრუმენტებისა და WebFetch-ის მოშორება, user/project/local პარამეტრების იგნორირება და ფაილის ინსტრუმენტების სამუშაო დირექტორიებით შემოფარგვლა]'
     '--max-budget-usd[მაქსიმალური დოლარის ოდენობა API გამოძახებებზე დასახარჯად (მხოლოდ --print)]:amount:'
     '--replay-user-messages[მომხმარებლის შეტყობინებების ხელახალი გაგზავნა stdin-დან stdout-ზე დასადასტურებლად]'
     '--allowed-tools[მძიმით ან სივრცით გამოყოფილი დაშვებული ინსტრუმენტების სია (მაგ., "Bash(git:*) Edit")]:tools:'
@@ -187,8 +227,13 @@ _claude() {
     '--disallowedTools[მძიმით ან სივრცით გამოყოფილი აკრძალული ინსტრუმენტების სია (camelCase ფორმატი)]:tools:'
     '--mcp-config[MCP სერვერების ჩატვირთვა JSON ფაილიდან ან სტრიქონიდან (სივრცით გამოყოფილი)]:configs:'
     '--system-prompt[სისტემური prompt სესიისთვის]:prompt:'
+    '--system-prompt-file[სისტემური prompt-ის წაკითხვა ფაილიდან]:file:_files'
     '--append-system-prompt[სისტემური prompt-ის დართვა ნაგულისხმევ სისტემურ prompt-ზე]:prompt:'
+    '--append-system-prompt-file[სისტემური prompt-ის წაკითხვა ფაილიდან და დართვა ნაგულისხმევ სისტემურ prompt-ზე]:file:_files'
+    '--system-prompt-snapshot[სისტემური prompt-ის ჩაწერა ერთხელ თითო საუბარზე და მისი სიტყვასიტყვით ხელახალი გამოყენება ყოველ მოთხოვნასა და განახლებაზე (on, ნაგულისხმევი) ან მისი თავიდან რენდერი ყოველ მოთხოვნაზე (off)]:mode:(on off)'
     '--permission-mode[ნებართვის რეჟიმი სესიისთვის]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)'
+    '--permission-prompts[ვინ პასუხობს ნებართვის მოთხოვნებს --print-თან: "host" (SDK ჰოსტი ან --permission-prompt-tool) ან "none" (ყველაფერი, რაც მოთხოვნას გამოიწვევდა, უარყოფილია)]:target:(host none)'
+    '--permission-prompt-tool[MCP ინსტრუმენტი ნებართვის მოთხოვნებისთვის (მხოლოდ --print)]:tool:'
     '(-c --continue)'{-c,--continue}'[ბოლო საუბრის გაგრძელება]'
     '(-r --resume)'{-r,--resume}'[საუბრის განახლება - მიუთითეთ სესიის ID ან აირჩიეთ ინტერაქტიულად]:sessionId:_claude_sessions'
     '--fork-session[ახალი სესიის ID-ის შექმნა ორიგინალის ხელახლა გამოყენების ნაცვლად (--resume ან --continue-თან)]'
@@ -200,6 +245,7 @@ _claude() {
     '--settings[პარამეტრების JSON ფაილის ან JSON სტრიქონის გზა დამატებითი პარამეტრების ჩასატვირთად]:file-or-json:_files'
     '--add-dir[დამატებითი დირექტორიები ინსტრუმენტების წვდომისთვის]:directories:_directories'
     '--ide[ავტომატური დაკავშირება IDE-სთან გაშვებისას თუ ხელმისაწვდომია ზუსტად ერთი ვალიდური IDE]'
+    '--desktop[გახსნა Claude Desktop აპში ტერმინალის ნაცვლად (--continue-თან ან --resume <id>-თან სესიის ასარჩევად)]'
     '--strict-mcp-config[გამოიყენეთ მხოლოდ MCP სერვერები --mcp-config-დან და იგნორირება სხვა MCP პარამეტრების]'
     '--session-id[სპეციფიკური სესიის ID საუბრისთვის (უნდა იყოს ვალიდური UUID)]:uuid:'
     '--agents[JSON ობიექტი რომელიც განსაზღვრავს მორგებულ აგენტებს]:json:'
@@ -208,11 +254,15 @@ _claude() {
     '--disable-slash-commands[ყველა slash ბრძანების გამორთვა]'
     '(--bg --background)'{--bg,--background}'[სესიის გაშვება ფონურ აგენტად და დაუყოვნებლივ დაბრუნება]'
     '(-w --worktree)'{-w,--worktree}'[ახალი git worktree-ის შექმნა ამ სესიისთვის (სურვილისამებრ მიუთითეთ სახელი)]::name:'
-    '--tmux[tmux სესიის შექმნა worktree-სთვის (საჭიროებს --worktree)]'
+    '--tmux=-[tmux სესიის შექმნა worktree-სთვის (საჭიროებს --worktree). იყენებს iTerm2-ის ნატიურ პანელებს, თუ ხელმისაწვდომია; --tmux=classic ტრადიციული tmux-ისთვის]::mode:(classic)'
     '(-n --name)'{-n,--name}'[ამ სესიისთვის საჩვენებელი სახელის დაყენება]:name:'
     '--effort[ძალისხმევის დონე მიმდინარე სესიისთვის]:level:(low medium high xhigh max)'
+    '--autocompact[ავტო-შეკუმშვის ფანჯრის ზომა (auto, ან 100k-1M ტოკენი)]:size:(auto)'
     '--debug-file[დებაგ ლოგების ჩაწერა კონკრეტულ ფაილში (ავტომატურად რთავს დებაგ რეჟიმს)]:path:_files'
     '--from-pr[PR-თან დაკავშირებული სესიის განახლება ნომრით/URL-ით, ან ინტერაქტიული ამრჩევის გახსნა]::value:'
+    '--teleport[teleport სესიის განახლება, სურვილისამებრ მიუთითეთ სესიის ID]::session:'
+    '--cloud[ღრუბლოვანი სესიის შექმნა მოცემული აღწერით, ან არსებულთან მიერთება სესიის ID-ით ან claude.ai/code URL-ით]::description-or-session:'
+    '--environment[ახალი ღრუბლოვანი სესიის შექმნა, რომელიც მუშაობს მოცემულ თვითმასპინძლობის გარემოზე (ccpool_...)]:environment_id:'
     '--remote-control[ინტერაქტიული სესიის დაწყება ჩართული Remote Control-ით (სურვილისამებრ დასახელებული)]::name:'
     '--remote-control-session-name-prefix[პრეფიქსი ავტომატურად გენერირებული Remote Control სესიის სახელებისთვის]:prefix:'
     '--chrome[Claude in Chrome ინტეგრაციის ჩართვა]'
@@ -254,6 +304,17 @@ _claude() {
         agents)
           _claude_agents
           ;;
+        attach|logs|stop|kill)
+          _arguments \
+            '(-h --help)'{-h,--help}'[ბრძანების დახმარების ჩვენება]' \
+            '1:session:_claude_background_sessions'
+          ;;
+        respawn)
+          _claude_respawn
+          ;;
+        rm)
+          _claude_rm
+          ;;
         auth)
           _claude_auth
           ;;
@@ -262,6 +323,9 @@ _claude() {
           ;;
         gateway)
           _claude_gateway
+          ;;
+        import)
+          _claude_import
           ;;
         project)
           _claude_project
@@ -319,6 +383,9 @@ _claude_mcp() {
             '(-t --transport)'{-t,--transport}'[ტრანსპორტის ტიპი (stdio, sse, http)]:transport:(stdio sse http)' \
             '(-e --env)'{-e,--env}'[გარემოს ცვლადის დაყენება (მაგ., -e KEY=value)]:env:' \
             '(-H --header)'{-H,--header}'[WebSocket header-ის დაყენება]:header:' \
+            '--client-id[OAuth კლიენტის ID HTTP/SSE სერვერებისთვის]:clientId:' \
+            '--client-secret[OAuth კლიენტის საიდუმლოს მოთხოვნა (ან დააყენეთ MCP_CLIENT_SECRET გარემოს ცვლადი)]' \
+            '--callback-port[ფიქსირებული პორტი OAuth callback-ისთვის (სერვერებისთვის, რომლებიც წინასწარ რეგისტრირებულ გადამისამართების URI-ებს საჭიროებენ)]:port:' \
             '(-h --help)'{-h,--help}'[დახმარების ჩვენება]' \
             '1:name:' \
             '2:commandOrUrl:' \
@@ -342,6 +409,7 @@ _claude_mcp() {
         add-json)
           _arguments \
             '(-s --scope)'{-s,--scope}'[კონფიგურაციის არეალი (local, user, project)]:scope:(local user project)' \
+            '--client-secret[OAuth კლიენტის საიდუმლოს მოთხოვნა (ან დააყენეთ MCP_CLIENT_SECRET გარემოს ცვლადი)]' \
             '(-h --help)'{-h,--help}'[დახმარების ჩვენება]' \
             '1:name:' \
             '2:json:'
@@ -355,7 +423,13 @@ _claude_mcp() {
           _arguments \
             '(-h --help)'{-h,--help}'[დახმარების ჩვენება]'
           ;;
-        login|logout)
+        login)
+          _arguments \
+            '--no-browser[ავტორიზაციის URL-ის დაბეჭდვა ბრაუზერის გახსნის ნაცვლად (SSH/headless სესიებისთვის)]' \
+            '(-h --help)'{-h,--help}'[დახმარების ჩვენება]' \
+            '1:name:_claude_mcp_servers'
+          ;;
+        logout)
           _arguments \
             '(-h --help)'{-h,--help}'[დახმარების ჩვენება]' \
             '1:name:_claude_mcp_servers'
@@ -372,9 +446,11 @@ _claude_plugin() {
     'marketplace:Claude Code marketplace-ების მართვა'
     'list:დაინსტალირებული დამატებების სია'
     'details:დამატების კომპონენტების ინვენტარისა და პროგნოზირებული ტოკენების ღირებულების ჩვენება'
+    'configure:დამატების პარამეტრებისა და დაუყენებელი პარამეტრების ჩვენება, ან მნიშვნელობების შენახვა stdin-დან'
     'install:დამატების ინსტალაცია ხელმისაწვდომი marketplace-ებიდან'
     'i:დამატების ინსტალაცია ხელმისაწვდომი marketplace-ებიდან (install-ის შემოკლება)'
     'init:ახალი დამატების ჩარჩოს შექმნა (ავტომატურად იტვირთება შემდეგ სესიაზე)'
+    'new:ახალი დამატების ჩარჩოს შექმნა (init-ის ალიასი)'
     'uninstall:დაინსტალირებული დამატების წაშლა'
     'remove:დაინსტალირებული დამატების წაშლა (uninstall-ის ალიასი)'
     'enable:გამორთული დამატების ჩართვა'
@@ -382,7 +458,9 @@ _claude_plugin() {
     'update:დამატების განახლება უახლეს ვერსიამდე'
     'eval:eval შემთხვევების გაშვება დამატებაზე და შეფასებული შედეგების მოხსენება'
     'prune:ავტომატურად დაინსტალირებული აღარ საჭირო დამოკიდებულებების წაშლა'
+    'autoremove:ავტომატურად დაინსტალირებული აღარ საჭირო დამოკიდებულებების წაშლა (prune-ის ალიასი)'
     'tag:{name}--v{version} git ტეგის შექმნა დამატების რელიზისთვის'
+    'test:mod-ის ტესტების გაშვება'
     'help:დახმარების ჩვენება'
   )
 
@@ -402,6 +480,8 @@ _claude_plugin() {
       case $words[1] in
         validate)
           _arguments \
+            '--strict[გაფრთხილებების შეცდომებად მიჩნევა (გასვლის კოდი 1)]' \
+            '--json[ვალიდაციის ანგარიშის გამოტანა JSON-ად (იგივე გასვლის კოდები)]' \
             '(-h --help)'{-h,--help}'[დახმარების ჩვენება]' \
             '1:path:_files'
           ;;
@@ -411,50 +491,122 @@ _claude_plugin() {
         install|i)
           _arguments \
             '(-s --scope)'{-s,--scope}'[ინსტალაციის არეალი]:scope:(user project local)' \
+            '*--config[დამატების მანიფესტში გამოცხადებული userConfig პარამეტრის დაყენება (განმეორებადი)]:key=value:' \
+            '(-y --yes)'{-y,--yes}'[ნაჩვენები, marketplace-ის მიერ გამოცხადებული ბრძანების მიღება დადასტურების მოთხოვნის გარეშე]' \
+            '--json[ერთი მანქანით წაკითხვადი შედეგის სტრიქონის დაბეჭდვა ადამიანისთვის განკუთვნილი შეტყობინების ნაცვლად]' \
             '(-h --help)'{-h,--help}'[დახმარების ჩვენება]' \
             '1:plugin:'
           ;;
         uninstall|remove)
           _arguments \
             '(-s --scope)'{-s,--scope}'[ინსტალაციის არეალი]:scope:(user project local)' \
+            '--keep-data[დამატების მუდმივი მონაცემების დირექტორიის შენარჩუნება]' \
+            '--prune[ასევე ავტომატურად დაინსტალირებული აღარ საჭირო დამოკიდებულებების წაშლა]' \
+            '(-y --yes)'{-y,--yes}'[--prune-ის დადასტურების მოთხოვნის გამოტოვება]' \
+            '--json[ერთი მანქანით წაკითხვადი შედეგის სტრიქონის დაბეჭდვა ადამიანისთვის განკუთვნილი შეტყობინების ნაცვლად (არა --prune-თან)]' \
             '(-h --help)'{-h,--help}'[დახმარების ჩვენება]' \
             '1:plugin:_claude_installed_plugins'
           ;;
-        enable|disable)
+        enable)
           _arguments \
             '(-s --scope)'{-s,--scope}'[ინსტალაციის არეალი]:scope:(user project local)' \
+            '--json[ერთი მანქანით წაკითხვადი შედეგის სტრიქონის დაბეჭდვა ადამიანისთვის განკუთვნილი შეტყობინების ნაცვლად]' \
             '(-h --help)'{-h,--help}'[დახმარების ჩვენება]' \
             '1:plugin:_claude_installed_plugins'
+          ;;
+        disable)
+          _arguments \
+            '(-a --all)'{-a,--all}'[ყველა ჩართული დამატების გამორთვა]' \
+            '(-s --scope)'{-s,--scope}'[ინსტალაციის არეალი]:scope:(user project local)' \
+            '--json[ერთი მანქანით წაკითხვადი შედეგის სტრიქონის დაბეჭდვა ადამიანისთვის განკუთვნილი შეტყობინების ნაცვლად]' \
+            '(-h --help)'{-h,--help}'[დახმარების ჩვენება]' \
+            '::plugin:_claude_installed_plugins'
           ;;
         update)
           _arguments \
             '(-s --scope)'{-s,--scope}'[ინსტალაციის არეალი]:scope:(user project local managed)' \
+            '(-y --yes)'{-y,--yes}'[ნაჩვენები, marketplace-ის მიერ გამოცხადებული ბრძანების მიღება დადასტურების მოთხოვნის გარეშე]' \
+            '--json[ერთი მანქანით წაკითხვადი შედეგის სტრიქონის დაბეჭდვა ადამიანისთვის განკუთვნილი შეტყობინების ნაცვლად]' \
             '(-h --help)'{-h,--help}'[დახმარების ჩვენება]' \
             '1:plugin:_claude_installed_plugins'
           ;;
-        list|prune)
+        list)
           _arguments \
+            '--json[გამოტანა JSON-ად]' \
+            '--available[marketplace-ებიდან ხელმისაწვდომი დამატებების ჩართვა (საჭიროებს --json)]' \
             '(-h --help)'{-h,--help}'[დახმარების ჩვენება]'
+          ;;
+        prune|autoremove)
+          _arguments \
+            '(-s --scope)'{-s,--scope}'[გასუფთავება მითითებულ არეალში]:scope:(user project local)' \
+            '--dry-run[იმის ჩამოთვლა, რაც წაიშლებოდა, წაშლის გარეშე]' \
+            '(-y --yes)'{-y,--yes}'[დადასტურების მოთხოვნის გამოტოვება]' \
+            '(-h --help)'{-h,--help}'[დახმარების ჩვენება]'
+          ;;
+        configure)
+          _arguments \
+            '--json[გამოტანა JSON-ად]' \
+            '--values-stdin[პარამეტრების მნიშვნელობების წაკითხვა stdin-დან ერთსტრიქონიანი სტრიქონების JSON ობიექტად; გამოტოვებული პარამეტრები ინარჩუნებენ თავიანთ მნიშვნელობებს]' \
+            '(-h --help)'{-h,--help}'[დახმარების ჩვენება]' \
+            '1:plugin:_claude_installed_plugins'
           ;;
         details)
           _arguments \
             '(-h --help)'{-h,--help}'[დახმარების ჩვენება]' \
             '1:plugin:_claude_installed_plugins'
           ;;
-        init)
+        init|new)
           _arguments \
+            '--description[მანიფესტის აღწერა]:text:' \
+            '--author[ავტორის სახელი (ნაგულისხმევი: git config user.name)]:name:' \
+            '--author-email[ავტორის ელფოსტა (ნაგულისხმევი: git config user.email)]:email:' \
+            '--with[კომპონენტები, რომელთა ჩარჩოც ასევე შეიქმნება]:components:' \
+            '(-f --force)'{-f,--force}'[სამიზნეში არსებული .claude-plugin/-ის გადაწერა]' \
             '(-h --help)'{-h,--help}'[დახმარების ჩვენება]' \
             '1:name:'
           ;;
         eval)
           _arguments \
+            '--case[შემთხვევების ფილტრაცია სახელის glob-ით]:glob:' \
+            '*--tag[შემთხვევების ფილტრაცია ტეგით (განმეორებადი)]:tag:' \
+            '--runs[თითო შემთხვევის გაშვებების რაოდენობის გადაფარვა (ნაგულისხმევი: case.runs, სხვაგვარად 3)]:n:' \
+            '(-j --concurrency)'{-j,--concurrency}'[აგენტის არაუმეტეს n გაშვების ერთდროულად შესრულება (1-8; ნაგულისხმევი 1)]:n:' \
+            '--model[მოდელის გადაფარვა ყველა შემთხვევისთვის]:model:_claude_model_names' \
+            '--judge-model[LLM-შემფასებლის მოდელის გადაფარვა (ნაგულისხმევი: haiku)]:model:_claude_model_names' \
+            '--max-cost-usd[ხარჯის მკაცრი ზღვარი; მიღწევისას შეწყვეტა და ნაწილობრივი შედეგების მოხსენება (გასვლის კოდი 2)]:usd:' \
+            '--output-dir[დირექტორია aggregate-result.json-ისთვის]:dir:_directories' \
+            '--eval-dir[დირექტორიის სახელი (დამატების ქვეშ), რომელიც eval შემთხვევებს შეიცავს]:dir:' \
+            '--json[გაშვების სრული შედეგის დაბეჭდვა JSON-ად stdout-ზე, ან მისი ჩაწერა ამ .json ფაილში]::path:_files' \
+            '--threshold[გასვლა კოდით 1, თუ რომელიმე შემთხვევის ქულა ამ ზღვარზე დაბალია (ნაგულისხმევი: 1.0)]:threshold:' \
+            '*--allow-tools[ოპერატორის ნებართვა შეზღუდული ინსტრუმენტებისთვის (Bash, Write, Edit, WebFetch, mcp__*)]:tools:' \
+            '(--no-scaffold)--scaffold[თითოეული შემთხვევის scaffold_script-ის გაშვება (უშვებს ავტორის მიერ მოწოდებულ bash-ს თქვენი სახელით; ნაგულისხმევად გამორთულია)]' \
+            '(--scaffold)--no-scaffold[scaffold_script-ის აშკარად გამოტოვება]' \
+            '--trust-plugin[იმის დადასტურება, რომ ენდობით ამ დამატებას და მის eval ნაკრებს, პირველი გაშვების ნდობის მოთხოვნის გამოტოვებით (CI-სთვის)]' \
+            '--ablation[დამატების გარეშე საბაზისო საკონტროლო ჯგუფის გაშვება და ქულების სხვაობის მოხსენება]:mode:(none with-without)' \
+            '--mocks[MCP სერვერების mock შემცვლელები <eval dir>/mocks/-დან]:mode:(record off)' \
+            '--allow-real-servers[--mocks record-თან: ასევე იმ რეალური MCP სერვერის პროცესების გაშვება, რომლებსაც mock არ აქვთ]' \
+            '--keep-temp[scaffold დირექტორიების შენარჩუნება დებაგისთვის]' \
+            '--verbose[თითო შეტყობინების trace მოვლენების ჩაწერა დებაგ ლოგში]' \
+            '--report[თვითკმარი HTML ანგარიშის ჩაწერა ამ გზაზე შედეგების დირექტორიის ნაცვლად]:path:_files' \
+            '(--no-publish)--publish-report[ასევე ანგარიშის claude.ai-ზე გამოქვეყნების მოთხოვნა]' \
+            '(--publish-report)--no-publish[HTML ანგარიშის მხოლოდ ლოკალურად შენახვა; claude.ai-ზე გამოქვეყნების გამოტოვება]' \
             '(-h --help)'{-h,--help}'[დახმარების ჩვენება]' \
-            '1:target:'
+            '::target: _alternative "plugins\:installed plugin\:_claude_installed_plugins" "files\:path\:_files"'
           ;;
         tag)
           _arguments \
+            '--push[ტეგის push --remote-ზე მისი შექმნის შემდეგ]' \
+            '--dry-run[იმის დაბეჭდვა, რაც მოინიშნებოდა ტეგით, მისი შექმნის გარეშე]' \
+            '(-f --force)'{-f,--force}'[ბინძური სამუშაო ხისა და უკვე არსებული ტეგის შემოწმებების გამოტოვება]' \
+            '(-m --message)'{-m,--message}'[ტეგის ანოტაციის შეტყობინება (გამოიყენეთ %s ვერსიისთვის)]:msg:' \
+            '--remote[remote, რომელზეც --push-ით ხდება push]:name:' \
             '(-h --help)'{-h,--help}'[დახმარების ჩვენება]' \
-            '1:path:_files'
+            '::path:_files'
+          ;;
+        test)
+          _arguments \
+            '(-h --help)'{-h,--help}'[დახმარების ჩვენება]' \
+            '::dir:_directories'
           ;;
       esac
       ;;
@@ -488,15 +640,20 @@ _claude_plugin_marketplace() {
       case $words[1] in
         add)
           _arguments \
+            '--sparse[checkout-ის შეზღუდვა კონკრეტული დირექტორიებით git sparse-checkout-ის მეშვეობით (მონორეპოებისთვის)]:paths:' \
+            '--scope[სად გამოცხადდეს marketplace]:scope:(user project local)' \
+            '--claudeai[ამ სახელის მქონე marketplace-ის დამატება, რომელსაც claude.ai თქვენთვის მასპინძლობს]' \
             '(-h --help)'{-h,--help}'[დახმარების ჩვენება]' \
             '1:source:'
           ;;
         list)
           _arguments \
+            '--json[გამოტანა JSON-ად]' \
             '(-h --help)'{-h,--help}'[დახმარების ჩვენება]'
           ;;
         remove|rm)
           _arguments \
+            '--scope[marketplace-ის გამოცხადების წაშლა პარამეტრების კონკრეტული არეალიდან (გამოტოვეთ ყველა არეალიდან წასაშლელად)]:scope:(user project local)' \
             '(-h --help)'{-h,--help}'[დახმარების ჩვენება]' \
             '1:name:'
           ;;
@@ -534,6 +691,7 @@ _claude_agents() {
     '--setting-sources[მძიმით გამოყოფილი პარამეტრების წყაროების სია ჩასატვირთად (user, project, local)]:sources:' \
     '--settings[პარამეტრების ფაილი ან JSON სტრიქონი გამოსაყენებლად]:file-or-json:_files' \
     '--strict-mcp-config[მხოლოდ --mcp-config-დან MCP სერვერების გამოყენება გაშვებულ სესიებში]' \
+    '--restricted[გაშვებული სესიების დაწყება შეზღუდულ რეჟიმში]' \
     '(-h --help)'{-h,--help}'[ბრძანების დახმარების ჩვენება]'
 }
 
@@ -560,7 +718,21 @@ _claude_auth() {
       ;;
     args)
       case $words[1] in
-        login|logout|status)
+        login)
+          _arguments \
+            '--email[ელფოსტის მისამართის წინასწარ შევსება შესვლის გვერდზე]:email:' \
+            '--sso[SSO შესვლის პროცესის იძულებითი გამოყენება]' \
+            '(--claudeai)--console[Anthropic Console-ის გამოყენება (API გამოყენების ბილინგი) Claude გამოწერის ნაცვლად]' \
+            '(--console)--claudeai[Claude გამოწერის გამოყენება (ნაგულისხმევი)]' \
+            '(-h --help)'{-h,--help}'[ბრძანების დახმარების ჩვენება]'
+          ;;
+        status)
+          _arguments \
+            '(--text)--json[გამოტანა JSON-ად (ნაგულისხმევი)]' \
+            '(--json)--text[გამოტანა ადამიანისთვის წაკითხვად ტექსტად]' \
+            '(-h --help)'{-h,--help}'[ბრძანების დახმარების ჩვენება]'
+          ;;
+        logout)
           _arguments \
             '(-h --help)'{-h,--help}'[ბრძანების დახმარების ჩვენება]'
           ;;
@@ -593,7 +765,22 @@ _claude_auto_mode() {
       ;;
     args)
       case $words[1] in
-        config|critique|defaults|reset)
+        critique)
+          _arguments \
+            '--model[გამოსაყენებელი მოდელის გადაფარვა]:model:_claude_model_names' \
+            '(-h --help)'{-h,--help}'[ბრძანების დახმარების ჩვენება]'
+          ;;
+        defaults)
+          _arguments \
+            '--label[მხოლოდ იმ წესების ჩვენება, რომელთა ლეიბლი ამ პრეფიქსით იწყება (რეგისტრის გაუთვალისწინებლად)]:prefix:' \
+            '(-h --help)'{-h,--help}'[ბრძანების დახმარების ჩვენება]'
+          ;;
+        reset)
+          _arguments \
+            '(-y --yes)'{-y,--yes}'[დადასტურების მოთხოვნის გამოტოვება]' \
+            '(-h --help)'{-h,--help}'[ბრძანების დახმარების ჩვენება]'
+          ;;
+        config)
           _arguments \
             '(-h --help)'{-h,--help}'[ბრძანების დახმარების ჩვენება]'
           ;;
@@ -631,8 +818,12 @@ _claude_project() {
       case $words[1] in
         purge)
           _arguments \
+            '--dry-run[იმის ჩამოთვლა, რაც წაიშლებოდა, არაფრის წაშლის გარეშე]' \
+            '(-y --yes)'{-y,--yes}'[დადასტურების მოთხოვნის გამოტოვება]' \
+            '(-i --interactive)'{-i,--interactive}'[დადასტურების მოთხოვნა თითოეულ ელემენტზე წაშლამდე]' \
+            '(1)--all[მდგომარეობის წაშლა ყველა პროექტისთვის (ურთიერთგამომრიცხავია გზასთან)]' \
             '(-h --help)'{-h,--help}'[ბრძანების დახმარების ჩვენება]' \
-            '1:path:_directories'
+            '(--all)::path:_directories'
           ;;
       esac
       ;;
@@ -642,9 +833,34 @@ _claude_project() {
 _claude_ultrareview() {
   _arguments \
     '--json[დაუმუშავებელი bugs.json payload-ის დაბეჭდვა ფორმატირებული შედეგების ნაცვლად]' \
-    '--timeout[მაქსიმალური წუთები მიმოხილვის დასრულებამდე მოსაცდელად]:minutes:' \
+    '--timeout[მაქსიმალური წუთები მიმოხილვის დასრულებამდე მოსაცდელად (ნაგულისხმევი: 45)]:minutes:' \
+    '(--no-post)--post[დასრულებული მიმოხილვის მიგნებების გამოქვეყნება PR-ში თქვენი სახელით (მხოლოდ PR სამიზნეებისთვის; ერთი ჩვეულებრივი კომენტარი, არა მიმოხილვა)]' \
+    '(--post)--no-post[მიგნებების PR-ში არგამოქვეყნება (ნაგულისხმევი)]' \
     '(-h --help)'{-h,--help}'[ბრძანების დახმარების ჩვენება]' \
     '1:target:'
+}
+
+_claude_respawn() {
+  _arguments \
+    '(1)--all[ყველა მომუშავე ფონური სესიის გადატვირთვა]' \
+    '(-h --help)'{-h,--help}'[ბრძანების დახმარების ჩვენება]' \
+    '(--all)::session:_claude_background_sessions'
+}
+
+_claude_rm() {
+  _arguments \
+    '--discard-unpushed[ასევე worktree-ის push-ის გარეშე დარჩენილი commit-ებისა და დაუ-commit-ებელი ცვლილებების გაუქმება (გადაეცით commit@worktree-id, რომელიც წინა claude rm-მა მოგახსენათ)]:commit@worktree-id:' \
+    '--force-remove-worktree[worktree-ის დირექტორიის წაშლა მაშინაც, როცა WorktreeRemove hook-მა ან git-მა ვერ წაშალა (გადაეცით worktree-id, რომელიც წინა claude rm-მა მოგახსენათ)]:worktree-id:' \
+    '(-h --help)'{-h,--help}'[ბრძანების დახმარების ჩვენება]' \
+    '1:session:_claude_background_sessions'
+}
+
+_claude_import() {
+  _arguments \
+    '--dry-run[იმის ჩვენება, რაც დაიმპორტდებოდა, არაფრის ჩაწერის გარეშე]' \
+    '--yes[ინტერაქტიული ამრჩევის გამოტოვება (headless გარემოებში გადაეცით --yes=<digest> /import-ის გადახედვიდან)]' \
+    '(-h --help)'{-h,--help}'[ბრძანების დახმარების ჩვენება]' \
+    '::source:(codex gemini cursor)'
 }
 
 (( $+_comps[claude] )) || compdef _claude claude
