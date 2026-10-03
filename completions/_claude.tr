@@ -245,6 +245,7 @@ _claude() {
     '--settings[Ek ayarları yüklemek için ayarlar JSON dosyasının yolu veya JSON dizesi]:file-or-json:_files'
     '--add-dir[Araç erişimine izin verilecek ek dizinler]:directories:_directories'
     '--ide[Tam olarak bir geçerli IDE mevcutsa başlangıçta IDE ile otomatik bağlan]'
+    '--desktop[Terminal yerine Claude Desktop uygulamasında aç (oturumu seçmek için --continue veya --resume <id> ile)]'
     '--strict-mcp-config[Yalnızca --mcp-config üzerinden MCP sunucularını kullan ve diğer tüm MCP ayarlarını yoksay]'
     '--session-id[Konuşma için kullanılacak belirli oturum kimliği (geçerli UUID olmalı)]:uuid:'
     '--agents[Özel ajanları tanımlayan JSON nesnesi]:json:'
@@ -445,6 +446,7 @@ _claude_plugin() {
     'marketplace:Claude Code pazar yerlerini yönet'
     'list:Kurulu eklentileri listele'
     'details:Bir eklenti için bileşen envanterini ve öngörülen belirteç maliyetini göster'
+    'configure:Bir eklentinin seçeneklerini ve ayarlanmamış olanları göster veya değerleri stdin'\''den kaydet'
     'install:Mevcut pazar yerlerinden bir eklenti kur'
     'i:Mevcut pazar yerlerinden bir eklenti kur (install için kısa form)'
     'init:Yeni bir eklenti iskeleti oluştur (sonraki oturumda otomatik yüklenir)'
@@ -458,6 +460,7 @@ _claude_plugin() {
     'prune:Artık gerekmeyen otomatik kurulan bağımlılıkları kaldır'
     'autoremove:Artık gerekmeyen otomatik kurulan bağımlılıkları kaldır (prune için takma ad)'
     'tag:Bir eklenti sürümü için {name}--v{version} git etiketi oluştur'
+    'test:Bir mod'\''un testlerini çalıştır'
     'help:Yardım göster'
   )
 
@@ -540,6 +543,13 @@ _claude_plugin() {
             '(-y --yes)'{-y,--yes}'[Onay istemini atla]' \
             '(-h --help)'{-h,--help}'[Yardım göster]'
           ;;
+        configure)
+          _arguments \
+            '--json[JSON olarak çıktıla]' \
+            '--values-stdin[Seçenek değerlerini stdin'\''den tek satırlık dizelerden oluşan bir JSON nesnesi olarak oku; belirtilmeyen seçenekler değerini korur]' \
+            '(-h --help)'{-h,--help}'[Yardım göster]' \
+            '1:plugin:_claude_installed_plugins'
+          ;;
         details)
           _arguments \
             '(-h --help)'{-h,--help}'[Yardım göster]' \
@@ -592,6 +602,11 @@ _claude_plugin() {
             '--remote[--push ile gönderilecek uzak depo]:name:' \
             '(-h --help)'{-h,--help}'[Yardım göster]' \
             '::path:_files'
+          ;;
+        test)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Yardım göster]' \
+            '::dir:_directories'
           ;;
       esac
       ;;

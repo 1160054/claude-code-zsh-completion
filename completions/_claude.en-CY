@@ -245,6 +245,7 @@ _claude() {
     '--settings[Path to settings JSON file or JSON string to load additional settings]:file-or-json:_files'
     '--add-dir[Additional directories to allow tool access]:directories:_directories'
     '--ide[Auto-connect to IDE on startup if exactly one valid IDE is available]'
+    '--desktop[Open in the Claude Desktop app instead of the terminal (with --continue or --resume <id> to pick the session)]'
     '--strict-mcp-config[Use only MCP servers from --mcp-config and ignore all other MCP settings]'
     '--session-id[Specific session ID to use for conversation (must be valid UUID)]:uuid:'
     '--agents[JSON object defining custom agents]:json:'
@@ -445,6 +446,7 @@ _claude_plugin() {
     'marketplace:Manage Claude Code marketplaces'
     'list:List installed plugins'
     'details:Show component inventory and projected token cost for a plugin'
+    'configure:Show a plugin'\''s options and which are unset, or save values from stdin'
     'install:Install a plugin from available marketplaces'
     'i:Install a plugin from available marketplaces (short for install)'
     'init:Scaffold a new plugin (auto-loads next session)'
@@ -458,6 +460,7 @@ _claude_plugin() {
     'prune:Remove auto-installed dependencies that are no longer needed'
     'autoremove:Remove auto-installed dependencies that are no longer needed (alias for prune)'
     'tag:Create a {name}--v{version} git tag for a plugin release'
+    'test:Run a mod'\''s tests'
     'help:Display help'
   )
 
@@ -540,6 +543,13 @@ _claude_plugin() {
             '(-y --yes)'{-y,--yes}'[Skip the confirmation prompt]' \
             '(-h --help)'{-h,--help}'[Display help]'
           ;;
+        configure)
+          _arguments \
+            '--json[Output as JSON]' \
+            '--values-stdin[Read option values from stdin as a JSON object of single-line strings; options left out keep their values]' \
+            '(-h --help)'{-h,--help}'[Display help]' \
+            '1:plugin:_claude_installed_plugins'
+          ;;
         details)
           _arguments \
             '(-h --help)'{-h,--help}'[Display help]' \
@@ -592,6 +602,11 @@ _claude_plugin() {
             '--remote[Remote to push to with --push]:name:' \
             '(-h --help)'{-h,--help}'[Display help]' \
             '::path:_files'
+          ;;
+        test)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Display help]' \
+            '::dir:_directories'
           ;;
       esac
       ;;

@@ -245,6 +245,7 @@ _claude() {
     '--settings[设置JSON文件的路径或用于加载其他设置的JSON字符串]:file-or-json:_files'
     '--add-dir[允许工具访问的其他目录]:directories:_directories'
     '--ide[如果恰好有一个有效的IDE可用，则在启动时自动连接到IDE]'
+    '--desktop[在 Claude Desktop 应用中打开，而不是终端（配合 --continue 或 --resume <id> 选择会话）]'
     '--strict-mcp-config[仅使用--mcp-config中的MCP服务器并忽略所有其他MCP设置]'
     '--session-id[用于对话的特定会话ID（必须是有效的UUID）]:uuid:'
     '--agents[定义自定义代理的JSON对象]:json:'
@@ -445,6 +446,7 @@ _claude_plugin() {
     'marketplace:管理Claude Code市场'
     'list:列出已安装的插件'
     'details:显示插件的组件清单和预计令牌成本'
+    'configure:显示插件的选项及未设置的项，或从 stdin 保存值'
     'install:从可用市场安装插件'
     'i:从可用市场安装插件（install的简写）'
     'init:搭建新插件（下次会话自动加载）'
@@ -458,6 +460,7 @@ _claude_plugin() {
     'prune:删除不再需要的自动安装依赖项'
     'autoremove:删除不再需要的自动安装依赖项（prune的别名）'
     'tag:为插件发布创建{name}--v{version} git标签'
+    'test:运行 mod 的测试'
     'help:显示帮助'
   )
 
@@ -540,6 +543,13 @@ _claude_plugin() {
             '(-y --yes)'{-y,--yes}'[跳过确认提示]' \
             '(-h --help)'{-h,--help}'[显示帮助]'
           ;;
+        configure)
+          _arguments \
+            '--json[以JSON输出]' \
+            '--values-stdin[从 stdin 读取选项值，格式为单行字符串组成的 JSON 对象（未提供的选项保留原值）]' \
+            '(-h --help)'{-h,--help}'[显示帮助]' \
+            '1:plugin:_claude_installed_plugins'
+          ;;
         details)
           _arguments \
             '(-h --help)'{-h,--help}'[显示帮助]' \
@@ -592,6 +602,11 @@ _claude_plugin() {
             '--remote[使用--push时推送到的远程仓库]:name:' \
             '(-h --help)'{-h,--help}'[显示帮助]' \
             '::path:_files'
+          ;;
+        test)
+          _arguments \
+            '(-h --help)'{-h,--help}'[显示帮助]' \
+            '::dir:_directories'
           ;;
       esac
       ;;

@@ -245,6 +245,7 @@ _claude() {
     '--settings[설정 JSON 파일 경로 또는 추가 설정을 로드할 JSON 문자열]:file-or-json:_files'
     '--add-dir[도구 액세스를 허용할 추가 디렉토리]:directories:_directories'
     '--ide[정확히 하나의 유효한 IDE를 사용할 수 있는 경우 시작 시 자동으로 IDE에 연결]'
+    '--desktop[터미널 대신 Claude Desktop 앱에서 열기 (--continue 또는 --resume <id>로 세션 선택)]'
     '--strict-mcp-config[--mcp-config의 MCP 서버만 사용하고 다른 모든 MCP 설정 무시]'
     '--session-id[대화에 사용할 특정 세션 ID(유효한 UUID여야 함)]:uuid:'
     '--agents[사용자 정의 에이전트를 정의하는 JSON 객체]:json:'
@@ -445,6 +446,7 @@ _claude_plugin() {
     'marketplace:Claude Code 마켓플레이스 관리'
     'list:설치된 플러그인 나열'
     'details:플러그인의 구성 요소 인벤토리 및 예상 토큰 비용 표시'
+    'configure:플러그인 옵션과 설정되지 않은 항목 표시, 또는 stdin에서 값 저장'
     'install:사용 가능한 마켓플레이스에서 플러그인 설치'
     'i:사용 가능한 마켓플레이스에서 플러그인 설치(install의 약어)'
     'init:새 플러그인 스캐폴딩(다음 세션에 자동 로드)'
@@ -458,6 +460,7 @@ _claude_plugin() {
     'prune:더 이상 필요하지 않은 자동 설치된 종속성 제거'
     'autoremove:더 이상 필요하지 않은 자동 설치된 종속성 제거(prune의 별칭)'
     'tag:플러그인 릴리스를 위한 {name}--v{version} git 태그 생성'
+    'test:mod의 테스트 실행'
     'help:도움말 표시'
   )
 
@@ -540,6 +543,13 @@ _claude_plugin() {
             '(-y --yes)'{-y,--yes}'[확인 프롬프트 건너뛰기]' \
             '(-h --help)'{-h,--help}'[도움말 표시]'
           ;;
+        configure)
+          _arguments \
+            '--json[JSON으로 출력]' \
+            '--values-stdin[stdin에서 한 줄 문자열로 된 JSON 객체로 옵션 값 읽기 (생략한 옵션은 기존 값 유지)]' \
+            '(-h --help)'{-h,--help}'[도움말 표시]' \
+            '1:plugin:_claude_installed_plugins'
+          ;;
         details)
           _arguments \
             '(-h --help)'{-h,--help}'[도움말 표시]' \
@@ -592,6 +602,11 @@ _claude_plugin() {
             '--remote[--push로 푸시할 원격 저장소]:name:' \
             '(-h --help)'{-h,--help}'[도움말 표시]' \
             '::path:_files'
+          ;;
+        test)
+          _arguments \
+            '(-h --help)'{-h,--help}'[도움말 표시]' \
+            '::dir:_directories'
           ;;
       esac
       ;;
