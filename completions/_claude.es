@@ -480,7 +480,7 @@ _claude_plugin() {
       case $words[1] in
         validate)
           _arguments \
-            '--strict[Tratar las advertencias como errores (salida 1)]' \
+            '--strict[Tratar las advertencias como errores (código de salida 1)]' \
             '--json[Mostrar el informe de validación como JSON (mismos códigos de salida)]' \
             '(-h --help)'{-h,--help}'[Mostrar ayuda]' \
             '1:path:_files'
@@ -570,10 +570,10 @@ _claude_plugin() {
             '--case[Filtrar casos por glob de nombre]:glob:' \
             '*--tag[Filtrar casos por etiqueta (repetible)]:tag:' \
             '--runs[Sobrescribir las ejecuciones por caso (predeterminado: case.runs, si no 3)]:n:' \
-            '(-j --concurrency)'{-j,--concurrency}'[Ejecutar hasta n agentes a la vez (1-8; predeterminado 1)]:n:' \
+            '(-j --concurrency)'{-j,--concurrency}'[Ejecutar hasta n ejecuciones de agente a la vez (1-8; predeterminado 1)]:n:' \
             '--model[Sobrescribir el modelo para todos los casos]:model:_claude_model_names' \
             '--judge-model[Sobrescribir el modelo evaluador LLM (predeterminado: haiku)]:model:_claude_model_names' \
-            '--max-cost-usd[Límite máximo de coste; abortar e informar resultados parciales si se alcanza (salida 2)]:usd:' \
+            '--max-cost-usd[Límite máximo de coste; abortar e informar resultados parciales si se alcanza (código de salida 2)]:usd:' \
             '--output-dir[Directorio para aggregate-result.json]:dir:_directories' \
             '--eval-dir[Nombre del directorio (dentro del plugin) que contiene los casos de evaluación]:dir:' \
             '--json[Mostrar el resultado completo de la ejecución como JSON en stdout, o escribirlo en este archivo .json]::path:_files' \
