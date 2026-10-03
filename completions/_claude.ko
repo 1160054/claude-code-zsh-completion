@@ -260,7 +260,6 @@ _claude() {
     '--effort[현재 세션의 노력 수준]:level:(low medium high xhigh max)'
     '--autocompact[자동 압축 창 크기(auto 또는 100k~1M 토큰)]:size:(auto)'
     '--debug-file[특정 파일 경로에 디버그 로그 작성(암시적으로 디버그 모드 활성화)]:path:_files'
-    '--from-pr[번호/URL로 PR에 연결된 세션 재개 또는 대화식 선택기 열기]::value:'
     '--teleport[텔레포트 세션 재개(선택적으로 세션 ID 지정)]::session:'
     '--cloud[지정한 설명으로 클라우드 세션을 생성하거나 세션 ID 또는 claude.ai/code URL로 기존 세션에 연결]::description-or-session:'
     '--environment[지정한 자체 호스팅 환경(ccpool_...)에서 실행되는 새 클라우드 세션 생성]:environment_id:'

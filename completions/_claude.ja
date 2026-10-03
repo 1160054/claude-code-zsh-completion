@@ -260,7 +260,6 @@ _claude() {
     '--effort[現在のセッションの努力レベル]:level:(low medium high xhigh max)'
     '--autocompact[自動コンパクトのウィンドウサイズ（auto、または100k〜1Mトークン）]:size:(auto)'
     '--debug-file[デバッグログを特定のファイルパスに書き込む（暗黙的にデバッグモードを有効化）]:path:_files'
-    '--from-pr[番号/URLでPRにリンクされたセッションを再開、または対話的なピッカーを開く]::value:'
     '--teleport[テレポートセッションを再開（オプションでセッションIDを指定）]::session:'
     '--cloud[指定した説明でクラウドセッションを作成、またはセッションIDかclaude.ai/code URLで既存のものにアタッチ]::description-or-session:'
     '--environment[指定したセルフホスト環境（ccpool_...）で動く新しいクラウドセッションを作成]:environment_id:'

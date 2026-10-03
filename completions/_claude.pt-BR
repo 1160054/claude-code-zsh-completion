@@ -260,7 +260,6 @@ _claude() {
     '--effort[Nível de esforço para a sessão atual]:level:(low medium high xhigh max)'
     '--autocompact[Tamanho da janela de compactação automática (auto, ou de 100k a 1M de tokens)]:size:(auto)'
     '--debug-file[Gravar logs de depuração em um caminho de arquivo específico (habilita implicitamente o modo de depuração)]:path:_files'
-    '--from-pr[Retomar uma sessão vinculada a um PR por número/URL, ou abrir o seletor interativo]::value:'
     '--teleport[Retomar uma sessão de teleport, opcionalmente especificando o ID da sessão]::session:'
     '--cloud[Criar uma sessão na nuvem com a descrição fornecida, ou anexar a uma existente pelo ID da sessão ou URL do claude.ai/code]::description-or-session:'
     '--environment[Criar uma nova sessão na nuvem executada no ambiente auto-hospedado informado (ccpool_...)]:environment_id:'
