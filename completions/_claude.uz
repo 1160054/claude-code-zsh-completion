@@ -121,6 +121,39 @@ _claude_agent_names() {
   compadd -a agents
 }
 
+_claude_background_sessions() {
+  local -a sessions state_files
+  local -A names states
+  local state_dir state_file line id rest
+
+  # Background sessions (`claude --bg`) live in <config>/jobs/<id>/, where
+  # <id> is the short id that attach, logs, stop, respawn and rm take.
+  for state_dir in ${(f)"$(_claude_state_dirs)"}; do
+    # Newest first
+    state_files=(${state_dir}/jobs/*/state.json(Nom))
+    (( ${#state_files} )) || continue
+
+    # One grep for all of them; the first "name" and "state" it reports for a
+    # file are that file's top-level ones
+    names=() states=()
+    for line in ${(f)"$(grep -HoE '"(name|state)"[[:space:]]*:[[:space:]]*"[^"]*"' $state_files 2>/dev/null)"}; do
+      id=${${line%%/state.json:*}:t}
+      rest=${line#*/state.json:}
+      case $rest in
+        \"name\"*)  [[ -z $names[$id] ]]  && names[$id]=${${rest#*:*\"}%\"} ;;
+        \"state\"*) [[ -z $states[$id] ]] && states[$id]=${${rest#*:*\"}%\"} ;;
+      esac
+    done
+
+    for state_file in $state_files; do
+      id=${state_file:h:t}
+      sessions+=("${id}:${names[$id]:-no name}${states[$id]:+ (${states[$id]})}")
+    done
+  done
+
+  _describe -t sessions 'background session' sessions
+}
+
 _claude_model_names() {
   local -a models config_files
   local state_dir config_file
@@ -155,9 +188,15 @@ _claude() {
     'mcp:MCP serverlarini sozlash va boshqarish'
     'plugin:Claude Code plaginlarini boshqarish'
     'agents:Fon agentlarini boshqarish'
+    'attach:Fon sessiyasini ushbu terminalda ochish'
+    'logs:Fon sessiyasining so'\''nggi terminal chiqishini chop etish'
+    'stop:Fon sessiyasini to'\''xtatish (uning suhbati saqlanib qoladi)'
+    'respawn:Fon sessiyasini joriy Claude Code versiyasida ishlashi uchun qayta ishga tushirish'
+    'rm:Fon sessiyasini va xavfsiz bo'\''lsa uning worktree-ini o'\''chirish'
     'auth:Autentifikatsiyani boshqarish'
     'auto-mode:Avtomatik rejim klassifikatori konfiguratsiyasini tekshirish yoki qayta tiklash'
     'gateway:Korporativ autentifikatsiya/telemetriya shlyuzini ishga tushirish'
+    'import:Boshqa AI kodlash agentidan konfiguratsiyani Claude Code-ga import qilish'
     'project:Claude Code loyiha holatini boshqarish'
     'ultrareview:Bulutda joylashgan ko'\''p agentli kod ko'\''rigini ishga tushirish va natijalarni chop etish'
     'setup-token:Uzoq muddatli autentifikatsiya tokenini sozlash (Claude obunasi kerak)'
@@ -178,6 +217,7 @@ _claude() {
     '--mcp-debug[\[Eskirgan. O'\''rniga --debug ishlatilsin\] MCP debug rejimini yoqish (MCP server xatolarini ko'\''rsatadi)]'
     '--dangerously-skip-permissions[Barcha ruxsat tekshiruvlarini o'\''tkazib yuborish. Faqat internetga kirish imkoni bo'\''lmagan sandbox muhitlar uchun tavsiya etiladi]'
     '--allow-dangerously-skip-permissions[Sukut bo'\''yicha yoqmasdan ruxsat tekshiruvlarini o'\''tkazib yuborish imkoniyatini yoqish]'
+    '--restricted[Cheklangan rejim: buyruq yoki kod ishga tushiradigan vositalarni va WebFetch-ni olib tashlash, user/project/local sozlamalarini e'\''tiborsiz qoldirish va fayl vositalarini ishchi kataloglar bilan cheklash]'
     '--max-budget-usd[API chaqiruvlariga sarflanadigan maksimal dollar miqdori (faqat --print)]:amount:'
     '--replay-user-messages[Tasdiqlash uchun stdin-dan stdout-ga foydalanuvchi xabarlarini qayta yuborish]'
     '--allowed-tools[Vergul yoki bo'\''sh joy bilan ajratilgan ruxsat etilgan vosita nomlari ro'\''yxati (masalan, "Bash(git:*) Edit")]:tools:'
@@ -187,8 +227,13 @@ _claude() {
     '--disallowedTools[Vergul yoki bo'\''sh joy bilan ajratilgan taqiqlangan vosita nomlari ro'\''yxati (camelCase formati)]:tools:'
     '--mcp-config[JSON faylidan yoki qatordan MCP serverlarini yuklash (bo'\''sh joy bilan ajratilgan)]:configs:'
     '--system-prompt[Sessiya uchun tizim prompti]:prompt:'
+    '--system-prompt-file[Tizim promptini fayldan o'\''qish]:file:_files'
     '--append-system-prompt[Standart tizim promptiga tizim promptini qo'\''shish]:prompt:'
+    '--append-system-prompt-file[Tizim promptini fayldan o'\''qish va standart tizim promptiga qo'\''shish]:file:_files'
+    '--system-prompt-snapshot[Tizim promptini har bir suhbatda bir marta yozib olish va har bir so'\''rov va davom ettirishda aynan qayta ishlatish (on, standart) yoki har bir so'\''rovda uni yangidan hosil qilish (off)]:mode:(on off)'
     '--permission-mode[Sessiya uchun ruxsat rejimi]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)'
+    '--permission-prompts[--print bilan ruxsat so'\''rovlariga kim javob beradi: "host" (SDK xosti yoki --permission-prompt-tool) yoki "none" (so'\''rov chiqaradigan har qanday narsa rad etiladi)]:target:(host none)'
+    '--permission-prompt-tool[Ruxsat so'\''rovlari uchun ishlatiladigan MCP vositasi (faqat --print)]:tool:'
     '(-c --continue)'{-c,--continue}'[Eng so'\''nggi suhbatni davom ettirish]'
     '(-r --resume)'{-r,--resume}'[Suhbatni davom ettirish - sessiya identifikatorini ko'\''rsating yoki interaktiv tanlang]:sessionId:_claude_sessions'
     '--fork-session[Davom ettirayotganda asl sessiya identifikatorini qayta ishlatish o'\''rniga yangi sessiya identifikatorini yaratish (--resume yoki --continue bilan)]'
@@ -200,6 +245,7 @@ _claude() {
     '--settings[Qo'\''shimcha sozlamalarni yuklash uchun sozlamalar JSON fayli yoki JSON qator yo'\''li]:file-or-json:_files'
     '--add-dir[Vosita kirishi uchun qo'\''shimcha kataloglar]:directories:_directories'
     '--ide[Ishga tushirishda aynan bitta yaroqli IDE mavjud bo'\''lsa, avtomatik ravishda IDE-ga ulanish]'
+    '--desktop[Terminal o'\''rniga Claude Desktop ilovasida ochish (sessiyani tanlash uchun --continue yoki --resume <id> bilan)]'
     '--strict-mcp-config[Faqat --mcp-config-dan MCP serverlaridan foydalanish va barcha boshqa MCP sozlamalarini e'\''tiborsiz qoldirish]'
     '--session-id[Suhbat uchun maxsus sessiya identifikatori (yaroqli UUID bo'\''lishi kerak)]:uuid:'
     '--agents[Maxsus agentlarni aniqlash uchun JSON obyekti]:json:'
@@ -208,11 +254,15 @@ _claude() {
     '--disable-slash-commands[Barcha slash buyruqlarini o'\''chirish]'
     '(--bg --background)'{--bg,--background}'[Sessiyani fon agenti sifatida boshlash va darhol qaytish]'
     '(-w --worktree)'{-w,--worktree}'[Ushbu sessiya uchun yangi git worktree yaratish (ixtiyoriy ravishda nom ko'\''rsating)]::name:'
-    '--tmux[Worktree uchun tmux sessiyasini yaratish (--worktree talab qilinadi)]'
+    '--tmux=-[Worktree uchun tmux sessiyasini yaratish (--worktree talab qilinadi). Mavjud bo'\''lsa iTerm2 mahalliy panellaridan foydalanadi; an'\''anaviy tmux uchun --tmux=classic]::mode:(classic)'
     '(-n --name)'{-n,--name}'[Ushbu sessiya uchun ko'\''rsatiladigan nom o'\''rnatish]:name:'
     '--effort[Joriy sessiya uchun harakat darajasi]:level:(low medium high xhigh max)'
+    '--autocompact[Avto-ixchamlash oynasi o'\''lchami (auto yoki 100k-1M token)]:size:(auto)'
     '--debug-file[Debug loglarini muayyan fayl yo'\''liga yozish (debug rejimini yashirin ravishda yoqadi)]:path:_files'
     '--from-pr[Raqam/URL bo'\''yicha PR bilan bog'\''langan sessiyani davom ettirish yoki interaktiv tanlagichni ochish]::value:'
+    '--teleport[Teleport sessiyasini davom ettirish, ixtiyoriy ravishda sessiya identifikatorini ko'\''rsating]::session:'
+    '--cloud[Berilgan tavsif bilan bulut sessiyasini yaratish yoki sessiya identifikatori yoki claude.ai/code URL orqali mavjud sessiyaga ulanish]::description-or-session:'
+    '--environment[Berilgan o'\''zingiz xostlaydigan muhitda (ccpool_...) ishlaydigan yangi bulut sessiyasini yaratish]:environment_id:'
     '--remote-control[Masofaviy boshqaruv yoqilgan interaktiv sessiyani boshlash (ixtiyoriy ravishda nomlangan)]::name:'
     '--remote-control-session-name-prefix[Avtomatik yaratilgan Masofaviy boshqaruv sessiya nomlari uchun prefiks]:prefix:'
     '--chrome[Chrome integratsiyasida Claude-ni yoqish]'
@@ -254,6 +304,17 @@ _claude() {
         agents)
           _claude_agents
           ;;
+        attach|logs|stop|kill)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Buyruq uchun yordamni ko'\''rsatish]' \
+            '1:session:_claude_background_sessions'
+          ;;
+        respawn)
+          _claude_respawn
+          ;;
+        rm)
+          _claude_rm
+          ;;
         auth)
           _claude_auth
           ;;
@@ -262,6 +323,9 @@ _claude() {
           ;;
         gateway)
           _claude_gateway
+          ;;
+        import)
+          _claude_import
           ;;
         project)
           _claude_project
@@ -319,6 +383,9 @@ _claude_mcp() {
             '(-t --transport)'{-t,--transport}'[Transport turi (stdio, sse, http)]:transport:(stdio sse http)' \
             '(-e --env)'{-e,--env}'[Muhit o'\''zgaruvchisini sozlash (masalan, -e KEY=value)]:env:' \
             '(-H --header)'{-H,--header}'[WebSocket sarlavhasini sozlash]:header:' \
+            '--client-id[HTTP/SSE serverlari uchun OAuth mijoz identifikatori]:clientId:' \
+            '--client-secret[OAuth mijoz sirini so'\''rash (yoki MCP_CLIENT_SECRET muhit o'\''zgaruvchisini o'\''rnating)]' \
+            '--callback-port[OAuth callback uchun qat'\''iy port (oldindan ro'\''yxatdan o'\''tkazilgan yo'\''naltirish URI-larini talab qiladigan serverlar uchun)]:port:' \
             '(-h --help)'{-h,--help}'[Yordamni ko'\''rsatish]' \
             '1:name:' \
             '2:commandOrUrl:' \
@@ -342,6 +409,7 @@ _claude_mcp() {
         add-json)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Konfiguratsiya doirasi (local, user, project)]:scope:(local user project)' \
+            '--client-secret[OAuth mijoz sirini so'\''rash (yoki MCP_CLIENT_SECRET muhit o'\''zgaruvchisini o'\''rnating)]' \
             '(-h --help)'{-h,--help}'[Yordamni ko'\''rsatish]' \
             '1:name:' \
             '2:json:'
@@ -355,7 +423,13 @@ _claude_mcp() {
           _arguments \
             '(-h --help)'{-h,--help}'[Yordamni ko'\''rsatish]'
           ;;
-        login|logout)
+        login)
+          _arguments \
+            '--no-browser[Brauzerni ochish o'\''rniga avtorizatsiya URL-ini chop etish (SSH/headless sessiyalar uchun)]' \
+            '(-h --help)'{-h,--help}'[Yordamni ko'\''rsatish]' \
+            '1:name:_claude_mcp_servers'
+          ;;
+        logout)
           _arguments \
             '(-h --help)'{-h,--help}'[Yordamni ko'\''rsatish]' \
             '1:name:_claude_mcp_servers'
@@ -372,9 +446,11 @@ _claude_plugin() {
     'marketplace:Claude Code bozorlarini boshqarish'
     'list:O'\''rnatilgan plaginlar ro'\''yxati'
     'details:Plagin uchun komponentlar ro'\''yxati va taxminiy token narxini ko'\''rsatish'
+    'configure:Plagin parametrlarini va qaysilari o'\''rnatilmaganini ko'\''rsatish yoki qiymatlarni stdin-dan saqlash'
     'install:Mavjud bozorlardan plagin o'\''rnatish'
     'i:Mavjud bozorlardan plagin o'\''rnatish (install uchun qisqa)'
     'init:Yangi plagin yaratish (keyingi sessiyada avtomatik yuklanadi)'
+    'new:Yangi plagin karkasini yaratish (init uchun taxallus)'
     'uninstall:O'\''rnatilgan plaginni o'\''chirish'
     'remove:O'\''rnatilgan plaginni o'\''chirish (uninstall uchun taxallus)'
     'enable:O'\''chirilgan plaginni yoqish'
@@ -382,7 +458,9 @@ _claude_plugin() {
     'update:Plaginni eng so'\''nggi versiyaga yangilash'
     'eval:Plaginga qarshi eval holatlarini ishga tushirish va baholangan natijalar hisobotini berish'
     'prune:Endi kerak bo'\''lmagan avtomatik o'\''rnatilgan bog'\''liqliklarni o'\''chirish'
+    'autoremove:Endi kerak bo'\''lmagan avtomatik o'\''rnatilgan bog'\''liqliklarni o'\''chirish (prune uchun taxallus)'
     'tag:Plagin relizi uchun {name}--v{version} git tegini yaratish'
+    'test:Mod testlarini ishga tushirish'
     'help:Yordamni ko'\''rsatish'
   )
 
@@ -402,6 +480,8 @@ _claude_plugin() {
       case $words[1] in
         validate)
           _arguments \
+            '--strict[Ogohlantirishlarni xato deb hisoblash (chiqish kodi 1)]' \
+            '--json[Tekshiruv hisobotini JSON sifatida chiqarish (chiqish kodlari bir xil)]' \
             '(-h --help)'{-h,--help}'[Yordamni ko'\''rsatish]' \
             '1:path:_files'
           ;;
@@ -411,50 +491,122 @@ _claude_plugin() {
         install|i)
           _arguments \
             '(-s --scope)'{-s,--scope}'[O'\''rnatish doirasi]:scope:(user project local)' \
+            '*--config[Plagin manifestida e'\''lon qilingan userConfig parametrini o'\''rnatish (takrorlanishi mumkin)]:key=value:' \
+            '(-y --yes)'{-y,--yes}'[Bozor tomonidan e'\''lon qilingan ko'\''rsatilgan buyruqni tasdiqlash so'\''rovisiz qabul qilish]' \
+            '--json[Inson uchun xabar o'\''rniga mashina o'\''qiy oladigan bitta natija qatorini chop etish]' \
             '(-h --help)'{-h,--help}'[Yordamni ko'\''rsatish]' \
             '1:plugin:'
           ;;
         uninstall|remove)
           _arguments \
             '(-s --scope)'{-s,--scope}'[O'\''rnatish doirasi]:scope:(user project local)' \
+            '--keep-data[Plaginning doimiy ma'\''lumotlar katalogini saqlab qolish]' \
+            '--prune[Endi kerak bo'\''lmagan avtomatik o'\''rnatilgan bog'\''liqliklarni ham o'\''chirish]' \
+            '(-y --yes)'{-y,--yes}'[--prune tasdiqlash so'\''rovini o'\''tkazib yuborish]' \
+            '--json[Inson uchun xabar o'\''rniga mashina o'\''qiy oladigan bitta natija qatorini chop etish (--prune bilan emas)]' \
             '(-h --help)'{-h,--help}'[Yordamni ko'\''rsatish]' \
             '1:plugin:_claude_installed_plugins'
           ;;
-        enable|disable)
+        enable)
           _arguments \
             '(-s --scope)'{-s,--scope}'[O'\''rnatish doirasi]:scope:(user project local)' \
+            '--json[Inson uchun xabar o'\''rniga mashina o'\''qiy oladigan bitta natija qatorini chop etish]' \
             '(-h --help)'{-h,--help}'[Yordamni ko'\''rsatish]' \
             '1:plugin:_claude_installed_plugins'
+          ;;
+        disable)
+          _arguments \
+            '(-a --all)'{-a,--all}'[Barcha yoqilgan plaginlarni o'\''chirish]' \
+            '(-s --scope)'{-s,--scope}'[O'\''rnatish doirasi]:scope:(user project local)' \
+            '--json[Inson uchun xabar o'\''rniga mashina o'\''qiy oladigan bitta natija qatorini chop etish]' \
+            '(-h --help)'{-h,--help}'[Yordamni ko'\''rsatish]' \
+            '::plugin:_claude_installed_plugins'
           ;;
         update)
           _arguments \
             '(-s --scope)'{-s,--scope}'[O'\''rnatish doirasi]:scope:(user project local managed)' \
+            '(-y --yes)'{-y,--yes}'[Bozor tomonidan e'\''lon qilingan ko'\''rsatilgan buyruqni tasdiqlash so'\''rovisiz qabul qilish]' \
+            '--json[Inson uchun xabar o'\''rniga mashina o'\''qiy oladigan bitta natija qatorini chop etish]' \
             '(-h --help)'{-h,--help}'[Yordamni ko'\''rsatish]' \
             '1:plugin:_claude_installed_plugins'
           ;;
-        list|prune)
+        list)
           _arguments \
+            '--json[JSON sifatida chiqarish]' \
+            '--available[Bozorlardagi mavjud plaginlarni ham kiritish (--json talab qilinadi)]' \
             '(-h --help)'{-h,--help}'[Yordamni ko'\''rsatish]'
+          ;;
+        prune|autoremove)
+          _arguments \
+            '(-s --scope)'{-s,--scope}'[Ko'\''rsatilgan doirada tozalash]:scope:(user project local)' \
+            '--dry-run[O'\''chirmasdan nima o'\''chirilishini ro'\''yxatlash]' \
+            '(-y --yes)'{-y,--yes}'[Tasdiqlash so'\''rovini o'\''tkazib yuborish]' \
+            '(-h --help)'{-h,--help}'[Yordamni ko'\''rsatish]'
+          ;;
+        configure)
+          _arguments \
+            '--json[JSON sifatida chiqarish]' \
+            '--values-stdin[Parametr qiymatlarini stdin-dan bir qatorli satrlardan iborat JSON obyekti sifatida o'\''qish; ko'\''rsatilmagan parametrlar o'\''z qiymatlarini saqlab qoladi]' \
+            '(-h --help)'{-h,--help}'[Yordamni ko'\''rsatish]' \
+            '1:plugin:_claude_installed_plugins'
           ;;
         details)
           _arguments \
             '(-h --help)'{-h,--help}'[Yordamni ko'\''rsatish]' \
             '1:plugin:_claude_installed_plugins'
           ;;
-        init)
+        init|new)
           _arguments \
+            '--description[Manifest tavsifi]:text:' \
+            '--author[Muallif ismi (standart: git config user.name)]:name:' \
+            '--author-email[Muallif elektron pochtasi (standart: git config user.email)]:email:' \
+            '--with[Qo'\''shimcha ravishda karkasi yaratiladigan komponentlar]:components:' \
+            '(-f --force)'{-f,--force}'[Maqsaddagi mavjud .claude-plugin/ ni ustiga yozish]' \
             '(-h --help)'{-h,--help}'[Yordamni ko'\''rsatish]' \
             '1:name:'
           ;;
         eval)
           _arguments \
+            '--case[Holatlarni nom glob naqshi bo'\''yicha filtrlash]:glob:' \
+            '*--tag[Holatlarni teg bo'\''yicha filtrlash (takrorlanishi mumkin)]:tag:' \
+            '--runs[Har bir holat uchun ishga tushirishlar sonini qayta belgilash (standart: case.runs, aks holda 3)]:n:' \
+            '(-j --concurrency)'{-j,--concurrency}'[Bir vaqtning o'\''zida agentni n martagacha ishga tushirish (1-8; standart 1)]:n:' \
+            '--model[Barcha holatlar uchun modelni qayta belgilash]:model:_claude_model_names' \
+            '--judge-model[LLM-baholovchi modelini qayta belgilash (standart: haiku)]:model:_claude_model_names' \
+            '--max-cost-usd[Qat'\''iy xarajat chegarasi; yetib borilsa to'\''xtatish va qisman natijalar hisobotini berish (chiqish kodi 2)]:usd:' \
+            '--output-dir[aggregate-result.json uchun katalog]:dir:_directories' \
+            '--eval-dir[Eval holatlarini saqlaydigan katalog nomi (plagin ichida)]:dir:' \
+            '--json[To'\''liq ishga tushirish natijasini JSON sifatida stdout-ga chop etish yoki ushbu .json fayliga yozish]::path:_files' \
+            '--threshold[Biror holat bali ushbu chegaradan past bo'\''lsa, chiqish kodi 1 bilan chiqish (standart: 1.0)]:threshold:' \
+            '*--allow-tools[Cheklangan vositalar uchun operator ruxsati (Bash, Write, Edit, WebFetch, mcp__*)]:tools:' \
+            '(--no-scaffold)--scaffold[Har bir holatning scaffold_script-ini ishga tushirish (muallif bergan bash-ni sizning nomingizdan ishga tushiradi; standart bo'\''yicha o'\''chiq)]' \
+            '(--scaffold)--no-scaffold[scaffold_script-ni aniq o'\''tkazib yuborish]' \
+            '--trust-plugin[Ushbu plagin va uning eval to'\''plamiga ishonishingizni tasdiqlash, birinchi ishga tushirishdagi ishonch so'\''rovini o'\''tkazib yuborish (CI uchun)]' \
+            '--ablation[Plaginsiz bazaviy taqqoslash guruhini ishga tushirish va ballar farqini hisobot qilish]:mode:(none with-without)' \
+            '--mocks[MCP serverlari uchun mock o'\''rinbosarlar, <eval dir>/mocks/ dan]:mode:(record off)' \
+            '--allow-real-servers[--mocks record bilan: mock-i bo'\''lmagan haqiqiy MCP server jarayonlarini ham ishga tushirish]' \
+            '--keep-temp[Debug uchun karkas kataloglarini saqlab qolish]' \
+            '--verbose[Har bir xabar bo'\''yicha trace hodisalarini debug logiga yozish]' \
+            '--report[Mustaqil HTML hisobotni natijalar katalogi o'\''rniga ushbu yo'\''lga yozish]:path:_files' \
+            '(--no-publish)--publish-report[Hisobotni claude.ai-ga nashr qilishni ham talab qilish]' \
+            '(--publish-report)--no-publish[HTML hisobotni faqat mahalliy saqlash; uni claude.ai-ga nashr qilishni o'\''tkazib yuborish]' \
             '(-h --help)'{-h,--help}'[Yordamni ko'\''rsatish]' \
-            '1:target:'
+            '::target: _alternative "plugins\:installed plugin\:_claude_installed_plugins" "files\:path\:_files"'
           ;;
         tag)
           _arguments \
+            '--push[Tegni yaratgandan keyin --remote-ga push qilish]' \
+            '--dry-run[Yaratmasdan nima teglanishini chop etish]' \
+            '(-f --force)'{-f,--force}'[Ishchi daraxt toza emasligi va teg allaqachon mavjudligi tekshiruvlarini o'\''tkazib yuborish]' \
+            '(-m --message)'{-m,--message}'[Teg izoh xabari (versiya uchun %s dan foydalaning)]:msg:' \
+            '--remote[--push bilan push qilinadigan remote]:name:' \
             '(-h --help)'{-h,--help}'[Yordamni ko'\''rsatish]' \
-            '1:path:_files'
+            '::path:_files'
+          ;;
+        test)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Yordamni ko'\''rsatish]' \
+            '::dir:_directories'
           ;;
       esac
       ;;
@@ -488,15 +640,20 @@ _claude_plugin_marketplace() {
       case $words[1] in
         add)
           _arguments \
+            '--sparse[Checkout-ni git sparse-checkout orqali muayyan kataloglar bilan cheklash (monorepolar uchun)]:paths:' \
+            '--scope[Bozorni qayerda e'\''lon qilish]:scope:(user project local)' \
+            '--claudeai[claude.ai siz uchun joylashtirgan shu nomdagi bozorni qo'\''shish]' \
             '(-h --help)'{-h,--help}'[Yordamni ko'\''rsatish]' \
             '1:source:'
           ;;
         list)
           _arguments \
+            '--json[JSON sifatida chiqarish]' \
             '(-h --help)'{-h,--help}'[Yordamni ko'\''rsatish]'
           ;;
         remove|rm)
           _arguments \
+            '--scope[Bozor e'\''lonini muayyan sozlamalar doirasidan o'\''chirish (barcha doiralardan o'\''chirish uchun ko'\''rsatmang)]:scope:(user project local)' \
             '(-h --help)'{-h,--help}'[Yordamni ko'\''rsatish]' \
             '1:name:'
           ;;
@@ -534,6 +691,7 @@ _claude_agents() {
     '--setting-sources[Yuklash uchun vergul bilan ajratilgan sozlamalar manbalari ro'\''yxati (user, project, local)]:sources:' \
     '--settings[Qo'\''llaniladigan sozlamalar fayli yoki JSON qatori]:file-or-json:_files' \
     '--strict-mcp-config[Yuborilgan sessiyalarda faqat --mcp-config-dan MCP serverlaridan foydalanish]' \
+    '--restricted[Yuborilgan sessiyalarni cheklangan rejimda boshlash]' \
     '(-h --help)'{-h,--help}'[Buyruq uchun yordamni ko'\''rsatish]'
 }
 
@@ -560,7 +718,21 @@ _claude_auth() {
       ;;
     args)
       case $words[1] in
-        login|logout|status)
+        login)
+          _arguments \
+            '--email[Kirish sahifasida elektron pochta manzilini oldindan to'\''ldirish]:email:' \
+            '--sso[SSO kirish jarayonini majburan ishlatish]' \
+            '(--claudeai)--console[Claude obunasi o'\''rniga Anthropic Console-dan foydalanish (API foydalanishi bo'\''yicha hisob-kitob)]' \
+            '(--console)--claudeai[Claude obunasidan foydalanish (standart)]' \
+            '(-h --help)'{-h,--help}'[Buyruq uchun yordamni ko'\''rsatish]'
+          ;;
+        status)
+          _arguments \
+            '(--text)--json[JSON sifatida chiqarish (standart)]' \
+            '(--json)--text[Inson o'\''qiy oladigan matn sifatida chiqarish]' \
+            '(-h --help)'{-h,--help}'[Buyruq uchun yordamni ko'\''rsatish]'
+          ;;
+        logout)
           _arguments \
             '(-h --help)'{-h,--help}'[Buyruq uchun yordamni ko'\''rsatish]'
           ;;
@@ -593,7 +765,22 @@ _claude_auto_mode() {
       ;;
     args)
       case $words[1] in
-        config|critique|defaults|reset)
+        critique)
+          _arguments \
+            '--model[Ishlatiladigan modelni qayta belgilash]:model:_claude_model_names' \
+            '(-h --help)'{-h,--help}'[Buyruq uchun yordamni ko'\''rsatish]'
+          ;;
+        defaults)
+          _arguments \
+            '--label[Faqat yorlig'\''i ushbu prefiks bilan boshlanadigan qoidalarni ko'\''rsatish (katta-kichik harfga sezgir emas)]:prefix:' \
+            '(-h --help)'{-h,--help}'[Buyruq uchun yordamni ko'\''rsatish]'
+          ;;
+        reset)
+          _arguments \
+            '(-y --yes)'{-y,--yes}'[Tasdiqlash so'\''rovini o'\''tkazib yuborish]' \
+            '(-h --help)'{-h,--help}'[Buyruq uchun yordamni ko'\''rsatish]'
+          ;;
+        config)
           _arguments \
             '(-h --help)'{-h,--help}'[Buyruq uchun yordamni ko'\''rsatish]'
           ;;
@@ -631,8 +818,12 @@ _claude_project() {
       case $words[1] in
         purge)
           _arguments \
+            '--dry-run[Hech narsani o'\''chirmasdan nima o'\''chirilishini ro'\''yxatlash]' \
+            '(-y --yes)'{-y,--yes}'[Tasdiqlash so'\''rovini o'\''tkazib yuborish]' \
+            '(-i --interactive)'{-i,--interactive}'[O'\''chirishdan oldin har bir element uchun so'\''rash]' \
+            '(1)--all[Barcha loyihalar uchun holatni o'\''chirish (yo'\''l bilan birga ishlatib bo'\''lmaydi)]' \
             '(-h --help)'{-h,--help}'[Buyruq uchun yordamni ko'\''rsatish]' \
-            '1:path:_directories'
+            '(--all)::path:_directories'
           ;;
       esac
       ;;
@@ -642,9 +833,34 @@ _claude_project() {
 _claude_ultrareview() {
   _arguments \
     '--json[Formatlangan natijalar o'\''rniga xom bugs.json yukini chop etish]' \
-    '--timeout[Ko'\''rik tugashini kutish uchun maksimal daqiqalar]:minutes:' \
+    '--timeout[Ko'\''rik tugashini kutish uchun maksimal daqiqalar (standart: 45)]:minutes:' \
+    '(--no-post)--post[Tugallangan ko'\''rik topilmalarini PR-ga sizning nomingizdan joylash (faqat PR maqsadlari; ko'\''rik emas, bitta oddiy izoh)]' \
+    '(--post)--no-post[Topilmalarni PR-ga joylamaslik (standart)]' \
     '(-h --help)'{-h,--help}'[Buyruq uchun yordamni ko'\''rsatish]' \
     '1:target:'
+}
+
+_claude_respawn() {
+  _arguments \
+    '(1)--all[Ishlayotgan barcha fon sessiyalarini qayta ishga tushirish]' \
+    '(-h --help)'{-h,--help}'[Buyruq uchun yordamni ko'\''rsatish]' \
+    '(--all)::session:_claude_background_sessions'
+}
+
+_claude_rm() {
+  _arguments \
+    '--discard-unpushed[Worktree-ning push qilinmagan commitlari va commit qilinmagan o'\''zgarishlarini ham bekor qilish (oldingi claude rm xabar bergan commit@worktree-id ni bering)]:commit@worktree-id:' \
+    '--force-remove-worktree[WorktreeRemove hooki yoki git uni o'\''chira olmagan bo'\''lsa ham worktree katalogini o'\''chirish (oldingi claude rm xabar bergan worktree-id ni bering)]:worktree-id:' \
+    '(-h --help)'{-h,--help}'[Buyruq uchun yordamni ko'\''rsatish]' \
+    '1:session:_claude_background_sessions'
+}
+
+_claude_import() {
+  _arguments \
+    '--dry-run[Hech narsa yozmasdan nima import qilinishini ko'\''rsatish]' \
+    '--yes[Interaktiv tanlagichni o'\''tkazib yuborish (headless muhitlarda /import oldindan ko'\''rishidagi --yes=<digest> ni bering)]' \
+    '(-h --help)'{-h,--help}'[Buyruq uchun yordamni ko'\''rsatish]' \
+    '::source:(codex gemini cursor)'
 }
 
 (( $+_comps[claude] )) || compdef _claude claude
