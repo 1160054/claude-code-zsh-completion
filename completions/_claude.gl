@@ -121,6 +121,39 @@ _claude_agent_names() {
   compadd -a agents
 }
 
+_claude_background_sessions() {
+  local -a sessions state_files
+  local -A names states
+  local state_dir state_file line id rest
+
+  # Background sessions (`claude --bg`) live in <config>/jobs/<id>/, where
+  # <id> is the short id that attach, logs, stop, respawn and rm take.
+  for state_dir in ${(f)"$(_claude_state_dirs)"}; do
+    # Newest first
+    state_files=(${state_dir}/jobs/*/state.json(Nom))
+    (( ${#state_files} )) || continue
+
+    # One grep for all of them; the first "name" and "state" it reports for a
+    # file are that file's top-level ones
+    names=() states=()
+    for line in ${(f)"$(grep -HoE '"(name|state)"[[:space:]]*:[[:space:]]*"[^"]*"' $state_files 2>/dev/null)"}; do
+      id=${${line%%/state.json:*}:t}
+      rest=${line#*/state.json:}
+      case $rest in
+        \"name\"*)  [[ -z $names[$id] ]]  && names[$id]=${${rest#*:*\"}%\"} ;;
+        \"state\"*) [[ -z $states[$id] ]] && states[$id]=${${rest#*:*\"}%\"} ;;
+      esac
+    done
+
+    for state_file in $state_files; do
+      id=${state_file:h:t}
+      sessions+=("${id}:${names[$id]:-no name}${states[$id]:+ (${states[$id]})}")
+    done
+  done
+
+  _describe -t sessions 'background session' sessions
+}
+
 _claude_model_names() {
   local -a models config_files
   local state_dir config_file
@@ -155,9 +188,15 @@ _claude() {
     'mcp:Configurar e xestionar servidores MCP'
     'plugin:Xestionar complementos de Claude Code'
     'agents:Xestionar axentes en segundo plano'
+    'attach:Abrir unha sesión en segundo plano neste terminal'
+    'logs:Imprimir a saída recente do terminal dunha sesión en segundo plano'
+    'stop:Deter unha sesión en segundo plano (consérvase a súa conversa)'
+    'respawn:Reiniciar unha sesión en segundo plano para que execute a versión actual de Claude Code'
+    'rm:Eliminar unha sesión en segundo plano, e a súa árbore de traballo cando sexa seguro'
     'auth:Xestionar autenticación'
     'auto-mode:Inspeccionar ou restablecer a configuración do clasificador do modo automático'
     'gateway:Executar a pasarela empresarial de autenticación/telemetría'
+    'import:Importar a configuración doutro axente de programación con IA a Claude Code'
     'project:Xestionar o estado do proxecto de Claude Code'
     'ultrareview:Executar unha revisión de código multiaxente aloxada na nube e imprimir os resultados'
     'setup-token:Configurar token de autenticación a longo prazo (require subscrición Claude)'
@@ -178,6 +217,7 @@ _claude() {
     '--mcp-debug[\[Obsoleto. Usar --debug no seu lugar\] Activar modo de depuración MCP (mostra erros do servidor MCP)]'
     '--dangerously-skip-permissions[Omitir todas as comprobacións de permisos. Recomendado só para sandboxes sen acceso a Internet]'
     '--allow-dangerously-skip-permissions[Activar opción para omitir comprobacións de permisos sen activala por defecto]'
+    '--restricted[Modo restrinxido: retirar as ferramentas que executan comandos ou código e WebFetch, ignorar a configuración user/project/local e limitar as ferramentas de ficheiros aos directorios de traballo]'
     '--max-budget-usd[Cantidade máxima en dólares a gastar en chamadas á API (só --print)]:amount:'
     '--replay-user-messages[Reenviar mensaxes de usuario desde stdin a stdout para confirmación]'
     '--allowed-tools[Lista separada por comas ou espazos de nomes de ferramentas permitidas (ex: "Bash(git:*) Edit")]:tools:'
@@ -187,8 +227,13 @@ _claude() {
     '--disallowedTools[Lista separada por comas ou espazos de nomes de ferramentas non permitidas (formato camelCase)]:tools:'
     '--mcp-config[Cargar servidores MCP desde ficheiro JSON ou cadea (separados por espazos)]:configs:'
     '--system-prompt[Indicación do sistema a usar para a sesión]:prompt:'
+    '--system-prompt-file[Ler a indicación do sistema desde un ficheiro]:file:_files'
     '--append-system-prompt[Engadir indicación do sistema á indicación do sistema predeterminada]:prompt:'
+    '--append-system-prompt-file[Ler a indicación do sistema desde un ficheiro e engadila á indicación do sistema predeterminada]:file:_files'
+    '--system-prompt-snapshot[Rexistrar a indicación do sistema unha vez por conversa e reutilizala literalmente en cada solicitude e ao retomar (on, o predeterminado) ou xerala de novo en cada solicitude (off)]:mode:(on off)'
     '--permission-mode[Modo de permisos a usar para a sesión]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)'
+    '--permission-prompts[Quen responde ás solicitudes de permiso con --print: "host" (o host do SDK ou --permission-prompt-tool) ou "none" (denégase todo o que pediría confirmación)]:target:(host none)'
+    '--permission-prompt-tool[Ferramenta MCP a usar para as solicitudes de permiso (só --print)]:tool:'
     '(-c --continue)'{-c,--continue}'[Continuar a conversa mais recente]'
     '(-r --resume)'{-r,--resume}'[Retomar unha conversa - especificar ID de sesión ou seleccionar interactivamente]:sessionId:_claude_sessions'
     '--fork-session[Crear novo ID de sesión no lugar de reutilizar o ID de sesión orixinal ao retomar (con --resume ou --continue)]'
@@ -200,6 +245,7 @@ _claude() {
     '--settings[Ruta a ficheiro JSON de configuración ou cadea JSON para cargar configuración adicional]:file-or-json:_files'
     '--add-dir[Directorios adicionais para permitir acceso ás ferramentas]:directories:_directories'
     '--ide[Conexión automática ao IDE no inicio se exactamente un IDE válido está dispoñible]'
+    '--desktop[Abrir na aplicación Claude Desktop no lugar do terminal (con --continue ou --resume <id> para escoller a sesión)]'
     '--strict-mcp-config[Usar só servidores MCP de --mcp-config e ignorar toda a outra configuración MCP]'
     '--session-id[ID de sesión específico a usar para a conversa (debe ser UUID válido)]:uuid:'
     '--agents[Obxecto JSON que define axentes personalizados]:json:'
@@ -208,11 +254,15 @@ _claude() {
     '--disable-slash-commands[Desactivar todos os comandos de barra]'
     '(--bg --background)'{--bg,--background}'[Iniciar a sesión como axente en segundo plano e retornar inmediatamente]'
     '(-w --worktree)'{-w,--worktree}'[Crear unha nova árbore de traballo git para esta sesión (opcionalmente especificar un nome)]::name:'
-    '--tmux[Crear unha sesión tmux para a árbore de traballo (require --worktree)]'
+    '--tmux=-[Crear unha sesión tmux para a árbore de traballo (require --worktree). Usa os paneis nativos de iTerm2 cando están dispoñibles; --tmux=classic para tmux tradicional]::mode:(classic)'
     '(-n --name)'{-n,--name}'[Definir un nome para mostrar desta sesión]:name:'
     '--effort[Nivel de esforzo para a sesión actual]:level:(low medium high xhigh max)'
+    '--autocompact[Tamaño da xanela de compactación automática (auto, ou 100k-1M tokens)]:size:(auto)'
     '--debug-file[Escribir rexistros de depuración nunha ruta de ficheiro específica (activa implicitamente o modo de depuración)]:path:_files'
     '--from-pr[Retomar unha sesión vinculada a un PR por número/URL, ou abrir o selector interactivo]::value:'
+    '--teleport[Retomar unha sesión de teleport, opcionalmente especificar o ID de sesión]::session:'
+    '--cloud[Crear unha sesión na nube coa descrición indicada, ou conectarse a unha existente polo ID de sesión ou a URL de claude.ai/code]::description-or-session:'
+    '--environment[Crear unha nova sesión na nube que se executa no contorno autoaloxado indicado (ccpool_...)]:environment_id:'
     '--remote-control[Iniciar unha sesión interactiva co Control Remoto activado (opcionalmente con nome)]::name:'
     '--remote-control-session-name-prefix[Prefixo para os nomes de sesión de Control Remoto xerados automaticamente]:prefix:'
     '--chrome[Activar a integración de Claude en Chrome]'
@@ -254,6 +304,17 @@ _claude() {
         agents)
           _claude_agents
           ;;
+        attach|logs|stop|kill)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Mostrar axuda para o comando]' \
+            '1:session:_claude_background_sessions'
+          ;;
+        respawn)
+          _claude_respawn
+          ;;
+        rm)
+          _claude_rm
+          ;;
         auth)
           _claude_auth
           ;;
@@ -262,6 +323,9 @@ _claude() {
           ;;
         gateway)
           _claude_gateway
+          ;;
+        import)
+          _claude_import
           ;;
         project)
           _claude_project
@@ -319,6 +383,9 @@ _claude_mcp() {
             '(-t --transport)'{-t,--transport}'[Tipo de transporte (stdio, sse, http)]:transport:(stdio sse http)' \
             '(-e --env)'{-e,--env}'[Definir variable de contorno (ex: -e CHAVE=valor)]:env:' \
             '(-H --header)'{-H,--header}'[Definir cabeceira WebSocket]:header:' \
+            '--client-id[ID de cliente OAuth para servidores HTTP/SSE]:clientId:' \
+            '--client-secret[Pedir o segredo de cliente OAuth (ou definir a variable de contorno MCP_CLIENT_SECRET)]' \
+            '--callback-port[Porto fixo para a devolución de chamada OAuth (para servidores que requiren URI de redirección rexistrados previamente)]:port:' \
             '(-h --help)'{-h,--help}'[Mostrar axuda]' \
             '1:name:' \
             '2:commandOrUrl:' \
@@ -342,6 +409,7 @@ _claude_mcp() {
         add-json)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Ámbito de configuración (local, user, project)]:scope:(local user project)' \
+            '--client-secret[Pedir o segredo de cliente OAuth (ou definir a variable de contorno MCP_CLIENT_SECRET)]' \
             '(-h --help)'{-h,--help}'[Mostrar axuda]' \
             '1:name:' \
             '2:json:'
@@ -355,7 +423,13 @@ _claude_mcp() {
           _arguments \
             '(-h --help)'{-h,--help}'[Mostrar axuda]'
           ;;
-        login|logout)
+        login)
+          _arguments \
+            '--no-browser[Imprimir a URL de autorización no lugar de abrir un navegador (para sesións SSH/sen interface gráfica)]' \
+            '(-h --help)'{-h,--help}'[Mostrar axuda]' \
+            '1:name:_claude_mcp_servers'
+          ;;
+        logout)
           _arguments \
             '(-h --help)'{-h,--help}'[Mostrar axuda]' \
             '1:name:_claude_mcp_servers'
@@ -372,9 +446,11 @@ _claude_plugin() {
     'marketplace:Xestionar mercados de Claude Code'
     'list:Listar complementos instalados'
     'details:Mostrar o inventario de compoñentes e o custo de tokens previsto dun complemento'
+    'configure:Mostrar as opcións dun complemento e cales non están definidas, ou gardar valores desde stdin'
     'install:Instalar un complemento dos mercados dispoñibles'
     'i:Instalar un complemento dos mercados dispoñibles (forma curta de install)'
     'init:Xerar a estrutura dun novo complemento (cárgase automaticamente na seguinte sesión)'
+    'new:Xerar a estrutura dun novo complemento (alias para init)'
     'uninstall:Desinstalar un complemento instalado'
     'remove:Desinstalar un complemento instalado (alias para uninstall)'
     'enable:Activar un complemento desactivado'
@@ -382,7 +458,9 @@ _claude_plugin() {
     'update:Actualizar un complemento á versión mais recente'
     'eval:Executar casos de avaliación contra un complemento e informar dos resultados puntuados'
     'prune:Eliminar dependencias instaladas automaticamente que xa non se necesitan'
+    'autoremove:Eliminar dependencias instaladas automaticamente que xa non se necesitan (alias para prune)'
     'tag:Crear unha etiqueta git {name}--v{version} para unha publicación de complemento'
+    'test:Executar as probas dun mod'
     'help:Mostrar axuda'
   )
 
@@ -402,6 +480,8 @@ _claude_plugin() {
       case $words[1] in
         validate)
           _arguments \
+            '--strict[Tratar os avisos como erros (código de saída 1)]' \
+            '--json[Mostrar o informe de validación como JSON (mesmos códigos de saída)]' \
             '(-h --help)'{-h,--help}'[Mostrar axuda]' \
             '1:path:_files'
           ;;
@@ -411,50 +491,122 @@ _claude_plugin() {
         install|i)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Ámbito de instalación]:scope:(user project local)' \
+            '*--config[Definir unha opción userConfig declarada no manifesto do complemento (repetible)]:key=value:' \
+            '(-y --yes)'{-y,--yes}'[Aceptar o comando mostrado declarado polo mercado sen a solicitude de confirmación]' \
+            '--json[Imprimir unha liña de resultado lexible por máquina no lugar da mensaxe para persoas]' \
             '(-h --help)'{-h,--help}'[Mostrar axuda]' \
             '1:plugin:'
           ;;
         uninstall|remove)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Ámbito de instalación]:scope:(user project local)' \
+            '--keep-data[Conservar o directorio de datos persistentes do complemento]' \
+            '--prune[Eliminar tamén as dependencias instaladas automaticamente que xa non se necesitan]' \
+            '(-y --yes)'{-y,--yes}'[Omitir a solicitude de confirmación de --prune]' \
+            '--json[Imprimir unha liña de resultado lexible por máquina no lugar da mensaxe para persoas (non con --prune)]' \
             '(-h --help)'{-h,--help}'[Mostrar axuda]' \
             '1:plugin:_claude_installed_plugins'
           ;;
-        enable|disable)
+        enable)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Ámbito de instalación]:scope:(user project local)' \
+            '--json[Imprimir unha liña de resultado lexible por máquina no lugar da mensaxe para persoas]' \
             '(-h --help)'{-h,--help}'[Mostrar axuda]' \
             '1:plugin:_claude_installed_plugins'
+          ;;
+        disable)
+          _arguments \
+            '(-a --all)'{-a,--all}'[Desactivar todos os complementos activados]' \
+            '(-s --scope)'{-s,--scope}'[Ámbito de instalación]:scope:(user project local)' \
+            '--json[Imprimir unha liña de resultado lexible por máquina no lugar da mensaxe para persoas]' \
+            '(-h --help)'{-h,--help}'[Mostrar axuda]' \
+            '::plugin:_claude_installed_plugins'
           ;;
         update)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Ámbito de instalación]:scope:(user project local managed)' \
+            '(-y --yes)'{-y,--yes}'[Aceptar o comando mostrado declarado polo mercado sen a solicitude de confirmación]' \
+            '--json[Imprimir unha liña de resultado lexible por máquina no lugar da mensaxe para persoas]' \
             '(-h --help)'{-h,--help}'[Mostrar axuda]' \
             '1:plugin:_claude_installed_plugins'
           ;;
-        list|prune)
+        list)
           _arguments \
+            '--json[Saída como JSON]' \
+            '--available[Incluír os complementos dispoñibles dos mercados (require --json)]' \
             '(-h --help)'{-h,--help}'[Mostrar axuda]'
+          ;;
+        prune|autoremove)
+          _arguments \
+            '(-s --scope)'{-s,--scope}'[Depurar no ámbito]:scope:(user project local)' \
+            '--dry-run[Listar o que se eliminaría sen eliminar nada]' \
+            '(-y --yes)'{-y,--yes}'[Omitir a solicitude de confirmación]' \
+            '(-h --help)'{-h,--help}'[Mostrar axuda]'
+          ;;
+        configure)
+          _arguments \
+            '--json[Saída como JSON]' \
+            '--values-stdin[Ler os valores das opcións desde stdin como un obxecto JSON de cadeas dunha soa liña; as opcións omitidas conservan os seus valores]' \
+            '(-h --help)'{-h,--help}'[Mostrar axuda]' \
+            '1:plugin:_claude_installed_plugins'
           ;;
         details)
           _arguments \
             '(-h --help)'{-h,--help}'[Mostrar axuda]' \
             '1:plugin:_claude_installed_plugins'
           ;;
-        init)
+        init|new)
           _arguments \
+            '--description[Descrición do manifesto]:text:' \
+            '--author[Nome do autor (predeterminado: git config user.name)]:name:' \
+            '--author-email[Correo electrónico do autor (predeterminado: git config user.email)]:email:' \
+            '--with[Compoñentes dos que xerar tamén a estrutura]:components:' \
+            '(-f --force)'{-f,--force}'[Sobrescribir un .claude-plugin/ existente no destino]' \
             '(-h --help)'{-h,--help}'[Mostrar axuda]' \
             '1:name:'
           ;;
         eval)
           _arguments \
+            '--case[Filtrar os casos por patrón glob de nome]:glob:' \
+            '*--tag[Filtrar os casos por etiqueta (repetible)]:tag:' \
+            '--runs[Substituír o número de execucións por caso (predeterminado: case.runs, se non 3)]:n:' \
+            '(-j --concurrency)'{-j,--concurrency}'[Realizar ata n execucións de axente á vez (1-8; predeterminado 1)]:n:' \
+            '--model[Substituír o modelo para todos os casos]:model:_claude_model_names' \
+            '--judge-model[Substituír o modelo do avaliador LLM (predeterminado: haiku)]:model:_claude_model_names' \
+            '--max-cost-usd[Límite estrito de custo; se se alcanza, abortar e informar dos resultados parciais (código de saída 2)]:usd:' \
+            '--output-dir[Directorio para aggregate-result.json]:dir:_directories' \
+            '--eval-dir[Nome do directorio (dentro do complemento) que contén os casos de avaliación]:dir:' \
+            '--json[Imprimir o resultado completo da execución como JSON en stdout, ou escribilo neste ficheiro .json]::path:_files' \
+            '--threshold[Saír co código de saída 1 se a puntuación dalgún caso está por debaixo deste limiar (predeterminado: 1.0)]:threshold:' \
+            '*--allow-tools[Autorización do operador para ferramentas restrinxidas (Bash, Write, Edit, WebFetch, mcp__*)]:tools:' \
+            '(--no-scaffold)--scaffold[Executar o scaffold_script de cada caso (executa bash proporcionado polo autor no teu nome; desactivado por defecto)]' \
+            '(--scaffold)--no-scaffold[Omitir explicitamente scaffold_script]' \
+            '--trust-plugin[Declarar que confías neste complemento e no seu conxunto de avaliación, omitindo a solicitude de confianza da primeira execución (para CI)]' \
+            '--ablation[Executar un grupo de referencia sen complemento e informar da diferenza de puntuación]:mode:(none with-without)' \
+            '--mocks[Substitutos simulados para servidores MCP, desde <eval dir>/mocks/]:mode:(record off)' \
+            '--allow-real-servers[Con --mocks record: iniciar tamén os procesos reais dos servidores MCP que non teñen simulación]' \
+            '--keep-temp[Conservar os directorios de estrutura para depuración]' \
+            '--verbose[Rexistrar eventos de rastrexo por mensaxe no rexistro de depuración]' \
+            '--report[Escribir o informe HTML autónomo nesta ruta no lugar do directorio de resultados]:path:_files' \
+            '(--no-publish)--publish-report[Requirir tamén a publicación do informe en claude.ai]' \
+            '(--publish-report)--no-publish[Manter o informe HTML só en local; omitir a súa publicación en claude.ai]' \
             '(-h --help)'{-h,--help}'[Mostrar axuda]' \
-            '1:target:'
+            '::target: _alternative "plugins\:installed plugin\:_claude_installed_plugins" "files\:path\:_files"'
           ;;
         tag)
           _arguments \
+            '--push[Enviar a etiqueta a --remote despois de creala]' \
+            '--dry-run[Imprimir o que se etiquetaría sen crear a etiqueta]' \
+            '(-f --force)'{-f,--force}'[Omitir as comprobacións de árbore de traballo con cambios e de etiqueta xa existente]' \
+            '(-m --message)'{-m,--message}'[Mensaxe de anotación da etiqueta (usar %s para a versión)]:msg:' \
+            '--remote[Remoto ao que enviar con --push]:name:' \
             '(-h --help)'{-h,--help}'[Mostrar axuda]' \
-            '1:path:_files'
+            '::path:_files'
+          ;;
+        test)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Mostrar axuda]' \
+            '::dir:_directories'
           ;;
       esac
       ;;
@@ -488,15 +640,20 @@ _claude_plugin_marketplace() {
       case $words[1] in
         add)
           _arguments \
+            '--sparse[Limitar o checkout a directorios específicos mediante git sparse-checkout (para monorepos)]:paths:' \
+            '--scope[Onde declarar o mercado]:scope:(user project local)' \
+            '--claudeai[Engadir o mercado con este nome que claude.ai aloxa para ti]' \
             '(-h --help)'{-h,--help}'[Mostrar axuda]' \
             '1:source:'
           ;;
         list)
           _arguments \
+            '--json[Saída como JSON]' \
             '(-h --help)'{-h,--help}'[Mostrar axuda]'
           ;;
         remove|rm)
           _arguments \
+            '--scope[Eliminar a declaración do mercado dun ámbito de configuración específico (omitir para eliminala de todos os ámbitos)]:scope:(user project local)' \
             '(-h --help)'{-h,--help}'[Mostrar axuda]' \
             '1:name:'
           ;;
@@ -534,6 +691,7 @@ _claude_agents() {
     '--setting-sources[Lista separada por comas de fontes de configuración a cargar (user, project, local)]:sources:' \
     '--settings[Ficheiro de configuración ou cadea JSON a aplicar]:file-or-json:_files' \
     '--strict-mcp-config[Usar só os servidores MCP de --mcp-config nas sesións despachadas]' \
+    '--restricted[Iniciar as sesións despachadas en modo restrinxido]' \
     '(-h --help)'{-h,--help}'[Mostrar axuda para o comando]'
 }
 
@@ -560,7 +718,21 @@ _claude_auth() {
       ;;
     args)
       case $words[1] in
-        login|logout|status)
+        login)
+          _arguments \
+            '--email[Encher previamente o enderezo de correo electrónico na páxina de inicio de sesión]:email:' \
+            '--sso[Forzar o fluxo de inicio de sesión SSO]' \
+            '(--claudeai)--console[Usar Anthropic Console (facturación por uso da API) no lugar da subscrición Claude]' \
+            '(--console)--claudeai[Usar a subscrición Claude (predeterminado)]' \
+            '(-h --help)'{-h,--help}'[Mostrar axuda para o comando]'
+          ;;
+        status)
+          _arguments \
+            '(--text)--json[Saída como JSON (predeterminado)]' \
+            '(--json)--text[Saída como texto lexible por persoas]' \
+            '(-h --help)'{-h,--help}'[Mostrar axuda para o comando]'
+          ;;
+        logout)
           _arguments \
             '(-h --help)'{-h,--help}'[Mostrar axuda para o comando]'
           ;;
@@ -593,7 +765,22 @@ _claude_auto_mode() {
       ;;
     args)
       case $words[1] in
-        config|critique|defaults|reset)
+        critique)
+          _arguments \
+            '--model[Substituír o modelo que se usa]:model:_claude_model_names' \
+            '(-h --help)'{-h,--help}'[Mostrar axuda para o comando]'
+          ;;
+        defaults)
+          _arguments \
+            '--label[Mostrar só as regras cuxa etiqueta comeza por este prefixo (sen distinguir maiúsculas e minúsculas)]:prefix:' \
+            '(-h --help)'{-h,--help}'[Mostrar axuda para o comando]'
+          ;;
+        reset)
+          _arguments \
+            '(-y --yes)'{-y,--yes}'[Omitir a solicitude de confirmación]' \
+            '(-h --help)'{-h,--help}'[Mostrar axuda para o comando]'
+          ;;
+        config)
           _arguments \
             '(-h --help)'{-h,--help}'[Mostrar axuda para o comando]'
           ;;
@@ -631,8 +818,12 @@ _claude_project() {
       case $words[1] in
         purge)
           _arguments \
+            '--dry-run[Listar o que se eliminaría sen eliminar nada]' \
+            '(-y --yes)'{-y,--yes}'[Omitir a solicitude de confirmación]' \
+            '(-i --interactive)'{-i,--interactive}'[Pedir confirmación para cada elemento antes de eliminalo]' \
+            '(1)--all[Eliminar o estado de todos os proxectos (mutuamente exclusivo cunha ruta)]' \
             '(-h --help)'{-h,--help}'[Mostrar axuda para o comando]' \
-            '1:path:_directories'
+            '(--all)::path:_directories'
           ;;
       esac
       ;;
@@ -642,9 +833,34 @@ _claude_project() {
 _claude_ultrareview() {
   _arguments \
     '--json[Imprimir a carga bruta bugs.json no lugar dos resultados formatados]' \
-    '--timeout[Minutos máximos a esperar a que remate a revisión]:minutes:' \
+    '--timeout[Minutos máximos a esperar a que remate a revisión (predeterminado: 45)]:minutes:' \
+    '(--no-post)--post[Publicar os achados da revisión rematada no PR no teu nome (só para destinos PR; un comentario simple, non unha revisión)]' \
+    '(--post)--no-post[Non publicar os achados no PR (o predeterminado)]' \
     '(-h --help)'{-h,--help}'[Mostrar axuda para o comando]' \
     '1:target:'
+}
+
+_claude_respawn() {
+  _arguments \
+    '(1)--all[Reiniciar todas as sesións en segundo plano en execución]' \
+    '(-h --help)'{-h,--help}'[Mostrar axuda para o comando]' \
+    '(--all)::session:_claude_background_sessions'
+}
+
+_claude_rm() {
+  _arguments \
+    '--discard-unpushed[Descartar tamén os commits sen enviar e os cambios sen confirmar da árbore de traballo (pasar o commit@worktree-id que informou un claude rm anterior)]:commit@worktree-id:' \
+    '--force-remove-worktree[Eliminar o directorio da árbore de traballo aínda que o hook WorktreeRemove ou git non puidesen eliminalo (pasar o worktree-id que informou un claude rm anterior)]:worktree-id:' \
+    '(-h --help)'{-h,--help}'[Mostrar axuda para o comando]' \
+    '1:session:_claude_background_sessions'
+}
+
+_claude_import() {
+  _arguments \
+    '--dry-run[Mostrar o que se importaría sen escribir nada]' \
+    '--yes[Omitir o selector interactivo (en contornos sen interface gráfica, pasar --yes=<digest> da vista previa de /import)]' \
+    '(-h --help)'{-h,--help}'[Mostrar axuda para o comando]' \
+    '::source:(codex gemini cursor)'
 }
 
 (( $+_comps[claude] )) || compdef _claude claude
