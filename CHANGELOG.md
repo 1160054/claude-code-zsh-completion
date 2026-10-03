@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - Demo: `<TAB>` now flashes in plain text where the cursor is, instead of as a green badge at the right edge
+- Demo sessions and background jobs are everyday Claude Code work now: the job started in the demo reviews a PR through the GitHub MCP server just added, and `--resume` lists a CI failure, a pasted `TypeError`, a README pass and login-flow tests
 
 ## [2.8.0] - 2026-10-03
 
