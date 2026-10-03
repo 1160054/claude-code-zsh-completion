@@ -237,6 +237,7 @@ _claude() {
     '--permission-prompt-tool[用于权限提示的MCP工具（仅限--print）]:tool:'
     '(-c --continue)'{-c,--continue}'[继续最近的对话]'
     '(-r --resume)'{-r,--resume}'[恢复对话 - 指定会话ID或交互式选择]:sessionId:_claude_sessions'
+    '--from-pr[恢复与PR关联的会话 - 指定PR编号/URL,或通过可选搜索词打开交互式选择器]::value:'
     '--fork-session[恢复时创建新的会话ID而不是重用原始会话ID（与--resume或--continue一起使用）]'
     '--no-session-persistence[禁用会话持久化 - 会话将不会被保存（仅--print）]'
     '--model[当前会话的模型。指定最新模型的别名（例如，'\''sonnet'\''或'\''opus'\''）]:model:_claude_model_names'
