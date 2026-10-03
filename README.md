@@ -57,6 +57,8 @@ ln -sf "$(brew --prefix)/share/claude-code-zsh-completion/completions/_claude.ja
 
 Not completing after an install or a switch? Run `rm -f ~/.zcompdump && exec zsh`.
 
+![Demo in Japanese](demo.ja.gif)
+
 ## License
 
 MIT

@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- A Japanese demo (`demo.ja.gif`) under "Other languages" in the README, recorded with `_claude.ja` and Japanese session and job names by `demo/make-ja.sh`
+
 ### Changed
 - Demo: `<TAB>` now flashes in plain text where the cursor is, instead of as a green badge at the right edge
 
