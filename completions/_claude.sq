@@ -121,6 +121,39 @@ _claude_agent_names() {
   compadd -a agents
 }
 
+_claude_background_sessions() {
+  local -a sessions state_files
+  local -A names states
+  local state_dir state_file line id rest
+
+  # Background sessions (`claude --bg`) live in <config>/jobs/<id>/, where
+  # <id> is the short id that attach, logs, stop, respawn and rm take.
+  for state_dir in ${(f)"$(_claude_state_dirs)"}; do
+    # Newest first
+    state_files=(${state_dir}/jobs/*/state.json(Nom))
+    (( ${#state_files} )) || continue
+
+    # One grep for all of them; the first "name" and "state" it reports for a
+    # file are that file's top-level ones
+    names=() states=()
+    for line in ${(f)"$(grep -HoE '"(name|state)"[[:space:]]*:[[:space:]]*"[^"]*"' $state_files 2>/dev/null)"}; do
+      id=${${line%%/state.json:*}:t}
+      rest=${line#*/state.json:}
+      case $rest in
+        \"name\"*)  [[ -z $names[$id] ]]  && names[$id]=${${rest#*:*\"}%\"} ;;
+        \"state\"*) [[ -z $states[$id] ]] && states[$id]=${${rest#*:*\"}%\"} ;;
+      esac
+    done
+
+    for state_file in $state_files; do
+      id=${state_file:h:t}
+      sessions+=("${id}:${names[$id]:-no name}${states[$id]:+ (${states[$id]})}")
+    done
+  done
+
+  _describe -t sessions 'background session' sessions
+}
+
 _claude_model_names() {
   local -a models config_files
   local state_dir config_file
@@ -155,9 +188,15 @@ _claude() {
     'mcp:Konfiguro dhe menaxho serverët MCP'
     'plugin:Menaxho shtojcat e Claude Code'
     'agents:Menaxho agjentët në sfond'
+    'attach:Hap një sesion në sfond në këtë terminal'
+    'logs:Printo daljen e fundit të terminalit të një sesioni në sfond'
+    'stop:Ndalo një sesion në sfond (biseda e tij ruhet)'
+    'respawn:Rinis një sesion në sfond që të ekzekutojë versionin aktual të Claude Code'
+    'rm:Fshi një sesion në sfond, dhe pemën e tij të punës kur kjo është e sigurt'
     'auth:Menaxho vërtetimin'
     'auto-mode:Inspekto ose rivendos konfigurimin e klasifikuesit të modalitetit automatik'
     'gateway:Ekzekuto portën e vërtetimit/telemetrisë së ndërmarrjes'
+    'import:Importo konfigurimin nga një agjent tjetër kodimi me IA në Claude Code'
     'project:Menaxho gjendjen e projektit të Claude Code'
     'ultrareview:Ekzekuto një rishikim kodi me shumë agjentë të strehuar në re dhe printo gjetjet'
     'setup-token:Konfiguro token vërtetimi afatgjatë (kërkon abonim në Claude)'
@@ -178,6 +217,7 @@ _claude() {
     '--mcp-debug[\[E vjetruar. Përdor --debug në vend të saj\] Aktivizo modalitetin e korrigjimit MCP (shfaq gabimet e serverit MCP)]'
     '--dangerously-skip-permissions[Anashkalo të gjitha kontrollet e lejeve. Rekomandohet vetëm për mjedise të izoluara pa qasje në internet]'
     '--allow-dangerously-skip-permissions[Aktivizo opsionin për të anashkaluar kontrollet e lejeve pa e aktivizuar si parazgjedhje]'
+    '--restricted[Modaliteti i kufizuar: hiq mjetet që ekzekutojnë komanda ose kod dhe WebFetch, injoro cilësimet user/project/local, dhe kufizo mjetet e skedarëve në direktoritë e punës]'
     '--max-budget-usd[Shuma maksimale në dollarë për të shpenzuar në thirrjet API (vetëm --print)]:amount:'
     '--replay-user-messages[Ridërgo mesazhet e përdoruesit nga stdin në stdout për konfirmim]'
     '--allowed-tools[Listë e ndarë me presje ose hapësira e emrave të mjeteve të lejuara (p.sh., "Bash(git:*) Edit")]:tools:'
@@ -187,8 +227,13 @@ _claude() {
     '--disallowedTools[Listë e ndarë me presje ose hapësira e emrave të mjeteve të palejuara (formati camelCase)]:tools:'
     '--mcp-config[Ngarko serverët MCP nga skedari ose vargu JSON (të ndara me hapësira)]:configs:'
     '--system-prompt[Kërkesa e sistemit për përdorim në sesion]:prompt:'
+    '--system-prompt-file[Lexo kërkesën e sistemit nga një skedar]:file:_files'
     '--append-system-prompt[Shto kërkesën e sistemit te kërkesa e paracaktuar e sistemit]:prompt:'
+    '--append-system-prompt-file[Lexo kërkesën e sistemit nga një skedar dhe shtoje te kërkesa e paracaktuar e sistemit]:file:_files'
+    '--system-prompt-snapshot[Regjistro kërkesën e sistemit një herë për bisedë dhe ripërdore fjalë për fjalë në çdo kërkesë dhe rifillim (on, parazgjedhje) ose gjeneroje nga e para në çdo kërkesë (off)]:mode:(on off)'
     '--permission-mode[Modaliteti i lejeve për përdorim në sesion]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)'
+    '--permission-prompts[Kush u përgjigjet kërkesave për leje me --print: "host" (hosti SDK ose --permission-prompt-tool) ose "none" (çdo gjë që do të kërkonte leje refuzohet)]:target:(host none)'
+    '--permission-prompt-tool[Mjeti MCP për përdorim në kërkesat për leje (vetëm --print)]:tool:'
     '(-c --continue)'{-c,--continue}'[Vazhdo bisedën më të fundit]'
     '(-r --resume)'{-r,--resume}'[Rifillo një bisedë - specifiko ID-në e sesionit ose zgjidh në mënyrë interaktive]:sessionId:_claude_sessions'
     '--fork-session[Krijo ID të re sesioni në vend të ripërdorimit të ID-së origjinale të sesionit gjatë rifillimit (me --resume ose --continue)]'
@@ -200,6 +245,7 @@ _claude() {
     '--settings[Shtegu te skedari JSON i cilësimeve ose vargu JSON për ngarkimin e cilësimeve shtesë]:file-or-json:_files'
     '--add-dir[Direktori shtesë për të lejuar qasjen e mjeteve]:directories:_directories'
     '--ide[Lidhu automatikisht me IDE-në në nisje nëse është i disponueshëm saktësisht një IDE i vlefshëm]'
+    '--desktop[Hap në aplikacionin Claude Desktop në vend të terminalit (me --continue ose --resume <id> për të zgjedhur sesionin)]'
     '--strict-mcp-config[Përdor vetëm serverët MCP nga --mcp-config dhe injoro të gjitha cilësimet e tjera MCP]'
     '--session-id[ID specifike sesioni për përdorim në bisedë (duhet të jetë UUID i vlefshëm)]:uuid:'
     '--agents[Objekt JSON që përcakton agjentë të personalizuar]:json:'
@@ -208,11 +254,15 @@ _claude() {
     '--disable-slash-commands[Çaktivizo të gjitha komandat me vijë të pjerrët]'
     '(--bg --background)'{--bg,--background}'[Nis sesionin si agjent në sfond dhe kthehu menjëherë]'
     '(-w --worktree)'{-w,--worktree}'[Krijo një pemë pune git të re për këtë sesion (opsionalisht specifiko një emër)]::name:'
-    '--tmux[Krijo një sesion tmux për pemën e punës (kërkon --worktree)]'
+    '--tmux=-[Krijo një sesion tmux për pemën e punës (kërkon --worktree). Përdor panelet vendase të iTerm2 kur janë të disponueshme; --tmux=classic për tmux tradicional]::mode:(classic)'
     '(-n --name)'{-n,--name}'[Vendos një emër shfaqjeje për këtë sesion]:name:'
     '--effort[Niveli i përpjekjes për sesionin aktual]:level:(low medium high xhigh max)'
+    '--autocompact[Madhësia e dritares së ngjeshjes automatike (auto, ose 100k-1M token-a)]:size:(auto)'
     '--debug-file[Shkruaj regjistrat e korrigjimit në një shteg specifik skedari (aktivizon në mënyrë të nënkuptuar modalitetin e korrigjimit)]:path:_files'
     '--from-pr[Rifillo një sesion të lidhur me një PR sipas numrit/URL-së, ose hap zgjedhësin interaktiv]::value:'
+    '--teleport[Rifillo një sesion teleport, opsionalisht specifiko ID-në e sesionit]::session:'
+    '--cloud[Krijo një sesion në re me përshkrimin e dhënë, ose lidhu me një ekzistues sipas ID-së së sesionit ose URL-së claude.ai/code]::description-or-session:'
+    '--environment[Krijo një sesion të ri në re që ekzekutohet në mjedisin e vetë-strehuar të dhënë (ccpool_...)]:environment_id:'
     '--remote-control[Nis një sesion interaktiv me Kontrollin në Distancë të aktivizuar (opsionalisht i emërtuar)]::name:'
     '--remote-control-session-name-prefix[Parashtesa për emrat e gjeneruar automatikisht të sesioneve të Kontrollit në Distancë]:prefix:'
     '--chrome[Aktivizo integrimin e Claude në Chrome]'
@@ -254,6 +304,17 @@ _claude() {
         agents)
           _claude_agents
           ;;
+        attach|logs|stop|kill)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Shfaq ndihmën për komandën]' \
+            '1:session:_claude_background_sessions'
+          ;;
+        respawn)
+          _claude_respawn
+          ;;
+        rm)
+          _claude_rm
+          ;;
         auth)
           _claude_auth
           ;;
@@ -262,6 +323,9 @@ _claude() {
           ;;
         gateway)
           _claude_gateway
+          ;;
+        import)
+          _claude_import
           ;;
         project)
           _claude_project
@@ -319,6 +383,9 @@ _claude_mcp() {
             '(-t --transport)'{-t,--transport}'[Lloji i transportit (stdio, sse, http)]:transport:(stdio sse http)' \
             '(-e --env)'{-e,--env}'[Vendos variablën e mjedisit (p.sh., -e KEY=value)]:env:' \
             '(-H --header)'{-H,--header}'[Vendos kokën WebSocket]:header:' \
+            '--client-id[ID-ja e klientit OAuth për serverët HTTP/SSE]:clientId:' \
+            '--client-secret[Kërko sekretin e klientit OAuth (ose vendos variablën e mjedisit MCP_CLIENT_SECRET)]' \
+            '--callback-port[Port fiks për callback-un OAuth (për serverët që kërkojnë URI ridrejtimi të regjistruara paraprakisht)]:port:' \
             '(-h --help)'{-h,--help}'[Shfaq ndihmën]' \
             '1:name:' \
             '2:commandOrUrl:' \
@@ -342,6 +409,7 @@ _claude_mcp() {
         add-json)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Shtrirja e konfigurimit (local, user, project)]:scope:(local user project)' \
+            '--client-secret[Kërko sekretin e klientit OAuth (ose vendos variablën e mjedisit MCP_CLIENT_SECRET)]' \
             '(-h --help)'{-h,--help}'[Shfaq ndihmën]' \
             '1:name:' \
             '2:json:'
@@ -355,7 +423,13 @@ _claude_mcp() {
           _arguments \
             '(-h --help)'{-h,--help}'[Shfaq ndihmën]'
           ;;
-        login|logout)
+        login)
+          _arguments \
+            '--no-browser[Printo URL-në e autorizimit në vend që të hapësh një shfletues (për sesione SSH/pa ndërfaqe grafike)]' \
+            '(-h --help)'{-h,--help}'[Shfaq ndihmën]' \
+            '1:name:_claude_mcp_servers'
+          ;;
+        logout)
           _arguments \
             '(-h --help)'{-h,--help}'[Shfaq ndihmën]' \
             '1:name:_claude_mcp_servers'
@@ -372,9 +446,11 @@ _claude_plugin() {
     'marketplace:Menaxho tregjet e Claude Code'
     'list:Listo shtojcat e instaluara'
     'details:Shfaq inventarin e komponentëve dhe koston e parashikuar të token-ave për një shtojcë'
+    'configure:Shfaq opsionet e një shtojce dhe cilat nuk janë vendosur, ose ruaj vlerat nga stdin'
     'install:Instalo një shtojcë nga tregjet e disponueshme'
     'i:Instalo një shtojcë nga tregjet e disponueshme (shkurt për install)'
     'init:Skeletizo një shtojcë të re (ngarkohet automatikisht në sesionin e ardhshëm)'
+    'new:Skeletizo një shtojcë të re (pseudonim për init)'
     'uninstall:Çinstalo një shtojcë të instaluar'
     'remove:Çinstalo një shtojcë të instaluar (pseudonim për uninstall)'
     'enable:Aktivizo një shtojcë të çaktivizuar'
@@ -382,7 +458,9 @@ _claude_plugin() {
     'update:Përditëso një shtojcë në versionin më të fundit'
     'eval:Ekzekuto raste vlerësimi kundër një shtojce dhe raporto rezultatet e vlerësuara'
     'prune:Hiq varësitë e instaluara automatikisht që nuk nevojiten më'
+    'autoremove:Hiq varësitë e instaluara automatikisht që nuk nevojiten më (pseudonim për prune)'
     'tag:Krijo një etiketë git {name}--v{version} për një lëshim shtojce'
+    'test:Ekzekuto testet e një modi'
     'help:Shfaq ndihmën'
   )
 
@@ -402,6 +480,8 @@ _claude_plugin() {
       case $words[1] in
         validate)
           _arguments \
+            '--strict[Trajto paralajmërimet si gabime (kodi i daljes 1)]' \
+            '--json[Nxirr raportin e vërtetimit si JSON (të njëjtët kode daljeje)]' \
             '(-h --help)'{-h,--help}'[Shfaq ndihmën]' \
             '1:path:_files'
           ;;
@@ -411,50 +491,122 @@ _claude_plugin() {
         install|i)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Shtrirja e instalimit]:scope:(user project local)' \
+            '*--config[Vendos një opsion userConfig të deklaruar në manifestin e shtojcës (e përsëritshme)]:key=value:' \
+            '(-y --yes)'{-y,--yes}'[Prano komandën e shfaqur të deklaruar nga tregu pa kërkesën për konfirmim]' \
+            '--json[Printo një rresht rezultati të lexueshëm nga makina në vend të mesazhit për njerëz]' \
             '(-h --help)'{-h,--help}'[Shfaq ndihmën]' \
             '1:plugin:'
           ;;
         uninstall|remove)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Shtrirja e instalimit]:scope:(user project local)' \
+            '--keep-data[Ruaj direktorinë e të dhënave të qëndrueshme të shtojcës]' \
+            '--prune[Hiq gjithashtu varësitë e instaluara automatikisht që nuk nevojiten më]' \
+            '(-y --yes)'{-y,--yes}'[Anashkalo kërkesën për konfirmim të --prune]' \
+            '--json[Printo një rresht rezultati të lexueshëm nga makina në vend të mesazhit për njerëz (jo me --prune)]' \
             '(-h --help)'{-h,--help}'[Shfaq ndihmën]' \
             '1:plugin:_claude_installed_plugins'
           ;;
-        enable|disable)
+        enable)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Shtrirja e instalimit]:scope:(user project local)' \
+            '--json[Printo një rresht rezultati të lexueshëm nga makina në vend të mesazhit për njerëz]' \
             '(-h --help)'{-h,--help}'[Shfaq ndihmën]' \
             '1:plugin:_claude_installed_plugins'
+          ;;
+        disable)
+          _arguments \
+            '(-a --all)'{-a,--all}'[Çaktivizo të gjitha shtojcat e aktivizuara]' \
+            '(-s --scope)'{-s,--scope}'[Shtrirja e instalimit]:scope:(user project local)' \
+            '--json[Printo një rresht rezultati të lexueshëm nga makina në vend të mesazhit për njerëz]' \
+            '(-h --help)'{-h,--help}'[Shfaq ndihmën]' \
+            '::plugin:_claude_installed_plugins'
           ;;
         update)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Shtrirja e instalimit]:scope:(user project local managed)' \
+            '(-y --yes)'{-y,--yes}'[Prano komandën e shfaqur të deklaruar nga tregu pa kërkesën për konfirmim]' \
+            '--json[Printo një rresht rezultati të lexueshëm nga makina në vend të mesazhit për njerëz]' \
             '(-h --help)'{-h,--help}'[Shfaq ndihmën]' \
             '1:plugin:_claude_installed_plugins'
           ;;
-        list|prune)
+        list)
           _arguments \
+            '--json[Nxirr si JSON]' \
+            '--available[Përfshi shtojcat e disponueshme nga tregjet (kërkon --json)]' \
             '(-h --help)'{-h,--help}'[Shfaq ndihmën]'
+          ;;
+        prune|autoremove)
+          _arguments \
+            '(-s --scope)'{-s,--scope}'[Pastro në shtrirjen e dhënë]:scope:(user project local)' \
+            '--dry-run[Listo çfarë do të hiqej pa hequr asgjë]' \
+            '(-y --yes)'{-y,--yes}'[Anashkalo kërkesën për konfirmim]' \
+            '(-h --help)'{-h,--help}'[Shfaq ndihmën]'
+          ;;
+        configure)
+          _arguments \
+            '--json[Nxirr si JSON]' \
+            '--values-stdin[Lexo vlerat e opsioneve nga stdin si objekt JSON me vargje njëreshtore; opsionet e lëna jashtë ruajnë vlerat e tyre]' \
+            '(-h --help)'{-h,--help}'[Shfaq ndihmën]' \
+            '1:plugin:_claude_installed_plugins'
           ;;
         details)
           _arguments \
             '(-h --help)'{-h,--help}'[Shfaq ndihmën]' \
             '1:plugin:_claude_installed_plugins'
           ;;
-        init)
+        init|new)
           _arguments \
+            '--description[Përshkrimi i manifestit]:text:' \
+            '--author[Emri i autorit (parazgjedhje: git config user.name)]:name:' \
+            '--author-email[Email-i i autorit (parazgjedhje: git config user.email)]:email:' \
+            '--with[Komponentët që të skeletizohen gjithashtu]:components:' \
+            '(-f --force)'{-f,--force}'[Mbishkruaj një .claude-plugin/ ekzistues në objektiv]' \
             '(-h --help)'{-h,--help}'[Shfaq ndihmën]' \
             '1:name:'
           ;;
         eval)
           _arguments \
+            '--case[Filtro rastet sipas modelit glob të emrit]:glob:' \
+            '*--tag[Filtro rastet sipas etiketës (e përsëritshme)]:tag:' \
+            '--runs[Anashkalo numrin e ekzekutimeve për rast (parazgjedhje: case.runs, përndryshe 3)]:n:' \
+            '(-j --concurrency)'{-j,--concurrency}'[Kryej deri në n ekzekutime agjenti njëkohësisht (1-8; parazgjedhje 1)]:n:' \
+            '--model[Anashkalo modelin për të gjitha rastet]:model:_claude_model_names' \
+            '--judge-model[Anashkalo modelin e vlerësuesit LLM (parazgjedhje: haiku)]:model:_claude_model_names' \
+            '--max-cost-usd[Kufi i prerë kostoje; ndërprit dhe raporto rezultatet e pjesshme nëse arrihet (kodi i daljes 2)]:usd:' \
+            '--output-dir[Direktoria për aggregate-result.json]:dir:_directories' \
+            '--eval-dir[Emri i direktorisë (nën shtojcën) që përmban rastet e vlerësimit]:dir:' \
+            '--json[Printo rezultatin e plotë të ekzekutimit si JSON në stdout, ose shkruaje në këtë skedar .json]::path:_files' \
+            '--threshold[Dil me kodin e daljes 1 nëse rezultati i ndonjë rasti është nën këtë prag (parazgjedhje: 1.0)]:threshold:' \
+            '*--allow-tools[Leje nga operatori për mjetet e kufizuara (Bash, Write, Edit, WebFetch, mcp__*)]:tools:' \
+            '(--no-scaffold)--scaffold[Ekzekuto scaffold_script të çdo rasti (ekzekuton bash të dhënë nga autori në emrin tënd; i çaktivizuar si parazgjedhje)]' \
+            '(--scaffold)--no-scaffold[Anashkalo shprehimisht scaffold_script]' \
+            '--trust-plugin[Konfirmo që i beson kësaj shtojce dhe grupit të saj të vlerësimit, duke anashkaluar kërkesën për besim në ekzekutimin e parë (për CI)]' \
+            '--ablation[Ekzekuto një grup krahasues bazë pa shtojcë dhe raporto diferencën e rezultatit]:mode:(none with-without)' \
+            '--mocks[Zëvendësues simulues për serverët MCP, nga <eval dir>/mocks/]:mode:(record off)' \
+            '--allow-real-servers[Me --mocks record: nis gjithashtu proceset reale të serverëve MCP që nuk kanë simulim]' \
+            '--keep-temp[Ruaj direktoritë e skeletit për korrigjim]' \
+            '--verbose[Regjistro ngjarjet e gjurmimit për çdo mesazh në regjistrin e korrigjimit]' \
+            '--report[Shkruaj raportin HTML të pavarur në këtë shteg në vend të direktorisë së rezultateve]:path:_files' \
+            '(--no-publish)--publish-report[Kërko gjithashtu publikimin e raportit në claude.ai]' \
+            '(--publish-report)--no-publish[Mbaje raportin HTML vetëm lokal; anashkalo publikimin e tij në claude.ai]' \
             '(-h --help)'{-h,--help}'[Shfaq ndihmën]' \
-            '1:target:'
+            '::target: _alternative "plugins\:installed plugin\:_claude_installed_plugins" "files\:path\:_files"'
           ;;
         tag)
           _arguments \
+            '--push[Shtyje etiketën te --remote pasi ta krijosh]' \
+            '--dry-run[Printo çfarë do të etiketohej pa e krijuar etiketën]' \
+            '(-f --force)'{-f,--force}'[Anashkalo kontrollet për pemë pune me ndryshime të pakryera dhe për etiketë që ekziston tashmë]' \
+            '(-m --message)'{-m,--message}'[Mesazhi i shënimit të etiketës (përdor %s për versionin)]:msg:' \
+            '--remote[Depoja e largët ku shtyhet me --push]:name:' \
             '(-h --help)'{-h,--help}'[Shfaq ndihmën]' \
-            '1:path:_files'
+            '::path:_files'
+          ;;
+        test)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Shfaq ndihmën]' \
+            '::dir:_directories'
           ;;
       esac
       ;;
@@ -488,15 +640,20 @@ _claude_plugin_marketplace() {
       case $words[1] in
         add)
           _arguments \
+            '--sparse[Kufizo checkout-in në direktori specifike përmes git sparse-checkout (për monorepo)]:paths:' \
+            '--scope[Ku të deklarohet tregu]:scope:(user project local)' \
+            '--claudeai[Shto tregun me këtë emër që claude.ai e strehon për ty]' \
             '(-h --help)'{-h,--help}'[Shfaq ndihmën]' \
             '1:source:'
           ;;
         list)
           _arguments \
+            '--json[Nxirr si JSON]' \
             '(-h --help)'{-h,--help}'[Shfaq ndihmën]'
           ;;
         remove|rm)
           _arguments \
+            '--scope[Hiq deklarimin e tregut nga një shtrirje specifike cilësimesh (lëre jashtë për ta hequr nga çdo shtrirje)]:scope:(user project local)' \
             '(-h --help)'{-h,--help}'[Shfaq ndihmën]' \
             '1:name:'
           ;;
@@ -534,6 +691,7 @@ _claude_agents() {
     '--setting-sources[Listë e ndarë me presje e burimeve të cilësimeve për ngarkim (user, project, local)]:sources:' \
     '--settings[Skedar cilësimesh ose varg JSON për zbatim]:file-or-json:_files' \
     '--strict-mcp-config[Përdor vetëm serverët MCP nga --mcp-config në sesionet e dërguara]' \
+    '--restricted[Nis sesionet e dërguara në modalitetin e kufizuar]' \
     '(-h --help)'{-h,--help}'[Shfaq ndihmën për komandën]'
 }
 
@@ -560,7 +718,21 @@ _claude_auth() {
       ;;
     args)
       case $words[1] in
-        login|logout|status)
+        login)
+          _arguments \
+            '--email[Plotëso paraprakisht adresën e email-it në faqen e hyrjes]:email:' \
+            '--sso[Detyro rrjedhën e hyrjes SSO]' \
+            '(--claudeai)--console[Përdor Anthropic Console (faturim sipas përdorimit të API-së) në vend të abonimit në Claude]' \
+            '(--console)--claudeai[Përdor abonimin në Claude (parazgjedhje)]' \
+            '(-h --help)'{-h,--help}'[Shfaq ndihmën për komandën]'
+          ;;
+        status)
+          _arguments \
+            '(--text)--json[Nxirr si JSON (parazgjedhje)]' \
+            '(--json)--text[Nxirr si tekst i lexueshëm nga njerëzit]' \
+            '(-h --help)'{-h,--help}'[Shfaq ndihmën për komandën]'
+          ;;
+        logout)
           _arguments \
             '(-h --help)'{-h,--help}'[Shfaq ndihmën për komandën]'
           ;;
@@ -593,7 +765,22 @@ _claude_auto_mode() {
       ;;
     args)
       case $words[1] in
-        config|critique|defaults|reset)
+        critique)
+          _arguments \
+            '--model[Anashkalo modelin që përdoret]:model:_claude_model_names' \
+            '(-h --help)'{-h,--help}'[Shfaq ndihmën për komandën]'
+          ;;
+        defaults)
+          _arguments \
+            '--label[Shfaq vetëm rregullat, etiketa e të cilave fillon me këtë parashtesë (pa dallim shkronjash të mëdha/të vogla)]:prefix:' \
+            '(-h --help)'{-h,--help}'[Shfaq ndihmën për komandën]'
+          ;;
+        reset)
+          _arguments \
+            '(-y --yes)'{-y,--yes}'[Anashkalo kërkesën për konfirmim]' \
+            '(-h --help)'{-h,--help}'[Shfaq ndihmën për komandën]'
+          ;;
+        config)
           _arguments \
             '(-h --help)'{-h,--help}'[Shfaq ndihmën për komandën]'
           ;;
@@ -631,8 +818,12 @@ _claude_project() {
       case $words[1] in
         purge)
           _arguments \
+            '--dry-run[Listo çfarë do të fshihej pa fshirë asgjë]' \
+            '(-y --yes)'{-y,--yes}'[Anashkalo kërkesën për konfirmim]' \
+            '(-i --interactive)'{-i,--interactive}'[Kërko konfirmim për çdo element para fshirjes]' \
+            '(1)--all[Fshi gjendjen për çdo projekt (përjashtuese reciproke me një shteg)]' \
             '(-h --help)'{-h,--help}'[Shfaq ndihmën për komandën]' \
-            '1:path:_directories'
+            '(--all)::path:_directories'
           ;;
       esac
       ;;
@@ -642,9 +833,34 @@ _claude_project() {
 _claude_ultrareview() {
   _arguments \
     '--json[Printo ngarkesën e papërpunuar bugs.json në vend të gjetjeve të formatuara]' \
-    '--timeout[Minutat maksimale për të pritur që rishikimi të përfundojë]:minutes:' \
+    '--timeout[Minutat maksimale për të pritur që rishikimi të përfundojë (parazgjedhje: 45)]:minutes:' \
+    '(--no-post)--post[Posto gjetjet e rishikimit të përfunduar në PR në emrin tënd (vetëm për objektiva PR; një koment i thjeshtë, jo një rishikim)]' \
+    '(--post)--no-post[Mos i posto gjetjet në PR (parazgjedhje)]' \
     '(-h --help)'{-h,--help}'[Shfaq ndihmën për komandën]' \
     '1:target:'
+}
+
+_claude_respawn() {
+  _arguments \
+    '(1)--all[Rinis çdo sesion në sfond që po ekzekutohet]' \
+    '(-h --help)'{-h,--help}'[Shfaq ndihmën për komandën]' \
+    '(--all)::session:_claude_background_sessions'
+}
+
+_claude_rm() {
+  _arguments \
+    '--discard-unpushed[Hidh poshtë gjithashtu commit-et e pashtyra dhe ndryshimet e pakryera të pemës së punës (jep commit@worktree-id që raportoi një claude rm i mëparshëm)]:commit@worktree-id:' \
+    '--force-remove-worktree[Fshi direktorinë e pemës së punës edhe pse hook-u WorktreeRemove ose git nuk mundën ta hiqnin (jep worktree-id që raportoi një claude rm i mëparshëm)]:worktree-id:' \
+    '(-h --help)'{-h,--help}'[Shfaq ndihmën për komandën]' \
+    '1:session:_claude_background_sessions'
+}
+
+_claude_import() {
+  _arguments \
+    '--dry-run[Shfaq çfarë do të importohej pa shkruar asgjë]' \
+    '--yes[Anashkalo zgjedhësin interaktiv (në mjedise pa ndërfaqe grafike, jep --yes=<digest> nga pamja paraprake e /import)]' \
+    '(-h --help)'{-h,--help}'[Shfaq ndihmën për komandën]' \
+    '::source:(codex gemini cursor)'
 }
 
 (( $+_comps[claude] )) || compdef _claude claude
