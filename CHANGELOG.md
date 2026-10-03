@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+- When the weekly drift check finds the CLI ahead of the completion, a new workflow has Claude update `completions/_claude`, the `en-*` variants and the twelve translated locales, and open a PR for review. It needs an `ANTHROPIC_API_KEY` or `CLAUDE_CODE_OAUTH_TOKEN` secret and skips without one
+- The Homebrew formula PR runs its tests directly, so its auto-merge no longer waits for an approval
+
+### Fixed
+- Icelandic and Sesotho: the existing `plugin init`/`prune` descriptions called dependencies "addictions" (is) and automatic installs "on purpose" (st)
+
 ## [2.7.1] - 2026-10-03
 
 ### Added

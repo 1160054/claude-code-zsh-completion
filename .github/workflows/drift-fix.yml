@@ -1,0 +1,101 @@
+name: Drift Fix
+
+# When the drift check finds the CLI ahead of completions/_claude, Claude
+# updates the completion and opens a PR. A maintainer reviews and merges it;
+# nothing here merges or releases.
+#
+# Started by drift-check.yml (or by hand). It never reads issue text: Claude
+# finds the gaps itself from the installed CLI, so an issue body cannot steer it.
+# Needs the ANTHROPIC_API_KEY or CLAUDE_CODE_OAUTH_TOKEN secret; without one it
+# skips with a notice.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: read
+  actions: write
+
+concurrency:
+  group: drift-fix
+  cancel-in-progress: false
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+    - name: Skip unless a key is set and no drift PR is open
+      id: gate
+      env:
+        GH_TOKEN: ${{ github.token }}
+        HAS_KEY: ${{ secrets.ANTHROPIC_API_KEY != '' || secrets.CLAUDE_CODE_OAUTH_TOKEN != '' }}
+      run: |
+        if [ "$HAS_KEY" != "true" ]; then
+          echo "::notice::No ANTHROPIC_API_KEY or CLAUDE_CODE_OAUTH_TOKEN secret, skipping"
+          echo "run=false" >> "$GITHUB_OUTPUT"; exit 0
+        fi
+        open=$(gh pr list --repo "$GITHUB_REPOSITORY" --state open --json headRefName \
+          --jq '[.[] | select(.headRefName | startswith("drift/"))] | length')
+        if [ "$open" != "0" ]; then
+          echo "::notice::A drift PR is already open, skipping"
+          echo "run=false" >> "$GITHUB_OUTPUT"; exit 0
+        fi
+        echo "run=true" >> "$GITHUB_OUTPUT"
+
+    - name: Checkout code
+      if: steps.gate.outputs.run == 'true'
+      uses: actions/checkout@v5
+
+    - name: Install zsh
+      if: steps.gate.outputs.run == 'true'
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y zsh file
+
+    - name: Setup Node.js
+      if: steps.gate.outputs.run == 'true'
+      uses: actions/setup-node@v5
+      with:
+        node-version: '22'
+
+    - name: Install Claude CLI
+      if: steps.gate.outputs.run == 'true'
+      run: npm install -g @anthropic-ai/claude-code
+
+    - name: Update the completion
+      if: steps.gate.outputs.run == 'true'
+      uses: anthropics/claude-code-action@v1
+      with:
+        anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+        claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+        github_token: ${{ github.token }}
+        prompt: |
+          The installed `claude` CLI has commands or options that completions/_claude
+          does not complete. Bring the completion up to date and open a pull request.
+
+          1. Run `zsh .github/workflows/test.zsh --drift-only` to list the gaps.
+             It only reads the top-level `claude --help`; also run `claude <command> --help`
+             for each command and subcommand, because nested options are missed by it.
+             Never run `claude <command> help <sub>`: it starts an interactive session.
+          2. Update completions/_claude, the source of truth, following the existing style.
+             Remove nothing that the CLI still has.
+          3. Copy completions/_claude over every completions/_claude.en-* file (they are identical to it).
+          4. Translate the new entries in these locales, line-aligned with _claude and
+             reusing each file's own wording for repeated phrases like --json and -h:
+             ja ko zh-CN zh-TW es fr de it pt-BR ru tr pl. Leave every other locale as it is.
+             Never put [ or ] inside a description.
+          5. Add an entry under `## [Unreleased]` in CHANGELOG.md (Keep a Changelog style,
+             matching the earlier entries). Create that heading above the newest release if missing.
+          6. Run `zsh .github/workflows/test.zsh` and fix until it passes.
+          7. Create a branch named `drift/<cli version>`, commit with a one-line message,
+             push it, and open a PR to main with `gh pr create`. Keep the PR body short:
+             what changed, and the CLI version. Then run `gh workflow run test.yml --ref <branch>`
+             so the required `test` check runs on it.
+          Do not merge anything, create tags, or publish releases.
+        claude_args: |
+          --max-turns 120
+          --allowedTools "Read,Edit,Write,Glob,Grep,Bash(zsh:*),Bash(claude --help),Bash(claude --version),Bash(claude * --help),Bash(cp:*),Bash(git status:*),Bash(git diff:*),Bash(git switch:*),Bash(git checkout -b:*),Bash(git add:*),Bash(git commit:*),Bash(git push:*),Bash(gh pr create:*),Bash(gh workflow run:*)"
