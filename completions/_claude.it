@@ -237,6 +237,7 @@ _claude() {
     '--permission-prompt-tool[Strumento MCP da usare per le richieste di permesso (solo --print)]:tool:'
     '(-c --continue)'{-c,--continue}'[Continua la conversazione più recente]'
     '(-r --resume)'{-r,--resume}'[Riprende una conversazione - specifica l'\''ID sessione o seleziona interattivamente]:sessionId:_claude_sessions'
+    '--from-pr[Riprende una sessione collegata a una PR - specifica numero o URL della PR o seleziona interattivamente]::value:'
     '--fork-session[Crea un nuovo ID sessione invece di riutilizzare l'\''ID sessione originale durante la ripresa (con --resume o --continue)]'
     '--no-session-persistence[Disabilita la persistenza della sessione - le sessioni non verranno salvate (solo --print)]'
     '--model[Modello per la sessione corrente. Specifica un alias per l'\''ultimo modello (es. '\''sonnet'\'' o '\''opus'\'')]:model:_claude_model_names'

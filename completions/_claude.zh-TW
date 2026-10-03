@@ -237,6 +237,7 @@ _claude() {
     '--permission-prompt-tool[用於權限提示的 MCP 工具（僅限 --print）]:tool:'
     '(-c --continue)'{-c,--continue}'[繼續最近的對話]'
     '(-r --resume)'{-r,--resume}'[繼續對話 - 指定工作階段 ID 或互動式選取]:sessionId:_claude_sessions'
+    '--from-pr[繼續與 PR 連結的工作階段 - 指定 PR 編號或 URL 或互動式選取]::value:'
     '--fork-session[在繼續時建立新的工作階段 ID，而不是重複使用原始工作階段 ID（搭配 --resume 或 --continue）]'
     '--no-session-persistence[停用工作階段持續性 - 工作階段將不會儲存（僅限 --print）]'
     '--model[目前工作階段的模型。指定最新模型的別名（例如 '\''sonnet'\'' 或 '\''opus'\''）]:model:_claude_model_names'
