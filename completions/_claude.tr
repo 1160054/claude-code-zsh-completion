@@ -260,7 +260,6 @@ _claude() {
     '--effort[Mevcut oturum için çaba düzeyi]:level:(low medium high xhigh max)'
     '--autocompact[Otomatik sıkıştırma pencere boyutu (auto veya 100k-1M jeton)]:size:(auto)'
     '--debug-file[Hata ayıklama günlüklerini belirli bir dosya yoluna yaz (dolaylı olarak hata ayıklama modunu etkinleştirir)]:path:_files'
-    '--from-pr[Bir PR ile bağlantılı oturumu numara/URL ile sürdür veya etkileşimli seçici aç]::value:'
     '--teleport[Bir teleport oturumunu sürdür, isteğe bağlı olarak oturum kimliği belirt]::session:'
     '--cloud[Verilen açıklamayla bir bulut oturumu oluştur veya oturum kimliği ya da claude.ai/code URL'\''si ile mevcut bir oturuma bağlan]::description-or-session:'
     '--environment[Belirtilen kendi barındırılan ortamda (ccpool_...) çalışan yeni bir bulut oturumu oluştur]:environment_id:'
