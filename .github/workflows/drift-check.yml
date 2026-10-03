@@ -13,6 +13,7 @@ on:
 permissions:
   contents: read
   issues: write
+  actions: write
 
 jobs:
   drift:
@@ -83,6 +84,12 @@ jobs:
           echo "Opening a new issue"
           gh issue create --title "$TITLE" --body-file body.md
         fi
+
+    - name: Ask Claude for a fix PR
+      if: steps.drift.outputs.status != '0'
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: gh workflow run drift-fix.yml --repo "$GITHUB_REPOSITORY"
 
     - name: Fail the run when drift was found
       if: steps.drift.outputs.status != '0'
