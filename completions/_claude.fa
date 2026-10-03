@@ -121,6 +121,39 @@ _claude_agent_names() {
   compadd -a agents
 }
 
+_claude_background_sessions() {
+  local -a sessions state_files
+  local -A names states
+  local state_dir state_file line id rest
+
+  # Background sessions (`claude --bg`) live in <config>/jobs/<id>/, where
+  # <id> is the short id that attach, logs, stop, respawn and rm take.
+  for state_dir in ${(f)"$(_claude_state_dirs)"}; do
+    # Newest first
+    state_files=(${state_dir}/jobs/*/state.json(Nom))
+    (( ${#state_files} )) || continue
+
+    # One grep for all of them; the first "name" and "state" it reports for a
+    # file are that file's top-level ones
+    names=() states=()
+    for line in ${(f)"$(grep -HoE '"(name|state)"[[:space:]]*:[[:space:]]*"[^"]*"' $state_files 2>/dev/null)"}; do
+      id=${${line%%/state.json:*}:t}
+      rest=${line#*/state.json:}
+      case $rest in
+        \"name\"*)  [[ -z $names[$id] ]]  && names[$id]=${${rest#*:*\"}%\"} ;;
+        \"state\"*) [[ -z $states[$id] ]] && states[$id]=${${rest#*:*\"}%\"} ;;
+      esac
+    done
+
+    for state_file in $state_files; do
+      id=${state_file:h:t}
+      sessions+=("${id}:${names[$id]:-no name}${states[$id]:+ (${states[$id]})}")
+    done
+  done
+
+  _describe -t sessions 'background session' sessions
+}
+
 _claude_model_names() {
   local -a models config_files
   local state_dir config_file
@@ -155,9 +188,15 @@ _claude() {
     'mcp:پیکربندی و مدیریت سرورهای MCP'
     'plugin:مدیریت افزونه‌های Claude Code'
     'agents:مدیریت عامل‌های پس‌زمینه'
+    'attach:باز کردن یک نشست پس‌زمینه در این ترمینال'
+    'logs:چاپ خروجی اخیر ترمینال یک نشست پس‌زمینه'
+    'stop:متوقف کردن یک نشست پس‌زمینه (گفتگوی آن حفظ می‌شود)'
+    'respawn:راه‌اندازی مجدد یک نشست پس‌زمینه تا با نسخه فعلی Claude Code اجرا شود'
+    'rm:حذف یک نشست پس‌زمینه، و درخت‌کار آن در صورتی که این کار ایمن باشد'
     'auth:مدیریت احراز هویت'
     'auto-mode:بررسی یا بازنشانی پیکربندی طبقه‌بند حالت خودکار'
     'gateway:اجرای دروازه احراز هویت/تله‌متری سازمانی'
+    'import:وارد کردن پیکربندی از یک عامل کدنویسی هوش مصنوعی دیگر به Claude Code'
     'project:مدیریت وضعیت پروژه Claude Code'
     'ultrareview:اجرای بازبینی کد چندعاملی میزبانی‌شده در ابر و چاپ یافته‌ها'
     'setup-token:راه‌اندازی توکن احراز هویت بلندمدت (نیاز به اشتراک Claude)'
@@ -178,6 +217,7 @@ _claude() {
     '--mcp-debug[\[منسوخ شده. به‌جای آن از --debug استفاده کنید\] فعال‌سازی حالت اشکال‌زدایی MCP (نمایش خطاهای سرور MCP)]'
     '--dangerously-skip-permissions[دور زدن تمام بررسی‌های مجوز. فقط برای محیط‌های ایزوله بدون دسترسی اینترنت توصیه می‌شود]'
     '--allow-dangerously-skip-permissions[فعال‌سازی گزینه دور زدن بررسی مجوز بدون فعال‌سازی پیش‌فرض]'
+    '--restricted[حالت محدود: حذف ابزارهایی که دستور یا کد اجرا می‌کنند و WebFetch، نادیده گرفتن تنظیمات user/project/local، و محدود کردن ابزارهای فایل به دایرکتوری‌های کاری]'
     '--max-budget-usd[حداکثر مبلغ دلاری برای صرف در فراخوانی‌های API (فقط --print)]:amount:'
     '--replay-user-messages[ارسال مجدد پیام‌های کاربر از stdin به stdout برای تأیید]'
     '--allowed-tools[لیست جداشده با کاما یا فاصله از نام ابزارهای مجاز (مثلاً "Bash(git:*) Edit")]:tools:'
@@ -187,8 +227,13 @@ _claude() {
     '--disallowedTools[لیست جداشده با کاما یا فاصله از نام ابزارهای غیرمجاز (فرمت camelCase)]:tools:'
     '--mcp-config[بارگذاری سرورهای MCP از فایل یا رشته JSON (جداشده با فاصله)]:configs:'
     '--system-prompt[پرامپت سیستم برای استفاده در نشست]:prompt:'
+    '--system-prompt-file[خواندن پرامپت سیستم از یک فایل]:file:_files'
     '--append-system-prompt[افزودن پرامپت سیستم به پرامپت سیستم پیش‌فرض]:prompt:'
+    '--append-system-prompt-file[خواندن پرامپت سیستم از یک فایل و افزودن آن به پرامپت سیستم پیش‌فرض]:file:_files'
+    '--system-prompt-snapshot[ثبت پرامپت سیستم یک بار در هر گفتگو و استفاده مجدد عیناً از آن در هر درخواست و از سرگیری (on، پیش‌فرض) یا ساخت دوباره آن در هر درخواست (off)]:mode:(on off)'
     '--permission-mode[حالت مجوز برای استفاده در نشست]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)'
+    '--permission-prompts[پاسخ‌دهنده به درخواست‌های مجوز با --print: "host" (میزبان SDK یا --permission-prompt-tool) یا "none" (هر چیزی که نیاز به درخواست مجوز داشته باشد رد می‌شود)]:target:(host none)'
+    '--permission-prompt-tool[ابزار MCP برای استفاده در درخواست‌های مجوز (فقط --print)]:tool:'
     '(-c --continue)'{-c,--continue}'[ادامه آخرین گفتگو]'
     '(-r --resume)'{-r,--resume}'[از سرگیری گفتگو - شناسه نشست را مشخص کنید یا به صورت تعاملی انتخاب کنید]:sessionId:_claude_sessions'
     '--fork-session[ایجاد شناسه نشست جدید به جای استفاده مجدد از شناسه نشست اصلی هنگام از سرگیری (با --resume یا --continue)]'
@@ -200,6 +245,7 @@ _claude() {
     '--settings[مسیر فایل JSON تنظیمات یا رشته JSON برای بارگذاری تنظیمات اضافی]:file-or-json:_files'
     '--add-dir[دایرکتوری‌های اضافی برای مجوز دسترسی ابزار]:directories:_directories'
     '--ide[اتصال خودکار به IDE در شروع اگر دقیقاً یک IDE معتبر موجود باشد]'
+    '--desktop[باز کردن در برنامه Claude Desktop به جای ترمینال (با --continue یا --resume <id> برای انتخاب نشست)]'
     '--strict-mcp-config[استفاده فقط از سرورهای MCP از --mcp-config و نادیده گرفتن تمام تنظیمات MCP دیگر]'
     '--session-id[شناسه نشست خاص برای استفاده در گفتگو (باید UUID معتبر باشد)]:uuid:'
     '--agents[شیء JSON تعریف‌کننده عوامل سفارشی]:json:'
@@ -208,11 +254,15 @@ _claude() {
     '--disable-slash-commands[غیرفعال‌سازی تمام دستورات اسلش]'
     '(--bg --background)'{--bg,--background}'[شروع نشست به عنوان عامل پس‌زمینه و بازگشت فوری]'
     '(-w --worktree)'{-w,--worktree}'[ایجاد درخت‌کار git جدید برای این نشست (به صورت اختیاری یک نام مشخص کنید)]::name:'
-    '--tmux[ایجاد نشست tmux برای درخت‌کار (نیاز به --worktree)]'
+    '--tmux=-[ایجاد نشست tmux برای درخت‌کار (نیاز به --worktree). در صورت امکان از پنل‌های بومی iTerm2 استفاده می‌کند؛ --tmux=classic برای tmux سنتی]::mode:(classic)'
     '(-n --name)'{-n,--name}'[تعیین نام نمایشی برای این نشست]:name:'
     '--effort[سطح تلاش برای نشست فعلی]:level:(low medium high xhigh max)'
+    '--autocompact[اندازه پنجره فشرده‌سازی خودکار (auto، یا 100k تا 1M توکن)]:size:(auto)'
     '--debug-file[نوشتن گزارش‌های اشکال‌زدایی در مسیر فایل مشخص (به طور ضمنی حالت اشکال‌زدایی را فعال می‌کند)]:path:_files'
     '--from-pr[از سرگیری نشست مرتبط با یک PR بر اساس شماره/URL، یا باز کردن انتخابگر تعاملی]::value:'
+    '--teleport[از سرگیری یک نشست teleport، به صورت اختیاری شناسه نشست را مشخص کنید]::session:'
+    '--cloud[ایجاد یک نشست ابری با توضیح داده‌شده، یا اتصال به یک نشست موجود با شناسه نشست یا URL claude.ai/code]::description-or-session:'
+    '--environment[ایجاد یک نشست ابری جدید که روی محیط خودمیزبان داده‌شده اجرا می‌شود (ccpool_...)]:environment_id:'
     '--remote-control[شروع نشست تعاملی با کنترل از راه دور فعال (به صورت اختیاری نام‌گذاری شده)]::name:'
     '--remote-control-session-name-prefix[پیشوند برای نام‌های نشست کنترل از راه دور تولیدشده خودکار]:prefix:'
     '--chrome[فعال‌سازی یکپارچه‌سازی Claude در Chrome]'
@@ -254,6 +304,17 @@ _claude() {
         agents)
           _claude_agents
           ;;
+        attach|logs|stop|kill)
+          _arguments \
+            '(-h --help)'{-h,--help}'[نمایش راهنما برای دستور]' \
+            '1:session:_claude_background_sessions'
+          ;;
+        respawn)
+          _claude_respawn
+          ;;
+        rm)
+          _claude_rm
+          ;;
         auth)
           _claude_auth
           ;;
@@ -262,6 +323,9 @@ _claude() {
           ;;
         gateway)
           _claude_gateway
+          ;;
+        import)
+          _claude_import
           ;;
         project)
           _claude_project
@@ -319,6 +383,9 @@ _claude_mcp() {
             '(-t --transport)'{-t,--transport}'[نوع انتقال (stdio, sse, http)]:transport:(stdio sse http)' \
             '(-e --env)'{-e,--env}'[تنظیم متغیر محیطی (مثلاً -e KEY=value)]:env:' \
             '(-H --header)'{-H,--header}'[تنظیم هدر WebSocket]:header:' \
+            '--client-id[شناسه کلاینت OAuth برای سرورهای HTTP/SSE]:clientId:' \
+            '--client-secret[درخواست ورود رمز کلاینت OAuth (یا تنظیم متغیر محیطی MCP_CLIENT_SECRET)]' \
+            '--callback-port[پورت ثابت برای callback OAuth (برای سرورهایی که به URIهای تغییر مسیر از پیش ثبت‌شده نیاز دارند)]:port:' \
             '(-h --help)'{-h,--help}'[نمایش راهنما]' \
             '1:name:' \
             '2:commandOrUrl:' \
@@ -342,6 +409,7 @@ _claude_mcp() {
         add-json)
           _arguments \
             '(-s --scope)'{-s,--scope}'[محدوده پیکربندی (local, user, project)]:scope:(local user project)' \
+            '--client-secret[درخواست ورود رمز کلاینت OAuth (یا تنظیم متغیر محیطی MCP_CLIENT_SECRET)]' \
             '(-h --help)'{-h,--help}'[نمایش راهنما]' \
             '1:name:' \
             '2:json:'
@@ -355,7 +423,13 @@ _claude_mcp() {
           _arguments \
             '(-h --help)'{-h,--help}'[نمایش راهنما]'
           ;;
-        login|logout)
+        login)
+          _arguments \
+            '--no-browser[چاپ URL مجوزدهی به جای باز کردن مرورگر (برای نشست‌های SSH/بدون رابط گرافیکی)]' \
+            '(-h --help)'{-h,--help}'[نمایش راهنما]' \
+            '1:name:_claude_mcp_servers'
+          ;;
+        logout)
           _arguments \
             '(-h --help)'{-h,--help}'[نمایش راهنما]' \
             '1:name:_claude_mcp_servers'
@@ -372,9 +446,11 @@ _claude_plugin() {
     'marketplace:مدیریت بازارهای Claude Code'
     'list:نمایش لیست افزونه‌های نصب‌شده'
     'details:نمایش فهرست اجزا و هزینه توکن پیش‌بینی‌شده برای یک افزونه'
+    'configure:نمایش گزینه‌های یک افزونه و اینکه کدام‌ها تنظیم نشده‌اند، یا ذخیره مقادیر از stdin'
     'install:نصب افزونه از بازارهای موجود'
     'i:نصب افزونه از بازارهای موجود (میانبر install)'
     'init:ساخت داربست افزونه جدید (در نشست بعدی خودکار بارگذاری می‌شود)'
+    'new:ساخت داربست افزونه جدید (نام مستعار init)'
     'uninstall:حذف نصب افزونه نصب شده'
     'remove:حذف نصب افزونه نصب شده (نام مستعار uninstall)'
     'enable:فعال‌سازی افزونه غیرفعال'
@@ -382,7 +458,9 @@ _claude_plugin() {
     'update:به‌روزرسانی افزونه به آخرین نسخه'
     'eval:اجرای موارد ارزیابی روی یک افزونه و گزارش نتایج امتیازدهی‌شده'
     'prune:حذف وابستگی‌های نصب‌شده خودکار که دیگر مورد نیاز نیستند'
+    'autoremove:حذف وابستگی‌های نصب‌شده خودکار که دیگر مورد نیاز نیستند (نام مستعار prune)'
     'tag:ایجاد برچسب git با فرمت {name}--v{version} برای انتشار افزونه'
+    'test:اجرای تست‌های یک mod'
     'help:نمایش راهنما'
   )
 
@@ -402,6 +480,8 @@ _claude_plugin() {
       case $words[1] in
         validate)
           _arguments \
+            '--strict[در نظر گرفتن هشدارها به عنوان خطا (کد خروج 1)]' \
+            '--json[خروجی گزارش اعتبارسنجی به صورت JSON (با همان کدهای خروج)]' \
             '(-h --help)'{-h,--help}'[نمایش راهنما]' \
             '1:path:_files'
           ;;
@@ -411,50 +491,122 @@ _claude_plugin() {
         install|i)
           _arguments \
             '(-s --scope)'{-s,--scope}'[محدوده نصب]:scope:(user project local)' \
+            '*--config[تنظیم یک گزینه userConfig تعریف‌شده در مانیفست افزونه (قابل تکرار)]:key=value:' \
+            '(-y --yes)'{-y,--yes}'[پذیرش دستور نمایش‌داده‌شده که بازار تعریف کرده است، بدون درخواست تأیید]' \
+            '--json[چاپ یک خط نتیجه قابل خواندن توسط ماشین به جای پیام برای انسان]' \
             '(-h --help)'{-h,--help}'[نمایش راهنما]' \
             '1:plugin:'
           ;;
         uninstall|remove)
           _arguments \
             '(-s --scope)'{-s,--scope}'[محدوده نصب]:scope:(user project local)' \
+            '--keep-data[حفظ دایرکتوری داده‌های ماندگار افزونه]' \
+            '--prune[همچنین حذف وابستگی‌های نصب‌شده خودکار که دیگر مورد نیاز نیستند]' \
+            '(-y --yes)'{-y,--yes}'[رد کردن درخواست تأیید --prune]' \
+            '--json[چاپ یک خط نتیجه قابل خواندن توسط ماشین به جای پیام برای انسان (نه با --prune)]' \
             '(-h --help)'{-h,--help}'[نمایش راهنما]' \
             '1:plugin:_claude_installed_plugins'
           ;;
-        enable|disable)
+        enable)
           _arguments \
             '(-s --scope)'{-s,--scope}'[محدوده نصب]:scope:(user project local)' \
+            '--json[چاپ یک خط نتیجه قابل خواندن توسط ماشین به جای پیام برای انسان]' \
             '(-h --help)'{-h,--help}'[نمایش راهنما]' \
             '1:plugin:_claude_installed_plugins'
+          ;;
+        disable)
+          _arguments \
+            '(-a --all)'{-a,--all}'[غیرفعال‌سازی تمام افزونه‌های فعال]' \
+            '(-s --scope)'{-s,--scope}'[محدوده نصب]:scope:(user project local)' \
+            '--json[چاپ یک خط نتیجه قابل خواندن توسط ماشین به جای پیام برای انسان]' \
+            '(-h --help)'{-h,--help}'[نمایش راهنما]' \
+            '::plugin:_claude_installed_plugins'
           ;;
         update)
           _arguments \
             '(-s --scope)'{-s,--scope}'[محدوده نصب]:scope:(user project local managed)' \
+            '(-y --yes)'{-y,--yes}'[پذیرش دستور نمایش‌داده‌شده که بازار تعریف کرده است، بدون درخواست تأیید]' \
+            '--json[چاپ یک خط نتیجه قابل خواندن توسط ماشین به جای پیام برای انسان]' \
             '(-h --help)'{-h,--help}'[نمایش راهنما]' \
             '1:plugin:_claude_installed_plugins'
           ;;
-        list|prune)
+        list)
           _arguments \
+            '--json[خروجی به صورت JSON]' \
+            '--available[شامل کردن افزونه‌های موجود از بازارها (نیاز به --json)]' \
             '(-h --help)'{-h,--help}'[نمایش راهنما]'
+          ;;
+        prune|autoremove)
+          _arguments \
+            '(-s --scope)'{-s,--scope}'[پاک‌سازی در محدوده]:scope:(user project local)' \
+            '--dry-run[فهرست کردن مواردی که حذف می‌شوند بدون حذف آن‌ها]' \
+            '(-y --yes)'{-y,--yes}'[رد کردن درخواست تأیید]' \
+            '(-h --help)'{-h,--help}'[نمایش راهنما]'
+          ;;
+        configure)
+          _arguments \
+            '--json[خروجی به صورت JSON]' \
+            '--values-stdin[خواندن مقادیر گزینه‌ها از stdin به صورت یک شیء JSON از رشته‌های تک‌خطی؛ گزینه‌هایی که ذکر نشوند مقادیر خود را حفظ می‌کنند]' \
+            '(-h --help)'{-h,--help}'[نمایش راهنما]' \
+            '1:plugin:_claude_installed_plugins'
           ;;
         details)
           _arguments \
             '(-h --help)'{-h,--help}'[نمایش راهنما]' \
             '1:plugin:_claude_installed_plugins'
           ;;
-        init)
+        init|new)
           _arguments \
+            '--description[توضیح مانیفست]:text:' \
+            '--author[نام نویسنده (پیش‌فرض: git config user.name)]:name:' \
+            '--author-email[ایمیل نویسنده (پیش‌فرض: git config user.email)]:email:' \
+            '--with[اجزایی که داربست آن‌ها نیز ساخته شود]:components:' \
+            '(-f --force)'{-f,--force}'[بازنویسی .claude-plugin/ موجود در مقصد]' \
             '(-h --help)'{-h,--help}'[نمایش راهنما]' \
             '1:name:'
           ;;
         eval)
           _arguments \
+            '--case[فیلتر کردن موارد بر اساس الگوی glob نام]:glob:' \
+            '*--tag[فیلتر کردن موارد بر اساس برچسب (قابل تکرار)]:tag:' \
+            '--runs[جایگزینی تعداد اجراها برای هر مورد (پیش‌فرض: case.runs، در غیر این صورت 3)]:n:' \
+            '(-j --concurrency)'{-j,--concurrency}'[اجرای حداکثر n اجرای عامل به طور همزمان (1 تا 8؛ پیش‌فرض 1)]:n:' \
+            '--model[جایگزینی مدل برای تمام موارد]:model:_claude_model_names' \
+            '--judge-model[جایگزینی مدل ارزیاب LLM (پیش‌فرض: haiku)]:model:_claude_model_names' \
+            '--max-cost-usd[سقف قطعی هزینه؛ در صورت رسیدن به آن، توقف و گزارش نتایج جزئی (کد خروج 2)]:usd:' \
+            '--output-dir[دایرکتوری برای aggregate-result.json]:dir:_directories' \
+            '--eval-dir[نام دایرکتوری (زیر افزونه) که موارد ارزیابی را در خود دارد]:dir:' \
+            '--json[چاپ نتیجه کامل اجرا به صورت JSON در stdout، یا نوشتن آن در این فایل .json]::path:_files' \
+            '--threshold[خروج با کد خروج 1 اگر امتیاز هر موردی کمتر از این آستانه باشد (پیش‌فرض: 1.0)]:threshold:' \
+            '*--allow-tools[مجوز اپراتور برای ابزارهای محافظت‌شده (Bash, Write, Edit, WebFetch, mcp__*)]:tools:' \
+            '(--no-scaffold)--scaffold[اجرای scaffold_script هر مورد (bash ارائه‌شده توسط نویسنده را با حساب کاربری شما اجرا می‌کند؛ به طور پیش‌فرض خاموش)]' \
+            '(--scaffold)--no-scaffold[رد کردن صریح scaffold_script]' \
+            '--trust-plugin[تأیید اینکه به این افزونه و مجموعه ارزیابی آن اعتماد دارید، و رد کردن درخواست اعتماد اجرای اول (برای CI)]' \
+            '--ablation[اجرای یک گروه مقایسه پایه بدون افزونه و گزارش اختلاف امتیاز]:mode:(none with-without)' \
+            '--mocks[جایگزین‌های ساختگی (mock) برای سرورهای MCP، از <eval dir>/mocks/]:mode:(record off)' \
+            '--allow-real-servers[با --mocks record: همچنین راه‌اندازی فرایندهای واقعی سرور MCP که mock ندارند]' \
+            '--keep-temp[حفظ دایرکتوری‌های داربست برای اشکال‌زدایی]' \
+            '--verbose[ثبت رویدادهای ردیابی هر پیام در گزارش اشکال‌زدایی]' \
+            '--report[نوشتن گزارش HTML خودکفا در این مسیر به جای دایرکتوری نتایج]:path:_files' \
+            '(--no-publish)--publish-report[همچنین الزام به انتشار گزارش در claude.ai]' \
+            '(--publish-report)--no-publish[نگه داشتن گزارش HTML فقط به صورت محلی؛ رد کردن انتشار آن در claude.ai]' \
             '(-h --help)'{-h,--help}'[نمایش راهنما]' \
-            '1:target:'
+            '::target: _alternative "plugins\:installed plugin\:_claude_installed_plugins" "files\:path\:_files"'
           ;;
         tag)
           _arguments \
+            '--push[push کردن برچسب به --remote پس از ایجاد آن]' \
+            '--dry-run[چاپ آنچه برچسب‌گذاری می‌شود بدون ایجاد آن]' \
+            '(-f --force)'{-f,--force}'[رد کردن بررسی‌های درخت کاری دارای تغییرات و وجود قبلی برچسب]' \
+            '(-m --message)'{-m,--message}'[پیام توضیح برچسب (از %s برای نسخه استفاده کنید)]:msg:' \
+            '--remote[remote مقصد برای push با --push]:name:' \
             '(-h --help)'{-h,--help}'[نمایش راهنما]' \
-            '1:path:_files'
+            '::path:_files'
+          ;;
+        test)
+          _arguments \
+            '(-h --help)'{-h,--help}'[نمایش راهنما]' \
+            '::dir:_directories'
           ;;
       esac
       ;;
@@ -488,15 +640,20 @@ _claude_plugin_marketplace() {
       case $words[1] in
         add)
           _arguments \
+            '--sparse[محدود کردن checkout به دایرکتوری‌های خاص از طریق git sparse-checkout (برای monorepoها)]:paths:' \
+            '--scope[محل تعریف بازار]:scope:(user project local)' \
+            '--claudeai[افزودن بازاری با این نام که claude.ai برای شما میزبانی می‌کند]' \
             '(-h --help)'{-h,--help}'[نمایش راهنما]' \
             '1:source:'
           ;;
         list)
           _arguments \
+            '--json[خروجی به صورت JSON]' \
             '(-h --help)'{-h,--help}'[نمایش راهنما]'
           ;;
         remove|rm)
           _arguments \
+            '--scope[حذف تعریف بازار از یک محدوده تنظیمات مشخص (در صورت عدم تعیین، از همه محدوده‌ها حذف می‌شود)]:scope:(user project local)' \
             '(-h --help)'{-h,--help}'[نمایش راهنما]' \
             '1:name:'
           ;;
@@ -534,6 +691,7 @@ _claude_agents() {
     '--setting-sources[لیست جداشده با کاما از منابع تنظیمات برای بارگذاری (user, project, local)]:sources:' \
     '--settings[فایل تنظیمات یا رشته JSON برای اعمال]:file-or-json:_files' \
     '--strict-mcp-config[فقط از سرورهای MCP از --mcp-config در نشست‌های ارسال‌شده استفاده کن]' \
+    '--restricted[شروع نشست‌های ارسال‌شده در حالت محدود]' \
     '(-h --help)'{-h,--help}'[نمایش راهنما برای دستور]'
 }
 
@@ -560,7 +718,21 @@ _claude_auth() {
       ;;
     args)
       case $words[1] in
-        login|logout|status)
+        login)
+          _arguments \
+            '--email[پر کردن پیشاپیش آدرس ایمیل در صفحه ورود]:email:' \
+            '--sso[اجبار به روند ورود SSO]' \
+            '(--claudeai)--console[استفاده از Anthropic Console (صورتحساب بر اساس مصرف API) به جای اشتراک Claude]' \
+            '(--console)--claudeai[استفاده از اشتراک Claude (پیش‌فرض)]' \
+            '(-h --help)'{-h,--help}'[نمایش راهنما برای دستور]'
+          ;;
+        status)
+          _arguments \
+            '(--text)--json[خروجی به صورت JSON (پیش‌فرض)]' \
+            '(--json)--text[خروجی به صورت متن قابل خواندن برای انسان]' \
+            '(-h --help)'{-h,--help}'[نمایش راهنما برای دستور]'
+          ;;
+        logout)
           _arguments \
             '(-h --help)'{-h,--help}'[نمایش راهنما برای دستور]'
           ;;
@@ -593,7 +765,22 @@ _claude_auto_mode() {
       ;;
     args)
       case $words[1] in
-        config|critique|defaults|reset)
+        critique)
+          _arguments \
+            '--model[جایگزینی مدل مورد استفاده]:model:_claude_model_names' \
+            '(-h --help)'{-h,--help}'[نمایش راهنما برای دستور]'
+          ;;
+        defaults)
+          _arguments \
+            '--label[نمایش فقط قوانینی که برچسب آن‌ها با این پیشوند شروع می‌شود (بدون حساسیت به حروف کوچک و بزرگ)]:prefix:' \
+            '(-h --help)'{-h,--help}'[نمایش راهنما برای دستور]'
+          ;;
+        reset)
+          _arguments \
+            '(-y --yes)'{-y,--yes}'[رد کردن درخواست تأیید]' \
+            '(-h --help)'{-h,--help}'[نمایش راهنما برای دستور]'
+          ;;
+        config)
           _arguments \
             '(-h --help)'{-h,--help}'[نمایش راهنما برای دستور]'
           ;;
@@ -631,8 +818,12 @@ _claude_project() {
       case $words[1] in
         purge)
           _arguments \
+            '--dry-run[فهرست کردن مواردی که حذف می‌شوند بدون حذف هیچ چیز]' \
+            '(-y --yes)'{-y,--yes}'[رد کردن درخواست تأیید]' \
+            '(-i --interactive)'{-i,--interactive}'[درخواست تأیید برای هر مورد پیش از حذف]' \
+            '(1)--all[حذف وضعیت برای همه پروژه‌ها (با مشخص کردن مسیر ناسازگار است)]' \
             '(-h --help)'{-h,--help}'[نمایش راهنما برای دستور]' \
-            '1:path:_directories'
+            '(--all)::path:_directories'
           ;;
       esac
       ;;
@@ -642,9 +833,34 @@ _claude_project() {
 _claude_ultrareview() {
   _arguments \
     '--json[چاپ داده خام bugs.json به جای یافته‌های قالب‌بندی‌شده]' \
-    '--timeout[حداکثر دقیقه‌ها برای انتظار تا پایان بازبینی]:minutes:' \
+    '--timeout[حداکثر زمان انتظار برای پایان بازبینی، به دقیقه (پیش‌فرض: 45)]:minutes:' \
+    '(--no-post)--post[ارسال یافته‌های بازبینی تکمیل‌شده به PR با حساب کاربری شما (فقط وقتی هدف بازبینی یک PR است؛ یک کامنت ساده، نه یک بازبینی)]' \
+    '(--post)--no-post[عدم ارسال یافته‌ها به PR (پیش‌فرض)]' \
     '(-h --help)'{-h,--help}'[نمایش راهنما برای دستور]' \
     '1:target:'
+}
+
+_claude_respawn() {
+  _arguments \
+    '(1)--all[راه‌اندازی مجدد تمام نشست‌های پس‌زمینه در حال اجرا]' \
+    '(-h --help)'{-h,--help}'[نمایش راهنما برای دستور]' \
+    '(--all)::session:_claude_background_sessions'
+}
+
+_claude_rm() {
+  _arguments \
+    '--discard-unpushed[همچنین دور ریختن کامیت‌های push نشده و تغییرات کامیت نشده درخت‌کار (commit@worktree-id گزارش‌شده توسط claude rm قبلی را بدهید)]:commit@worktree-id:' \
+    '--force-remove-worktree[حذف دایرکتوری درخت‌کار حتی اگر هوک WorktreeRemove یا git نتوانسته باشد آن را حذف کند (worktree-id گزارش‌شده توسط claude rm قبلی را بدهید)]:worktree-id:' \
+    '(-h --help)'{-h,--help}'[نمایش راهنما برای دستور]' \
+    '1:session:_claude_background_sessions'
+}
+
+_claude_import() {
+  _arguments \
+    '--dry-run[نمایش آنچه وارد می‌شود بدون نوشتن هیچ چیز]' \
+    '--yes[رد کردن انتخابگر تعاملی (در محیط‌های بدون رابط گرافیکی، --yes=<digest> را از پیش‌نمایش /import بدهید)]' \
+    '(-h --help)'{-h,--help}'[نمایش راهنما برای دستور]' \
+    '::source:(codex gemini cursor)'
 }
 
 (( $+_comps[claude] )) || compdef _claude claude
