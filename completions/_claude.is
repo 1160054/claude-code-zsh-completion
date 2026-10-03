@@ -457,7 +457,7 @@ _claude_plugin() {
     'disable:Gera virka viðbót óvirka'
     'update:Uppfæra viðbót í nýjustu útgáfu'
     'eval:Keyra eval tilvik gegn viðbót og skila stigagefnum niðurstöðum'
-    'prune:Fjarlægja sjálfvirkt uppsettar ávanabindingar sem eru ekki lengur nauðsynlegar'
+    'prune:Fjarlægja sjálfvirkt uppsetta háða pakka sem er ekki lengur þörf á'
     'autoremove:Fjarlægja sjálfvirkt uppsetta háða pakka sem er ekki lengur þörf á (samheiti fyrir prune)'
     'tag:Búa til {name}--v{version} git merki fyrir viðbótarútgáfu'
     'test:Keyra prófanir mods'
