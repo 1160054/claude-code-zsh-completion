@@ -121,6 +121,39 @@ _claude_agent_names() {
   compadd -a agents
 }
 
+_claude_background_sessions() {
+  local -a sessions state_files
+  local -A names states
+  local state_dir state_file line id rest
+
+  # Background sessions (`claude --bg`) live in <config>/jobs/<id>/, where
+  # <id> is the short id that attach, logs, stop, respawn and rm take.
+  for state_dir in ${(f)"$(_claude_state_dirs)"}; do
+    # Newest first
+    state_files=(${state_dir}/jobs/*/state.json(Nom))
+    (( ${#state_files} )) || continue
+
+    # One grep for all of them; the first "name" and "state" it reports for a
+    # file are that file's top-level ones
+    names=() states=()
+    for line in ${(f)"$(grep -HoE '"(name|state)"[[:space:]]*:[[:space:]]*"[^"]*"' $state_files 2>/dev/null)"}; do
+      id=${${line%%/state.json:*}:t}
+      rest=${line#*/state.json:}
+      case $rest in
+        \"name\"*)  [[ -z $names[$id] ]]  && names[$id]=${${rest#*:*\"}%\"} ;;
+        \"state\"*) [[ -z $states[$id] ]] && states[$id]=${${rest#*:*\"}%\"} ;;
+      esac
+    done
+
+    for state_file in $state_files; do
+      id=${state_file:h:t}
+      sessions+=("${id}:${names[$id]:-no name}${states[$id]:+ (${states[$id]})}")
+    done
+  done
+
+  _describe -t sessions 'background session' sessions
+}
+
 _claude_model_names() {
   local -a models config_files
   local state_dir config_file
@@ -155,9 +188,15 @@ _claude() {
     'mcp:Agordi kaj administri MCP-servilojn'
     'plugin:Administri Claude Code kromaĵojn'
     'agents:Administri fonajn agentojn'
+    'attach:Malfermi fonan seancon en ĉi tiu terminalo'
+    'logs:Presi la freŝan terminalan eligon de fona seanco'
+    'stop:Haltigi fonan seancon (ĝia konversacio estas konservata)'
+    'respawn:Restartigi fonan seancon por ke ĝi rulu la nunan version de Claude Code'
+    'rm:Forigi fonan seancon, kaj ĝian laborarbon kiam tio estas sekura'
     'auth:Administri aŭtentikigon'
     'auto-mode:Inspekti aŭ reagordi la agordon de la aŭtomatreĝima klasigilo'
     'gateway:Ruli la enterprezan aŭtentikigan/telemetrian kluzon'
+    'import:Importi agordon el alia AI-kodada agento en Claude Code'
     'project:Administri Claude Code projekt-staton'
     'ultrareview:Ruli nube-gastigitan pluragentan kod-revizion kaj presi la trovojn'
     'setup-token:Agordi longdaŭran aŭtentikigan ĵetonon (bezonas Claude-abonon)'
@@ -178,6 +217,7 @@ _claude() {
     '--mcp-debug[\[Malrekomendita. Uzu --debug anstataŭe\] Ŝalti MCP erarserĉan reĝimon (montras MCP-servil-erarojn)]'
     '--dangerously-skip-permissions[Preterpasi ĉiujn permesajn kontrolojn. Rekomendata nur por sablujeloj sen interreta aliro]'
     '--allow-dangerously-skip-permissions[Ebligi opcion por preterpasi permesajn kontrolojn sen ebligi defaŭlte]'
+    '--restricted[Limigita reĝimo: forigi la ilojn kiuj rulas komandojn aŭ kodon kaj WebFetch, ignori user/project/local agordojn, kaj limigi dosier-ilojn al la labor-dosierujoj]'
     '--max-budget-usd[Maksimuma dolar-sumo por elspezi je API-vokoj (--print nur)]:sumo:'
     '--replay-user-messages[Resendi uzant-mesaĝojn de stdin al stdout por konfirmo]'
     '--allowed-tools[Komo- aŭ spac-apartigita listo de permesitaj ilnomoj (ekz., "Bash(git:*) Edit")]:iloj:'
@@ -187,8 +227,13 @@ _claude() {
     '--disallowedTools[Komo- aŭ spac-apartigita listo de malpermesitaj ilnomoj (camelCase-formato)]:iloj:'
     '--mcp-config[Ŝargi MCP-servilojn el JSON-dosiero aŭ ĉeno (spac-apartigita)]:agordoj:'
     '--system-prompt[Sistema invito por uzi en seanco]:invito:'
+    '--system-prompt-file[Legi sisteman inviton el dosiero]:file:_files'
     '--append-system-prompt[Aldoni sisteman inviton al defaŭlta sistema invito]:invito:'
+    '--append-system-prompt-file[Legi sisteman inviton el dosiero kaj aldoni ĝin al la defaŭlta sistema invito]:file:_files'
+    '--system-prompt-snapshot[Registri la sisteman inviton unufoje po konversacio kaj reuzi ĝin laŭvorte ĉe ĉiu peto kaj rekomenco (on, la defaŭlto) aŭ generi ĝin freŝe ĉe ĉiu peto (off)]:mode:(on off)'
     '--permission-mode[Permesa reĝimo por uzi en seanco]:reĝimo:(acceptEdits auto bypassPermissions manual dontAsk plan)'
+    '--permission-prompts[Kiu respondas permesajn demandojn kun --print: "host" (la SDK-gastiganto aŭ --permission-prompt-tool) aŭ "none" (ĉio, kio postulus demandon, estas rifuzata)]:target:(host none)'
+    '--permission-prompt-tool[MCP-ilo por uzi por permesaj demandoj (--print nur)]:tool:'
     '(-c --continue)'{-c,--continue}'[Daŭrigi la plej freŝan konversacion]'
     '(-r --resume)'{-r,--resume}'[Rekomenci konversacion - specifi seanc-identigilon aŭ elekti interaktive]:seancID:_claude_sessions'
     '--fork-session[Krei novan seanc-identigilon anstataŭ reuzi originalan seanc-identigilon dum rekomencado (kun --resume aŭ --continue)]'
@@ -200,6 +245,7 @@ _claude() {
     '--settings[Vojo al agorda JSON-dosiero aŭ JSON-ĉeno por ŝargi pliajn agordojn]:dosiero-aŭ-json:_files'
     '--add-dir[Pliaj dosierujoj por permesi ilan aliron]:dosierujoj:_directories'
     '--ide[Aŭtomate konekti al IDE dum startigado se precize unu valida IDE estas disponebla]'
+    '--desktop[Malfermi en la Claude Desktop aplikaĵo anstataŭ en la terminalo (kun --continue aŭ --resume <id> por elekti la seancon)]'
     '--strict-mcp-config[Uzi nur MCP-servilojn el --mcp-config kaj ignori ĉiujn aliajn MCP-agordojn]'
     '--session-id[Specifa seanc-identigilo por uzi en konversacio (devas esti valida UUID)]:uuid:'
     '--agents[JSON-objekto difinanta proprajn agentojn]:json:'
@@ -208,11 +254,15 @@ _claude() {
     '--disable-slash-commands[Malŝalti ĉiujn oblikvostrekajn komandojn]'
     '(--bg --background)'{--bg,--background}'[Startigi la seancon kiel fonan agenton kaj tuj reveni]'
     '(-w --worktree)'{-w,--worktree}'[Krei novan git-laborarbon por ĉi tiu seanco (opcie specifi nomon)]::nomo:'
-    '--tmux[Krei tmux-seancon por la laborarbo (bezonas --worktree)]'
+    '--tmux=-[Krei tmux-seancon por la laborarbo (bezonas --worktree). Uzas denaskajn iTerm2-panelojn kiam disponeblaj; --tmux=classic por tradicia tmux]::mode:(classic)'
     '(-n --name)'{-n,--name}'[Agordi montran nomon por ĉi tiu seanco]:nomo:'
     '--effort[Klopod-nivelo por la nuna seanco]:nivelo:(low medium high xhigh max)'
+    '--autocompact[Fenestra grandeco por aŭtomata kompaktigo (auto, aŭ 100k-1M ĵetonoj)]:size:(auto)'
     '--debug-file[Skribi erarserĉajn protokolojn al specifa dosiervojo (implicite ŝaltas erarserĉan reĝimon)]:vojo:_files'
     '--from-pr[Rekomenci seancon ligitan al PR laŭ numero/URL, aŭ malfermi interaktivan elektilon]::valoro:'
+    '--teleport[Rekomenci teleport-seancon, opcie specifi seanc-identigilon]::session:'
+    '--cloud[Krei nuban seancon kun la donita priskribo, aŭ aliĝi al ekzistanta per seanc-identigilo aŭ claude.ai/code URL]::description-or-session:'
+    '--environment[Krei novan nuban seancon kiu ruliĝas en la donita mem-gastigita medio (ccpool_...)]:environment_id:'
     '--remote-control[Startigi interaktivan seancon kun Fora Regado ŝaltita (opcie nomita)]::nomo:'
     '--remote-control-session-name-prefix[Prefikso por aŭtomate generitaj Fora Regado seanc-nomoj]:prefikso:'
     '--chrome[Ŝalti Claude en Chrome integriĝon]'
@@ -254,6 +304,17 @@ _claude() {
         agents)
           _claude_agents
           ;;
+        attach|logs|stop|kill)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Montri helpon por komando]' \
+            '1:session:_claude_background_sessions'
+          ;;
+        respawn)
+          _claude_respawn
+          ;;
+        rm)
+          _claude_rm
+          ;;
         auth)
           _claude_auth
           ;;
@@ -262,6 +323,9 @@ _claude() {
           ;;
         gateway)
           _claude_gateway
+          ;;
+        import)
+          _claude_import
           ;;
         project)
           _claude_project
@@ -319,6 +383,9 @@ _claude_mcp() {
             '(-t --transport)'{-t,--transport}'[Transport-tipo (stdio, sse, http)]:transporto:(stdio sse http)' \
             '(-e --env)'{-e,--env}'[Agordi medivariablon (ekz., -e KEY=value)]:env:' \
             '(-H --header)'{-H,--header}'[Agordi WebSocket-kapon]:kapo:' \
+            '--client-id[OAuth-klienta identigilo por HTTP/SSE-serviloj]:clientId:' \
+            '--client-secret[Demandi pri OAuth-klienta sekreto (aŭ agordi la medivariablon MCP_CLIENT_SECRET)]' \
+            '--callback-port[Fiksa pordo por OAuth-revoko (por serviloj kiuj postulas antaŭregistritajn alidirektajn URI-ojn)]:port:' \
             '(-h --help)'{-h,--help}'[Montri helpon]' \
             '1:nomo:' \
             '2:komandoAŭUrl:' \
@@ -342,6 +409,7 @@ _claude_mcp() {
         add-json)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Agord-amplekso (local, user, project)]:amplekso:(local user project)' \
+            '--client-secret[Demandi pri OAuth-klienta sekreto (aŭ agordi la medivariablon MCP_CLIENT_SECRET)]' \
             '(-h --help)'{-h,--help}'[Montri helpon]' \
             '1:nomo:' \
             '2:json:'
@@ -355,7 +423,13 @@ _claude_mcp() {
           _arguments \
             '(-h --help)'{-h,--help}'[Montri helpon]'
           ;;
-        login|logout)
+        login)
+          _arguments \
+            '--no-browser[Presi la rajtigan URL anstataŭ malfermi retumilon (por SSH/senekranaj seancoj)]' \
+            '(-h --help)'{-h,--help}'[Montri helpon]' \
+            '1:name:_claude_mcp_servers'
+          ;;
+        logout)
           _arguments \
             '(-h --help)'{-h,--help}'[Montri helpon]' \
             '1:nomo:_claude_mcp_servers'
@@ -372,9 +446,11 @@ _claude_plugin() {
     'marketplace:Administri Claude Code merkatojn'
     'list:Listigi instalitajn kromaĵojn'
     'details:Montri komponant-inventaron kaj projekciitan ĵeton-koston por kromaĵo'
+    'configure:Montri la opciojn de kromaĵo kaj kiuj estas neagorditaj, aŭ konservi valorojn el stdin'
     'install:Instali kromaĵon el disponeblaj merkatoj'
     'i:Instali kromaĵon el disponeblaj merkatoj (mallongigo por install)'
     'init:Skafaldi novan kromaĵon (aŭtomate ŝargiĝas en sekva seanco)'
+    'new:Skafaldi novan kromaĵon (kromnomo por init)'
     'uninstall:Malinstali instalitan kromaĵon'
     'remove:Malinstali instalitan kromaĵon (kromnomo por uninstall)'
     'enable:Ŝalti malŝaltitan kromaĵon'
@@ -382,7 +458,9 @@ _claude_plugin() {
     'update:Ĝisdatigi kromaĵon al la plej freŝa versio'
     'eval:Ruli taks-kazojn kontraŭ kromaĵo kaj raporti poentitajn rezultojn'
     'prune:Forigi aŭtomate instalitajn dependecojn kiuj ne plu bezonatas'
+    'autoremove:Forigi aŭtomate instalitajn dependecojn kiuj ne plu bezonatas (kromnomo por prune)'
     'tag:Krei {name}--v{version} git-etikedon por kromaĵ-eldono'
+    'test:Ruli la testojn de modifaĵo'
     'help:Montri helpon'
   )
 
@@ -402,6 +480,8 @@ _claude_plugin() {
       case $words[1] in
         validate)
           _arguments \
+            '--strict[Trakti avertojn kiel erarojn (elir-kodo 1)]' \
+            '--json[Eligi la validigan raporton kiel JSON (samaj elir-kodoj)]' \
             '(-h --help)'{-h,--help}'[Montri helpon]' \
             '1:vojo:_files'
           ;;
@@ -411,50 +491,122 @@ _claude_plugin() {
         install|i)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Instal-amplekso]:amplekso:(user project local)' \
+            '*--config[Agordi userConfig-opcion deklaritan en la kromaĵa manifesto (ripetebla)]:key=value:' \
+            '(-y --yes)'{-y,--yes}'[Akcepti la montritan merkat-deklaritan komandon sen la konfirma demando]' \
+            '--json[Presi unu maŝinlegeblan rezult-linion anstataŭ la homa mesaĝo]' \
             '(-h --help)'{-h,--help}'[Montri helpon]' \
             '1:kromaĵo:'
           ;;
         uninstall|remove)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Instal-amplekso]:amplekso:(user project local)' \
+            '--keep-data[Konservi la persistan datum-dosierujon de la kromaĵo]' \
+            '--prune[Ankaŭ forigi aŭtomate instalitajn dependecojn kiuj ne plu bezonatas]' \
+            '(-y --yes)'{-y,--yes}'[Preterlasi la konfirman demandon de --prune]' \
+            '--json[Presi unu maŝinlegeblan rezult-linion anstataŭ la homa mesaĝo (ne kun --prune)]' \
             '(-h --help)'{-h,--help}'[Montri helpon]' \
             '1:kromaĵo:_claude_installed_plugins'
           ;;
-        enable|disable)
+        enable)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Instal-amplekso]:amplekso:(user project local)' \
+            '--json[Presi unu maŝinlegeblan rezult-linion anstataŭ la homa mesaĝo]' \
             '(-h --help)'{-h,--help}'[Montri helpon]' \
             '1:kromaĵo:_claude_installed_plugins'
+          ;;
+        disable)
+          _arguments \
+            '(-a --all)'{-a,--all}'[Malŝalti ĉiujn ŝaltitajn kromaĵojn]' \
+            '(-s --scope)'{-s,--scope}'[Instal-amplekso]:scope:(user project local)' \
+            '--json[Presi unu maŝinlegeblan rezult-linion anstataŭ la homa mesaĝo]' \
+            '(-h --help)'{-h,--help}'[Montri helpon]' \
+            '::plugin:_claude_installed_plugins'
           ;;
         update)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Instal-amplekso]:amplekso:(user project local managed)' \
+            '(-y --yes)'{-y,--yes}'[Akcepti la montritan merkat-deklaritan komandon sen la konfirma demando]' \
+            '--json[Presi unu maŝinlegeblan rezult-linion anstataŭ la homa mesaĝo]' \
             '(-h --help)'{-h,--help}'[Montri helpon]' \
             '1:kromaĵo:_claude_installed_plugins'
           ;;
-        list|prune)
+        list)
           _arguments \
+            '--json[Eligi kiel JSON]' \
+            '--available[Inkluzivi disponeblajn kromaĵojn el merkatoj (bezonas --json)]' \
             '(-h --help)'{-h,--help}'[Montri helpon]'
+          ;;
+        prune|autoremove)
+          _arguments \
+            '(-s --scope)'{-s,--scope}'[Purigi en amplekso]:scope:(user project local)' \
+            '--dry-run[Listigi kio estus forigita sen forigi]' \
+            '(-y --yes)'{-y,--yes}'[Preterlasi la konfirman demandon]' \
+            '(-h --help)'{-h,--help}'[Montri helpon]'
+          ;;
+        configure)
+          _arguments \
+            '--json[Eligi kiel JSON]' \
+            '--values-stdin[Legi opci-valorojn el stdin kiel JSON-objekton de unuliniaj ĉenoj; preterlasitaj opcioj konservas siajn valorojn]' \
+            '(-h --help)'{-h,--help}'[Montri helpon]' \
+            '1:plugin:_claude_installed_plugins'
           ;;
         details)
           _arguments \
             '(-h --help)'{-h,--help}'[Montri helpon]' \
             '1:kromaĵo:_claude_installed_plugins'
           ;;
-        init)
+        init|new)
           _arguments \
+            '--description[Manifesta priskribo]:text:' \
+            '--author[Aŭtora nomo (defaŭlto: git config user.name)]:name:' \
+            '--author-email[Aŭtora retpoŝtadreso (defaŭlto: git config user.email)]:email:' \
+            '--with[Komponantoj por skafaldi ankaŭ]:components:' \
+            '(-f --force)'{-f,--force}'[Anstataŭigi ekzistantan .claude-plugin/ ĉe la celo]' \
             '(-h --help)'{-h,--help}'[Montri helpon]' \
             '1:nomo:'
           ;;
         eval)
           _arguments \
+            '--case[Filtri kazojn laŭ nom-globŝablono]:glob:' \
+            '*--tag[Filtri kazojn laŭ etikedo (ripetebla)]:tag:' \
+            '--runs[Anstataŭigi la nombron de rulaĵoj po kazo (defaŭlto: case.runs, alie 3)]:n:' \
+            '(-j --concurrency)'{-j,--concurrency}'[Ruli ĝis n agent-rulaĵojn samtempe (1-8; defaŭlto 1)]:n:' \
+            '--model[Anstataŭigi modelon por ĉiuj kazoj]:model:_claude_model_names' \
+            '--judge-model[Anstataŭigi la modelon de la LLM-taksanto (defaŭlto: haiku)]:model:_claude_model_names' \
+            '--max-cost-usd[Strikta kosto-plafono; ĉesigi kaj raporti partajn rezultojn se atingita (elir-kodo 2)]:usd:' \
+            '--output-dir[Dosierujo por aggregate-result.json]:dir:_directories' \
+            '--eval-dir[Dosierujo-nomo (sub la kromaĵo) kiu enhavas la taks-kazojn]:dir:' \
+            '--json[Presi la plenan rulrezulton kiel JSON al stdout, aŭ skribi ĝin al ĉi tiu .json-dosiero]::path:_files' \
+            '--threshold[Eliri kun elir-kodo 1 se iu kaz-poentaro estas sub ĉi tiu sojlo (defaŭlto: 1.0)]:threshold:' \
+            '*--allow-tools[Operatora permeso por baritaj iloj (Bash, Write, Edit, WebFetch, mcp__*)]:tools:' \
+            '(--no-scaffold)--scaffold[Ruli la scaffold_script de ĉiu kazo (rulas aŭtor-liveritan bash en via nomo; defaŭlte malŝaltita)]' \
+            '(--scaffold)--no-scaffold[Eksplicite preterlasi scaffold_script]' \
+            '--trust-plugin[Aserti ke vi fidas ĉi tiun kromaĵon kaj ĝian taks-aron, preterlasante la unuarulan fido-demandon (por CI)]' \
+            '--ablation[Ruli senkromaĵan bazlinian kontrolgrupon kaj raporti la poentar-diferencon]:mode:(none with-without)' \
+            '--mocks[Imitaĵaj anstataŭantoj por MCP-serviloj, el <eval dir>/mocks/]:mode:(record off)' \
+            '--allow-real-servers[Kun --mocks record: ankaŭ startigi la verajn MCP-servilajn procezojn kiuj ne havas imitaĵon]' \
+            '--keep-temp[Konservi skafald-dosierujojn por erarserĉado]' \
+            '--verbose[Protokoli po-mesaĝajn spur-eventojn en la erarserĉan protokolon]' \
+            '--report[Skribi la memstaran HTML-raporton al ĉi tiu vojo anstataŭ al la rezult-dosierujo]:path:_files' \
+            '(--no-publish)--publish-report[Ankaŭ postuli publikigon de la raporto al claude.ai]' \
+            '(--publish-report)--no-publish[Teni la HTML-raporton nur loke; preterlasi ĝian publikigon al claude.ai]' \
             '(-h --help)'{-h,--help}'[Montri helpon]' \
-            '1:celo:'
+            '::target: _alternative "plugins\:installed plugin\:_claude_installed_plugins" "files\:path\:_files"'
           ;;
         tag)
           _arguments \
+            '--push[Puŝi la etikedon al --remote post ĝia kreado]' \
+            '--dry-run[Presi kio estus etikedita sen krei ĝin]' \
+            '(-f --force)'{-f,--force}'[Preterlasi la kontrolojn pri malpura labor-arbo kaj jam ekzistanta etikedo]' \
+            '(-m --message)'{-m,--message}'[Etiked-komenta mesaĝo (uzu %s por la versio)]:msg:' \
+            '--remote[Fora deponejo al kiu puŝi kun --push]:name:' \
             '(-h --help)'{-h,--help}'[Montri helpon]' \
-            '1:vojo:_files'
+            '::path:_files'
+          ;;
+        test)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Montri helpon]' \
+            '::dir:_directories'
           ;;
       esac
       ;;
@@ -488,15 +640,20 @@ _claude_plugin_marketplace() {
       case $words[1] in
         add)
           _arguments \
+            '--sparse[Limigi elprenon al specifaj dosierujoj per git sparse-checkout (por monodeponejoj)]:paths:' \
+            '--scope[Kie deklari la merkaton]:scope:(user project local)' \
+            '--claudeai[Aldoni la merkaton kun ĉi tiu nomo, kiun claude.ai gastigas por vi]' \
             '(-h --help)'{-h,--help}'[Montri helpon]' \
             '1:fonto:'
           ;;
         list)
           _arguments \
+            '--json[Eligi kiel JSON]' \
             '(-h --help)'{-h,--help}'[Montri helpon]'
           ;;
         remove|rm)
           _arguments \
+            '--scope[Forigi la merkat-deklaron el specifa agord-amplekso (preterlasi por forigi ĝin el ĉiu amplekso)]:scope:(user project local)' \
             '(-h --help)'{-h,--help}'[Montri helpon]' \
             '1:nomo:'
           ;;
@@ -534,6 +691,7 @@ _claude_agents() {
     '--setting-sources[Komo-apartigita listo de agord-fontoj por ŝargi (user, project, local)]:fontoj:' \
     '--settings[Agorda dosiero aŭ JSON-ĉeno por apliki]:dosiero-aŭ-json:_files' \
     '--strict-mcp-config[Uzi nur MCP-servilojn el --mcp-config en senditaj seancoj]' \
+    '--restricted[Startigi senditajn seancojn en limigita reĝimo]' \
     '(-h --help)'{-h,--help}'[Montri helpon por komando]'
 }
 
@@ -560,7 +718,21 @@ _claude_auth() {
       ;;
     args)
       case $words[1] in
-        login|logout|status)
+        login)
+          _arguments \
+            '--email[Antaŭplenigi retpoŝtadreson sur la ensaluta paĝo]:email:' \
+            '--sso[Devigi SSO-ensalutan fluon]' \
+            '(--claudeai)--console[Uzi Anthropic Console (fakturado laŭ API-uzo) anstataŭ Claude-abono]' \
+            '(--console)--claudeai[Uzi Claude-abonon (defaŭlto)]' \
+            '(-h --help)'{-h,--help}'[Montri helpon por komando]'
+          ;;
+        status)
+          _arguments \
+            '(--text)--json[Eligi kiel JSON (defaŭlto)]' \
+            '(--json)--text[Eligi kiel homlegeblan tekston]' \
+            '(-h --help)'{-h,--help}'[Montri helpon por komando]'
+          ;;
+        logout)
           _arguments \
             '(-h --help)'{-h,--help}'[Montri helpon por komando]'
           ;;
@@ -593,7 +765,22 @@ _claude_auto_mode() {
       ;;
     args)
       case $words[1] in
-        config|critique|defaults|reset)
+        critique)
+          _arguments \
+            '--model[Anstataŭigi kiu modelo estas uzata]:model:_claude_model_names' \
+            '(-h --help)'{-h,--help}'[Montri helpon por komando]'
+          ;;
+        defaults)
+          _arguments \
+            '--label[Montri nur regulojn kies etikedo komenciĝas per ĉi tiu prefikso (usklecoblinde)]:prefix:' \
+            '(-h --help)'{-h,--help}'[Montri helpon por komando]'
+          ;;
+        reset)
+          _arguments \
+            '(-y --yes)'{-y,--yes}'[Preterlasi la konfirman demandon]' \
+            '(-h --help)'{-h,--help}'[Montri helpon por komando]'
+          ;;
+        config)
           _arguments \
             '(-h --help)'{-h,--help}'[Montri helpon por komando]'
           ;;
@@ -631,8 +818,12 @@ _claude_project() {
       case $words[1] in
         purge)
           _arguments \
+            '--dry-run[Listigi kio estus forigita sen forigi ion ajn]' \
+            '(-y --yes)'{-y,--yes}'[Preterlasi la konfirman demandon]' \
+            '(-i --interactive)'{-i,--interactive}'[Demandi pri ĉiu ero antaŭ forigo]' \
+            '(1)--all[Forviŝi staton por ĉiu projekto (reciproke ekskluziva kun vojo)]' \
             '(-h --help)'{-h,--help}'[Montri helpon por komando]' \
-            '1:vojo:_directories'
+            '(--all)::path:_directories'
           ;;
       esac
       ;;
@@ -642,9 +833,34 @@ _claude_project() {
 _claude_ultrareview() {
   _arguments \
     '--json[Presi la krudan bugs.json ŝarĝon anstataŭ formatitaj trovoj]' \
-    '--timeout[Maksimumaj minutoj por atendi ke la revizio finiĝu]:minutoj:' \
+    '--timeout[Maksimumaj minutoj por atendi ke la revizio finiĝu (defaŭlto: 45)]:minutes:' \
+    '(--no-post)--post[Afiŝi la trovojn de la finita revizio al la PR en via nomo (nur PR-celoj; unu simpla komento, ne revizio)]' \
+    '(--post)--no-post[Ne afiŝi la trovojn al la PR (la defaŭlto)]' \
     '(-h --help)'{-h,--help}'[Montri helpon por komando]' \
     '1:celo:'
+}
+
+_claude_respawn() {
+  _arguments \
+    '(1)--all[Restartigi ĉiun ruliĝantan fonan seancon]' \
+    '(-h --help)'{-h,--help}'[Montri helpon por komando]' \
+    '(--all)::session:_claude_background_sessions'
+}
+
+_claude_rm() {
+  _arguments \
+    '--discard-unpushed[Ankaŭ forĵeti la nepuŝitajn enmetojn kaj neenmetitajn ŝanĝojn de la laborarbo (transdoni la commit@worktree-id, kiun antaŭa claude rm raportis)]:commit@worktree-id:' \
+    '--force-remove-worktree[Forigi la laborarban dosierujon eĉ se la WorktreeRemove-hoko aŭ git ne povis forigi ĝin (transdoni la worktree-id, kiun antaŭa claude rm raportis)]:worktree-id:' \
+    '(-h --help)'{-h,--help}'[Montri helpon por komando]' \
+    '1:session:_claude_background_sessions'
+}
+
+_claude_import() {
+  _arguments \
+    '--dry-run[Montri kio estus importita sen skribi ion ajn]' \
+    '--yes[Preterlasi la interaktivan elektilon (ĉe senekranaj medioj, transdoni --yes=<digest> el la /import antaŭrigardo)]' \
+    '(-h --help)'{-h,--help}'[Montri helpon por komando]' \
+    '::source:(codex gemini cursor)'
 }
 
 (( $+_comps[claude] )) || compdef _claude claude
