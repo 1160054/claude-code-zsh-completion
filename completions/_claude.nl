@@ -83,11 +83,18 @@ _claude_sessions() {
         uuid=${session_file:t:r}
         [[ $uuid == [0-9a-f](#c8)-[0-9a-f](#c4)-[0-9a-f](#c4)-[0-9a-f](#c4)-[0-9a-f](#c12) ]] || continue
 
-        # Describe each session with the first thing you typed in it. Only the
-        # head of the transcript is read - these files grow into the megabytes.
-        summary=$(head -c 200000 "$session_file" 2>/dev/null | \
-          grep -m 1 -o '"role":"user","content":"[^"]\{1,60\}' 2>/dev/null | \
-          sed 's/.*"content":"//; s/\\n/ /g; s/\\*$//')
+        # Describe each session by the name it was given (/rename or --name),
+        # else by the first thing you typed in it. A name is appended near the
+        # end of the transcript and the first message sits at the start, so
+        # only those ends are read - these files grow into the megabytes.
+        summary=$(tail -c 100000 "$session_file" 2>/dev/null | \
+          grep -o '"customTitle":"[^"]*"' 2>/dev/null | tail -1 | \
+          sed 's/^"customTitle":"//; s/"$//')
+        if [[ -z $summary ]]; then
+          summary=$(head -c 200000 "$session_file" 2>/dev/null | \
+            grep -m 1 -o '"role":"user","content":"[^"]\{1,60\}' 2>/dev/null | \
+            sed 's/.*"content":"//; s/\\n/ /g; s/\\*$//')
+        fi
         sessions+=("${uuid}:${summary:-no description}")
       done
     done
