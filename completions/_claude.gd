@@ -121,6 +121,39 @@ _claude_agent_names() {
   compadd -a agents
 }
 
+_claude_background_sessions() {
+  local -a sessions state_files
+  local -A names states
+  local state_dir state_file line id rest
+
+  # Background sessions (`claude --bg`) live in <config>/jobs/<id>/, where
+  # <id> is the short id that attach, logs, stop, respawn and rm take.
+  for state_dir in ${(f)"$(_claude_state_dirs)"}; do
+    # Newest first
+    state_files=(${state_dir}/jobs/*/state.json(Nom))
+    (( ${#state_files} )) || continue
+
+    # One grep for all of them; the first "name" and "state" it reports for a
+    # file are that file's top-level ones
+    names=() states=()
+    for line in ${(f)"$(grep -HoE '"(name|state)"[[:space:]]*:[[:space:]]*"[^"]*"' $state_files 2>/dev/null)"}; do
+      id=${${line%%/state.json:*}:t}
+      rest=${line#*/state.json:}
+      case $rest in
+        \"name\"*)  [[ -z $names[$id] ]]  && names[$id]=${${rest#*:*\"}%\"} ;;
+        \"state\"*) [[ -z $states[$id] ]] && states[$id]=${${rest#*:*\"}%\"} ;;
+      esac
+    done
+
+    for state_file in $state_files; do
+      id=${state_file:h:t}
+      sessions+=("${id}:${names[$id]:-no name}${states[$id]:+ (${states[$id]})}")
+    done
+  done
+
+  _describe -t sessions 'background session' sessions
+}
+
 _claude_model_names() {
   local -a models config_files
   local state_dir config_file
@@ -155,9 +188,15 @@ _claude() {
     'mcp:Rèitich agus stiùir frithealaichean MCP'
     'plugin:Stiùir plugain Claude Code'
     'agents:Stiùir àidseantan cùil'
+    'attach:Fosgail seisean cùil san tèirmineal seo'
+    'logs:Clò-bhuail an toradh tèirmineil o chionn ghoirid aig seisean cùil'
+    'stop:Cuir stad air seisean cùil (thèid an còmhradh aige a ghleidheadh)'
+    'respawn:Ath-thòisich seisean cùil gus an ruith e an tionndadh làithreach de Claude Code'
+    'rm:Sguab às seisean cùil, agus a chraobh-obrach nuair a tha sin sàbhailte'
     'auth:Stiùir dearbhadh'
     'auto-mode:Sgrùd no ath-shuidhich rèiteachadh seòrsaiche modh fèin-obrachaidh'
     'gateway:Ruith an geata dearbhaidh/cian-thomhais fiosrachaidh na h-iomairt'
+    'import:Ion-phortaich rèiteachadh bho àidseant còdaidh IF eile a-steach do Claude Code'
     'project:Stiùir staid pròiseact Claude Code'
     'ultrareview:Ruith lèirmheas còd ioma-àidseant air a òstadh sa neul agus clò-bhuail na toraidhean'
     'setup-token:Suidhich tòcan dearbhaidh fad-ùine (feumaidh fo-sgrìobhadh Claude)'
@@ -178,6 +217,7 @@ _claude() {
     '--mcp-debug[\[Air a dhì-mholadh. Cleachd --debug an àite sin\] Cuir an comas modh dì-bhugachaidh MCP (seall mearachdan frithealaiche MCP)]'
     '--dangerously-skip-permissions[Seachain gach sgrùdadh cead. A-mhàin air a mholadh airson bogsaichean-gainmhich gun inntrigeadh eadar-lìn]'
     '--allow-dangerously-skip-permissions[Ceadaich roghainn gus sgrùdaidhean cead a sheachnadh gun a chur an comas mar roghainn bhunaiteach]'
+    '--restricted[Modh cuingichte: thoir air falbh na h-innealan a ruitheas àitheantan no còd agus WebFetch, leig seachad roghainnean user/project/local, agus cuingich innealan faidhle ris na h-eòlairean obrach]'
     '--max-budget-usd[An t-suim dolar as motha ri chosg air gairmean API (--print a-mhàin)]:suim:'
     '--replay-user-messages[Ath-chuir teachdaireachdan cleachdaiche bho stdin air stdout airson dearbhadh]'
     '--allowed-tools[Liosta air a sgaradh le cromag no àite de dh'\''ainmean innealan a tha ceadaichte (m.e., "Bash(git:*) Edit")]:innealan:'
@@ -187,8 +227,13 @@ _claude() {
     '--disallowedTools[Liosta air a sgaradh le cromag no àite de dh'\''ainmean innealan nach eil ceadaichte (cruth camelCase)]:innealan:'
     '--mcp-config[Luchdaich frithealaichean MCP bho fhaidhle JSON no sreang JSON (air a sgaradh le àite)]:rèiteachaidhean:'
     '--system-prompt[Brosnachadh siostam airson a chleachdadh airson an t-seisein]:brosnachadh:'
+    '--system-prompt-file[Leugh brosnachadh siostam bho fhaidhle]:file:_files'
     '--append-system-prompt[Cuir brosnachadh siostam ris a'\'' bhrosnachadh siostam bhunaiteach]:brosnachadh:'
+    '--append-system-prompt-file[Leugh brosnachadh siostam bho fhaidhle agus cuir ris a'\'' bhrosnachadh siostam bhunaiteach e]:file:_files'
+    '--system-prompt-snapshot[Clàraich am brosnachadh siostam aon turas gach còmhradh agus ath-chleachd e facal air an fhacal air gach iarrtas agus ath-thòiseachadh (on, an roghainn bhunaiteach) no cruthaich às ùr e air gach iarrtas (off)]:mode:(on off)'
     '--permission-mode[Modh cead airson a chleachdadh airson an t-seisein]:modh:(acceptEdits auto bypassPermissions manual dontAsk plan)'
+    '--permission-prompts[Cò a fhreagras brosnachaidhean cead le --print: "host" (an t-òstair SDK no --permission-prompt-tool) no "none" (thèid rud sam bith a dh'\''iarradh cead a dhiùltadh)]:target:(host none)'
+    '--permission-prompt-tool[Inneal MCP ri chleachdadh airson brosnachaidhean cead (--print a-mhàin)]:tool:'
     '(-c --continue)'{-c,--continue}'[Lean air adhart leis a'\'' chòmhradh as ùire]'
     '(-r --resume)'{-r,--resume}'[Ath-thòisich còmhradh - sònraich ID seisein no tagh gu h-eadar-ghnìomhach]:IDseisein:_claude_sessions'
     '--fork-session[Cruthaich ID seisein ùr an àite ID seisein tùsail ath-chleachdadh nuair a thòisicheas tu a-rithist (le --resume no --continue)]'
@@ -200,6 +245,7 @@ _claude() {
     '--settings[Slighe gu faidhle JSON roghainnean no sreang JSON gus roghainnean a bharrachd a luchdachadh]:faidhle-no-json:_files'
     '--add-dir[Eòlaireann a bharrachd gus cead inntrigidh innealan]:eòlaireann:_directories'
     '--ide[Fèin-cheangail ri IDE aig toiseach tòiseachaidh ma tha dìreach aon IDE dligheach ri fhaighinn]'
+    '--desktop[Fosgail san aplacaid Claude Desktop an àite an tèirmineil (le --continue no --resume <id> gus an seisean a thaghadh)]'
     '--strict-mcp-config[Cleachd dìreach frithealaichean MCP bho --mcp-config agus leig seachad gach roghainn MCP eile]'
     '--session-id[ID seisein sònraichte airson a chleachdadh airson a'\'' chòmhraidh (feumaidh e bhith na UUID dligheach)]:uuid:'
     '--agents[Nì JSON a mhìnicheas àidseantan gnàthaichte]:json:'
@@ -208,11 +254,15 @@ _claude() {
     '--disable-slash-commands[Cuir à comas gach àithne slais]'
     '(--bg --background)'{--bg,--background}'[Tòisich an seisean mar àidseant cùil agus till sa bhad]'
     '(-w --worktree)'{-w,--worktree}'[Cruthaich craobh-obrach git ùr airson an t-seisein seo (sònraich ainm gu roghainneil)]::ainm:'
-    '--tmux[Cruthaich seisean tmux airson na craoibh-obrach (feumaidh --worktree)]'
+    '--tmux=-[Cruthaich seisean tmux airson na craoibh-obrach (feumaidh --worktree). Cleachdaidh e leòsain dhùthchasach iTerm2 nuair a bhios iad ri fhaighinn; --tmux=classic airson tmux traidiseanta]::mode:(classic)'
     '(-n --name)'{-n,--name}'[Suidhich ainm-taisbeanaidh airson an t-seisein seo]:ainm:'
     '--effort[Ìre oidhirp airson an t-seisein làithreach]:ìre:(low medium high xhigh max)'
+    '--autocompact[Meud uinneag an fhèin-dhùmhlachaidh (auto, no 100k-1M tòcan)]:size:(auto)'
     '--debug-file[Sgrìobh logaichean dì-bhugachaidh gu slighe faidhle sònraichte (cuiridh e an comas modh dì-bhugachaidh gu fillte)]:slighe:_files'
     '--from-pr[Ath-thòisich seisean ceangailte ri PR a rèir àireamh/URL, no fosgail roghnaichear eadar-ghnìomhach]::luach:'
+    '--teleport[Ath-thòisich seisean teleport, sònraich ID seisein gu roghainneil]::session:'
+    '--cloud[Cruthaich seisean neòil leis an tuairisgeul a chaidh a thoirt, no ceangail ri seisean a tha ann mu thràth a rèir ID seisein no URL claude.ai/code]::description-or-session:'
+    '--environment[Cruthaich seisean neòil ùr a ruitheas air an àrainneachd fèin-òstaichte a chaidh a thoirt (ccpool_...)]:environment_id:'
     '--remote-control[Tòisich seisean eadar-ghnìomhach le Smachd Cèin an comas (ainmichte gu roghainneil)]::ainm:'
     '--remote-control-session-name-prefix[Ro-leasachan airson ainmean seisein Smachd Cèin fèin-ghinte]:ro-leasachan:'
     '--chrome[Cuir an comas amalachadh Claude ann an Chrome]'
@@ -254,6 +304,17 @@ _claude() {
         agents)
           _claude_agents
           ;;
+        attach|logs|stop|kill)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Seall cobhair airson àithne]' \
+            '1:session:_claude_background_sessions'
+          ;;
+        respawn)
+          _claude_respawn
+          ;;
+        rm)
+          _claude_rm
+          ;;
         auth)
           _claude_auth
           ;;
@@ -262,6 +323,9 @@ _claude() {
           ;;
         gateway)
           _claude_gateway
+          ;;
+        import)
+          _claude_import
           ;;
         project)
           _claude_project
@@ -319,6 +383,9 @@ _claude_mcp() {
             '(-t --transport)'{-t,--transport}'[Seòrsa còmhdhail (stdio, sse, http)]:còmhdhail:(stdio sse http)' \
             '(-e --env)'{-e,--env}'[Suidhich caochladair àrainneachd (m.e., -e KEY=value)]:env:' \
             '(-H --header)'{-H,--header}'[Suidhich bann-cinn WebSocket]:bann-cinn:' \
+            '--client-id[ID cliant OAuth airson frithealaichean HTTP/SSE]:clientId:' \
+            '--client-secret[Iarr rùn cliant OAuth (no suidhich an caochladair àrainneachd MCP_CLIENT_SECRET)]' \
+            '--callback-port[Port suidhichte airson ais-ghairm OAuth (airson frithealaichean a dh'\''fheumas URIan ath-stiùiridh ro-chlàraichte)]:port:' \
             '(-h --help)'{-h,--help}'[Seall cobhair]' \
             '1:ainm:' \
             '2:àithneNoUrl:' \
@@ -342,6 +409,7 @@ _claude_mcp() {
         add-json)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Sgòp rèiteachaidh (local, user, project)]:sgòp:(local user project)' \
+            '--client-secret[Iarr rùn cliant OAuth (no suidhich an caochladair àrainneachd MCP_CLIENT_SECRET)]' \
             '(-h --help)'{-h,--help}'[Seall cobhair]' \
             '1:ainm:' \
             '2:json:'
@@ -355,7 +423,13 @@ _claude_mcp() {
           _arguments \
             '(-h --help)'{-h,--help}'[Seall cobhair]'
           ;;
-        login|logout)
+        login)
+          _arguments \
+            '--no-browser[Clò-bhuail an URL ùghdarrachaidh an àite brabhsair fhosgladh (airson seiseanan SSH/gun cheann)]' \
+            '(-h --help)'{-h,--help}'[Seall cobhair]' \
+            '1:name:_claude_mcp_servers'
+          ;;
+        logout)
           _arguments \
             '(-h --help)'{-h,--help}'[Seall cobhair]' \
             '1:ainm:_claude_mcp_servers'
@@ -372,9 +446,11 @@ _claude_plugin() {
     'marketplace:Stiùir margaidhean Claude Code'
     'list:Liostaich plugain air an stàladh'
     'details:Seall clàr-tasgaidh cho-phàirtean agus cosgais tòcan ro-mheasta airson plugan'
+    'configure:Seall roghainnean plugain agus an fheadhainn nach deach a shuidheachadh, no sàbhail luachan bho stdin'
     'install:Stàlaich plugan bho mhargaidhean ri fhaighinn'
     'i:Stàlaich plugan bho mhargaidhean ri fhaighinn (geàrr-slighe airson install)'
     'init:Sgafall plugan ùr (fèin-luchdachadh san ath sheisean)'
+    'new:Sgafall plugan ùr (ainm eile airson init)'
     'uninstall:Dì-stàlaich plugan air a stàladh'
     'remove:Dì-stàlaich plugan air a stàladh (ainm eile airson uninstall)'
     'enable:Cuir an comas plugan air a chur à comas'
@@ -382,7 +458,9 @@ _claude_plugin() {
     'update:Ùraich plugan chun tionndaidh as ùire'
     'eval:Ruith cùisean measaidh an aghaidh plugan agus aithris toraidhean le sgòr'
     'prune:Thoir air falbh eisimeileachdan fèin-stàlaichte nach eil a dhìth tuilleadh'
+    'autoremove:Thoir air falbh eisimeileachdan fèin-stàlaichte nach eil a dhìth tuilleadh (ainm eile airson prune)'
     'tag:Cruthaich taga git {name}--v{version} airson sgaoileadh plugan'
+    'test:Ruith deuchainnean mod'
     'help:Seall cobhair'
   )
 
@@ -402,6 +480,8 @@ _claude_plugin() {
       case $words[1] in
         validate)
           _arguments \
+            '--strict[Dèilig ri rabhaidhean mar mhearachdan (còd fàgail 1)]' \
+            '--json[Cuir a-mach an aithisg dhearbhaidh mar JSON (na h-aon chòdan fàgail)]' \
             '(-h --help)'{-h,--help}'[Seall cobhair]' \
             '1:slighe:_files'
           ;;
@@ -411,50 +491,122 @@ _claude_plugin() {
         install|i)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Sgòp stàlaidh]:sgòp:(user project local)' \
+            '*--config[Suidhich roghainn userConfig a chaidh a ghairm ann am manifest a'\'' phlugain (ath-dhèante)]:key=value:' \
+            '(-y --yes)'{-y,--yes}'[Gabh ris an àithne a chaidh a ghairm leis a'\'' mhargadh '\''s a tha ga sealltainn gun bhrosnachadh dearbhaidh]' \
+            '--json[Clò-bhuail aon loidhne toraidh a ghabhas leughadh le inneal an àite na teachdaireachd daonna]' \
             '(-h --help)'{-h,--help}'[Seall cobhair]' \
             '1:plugan:'
           ;;
         uninstall|remove)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Sgòp stàlaidh]:sgòp:(user project local)' \
+            '--keep-data[Glèidh eòlaire dàta maireannach a'\'' phlugain]' \
+            '--prune[Thoir air falbh cuideachd eisimeileachdan fèin-stàlaichte nach eil a dhìth tuilleadh]' \
+            '(-y --yes)'{-y,--yes}'[Leum thairis air brosnachadh dearbhaidh --prune]' \
+            '--json[Clò-bhuail aon loidhne toraidh a ghabhas leughadh le inneal an àite na teachdaireachd daonna (chan ann le --prune)]' \
             '(-h --help)'{-h,--help}'[Seall cobhair]' \
             '1:plugan:_claude_installed_plugins'
           ;;
-        enable|disable)
+        enable)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Sgòp stàlaidh]:sgòp:(user project local)' \
+            '--json[Clò-bhuail aon loidhne toraidh a ghabhas leughadh le inneal an àite na teachdaireachd daonna]' \
             '(-h --help)'{-h,--help}'[Seall cobhair]' \
             '1:plugan:_claude_installed_plugins'
+          ;;
+        disable)
+          _arguments \
+            '(-a --all)'{-a,--all}'[Cuir à comas gach plugan a tha an comas]' \
+            '(-s --scope)'{-s,--scope}'[Sgòp stàlaidh]:scope:(user project local)' \
+            '--json[Clò-bhuail aon loidhne toraidh a ghabhas leughadh le inneal an àite na teachdaireachd daonna]' \
+            '(-h --help)'{-h,--help}'[Seall cobhair]' \
+            '::plugin:_claude_installed_plugins'
           ;;
         update)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Sgòp stàlaidh]:sgòp:(user project local managed)' \
+            '(-y --yes)'{-y,--yes}'[Gabh ris an àithne a chaidh a ghairm leis a'\'' mhargadh '\''s a tha ga sealltainn gun bhrosnachadh dearbhaidh]' \
+            '--json[Clò-bhuail aon loidhne toraidh a ghabhas leughadh le inneal an àite na teachdaireachd daonna]' \
             '(-h --help)'{-h,--help}'[Seall cobhair]' \
             '1:plugan:_claude_installed_plugins'
           ;;
-        list|prune)
+        list)
           _arguments \
+            '--json[Cuir a-mach mar JSON]' \
+            '--available[Gabh a-steach plugain ri fhaighinn bho mhargaidhean (feumaidh --json)]' \
             '(-h --help)'{-h,--help}'[Seall cobhair]'
+          ;;
+        prune|autoremove)
+          _arguments \
+            '(-s --scope)'{-s,--scope}'[Bearr aig sgòp]:scope:(user project local)' \
+            '--dry-run[Liostaich na rachadh a thoirt air falbh gun a thoirt air falbh]' \
+            '(-y --yes)'{-y,--yes}'[Leum thairis air a'\'' bhrosnachadh dearbhaidh]' \
+            '(-h --help)'{-h,--help}'[Seall cobhair]'
+          ;;
+        configure)
+          _arguments \
+            '--json[Cuir a-mach mar JSON]' \
+            '--values-stdin[Leugh luachan roghainn bho stdin mar nì JSON de shreangan aon-loidhne; cumaidh roghainnean a chaidh fhàgail às an luachan]' \
+            '(-h --help)'{-h,--help}'[Seall cobhair]' \
+            '1:plugin:_claude_installed_plugins'
           ;;
         details)
           _arguments \
             '(-h --help)'{-h,--help}'[Seall cobhair]' \
             '1:plugan:_claude_installed_plugins'
           ;;
-        init)
+        init|new)
           _arguments \
+            '--description[Tuairisgeul a'\'' mhanifest]:text:' \
+            '--author[Ainm an ùghdair (roghainn bhunaiteach: git config user.name)]:name:' \
+            '--author-email[Post-d an ùghdair (roghainn bhunaiteach: git config user.email)]:email:' \
+            '--with[Co-phàirtean ri sgafall cuideachd]:components:' \
+            '(-f --force)'{-f,--force}'[Sgrìobh thairis air .claude-plugin/ a tha ann mu thràth aig an targaid]' \
             '(-h --help)'{-h,--help}'[Seall cobhair]' \
             '1:ainm:'
           ;;
         eval)
           _arguments \
+            '--case[Sìolaidh cùisean a rèir glob ainm]:glob:' \
+            '*--tag[Sìolaidh cùisean a rèir taga (ath-dhèante)]:tag:' \
+            '--runs[Tar-àithn an àireamh de ruithean gach cùis (roghainn bhunaiteach: case.runs, no 3 mura h-eil)]:n:' \
+            '(-j --concurrency)'{-j,--concurrency}'[Ruith suas ri n ruithean àidseant aig an aon àm (1-8; roghainn bhunaiteach 1)]:n:' \
+            '--model[Tar-àithn am modail airson gach cùis]:model:_claude_model_names' \
+            '--judge-model[Tar-àithn modail a'\'' ghrèidiche LLM (roghainn bhunaiteach: haiku)]:model:_claude_model_names' \
+            '--max-cost-usd[Mullach cosgais teann; sguir dheth agus aithris toraidhean pàirteach ma ruigear e (còd fàgail 2)]:usd:' \
+            '--output-dir[Eòlaire airson aggregate-result.json]:dir:_directories' \
+            '--eval-dir[Ainm an eòlaire (fon phlugan) anns a bheil na cùisean measaidh]:dir:' \
+            '--json[Clò-bhuail toradh slàn na ruith mar JSON gu stdout, no sgrìobh e dhan fhaidhle .json seo]::path:_files' \
+            '--threshold[Fàg le còd fàgail 1 ma tha sgòr cùis sam bith fon stairsneach seo (roghainn bhunaiteach: 1.0)]:threshold:' \
+            '*--allow-tools[Ceadachadh gnìomhaiche airson innealan fo gheata (Bash, Write, Edit, WebFetch, mcp__*)]:tools:' \
+            '(--no-scaffold)--scaffold[Ruith scaffold_script gach cùis (ruithidh e bash a thug an t-ùghdar seachad fon chunntas agad fhèin; dheth mar roghainn bhunaiteach)]' \
+            '(--scaffold)--no-scaffold[Leum thairis air scaffold_script gu soilleir]' \
+            '--trust-plugin[Dearbh gu bheil earbsa agad sa phlugan seo agus san t-sreath mheasaidh aige, a'\'' leum thairis air brosnachadh earbsa a'\'' chiad ruith (airson CI)]' \
+            '--ablation[Ruith buidheann coimeasaidh bun-loidhne gun phlugan agus aithris an diofar sgòir]:mode:(none with-without)' \
+            '--mocks[Riochdairean brèige an àite frithealaichean MCP, bho <eval dir>/mocks/]:mode:(record off)' \
+            '--allow-real-servers[Le --mocks record: tòisich cuideachd na pròiseasan frithealaiche MCP fìor aig nach eil riochdaire brèige]' \
+            '--keep-temp[Glèidh eòlairean an sgafaill airson dì-bhugachadh]' \
+            '--verbose[Clàraich tachartasan lorg gach teachdaireachd gu loga an dì-bhugachaidh]' \
+            '--report[Sgrìobh an aithisg HTML fhèin-ghlèidhte dhan t-slighe seo an àite eòlaire nan toraidhean]:path:_files' \
+            '(--no-publish)--publish-report[Iarr cuideachd gun tèid an aithisg fhoillseachadh air claude.ai]' \
+            '(--publish-report)--no-publish[Cùm an aithisg HTML ionadail a-mhàin; leum thairis air a foillseachadh air claude.ai]' \
             '(-h --help)'{-h,--help}'[Seall cobhair]' \
-            '1:targaid:'
+            '::target: _alternative "plugins\:installed plugin\:_claude_installed_plugins" "files\:path\:_files"'
           ;;
         tag)
           _arguments \
+            '--push[Brùth an taga gu --remote às dèidh a chruthachadh]' \
+            '--dry-run[Clò-bhuail na rachadh a thagadh gun a chruthachadh]' \
+            '(-f --force)'{-f,--force}'[Leum thairis air na sgrùdaidhean craobh-obrach shalach agus taga a tha ann mu thràth]' \
+            '(-m --message)'{-m,--message}'[Teachdaireachd nòtachaidh an taga (cleachd %s airson an tionndaidh)]:msg:' \
+            '--remote[An t-ionad cèin gus brùthadh thuige le --push]:name:' \
             '(-h --help)'{-h,--help}'[Seall cobhair]' \
-            '1:slighe:_files'
+            '::path:_files'
+          ;;
+        test)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Seall cobhair]' \
+            '::dir:_directories'
           ;;
       esac
       ;;
@@ -488,15 +640,20 @@ _claude_plugin_marketplace() {
       case $words[1] in
         add)
           _arguments \
+            '--sparse[Cuingich an checkout ri eòlairean sònraichte le git sparse-checkout (airson monorepos)]:paths:' \
+            '--scope[Càite an tèid am margadh a ghairm]:scope:(user project local)' \
+            '--claudeai[Cuir ris am margadh leis an ainm seo a tha claude.ai ag òstadh dhut]' \
             '(-h --help)'{-h,--help}'[Seall cobhair]' \
             '1:tùs:'
           ;;
         list)
           _arguments \
+            '--json[Cuir a-mach mar JSON]' \
             '(-h --help)'{-h,--help}'[Seall cobhair]'
           ;;
         remove|rm)
           _arguments \
+            '--scope[Thoir air falbh gairm a'\'' mhargaidh bho sgòp roghainnean sònraichte (fàg às gus a thoirt air falbh bho gach sgòp)]:scope:(user project local)' \
             '(-h --help)'{-h,--help}'[Seall cobhair]' \
             '1:ainm:'
           ;;
@@ -534,6 +691,7 @@ _claude_agents() {
     '--setting-sources[Liosta air a sgaradh le cromag de thùsan roghainnean ri luchdachadh (user, project, local)]:tùsan:' \
     '--settings[Faidhle roghainnean no sreang JSON ri chur an sàs]:faidhle-no-json:_files' \
     '--strict-mcp-config[Cleachd a-mhàin frithealaichean MCP bho --mcp-config ann an seiseanan air an cur a-mach]' \
+    '--restricted[Tòisich seiseanan air an cur a-mach ann am modh cuingichte]' \
     '(-h --help)'{-h,--help}'[Seall cobhair airson àithne]'
 }
 
@@ -560,7 +718,21 @@ _claude_auth() {
       ;;
     args)
       case $words[1] in
-        login|logout|status)
+        login)
+          _arguments \
+            '--email[Ro-lìon an seòladh post-d air duilleag a'\'' chlàraidh a-steach]:email:' \
+            '--sso[Sparr sruth clàraidh a-steach SSO]' \
+            '(--claudeai)--console[Cleachd Anthropic Console (bileachadh cleachdadh API) an àite fo-sgrìobhadh Claude]' \
+            '(--console)--claudeai[Cleachd fo-sgrìobhadh Claude (roghainn bhunaiteach)]' \
+            '(-h --help)'{-h,--help}'[Seall cobhair airson àithne]'
+          ;;
+        status)
+          _arguments \
+            '(--text)--json[Cuir a-mach mar JSON (roghainn bhunaiteach)]' \
+            '(--json)--text[Cuir a-mach mar theacsa a ghabhas leughadh le daoine]' \
+            '(-h --help)'{-h,--help}'[Seall cobhair airson àithne]'
+          ;;
+        logout)
           _arguments \
             '(-h --help)'{-h,--help}'[Seall cobhair airson àithne]'
           ;;
@@ -593,7 +765,22 @@ _claude_auto_mode() {
       ;;
     args)
       case $words[1] in
-        config|critique|defaults|reset)
+        critique)
+          _arguments \
+            '--model[Tar-àithn dè am modail a thèid a chleachdadh]:model:_claude_model_names' \
+            '(-h --help)'{-h,--help}'[Seall cobhair airson àithne]'
+          ;;
+        defaults)
+          _arguments \
+            '--label[Seall a-mhàin riaghailtean aig a bheil leubail a thòisicheas leis an ro-leasachan seo (gun aire do litrichean mòra/beaga)]:prefix:' \
+            '(-h --help)'{-h,--help}'[Seall cobhair airson àithne]'
+          ;;
+        reset)
+          _arguments \
+            '(-y --yes)'{-y,--yes}'[Leum thairis air a'\'' bhrosnachadh dearbhaidh]' \
+            '(-h --help)'{-h,--help}'[Seall cobhair airson àithne]'
+          ;;
+        config)
           _arguments \
             '(-h --help)'{-h,--help}'[Seall cobhair airson àithne]'
           ;;
@@ -631,8 +818,12 @@ _claude_project() {
       case $words[1] in
         purge)
           _arguments \
+            '--dry-run[Liostaich na rachadh a sguabadh às gun dad a sguabadh às]' \
+            '(-y --yes)'{-y,--yes}'[Leum thairis air a'\'' bhrosnachadh dearbhaidh]' \
+            '(-i --interactive)'{-i,--interactive}'[Iarr dearbhadh airson gach nì mus tèid a sguabadh às]' \
+            '(1)--all[Glan às an staid airson gach pròiseact (chan urrainnear a chleachdadh còmhla ri slighe)]' \
             '(-h --help)'{-h,--help}'[Seall cobhair airson àithne]' \
-            '1:slighe:_directories'
+            '(--all)::path:_directories'
           ;;
       esac
       ;;
@@ -642,9 +833,34 @@ _claude_project() {
 _claude_ultrareview() {
   _arguments \
     '--json[Clò-bhuail an luchd bugs.json amh an àite toraidhean cruthaichte]' \
-    '--timeout[Àireamh as motha de mhionaidean ri feitheamh gus an crìochnaich an lèirmheas]:mionaidean:' \
+    '--timeout[Àireamh as motha de mhionaidean ri feitheamh gus an crìochnaich an lèirmheas (roghainn bhunaiteach: 45)]:minutes:' \
+    '(--no-post)--post[Postaich toraidhean an lèirmheis chrìochnaichte dhan PR às d'\'' ainm fhèin (targaidean PR a-mhàin; aon bheachd sìmplidh, chan e lèirmheas)]' \
+    '(--post)--no-post[Na postaich na toraidhean dhan PR (an roghainn bhunaiteach)]' \
     '(-h --help)'{-h,--help}'[Seall cobhair airson àithne]' \
     '1:targaid:'
+}
+
+_claude_respawn() {
+  _arguments \
+    '(1)--all[Ath-thòisich gach seisean cùil a tha a'\'' ruith]' \
+    '(-h --help)'{-h,--help}'[Seall cobhair airson àithne]' \
+    '(--all)::session:_claude_background_sessions'
+}
+
+_claude_rm() {
+  _arguments \
+    '--discard-unpushed[Tilg air falbh cuideachd geallaidhean gun bhrùthadh agus atharraichean gun ghealladh na craoibh-obrach (thoir seachad an commit@worktree-id a dh'\''aithris claude rm roimhe)]:commit@worktree-id:' \
+    '--force-remove-worktree[Sguab às eòlaire na craoibh-obrach ged nach b'\'' urrainn don dubhan WorktreeRemove no git a thoirt air falbh (thoir seachad an worktree-id a dh'\''aithris claude rm roimhe)]:worktree-id:' \
+    '(-h --help)'{-h,--help}'[Seall cobhair airson àithne]' \
+    '1:session:_claude_background_sessions'
+}
+
+_claude_import() {
+  _arguments \
+    '--dry-run[Seall na rachadh a dh'\''ion-phortadh gun dad a sgrìobhadh]' \
+    '--yes[Leum thairis air an roghnaichear eadar-ghnìomhach (air uachdaran gun cheann, thoir seachad --yes=<digest> bhon ro-shealladh /import)]' \
+    '(-h --help)'{-h,--help}'[Seall cobhair airson àithne]' \
+    '::source:(codex gemini cursor)'
 }
 
 (( $+_comps[claude] )) || compdef _claude claude
