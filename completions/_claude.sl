@@ -121,6 +121,39 @@ _claude_agent_names() {
   compadd -a agents
 }
 
+_claude_background_sessions() {
+  local -a sessions state_files
+  local -A names states
+  local state_dir state_file line id rest
+
+  # Background sessions (`claude --bg`) live in <config>/jobs/<id>/, where
+  # <id> is the short id that attach, logs, stop, respawn and rm take.
+  for state_dir in ${(f)"$(_claude_state_dirs)"}; do
+    # Newest first
+    state_files=(${state_dir}/jobs/*/state.json(Nom))
+    (( ${#state_files} )) || continue
+
+    # One grep for all of them; the first "name" and "state" it reports for a
+    # file are that file's top-level ones
+    names=() states=()
+    for line in ${(f)"$(grep -HoE '"(name|state)"[[:space:]]*:[[:space:]]*"[^"]*"' $state_files 2>/dev/null)"}; do
+      id=${${line%%/state.json:*}:t}
+      rest=${line#*/state.json:}
+      case $rest in
+        \"name\"*)  [[ -z $names[$id] ]]  && names[$id]=${${rest#*:*\"}%\"} ;;
+        \"state\"*) [[ -z $states[$id] ]] && states[$id]=${${rest#*:*\"}%\"} ;;
+      esac
+    done
+
+    for state_file in $state_files; do
+      id=${state_file:h:t}
+      sessions+=("${id}:${names[$id]:-no name}${states[$id]:+ (${states[$id]})}")
+    done
+  done
+
+  _describe -t sessions 'background session' sessions
+}
+
 _claude_model_names() {
   local -a models config_files
   local state_dir config_file
@@ -155,9 +188,15 @@ _claude() {
     'mcp:Konfiguracija in upravljanje MCP strežnikov'
     'plugin:Upravljanje vtičnikov Claude Code'
     'agents:Upravljanje agentov v ozadju'
+    'attach:Odpri sejo v ozadju v tem terminalu'
+    'logs:Izpiši nedavni izpis terminala seje v ozadju'
+    'stop:Ustavi sejo v ozadju (njen pogovor se ohrani)'
+    'respawn:Znova zaženi sejo v ozadju, da bo tekla na trenutni različici Claude Code'
+    'rm:Izbriši sejo v ozadju in njeno delovno drevo, kadar je to varno'
     'auth:Upravljanje avtentikacije'
     'auto-mode:Preglej ali ponastavi konfiguracijo klasifikatorja samodejnega načina'
     'gateway:Zaženi prehod za podjetniško avtentikacijo/telemetrijo'
+    'import:Uvozi konfiguracijo iz drugega agenta UI za programiranje v Claude Code'
     'project:Upravljanje stanja projekta Claude Code'
     'ultrareview:Zaženi večagentni pregled kode v oblaku in izpiši ugotovitve'
     'setup-token:Nastavitev žetona za dolgotrajno avtentikacijo (zahteva naročnino Claude)'
@@ -178,6 +217,7 @@ _claude() {
     '--mcp-debug[\[Zastarelo. Uporabite --debug namesto tega\] Vklop načina odpravljanja napak MCP (prikazuje napake MCP strežnika)]'
     '--dangerously-skip-permissions[Obid vseh preverjanj dovoljenj. Priporočljivo samo za peskovnike brez dostopa do interneta]'
     '--allow-dangerously-skip-permissions[Omogoči možnost obida preverjanj dovoljenj brez omogočanja privzeto]'
+    '--restricted[Omejeni način: odstrani orodja, ki izvajajo ukaze ali kodo, in WebFetch, prezri nastavitve user/project/local ter omeji datotečna orodja na delovne imenike]'
     '--max-budget-usd[Največji dolarski znesek za porabo pri klicih API (samo --print)]:amount:'
     '--replay-user-messages[Ponovno pošlji uporabniška sporočila iz stdin na stdout za potrditev]'
     '--allowed-tools[Seznam dovoljenih imen orodij ločenih z vejico ali presledkom (npr. "Bash(git:*) Edit")]:tools:'
@@ -187,8 +227,13 @@ _claude() {
     '--disallowedTools[Seznam prepovedanih imen orodij ločenih z vejico ali presledkom (format camelCase)]:tools:'
     '--mcp-config[Naloži MCP strežnike iz JSON datoteke ali niza (ločeni s presledki)]:configs:'
     '--system-prompt[Sistemski prompt za uporabo v seji]:prompt:'
+    '--system-prompt-file[Preberi sistemski prompt iz datoteke]:file:_files'
     '--append-system-prompt[Dodaj sistemski prompt standardnemu sistemskemu promptu]:prompt:'
+    '--append-system-prompt-file[Preberi sistemski prompt iz datoteke in ga dodaj privzetemu sistemskemu promptu]:file:_files'
+    '--system-prompt-snapshot[Zapiši sistemski prompt enkrat na pogovor in ga dobesedno ponovno uporabi pri vsaki zahtevi in obnovi (on, privzeto) ali ga ob vsaki zahtevi sestavi na novo (off)]:mode:(on off)'
     '--permission-mode[Način dovoljenj za uporabo v seji]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)'
+    '--permission-prompts[Kdo odgovarja na pozive za dovoljenja z --print: "host" (gostitelj SDK ali --permission-prompt-tool) ali "none" (vse, kar bi sprožilo poziv, je zavrnjeno)]:target:(host none)'
+    '--permission-prompt-tool[Orodje MCP za pozive za dovoljenja (samo --print)]:tool:'
     '(-c --continue)'{-c,--continue}'[Nadaljuj zadnji pogovor]'
     '(-r --resume)'{-r,--resume}'[Obnovi pogovor - navedi identifikator seje ali izberi interaktivno]:sessionId:_claude_sessions'
     '--fork-session[Ustvari nov identifikator seje namesto ponovne uporabe izvirnega pri obnovi (z --resume ali --continue)]'
@@ -200,6 +245,7 @@ _claude() {
     '--settings[Pot do JSON datoteke z nastavitvami ali JSON niz za nalaganje dodatnih nastavitev]:file-or-json:_files'
     '--add-dir[Dodatni imeniki za zagotavljanje dostopa orodjem]:directories:_directories'
     '--ide[Samodejno se poveži z IDE ob zagonu če je na voljo točno en veljaven IDE]'
+    '--desktop[Odpri v aplikaciji Claude Desktop namesto v terminalu (z --continue ali --resume <id> za izbiro seje)]'
     '--strict-mcp-config[Uporabi samo MCP strežnike iz --mcp-config in prezri vse druge MCP nastavitve]'
     '--session-id[Določen identifikator seje za uporabo v pogovoru (mora biti veljaven UUID)]:uuid:'
     '--agents[JSON objekt, ki definira oblikovane agente]:json:'
@@ -208,11 +254,15 @@ _claude() {
     '--disable-slash-commands[Onemogoči vse poševne ukaze]'
     '(--bg --background)'{--bg,--background}'[Zaženi sejo kot agenta v ozadju in se takoj vrni]'
     '(-w --worktree)'{-w,--worktree}'[Ustvari novo git delovno drevo za to sejo (izbirno navedi ime)]::name:'
-    '--tmux[Ustvari sejo tmux za delovno drevo (zahteva --worktree)]'
+    '--tmux=-[Ustvari sejo tmux za delovno drevo (zahteva --worktree). Uporabi izvorna podokna iTerm2, kadar so na voljo; --tmux=classic za klasični tmux]::mode:(classic)'
     '(-n --name)'{-n,--name}'[Nastavi prikazno ime za to sejo]:name:'
     '--effort[Raven napora za trenutno sejo]:level:(low medium high xhigh max)'
+    '--autocompact[Velikost okna za samodejno zgoščevanje (auto ali 100k-1M žetonov)]:size:(auto)'
     '--debug-file[Zapiši dnevnike odpravljanja napak na določeno pot datoteke (implicitno vklopi način odpravljanja napak)]:path:_files'
     '--from-pr[Obnovi sejo, povezano s PR po številki/URL, ali odpri interaktivni izbirnik]::value:'
+    '--teleport[Obnovi teleport sejo, izbirno navedi identifikator seje]::session:'
+    '--cloud[Ustvari sejo v oblaku z navedenim opisom ali se priključi obstoječi prek identifikatorja seje ali URL claude.ai/code]::description-or-session:'
+    '--environment[Ustvari novo sejo v oblaku, ki teče v navedenem samostojno gostovanem okolju (ccpool_...)]:environment_id:'
     '--remote-control[Zaženi interaktivno sejo z omogočenim daljinskim upravljanjem (izbirno poimenovano)]::name:'
     '--remote-control-session-name-prefix[Predpona za samodejno ustvarjena imena sej daljinskega upravljanja]:prefix:'
     '--chrome[Omogoči integracijo Claude v Chrome]'
@@ -254,6 +304,17 @@ _claude() {
         agents)
           _claude_agents
           ;;
+        attach|logs|stop|kill)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Prikaži pomoč za ukaz]' \
+            '1:session:_claude_background_sessions'
+          ;;
+        respawn)
+          _claude_respawn
+          ;;
+        rm)
+          _claude_rm
+          ;;
         auth)
           _claude_auth
           ;;
@@ -262,6 +323,9 @@ _claude() {
           ;;
         gateway)
           _claude_gateway
+          ;;
+        import)
+          _claude_import
           ;;
         project)
           _claude_project
@@ -319,6 +383,9 @@ _claude_mcp() {
             '(-t --transport)'{-t,--transport}'[Vrsta prenosa (stdio, sse, http)]:transport:(stdio sse http)' \
             '(-e --env)'{-e,--env}'[Nastavi spremenljivko okolja (npr. -e KEY=value)]:env:' \
             '(-H --header)'{-H,--header}'[Nastavi WebSocket glavo]:header:' \
+            '--client-id[ID odjemalca OAuth za strežnike HTTP/SSE]:clientId:' \
+            '--client-secret[Pozovi k vnosu skrivnosti odjemalca OAuth (ali nastavi spremenljivko okolja MCP_CLIENT_SECRET)]' \
+            '--callback-port[Fiksna vrata za povratni klic OAuth (za strežnike, ki zahtevajo vnaprej registrirane URI-je za preusmeritev)]:port:' \
             '(-h --help)'{-h,--help}'[Prikaži pomoč]' \
             '1:name:' \
             '2:commandOrUrl:' \
@@ -342,6 +409,7 @@ _claude_mcp() {
         add-json)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Obseg konfiguracije (local, user, project)]:scope:(local user project)' \
+            '--client-secret[Pozovi k vnosu skrivnosti odjemalca OAuth (ali nastavi spremenljivko okolja MCP_CLIENT_SECRET)]' \
             '(-h --help)'{-h,--help}'[Prikaži pomoč]' \
             '1:name:' \
             '2:json:'
@@ -355,7 +423,13 @@ _claude_mcp() {
           _arguments \
             '(-h --help)'{-h,--help}'[Prikaži pomoč]'
           ;;
-        login|logout)
+        login)
+          _arguments \
+            '--no-browser[Izpiši URL za avtorizacijo namesto odpiranja brskalnika (za seje SSH/brez grafičnega vmesnika)]' \
+            '(-h --help)'{-h,--help}'[Prikaži pomoč]' \
+            '1:name:_claude_mcp_servers'
+          ;;
+        logout)
           _arguments \
             '(-h --help)'{-h,--help}'[Prikaži pomoč]' \
             '1:name:_claude_mcp_servers'
@@ -372,9 +446,11 @@ _claude_plugin() {
     'marketplace:Upravljanje tržnic Claude Code'
     'list:Prikaži seznam nameščenih vtičnikov'
     'details:Prikaži inventar komponent in predvideni strošek žetonov za vtičnik'
+    'configure:Prikaži možnosti vtičnika in katere niso nastavljene ali shrani vrednosti iz stdin'
     'install:Namesti vtičnik iz razpoložljivih tržnic'
     'i:Namesti vtičnik iz razpoložljivih tržnic (okrajšava za install)'
     'init:Ustvari ogrodje novega vtičnika (samodejno se naloži v naslednji seji)'
+    'new:Ustvari ogrodje novega vtičnika (vzdevek za init)'
     'uninstall:Odstrani nameščen vtičnik'
     'remove:Odstrani nameščen vtičnik (vzdevek za uninstall)'
     'enable:Omogoči onemogočen vtičnik'
@@ -382,7 +458,9 @@ _claude_plugin() {
     'update:Posodobi vtičnik na najnovejšo različico'
     'eval:Zaženi primere ocenjevanja proti vtičniku in poročaj ocenjene rezultate'
     'prune:Odstrani samodejno nameščene odvisnosti, ki niso več potrebne'
+    'autoremove:Odstrani samodejno nameščene odvisnosti, ki niso več potrebne (vzdevek za prune)'
     'tag:Ustvari git oznako {name}--v{version} za izdajo vtičnika'
+    'test:Zaženi teste moda'
     'help:Prikaži pomoč'
   )
 
@@ -402,6 +480,8 @@ _claude_plugin() {
       case $words[1] in
         validate)
           _arguments \
+            '--strict[Obravnavaj opozorila kot napake (izhodna koda 1)]' \
+            '--json[Izpiši poročilo o validaciji kot JSON (enake izhodne kode)]' \
             '(-h --help)'{-h,--help}'[Prikaži pomoč]' \
             '1:path:_files'
           ;;
@@ -411,50 +491,122 @@ _claude_plugin() {
         install|i)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Obseg namestitve]:scope:(user project local)' \
+            '*--config[Nastavi možnost userConfig, deklarirano v manifestu vtičnika (lahko se ponovi)]:key=value:' \
+            '(-y --yes)'{-y,--yes}'[Sprejmi prikazani ukaz, ki ga deklarira tržnica, brez potrditvenega poziva]' \
+            '--json[Izpiši eno strojno berljivo vrstico rezultata namesto sporočila za ljudi]' \
             '(-h --help)'{-h,--help}'[Prikaži pomoč]' \
             '1:plugin:'
           ;;
         uninstall|remove)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Obseg namestitve]:scope:(user project local)' \
+            '--keep-data[Ohrani imenik trajnih podatkov vtičnika]' \
+            '--prune[Odstrani tudi samodejno nameščene odvisnosti, ki niso več potrebne]' \
+            '(-y --yes)'{-y,--yes}'[Preskoči potrditveni poziv za --prune]' \
+            '--json[Izpiši eno strojno berljivo vrstico rezultata namesto sporočila za ljudi (ne z --prune)]' \
             '(-h --help)'{-h,--help}'[Prikaži pomoč]' \
             '1:plugin:_claude_installed_plugins'
           ;;
-        enable|disable)
+        enable)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Obseg namestitve]:scope:(user project local)' \
+            '--json[Izpiši eno strojno berljivo vrstico rezultata namesto sporočila za ljudi]' \
             '(-h --help)'{-h,--help}'[Prikaži pomoč]' \
             '1:plugin:_claude_installed_plugins'
+          ;;
+        disable)
+          _arguments \
+            '(-a --all)'{-a,--all}'[Onemogoči vse omogočene vtičnike]' \
+            '(-s --scope)'{-s,--scope}'[Obseg namestitve]:scope:(user project local)' \
+            '--json[Izpiši eno strojno berljivo vrstico rezultata namesto sporočila za ljudi]' \
+            '(-h --help)'{-h,--help}'[Prikaži pomoč]' \
+            '::plugin:_claude_installed_plugins'
           ;;
         update)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Obseg namestitve]:scope:(user project local managed)' \
+            '(-y --yes)'{-y,--yes}'[Sprejmi prikazani ukaz, ki ga deklarira tržnica, brez potrditvenega poziva]' \
+            '--json[Izpiši eno strojno berljivo vrstico rezultata namesto sporočila za ljudi]' \
             '(-h --help)'{-h,--help}'[Prikaži pomoč]' \
             '1:plugin:_claude_installed_plugins'
           ;;
-        list|prune)
+        list)
           _arguments \
+            '--json[Izpiši kot JSON]' \
+            '--available[Vključi razpoložljive vtičnike iz tržnic (zahteva --json)]' \
             '(-h --help)'{-h,--help}'[Prikaži pomoč]'
+          ;;
+        prune|autoremove)
+          _arguments \
+            '(-s --scope)'{-s,--scope}'[Počisti v obsegu]:scope:(user project local)' \
+            '--dry-run[Prikaži seznam tega, kar bi bilo odstranjeno, brez odstranjevanja]' \
+            '(-y --yes)'{-y,--yes}'[Preskoči potrditveni poziv]' \
+            '(-h --help)'{-h,--help}'[Prikaži pomoč]'
+          ;;
+        configure)
+          _arguments \
+            '--json[Izpiši kot JSON]' \
+            '--values-stdin[Preberi vrednosti možnosti iz stdin kot JSON objekt enovrstičnih nizov; izpuščene možnosti ohranijo svoje vrednosti]' \
+            '(-h --help)'{-h,--help}'[Prikaži pomoč]' \
+            '1:plugin:_claude_installed_plugins'
           ;;
         details)
           _arguments \
             '(-h --help)'{-h,--help}'[Prikaži pomoč]' \
             '1:plugin:_claude_installed_plugins'
           ;;
-        init)
+        init|new)
           _arguments \
+            '--description[Opis manifesta]:text:' \
+            '--author[Ime avtorja (privzeto: git config user.name)]:name:' \
+            '--author-email[E-pošta avtorja (privzeto: git config user.email)]:email:' \
+            '--with[Komponente, za katere naj se prav tako ustvari ogrodje]:components:' \
+            '(-f --force)'{-f,--force}'[Prepiši obstoječi .claude-plugin/ na cilju]' \
             '(-h --help)'{-h,--help}'[Prikaži pomoč]' \
             '1:name:'
           ;;
         eval)
           _arguments \
+            '--case[Filtriraj primere po vzorcu glob imena]:glob:' \
+            '*--tag[Filtriraj primere po oznaki (lahko se ponovi)]:tag:' \
+            '--runs[Preglasi število zagonov na primer (privzeto: case.runs, sicer 3)]:n:' \
+            '(-j --concurrency)'{-j,--concurrency}'[Izvajaj do n zagonov agenta hkrati (1-8; privzeto 1)]:n:' \
+            '--model[Preglasi model za vse primere]:model:_claude_model_names' \
+            '--judge-model[Preglasi model ocenjevalca LLM (privzeto: haiku)]:model:_claude_model_names' \
+            '--max-cost-usd[Trda zgornja meja stroškov; ob dosegu prekini in poročaj delne rezultate (izhodna koda 2)]:usd:' \
+            '--output-dir[Imenik za aggregate-result.json]:dir:_directories' \
+            '--eval-dir[Ime imenika (pod vtičnikom), ki vsebuje primere ocenjevanja]:dir:' \
+            '--json[Izpiši celoten rezultat zagona kot JSON na stdout ali ga zapiši v to datoteko .json]::path:_files' \
+            '--threshold[Končaj z izhodno kodo 1, če je ocena katerega koli primera pod tem pragom (privzeto: 1.0)]:threshold:' \
+            '*--allow-tools[Dovoljenje operaterja za zaklenjena orodja (Bash, Write, Edit, WebFetch, mcp__*)]:tools:' \
+            '(--no-scaffold)--scaffold[Zaženi scaffold_script vsakega primera (izvaja bash, ki ga priskrbi avtor, pod vašim računom; privzeto izklopljeno)]' \
+            '(--scaffold)--no-scaffold[Izrecno preskoči scaffold_script]' \
+            '--trust-plugin[Potrdi, da zaupate temu vtičniku in njegovemu naboru ocenjevanj, in preskoči poziv za zaupanje ob prvem zagonu (za CI)]' \
+            '--ablation[Zaženi primerjalno skupino brez vtičnika in poročaj razliko v oceni]:mode:(none with-without)' \
+            '--mocks[Nadomestne imitacije za MCP strežnike iz <eval dir>/mocks/]:mode:(record off)' \
+            '--allow-real-servers[Z --mocks record: zaženi tudi procese pravih MCP strežnikov, ki nimajo imitacije]' \
+            '--keep-temp[Ohrani imenike ogrodja za odpravljanje napak]' \
+            '--verbose[Beleži dogodke sledenja za posamezno sporočilo v dnevnik odpravljanja napak]' \
+            '--report[Zapiši samostojno poročilo HTML na to pot namesto v imenik rezultatov]:path:_files' \
+            '(--no-publish)--publish-report[Zahtevaj tudi objavo poročila na claude.ai]' \
+            '(--publish-report)--no-publish[Ohrani poročilo HTML samo lokalno; preskoči objavo na claude.ai]' \
             '(-h --help)'{-h,--help}'[Prikaži pomoč]' \
-            '1:target:'
+            '::target: _alternative "plugins\:installed plugin\:_claude_installed_plugins" "files\:path\:_files"'
           ;;
         tag)
           _arguments \
+            '--push[Po ustvarjanju potisni oznako na --remote]' \
+            '--dry-run[Izpiši, kaj bi bilo označeno, brez ustvarjanja oznake]' \
+            '(-f --force)'{-f,--force}'[Preskoči preverjanji neočiščenega delovnega drevesa in že obstoječe oznake]' \
+            '(-m --message)'{-m,--message}'[Sporočilo anotacije oznake (uporabi %s za različico)]:msg:' \
+            '--remote[Oddaljeni repozitorij za potiskanje z --push]:name:' \
             '(-h --help)'{-h,--help}'[Prikaži pomoč]' \
-            '1:path:_files'
+            '::path:_files'
+          ;;
+        test)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Prikaži pomoč]' \
+            '::dir:_directories'
           ;;
       esac
       ;;
@@ -488,15 +640,20 @@ _claude_plugin_marketplace() {
       case $words[1] in
         add)
           _arguments \
+            '--sparse[Omeji checkout na določene imenike prek git sparse-checkout (za monorepozitorije)]:paths:' \
+            '--scope[Kje deklarirati tržnico]:scope:(user project local)' \
+            '--claudeai[Dodaj tržnico s tem imenom, ki jo claude.ai gosti za vas]' \
             '(-h --help)'{-h,--help}'[Prikaži pomoč]' \
             '1:source:'
           ;;
         list)
           _arguments \
+            '--json[Izpiši kot JSON]' \
             '(-h --help)'{-h,--help}'[Prikaži pomoč]'
           ;;
         remove|rm)
           _arguments \
+            '--scope[Odstrani deklaracijo tržnice iz določenega obsega nastavitev (izpusti za odstranitev iz vseh obsegov)]:scope:(user project local)' \
             '(-h --help)'{-h,--help}'[Prikaži pomoč]' \
             '1:name:'
           ;;
@@ -534,6 +691,7 @@ _claude_agents() {
     '--setting-sources[Seznam virov nastavitev ločenih z vejico za nalaganje (user, project, local)]:sources:' \
     '--settings[Datoteka z nastavitvami ali JSON niz za uporabo]:file-or-json:_files' \
     '--strict-mcp-config[Uporabi samo MCP strežnike iz --mcp-config v razporejenih sejah]' \
+    '--restricted[Zaženi razporejene seje v omejenem načinu]' \
     '(-h --help)'{-h,--help}'[Prikaži pomoč za ukaz]'
 }
 
@@ -560,7 +718,21 @@ _claude_auth() {
       ;;
     args)
       case $words[1] in
-        login|logout|status)
+        login)
+          _arguments \
+            '--email[Vnaprej izpolni e-poštni naslov na strani za prijavo]:email:' \
+            '--sso[Vsili postopek prijave SSO]' \
+            '(--claudeai)--console[Uporabi Anthropic Console (obračun po porabi API) namesto naročnine Claude]' \
+            '(--console)--claudeai[Uporabi naročnino Claude (privzeto)]' \
+            '(-h --help)'{-h,--help}'[Prikaži pomoč za ukaz]'
+          ;;
+        status)
+          _arguments \
+            '(--text)--json[Izpiši kot JSON (privzeto)]' \
+            '(--json)--text[Izpiši kot človeku berljivo besedilo]' \
+            '(-h --help)'{-h,--help}'[Prikaži pomoč za ukaz]'
+          ;;
+        logout)
           _arguments \
             '(-h --help)'{-h,--help}'[Prikaži pomoč za ukaz]'
           ;;
@@ -593,7 +765,22 @@ _claude_auto_mode() {
       ;;
     args)
       case $words[1] in
-        config|critique|defaults|reset)
+        critique)
+          _arguments \
+            '--model[Preglasi uporabljeni model]:model:_claude_model_names' \
+            '(-h --help)'{-h,--help}'[Prikaži pomoč za ukaz]'
+          ;;
+        defaults)
+          _arguments \
+            '--label[Prikaži samo pravila, katerih oznaka se začne s to predpono (ne glede na velike/male črke)]:prefix:' \
+            '(-h --help)'{-h,--help}'[Prikaži pomoč za ukaz]'
+          ;;
+        reset)
+          _arguments \
+            '(-y --yes)'{-y,--yes}'[Preskoči potrditveni poziv]' \
+            '(-h --help)'{-h,--help}'[Prikaži pomoč za ukaz]'
+          ;;
+        config)
           _arguments \
             '(-h --help)'{-h,--help}'[Prikaži pomoč za ukaz]'
           ;;
@@ -631,8 +818,12 @@ _claude_project() {
       case $words[1] in
         purge)
           _arguments \
+            '--dry-run[Prikaži seznam tega, kar bi bilo izbrisano, brez brisanja česarkoli]' \
+            '(-y --yes)'{-y,--yes}'[Preskoči potrditveni poziv]' \
+            '(-i --interactive)'{-i,--interactive}'[Pred brisanjem pozovi za vsak element]' \
+            '(1)--all[Počisti stanje za vse projekte (medsebojno izključujoče s potjo)]' \
             '(-h --help)'{-h,--help}'[Prikaži pomoč za ukaz]' \
-            '1:path:_directories'
+            '(--all)::path:_directories'
           ;;
       esac
       ;;
@@ -642,9 +833,34 @@ _claude_project() {
 _claude_ultrareview() {
   _arguments \
     '--json[Izpiši surovo vsebino bugs.json namesto oblikovanih ugotovitev]' \
-    '--timeout[Največ minut za čakanje na dokončanje pregleda]:minutes:' \
+    '--timeout[Največ minut za čakanje na dokončanje pregleda (privzeto: 45)]:minutes:' \
+    '(--no-post)--post[Objavi ugotovitve dokončanega pregleda v PR pod vašim imenom (samo za cilje PR; en navaden komentar, ne pregled)]' \
+    '(--post)--no-post[Ne objavi ugotovitev v PR (privzeto)]' \
     '(-h --help)'{-h,--help}'[Prikaži pomoč za ukaz]' \
     '1:target:'
+}
+
+_claude_respawn() {
+  _arguments \
+    '(1)--all[Znova zaženi vse tekoče seje v ozadju]' \
+    '(-h --help)'{-h,--help}'[Prikaži pomoč za ukaz]' \
+    '(--all)::session:_claude_background_sessions'
+}
+
+_claude_rm() {
+  _arguments \
+    '--discard-unpushed[Zavrzi tudi nepotisnjene commite in neuveljavljene spremembe delovnega drevesa (podaj commit@worktree-id, ki ga je sporočil prejšnji claude rm)]:commit@worktree-id:' \
+    '--force-remove-worktree[Izbriši imenik delovnega drevesa, čeprav ga kljuka WorktreeRemove ali git nista mogla odstraniti (podaj worktree-id, ki ga je sporočil prejšnji claude rm)]:worktree-id:' \
+    '(-h --help)'{-h,--help}'[Prikaži pomoč za ukaz]' \
+    '1:session:_claude_background_sessions'
+}
+
+_claude_import() {
+  _arguments \
+    '--dry-run[Prikaži, kaj bi bilo uvoženo, brez zapisovanja česarkoli]' \
+    '--yes[Preskoči interaktivni izbirnik (na površinah brez grafičnega vmesnika podaj --yes=<digest> iz predogleda /import)]' \
+    '(-h --help)'{-h,--help}'[Prikaži pomoč za ukaz]' \
+    '::source:(codex gemini cursor)'
 }
 
 (( $+_comps[claude] )) || compdef _claude claude
