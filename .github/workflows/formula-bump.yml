@@ -2,7 +2,7 @@ name: Bump Homebrew Formula
 
 # Points Formula/claude-code-zsh-completion.rb at a newly published release and
 # opens a PR with the new url and checksum. main is protected, so this cannot
-# push the change directly.
+# push the change directly; the PR is set to auto-merge once `test` passes.
 
 on:
   release:
@@ -82,3 +82,5 @@ jobs:
           --head "$branch" \
           --title "Point Homebrew formula at ${TAG}" \
           --body "$(printf 'Automated bump after the %s release.\n\n- Checksum: `%s`\n\nMerging this makes `brew upgrade` pick up %s.\n' "$TAG" "$SHA" "$TAG")"
+
+        gh pr merge "$branch" --auto --squash --delete-branch
