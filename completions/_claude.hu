@@ -121,6 +121,39 @@ _claude_agent_names() {
   compadd -a agents
 }
 
+_claude_background_sessions() {
+  local -a sessions state_files
+  local -A names states
+  local state_dir state_file line id rest
+
+  # Background sessions (`claude --bg`) live in <config>/jobs/<id>/, where
+  # <id> is the short id that attach, logs, stop, respawn and rm take.
+  for state_dir in ${(f)"$(_claude_state_dirs)"}; do
+    # Newest first
+    state_files=(${state_dir}/jobs/*/state.json(Nom))
+    (( ${#state_files} )) || continue
+
+    # One grep for all of them; the first "name" and "state" it reports for a
+    # file are that file's top-level ones
+    names=() states=()
+    for line in ${(f)"$(grep -HoE '"(name|state)"[[:space:]]*:[[:space:]]*"[^"]*"' $state_files 2>/dev/null)"}; do
+      id=${${line%%/state.json:*}:t}
+      rest=${line#*/state.json:}
+      case $rest in
+        \"name\"*)  [[ -z $names[$id] ]]  && names[$id]=${${rest#*:*\"}%\"} ;;
+        \"state\"*) [[ -z $states[$id] ]] && states[$id]=${${rest#*:*\"}%\"} ;;
+      esac
+    done
+
+    for state_file in $state_files; do
+      id=${state_file:h:t}
+      sessions+=("${id}:${names[$id]:-no name}${states[$id]:+ (${states[$id]})}")
+    done
+  done
+
+  _describe -t sessions 'background session' sessions
+}
+
 _claude_model_names() {
   local -a models config_files
   local state_dir config_file
@@ -155,9 +188,15 @@ _claude() {
     'mcp:MCP-kiszolgálók beállítása és kezelése'
     'plugin:Claude Code bővítmények kezelése'
     'agents:Háttérügynökök kezelése'
+    'attach:Háttérmunkamenet megnyitása ebben a terminálban'
+    'logs:Egy háttérmunkamenet legutóbbi terminálkimenetének kiírása'
+    'stop:Háttérmunkamenet leállítása (a beszélgetése megmarad)'
+    'respawn:Háttérmunkamenet újraindítása, hogy az aktuális Claude Code verziót futtassa'
+    'rm:Háttérmunkamenet és – ha ez biztonságos – a hozzá tartozó worktree törlése'
     'auth:Hitelesítés kezelése'
     'auto-mode:Az automatikus mód osztályozó konfigurációjának megtekintése vagy visszaállítása'
     'gateway:A vállalati hitelesítési/telemetriai átjáró futtatása'
+    'import:Konfiguráció importálása egy másik MI-kódolóügynökből a Claude Code-ba'
     'project:Claude Code projektállapot kezelése'
     'ultrareview:Felhőben futó többügynökös kódellenőrzés futtatása és az eredmények kiírása'
     'setup-token:Hosszú távú hitelesítési token beállítása (Claude-előfizetés szükséges)'
@@ -178,6 +217,7 @@ _claude() {
     '--mcp-debug[\[Elavult. Használja helyette a --debug kapcsolót\] MCP hibakeresési mód engedélyezése (megjeleníti az MCP-kiszolgáló hibáit)]'
     '--dangerously-skip-permissions[Az összes engedélyellenőrzés megkerülése. Csak internet-hozzáférés nélküli homokozókhoz ajánlott]'
     '--allow-dangerously-skip-permissions[Az engedélyellenőrzések megkerülésének engedélyezése alapértelmezett bekapcsolás nélkül]'
+    '--restricted[Korlátozott mód: a parancsokat vagy kódot futtató eszközök és a WebFetch eltávolítása, a user/project/local beállítások figyelmen kívül hagyása, és a fájleszközök a munkakönyvtárakra korlátozása]'
     '--max-budget-usd[Az API-hívásokra fordítható maximális dollárösszeg (csak --print)]:amount:'
     '--replay-user-messages[A felhasználói üzenetek újraküldése a stdin-ről a stdout-ra megerősítés céljából]'
     '--allowed-tools[Az engedélyezett eszköznevek vesszővel vagy szóközzel elválasztott listája (pl. "Bash(git:*) Edit")]:tools:'
@@ -187,8 +227,13 @@ _claude() {
     '--disallowedTools[A tiltott eszköznevek vesszővel vagy szóközzel elválasztott listája (camelCase formátum)]:tools:'
     '--mcp-config[MCP-kiszolgálók betöltése JSON-fájlból vagy karakterláncból (szóközzel elválasztva)]:configs:'
     '--system-prompt[A munkamenethez használandó rendszerprompt]:prompt:'
+    '--system-prompt-file[Rendszerprompt beolvasása fájlból]:file:_files'
     '--append-system-prompt[Rendszerprompt hozzáfűzése az alapértelmezett rendszerprompthoz]:prompt:'
+    '--append-system-prompt-file[Rendszerprompt beolvasása fájlból és hozzáfűzése az alapértelmezett rendszerprompthoz]:file:_files'
+    '--system-prompt-snapshot[A rendszerprompt rögzítése beszélgetésenként egyszer és szó szerinti újrafelhasználása minden kérésnél és folytatáskor (on, alapértelmezett), vagy újragenerálása minden kérésnél (off)]:mode:(on off)'
     '--permission-mode[A munkamenethez használandó engedélymód]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)'
+    '--permission-prompts[Ki válaszol az engedélykérésekre a --print mellett: "host" (az SDK-gazda vagy a --permission-prompt-tool) vagy "none" (minden, ami engedélykérést váltana ki, elutasításra kerül)]:target:(host none)'
+    '--permission-prompt-tool[Az engedélykérésekhez használandó MCP-eszköz (csak --print)]:tool:'
     '(-c --continue)'{-c,--continue}'[A legutóbbi beszélgetés folytatása]'
     '(-r --resume)'{-r,--resume}'[Beszélgetés folytatása – adja meg a munkamenet-azonosítót vagy válasszon interaktívan]:sessionId:_claude_sessions'
     '--fork-session[Új munkamenet-azonosító létrehozása az eredeti munkamenet-azonosító újrafelhasználása helyett folytatáskor (a --resume vagy --continue mellett)]'
@@ -200,6 +245,7 @@ _claude() {
     '--settings[A beállítások JSON-fájljának elérési útja vagy JSON-karakterlánc további beállítások betöltéséhez]:file-or-json:_files'
     '--add-dir[További könyvtárak, amelyekhez engedélyezhető az eszközhozzáférés]:directories:_directories'
     '--ide[Automatikus csatlakozás az IDE-hez indításkor, ha pontosan egy érvényes IDE érhető el]'
+    '--desktop[Megnyitás a Claude Desktop alkalmazásban a terminál helyett (a munkamenet kiválasztásához a --continue vagy --resume <id> mellett)]'
     '--strict-mcp-config[Csak a --mcp-config szerinti MCP-kiszolgálók használata, minden más MCP-beállítás figyelmen kívül hagyása]'
     '--session-id[A beszélgetéshez használandó konkrét munkamenet-azonosító (érvényes UUID kell legyen)]:uuid:'
     '--agents[Egyéni ügynököket meghatározó JSON-objektum]:json:'
@@ -208,11 +254,15 @@ _claude() {
     '--disable-slash-commands[Az összes perjeles parancs letiltása]'
     '(--bg --background)'{--bg,--background}'[A munkamenet indítása háttérügynökként és azonnali visszatérés]'
     '(-w --worktree)'{-w,--worktree}'[Új git worktree létrehozása ehhez a munkamenethez (opcionálisan adjon meg egy nevet)]::name:'
-    '--tmux[tmux-munkamenet létrehozása a worktree-hez (--worktree szükséges)]'
+    '--tmux=-[tmux-munkamenet létrehozása a worktree-hez (--worktree szükséges). Ha elérhetők, az iTerm2 natív paneljeit használja; hagyományos tmuxhoz: --tmux=classic]::mode:(classic)'
     '(-n --name)'{-n,--name}'[Megjelenítendő név beállítása ehhez a munkamenethez]:name:'
     '--effort[Az aktuális munkamenet erőfeszítési szintje]:level:(low medium high xhigh max)'
+    '--autocompact[Az automatikus tömörítés ablakmérete (auto, vagy 100k-1M token)]:size:(auto)'
     '--debug-file[Hibakeresési naplók írása egy adott fájl elérési útjára (implicit módon engedélyezi a hibakeresési módot)]:path:_files'
     '--from-pr[Egy PR-hez kapcsolt munkamenet folytatása szám/URL alapján, vagy interaktív választó megnyitása]::value:'
+    '--teleport[Teleport-munkamenet folytatása, opcionálisan a munkamenet-azonosító megadásával]::session:'
+    '--cloud[Felhőmunkamenet létrehozása a megadott leírással, vagy csatlakozás egy meglévőhöz munkamenet-azonosító vagy claude.ai/code URL alapján]::description-or-session:'
+    '--environment[Új felhőmunkamenet létrehozása, amely a megadott saját üzemeltetésű környezetben fut (ccpool_...)]:environment_id:'
     '--remote-control[Interaktív munkamenet indítása engedélyezett Remote Control funkcióval (opcionálisan elnevezve)]::name:'
     '--remote-control-session-name-prefix[Előtag az automatikusan generált Remote Control munkamenetnevekhez]:prefix:'
     '--chrome[A Claude Chrome-integráció engedélyezése]'
@@ -254,6 +304,17 @@ _claude() {
         agents)
           _claude_agents
           ;;
+        attach|logs|stop|kill)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Súgó megjelenítése a parancshoz]' \
+            '1:session:_claude_background_sessions'
+          ;;
+        respawn)
+          _claude_respawn
+          ;;
+        rm)
+          _claude_rm
+          ;;
         auth)
           _claude_auth
           ;;
@@ -262,6 +323,9 @@ _claude() {
           ;;
         gateway)
           _claude_gateway
+          ;;
+        import)
+          _claude_import
           ;;
         project)
           _claude_project
@@ -319,6 +383,9 @@ _claude_mcp() {
             '(-t --transport)'{-t,--transport}'[Átviteli típus (stdio, sse, http)]:transport:(stdio sse http)' \
             '(-e --env)'{-e,--env}'[Környezeti változó beállítása (pl. -e KEY=value)]:env:' \
             '(-H --header)'{-H,--header}'[WebSocket fejléc beállítása]:header:' \
+            '--client-id[OAuth-ügyfélazonosító HTTP/SSE-kiszolgálókhoz]:clientId:' \
+            '--client-secret[Az OAuth-ügyféltitok bekérése (vagy állítsa be az MCP_CLIENT_SECRET környezeti változót)]' \
+            '--callback-port[Rögzített port az OAuth-visszahíváshoz (előre regisztrált átirányítási URI-kat igénylő kiszolgálókhoz)]:port:' \
             '(-h --help)'{-h,--help}'[Súgó megjelenítése]' \
             '1:name:' \
             '2:commandOrUrl:' \
@@ -342,6 +409,7 @@ _claude_mcp() {
         add-json)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Konfigurációs hatókör (local, user, project)]:scope:(local user project)' \
+            '--client-secret[Az OAuth-ügyféltitok bekérése (vagy állítsa be az MCP_CLIENT_SECRET környezeti változót)]' \
             '(-h --help)'{-h,--help}'[Súgó megjelenítése]' \
             '1:name:' \
             '2:json:'
@@ -355,7 +423,13 @@ _claude_mcp() {
           _arguments \
             '(-h --help)'{-h,--help}'[Súgó megjelenítése]'
           ;;
-        login|logout)
+        login)
+          _arguments \
+            '--no-browser[Az engedélyezési URL kiírása böngésző megnyitása helyett (SSH-/fej nélküli munkamenetekhez)]' \
+            '(-h --help)'{-h,--help}'[Súgó megjelenítése]' \
+            '1:name:_claude_mcp_servers'
+          ;;
+        logout)
           _arguments \
             '(-h --help)'{-h,--help}'[Súgó megjelenítése]' \
             '1:name:_claude_mcp_servers'
@@ -372,9 +446,11 @@ _claude_plugin() {
     'marketplace:Claude Code piacterek kezelése'
     'list:A telepített bővítmények listázása'
     'details:Egy bővítmény összetevő-leltárának és becsült tokenköltségének megjelenítése'
+    'configure:Egy bővítmény beállításainak és a be nem állítottaknak a megjelenítése, vagy értékek mentése a stdin-ről'
     'install:Bővítmény telepítése az elérhető piacterekről'
     'i:Bővítmény telepítése az elérhető piacterekről (az install rövidítése)'
     'init:Új bővítmény vázának létrehozása (a következő munkamenetben automatikusan betöltődik)'
+    'new:Új bővítmény vázának létrehozása (az init aliasa)'
     'uninstall:Telepített bővítmény eltávolítása'
     'remove:Telepített bővítmény eltávolítása (az uninstall aliasa)'
     'enable:Letiltott bővítmény engedélyezése'
@@ -382,7 +458,9 @@ _claude_plugin() {
     'update:Bővítmény frissítése a legújabb verzióra'
     'eval:Kiértékelési esetek futtatása egy bővítményen és a pontozott eredmények jelentése'
     'prune:A már nem szükséges, automatikusan telepített függőségek eltávolítása'
+    'autoremove:A már nem szükséges, automatikusan telepített függőségek eltávolítása (a prune aliasa)'
     'tag:{name}--v{version} git címke létrehozása egy bővítmény kiadásához'
+    'test:Egy mod tesztjeinek futtatása'
     'help:Súgó megjelenítése'
   )
 
@@ -402,6 +480,8 @@ _claude_plugin() {
       case $words[1] in
         validate)
           _arguments \
+            '--strict[A figyelmeztetések hibaként kezelése (1-es kilépési kód)]' \
+            '--json[Az ellenőrzési jelentés kiírása JSON-ként (ugyanazokkal a kilépési kódokkal)]' \
             '(-h --help)'{-h,--help}'[Súgó megjelenítése]' \
             '1:path:_files'
           ;;
@@ -411,50 +491,122 @@ _claude_plugin() {
         install|i)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Telepítési hatókör]:scope:(user project local)' \
+            '*--config[A bővítmény manifesztjében deklarált userConfig beállítás megadása (ismételhető)]:key=value:' \
+            '(-y --yes)'{-y,--yes}'[A megjelenített, piactér által deklarált parancs elfogadása megerősítő kérdés nélkül]' \
+            '--json[Egyetlen géppel olvasható eredménysor kiírása az ember számára írt üzenet helyett]' \
             '(-h --help)'{-h,--help}'[Súgó megjelenítése]' \
             '1:plugin:'
           ;;
         uninstall|remove)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Telepítési hatókör]:scope:(user project local)' \
+            '--keep-data[A bővítmény állandó adatkönyvtárának megőrzése]' \
+            '--prune[A már nem szükséges, automatikusan telepített függőségek eltávolítása is]' \
+            '(-y --yes)'{-y,--yes}'[A --prune megerősítő kérdésének kihagyása]' \
+            '--json[Egyetlen géppel olvasható eredménysor kiírása az ember számára írt üzenet helyett (a --prune mellett nem)]' \
             '(-h --help)'{-h,--help}'[Súgó megjelenítése]' \
             '1:plugin:_claude_installed_plugins'
           ;;
-        enable|disable)
+        enable)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Telepítési hatókör]:scope:(user project local)' \
+            '--json[Egyetlen géppel olvasható eredménysor kiírása az ember számára írt üzenet helyett]' \
             '(-h --help)'{-h,--help}'[Súgó megjelenítése]' \
             '1:plugin:_claude_installed_plugins'
+          ;;
+        disable)
+          _arguments \
+            '(-a --all)'{-a,--all}'[Az összes engedélyezett bővítmény letiltása]' \
+            '(-s --scope)'{-s,--scope}'[Telepítési hatókör]:scope:(user project local)' \
+            '--json[Egyetlen géppel olvasható eredménysor kiírása az ember számára írt üzenet helyett]' \
+            '(-h --help)'{-h,--help}'[Súgó megjelenítése]' \
+            '::plugin:_claude_installed_plugins'
           ;;
         update)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Telepítési hatókör]:scope:(user project local managed)' \
+            '(-y --yes)'{-y,--yes}'[A megjelenített, piactér által deklarált parancs elfogadása megerősítő kérdés nélkül]' \
+            '--json[Egyetlen géppel olvasható eredménysor kiírása az ember számára írt üzenet helyett]' \
             '(-h --help)'{-h,--help}'[Súgó megjelenítése]' \
             '1:plugin:_claude_installed_plugins'
           ;;
-        list|prune)
+        list)
           _arguments \
+            '--json[Kimenet JSON-ként]' \
+            '--available[A piactereken elérhető bővítmények belefoglalása (--json szükséges)]' \
             '(-h --help)'{-h,--help}'[Súgó megjelenítése]'
+          ;;
+        prune|autoremove)
+          _arguments \
+            '(-s --scope)'{-s,--scope}'[Tisztítás a megadott hatókörben]:scope:(user project local)' \
+            '--dry-run[Az eltávolítandó elemek listázása eltávolítás nélkül]' \
+            '(-y --yes)'{-y,--yes}'[A megerősítő kérdés kihagyása]' \
+            '(-h --help)'{-h,--help}'[Súgó megjelenítése]'
+          ;;
+        configure)
+          _arguments \
+            '--json[Kimenet JSON-ként]' \
+            '--values-stdin[A beállítások értékeinek beolvasása a stdin-ről egysoros karakterláncokat tartalmazó JSON-objektumként; a kihagyott beállítások megtartják értéküket]' \
+            '(-h --help)'{-h,--help}'[Súgó megjelenítése]' \
+            '1:plugin:_claude_installed_plugins'
           ;;
         details)
           _arguments \
             '(-h --help)'{-h,--help}'[Súgó megjelenítése]' \
             '1:plugin:_claude_installed_plugins'
           ;;
-        init)
+        init|new)
           _arguments \
+            '--description[A manifeszt leírása]:text:' \
+            '--author[Szerző neve (alapértelmezett: git config user.name)]:name:' \
+            '--author-email[Szerző e-mail-címe (alapértelmezett: git config user.email)]:email:' \
+            '--with[További összetevők, amelyek vázát szintén létre kell hozni]:components:' \
+            '(-f --force)'{-f,--force}'[A célhelyen meglévő .claude-plugin/ felülírása]' \
             '(-h --help)'{-h,--help}'[Súgó megjelenítése]' \
             '1:name:'
           ;;
         eval)
           _arguments \
+            '--case[Esetek szűrése névmintával (glob)]:glob:' \
+            '*--tag[Esetek szűrése címke szerint (ismételhető)]:tag:' \
+            '--runs[Az esetenkénti futtatások számának felülírása (alapértelmezett: case.runs, egyébként 3)]:n:' \
+            '(-j --concurrency)'{-j,--concurrency}'[Legfeljebb n ügynökfuttatás egyidejű végrehajtása (1-8; alapértelmezett: 1)]:n:' \
+            '--model[A modell felülírása az összes esetre]:model:_claude_model_names' \
+            '--judge-model[Az LLM-értékelő modelljének felülírása (alapértelmezett: haiku)]:model:_claude_model_names' \
+            '--max-cost-usd[Szigorú költségplafon; elérésekor megszakítás és a részleges eredmények jelentése (2-es kilépési kód)]:usd:' \
+            '--output-dir[Az aggregate-result.json könyvtára]:dir:_directories' \
+            '--eval-dir[A kiértékelési eseteket tartalmazó könyvtár neve (a bővítményen belül)]:dir:' \
+            '--json[A teljes futtatási eredmény kiírása JSON-ként a stdout-ra, vagy írása ebbe a .json fájlba]::path:_files' \
+            '--threshold[Kilépés 1-es kilépési kóddal, ha bármely eset pontszáma e küszöb alatt van (alapértelmezett: 1.0)]:threshold:' \
+            '*--allow-tools[Üzemeltetői engedély a korlátozott eszközökhöz (Bash, Write, Edit, WebFetch, mcp__*)]:tools:' \
+            '(--no-scaffold)--scaffold[Az egyes esetek scaffold_script szkriptjének futtatása (a szerző által megadott bash-t az Ön nevében futtatja; alapértelmezés szerint kikapcsolva)]' \
+            '(--scaffold)--no-scaffold[A scaffold_script kifejezett kihagyása]' \
+            '--trust-plugin[Annak megerősítése, hogy megbízik ebben a bővítményben és kiértékelési készletében, az első futtatáskori bizalmi kérdés kihagyásával (CI-hoz)]' \
+            '--ablation[Bővítmény nélküli kontrollcsoport (baseline) futtatása és a pontszámkülönbség jelentése]:mode:(none with-without)' \
+            '--mocks[Mock helyettesítők az MCP-kiszolgálókhoz a <eval dir>/mocks/ könyvtárból]:mode:(record off)' \
+            '--allow-real-servers[A --mocks record mellett: a mock nélküli valódi MCP-kiszolgáló-folyamatok elindítása is]' \
+            '--keep-temp[A vázkönyvtárak megőrzése hibakereséshez]' \
+            '--verbose[Üzenetenkénti nyomkövetési események naplózása a hibakeresési naplóba]' \
+            '--report[Az önálló HTML-jelentés írása erre az elérési útra az eredménykönyvtár helyett]:path:_files' \
+            '(--no-publish)--publish-report[A jelentés claude.ai-on való közzétételének megkövetelése is]' \
+            '(--publish-report)--no-publish[A HTML-jelentés csak helyben tartása; a claude.ai-on való közzététel kihagyása]' \
             '(-h --help)'{-h,--help}'[Súgó megjelenítése]' \
-            '1:target:'
+            '::target: _alternative "plugins\:installed plugin\:_claude_installed_plugins" "files\:path\:_files"'
           ;;
         tag)
           _arguments \
+            '--push[A címke feltöltése a --remote által megadott távoli tárolóba a létrehozása után]' \
+            '--dry-run[A címkézendő elem kiírása a címke létrehozása nélkül]' \
+            '(-f --force)'{-f,--force}'[A módosított munkafa és a már létező címke ellenőrzésének kihagyása]' \
+            '(-m --message)'{-m,--message}'[A címke annotációs üzenete (a verzióhoz használja a %s helyőrzőt)]:msg:' \
+            '--remote[A --push mellett használt távoli tároló]:name:' \
             '(-h --help)'{-h,--help}'[Súgó megjelenítése]' \
-            '1:path:_files'
+            '::path:_files'
+          ;;
+        test)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Súgó megjelenítése]' \
+            '::dir:_directories'
           ;;
       esac
       ;;
@@ -488,15 +640,20 @@ _claude_plugin_marketplace() {
       case $words[1] in
         add)
           _arguments \
+            '--sparse[A checkout korlátozása adott könyvtárakra git sparse-checkout segítségével (monorepókhoz)]:paths:' \
+            '--scope[Hol legyen deklarálva a piactér]:scope:(user project local)' \
+            '--claudeai[Az ilyen nevű, a claude.ai által az Ön számára üzemeltetett piactér hozzáadása]' \
             '(-h --help)'{-h,--help}'[Súgó megjelenítése]' \
             '1:source:'
           ;;
         list)
           _arguments \
+            '--json[Kimenet JSON-ként]' \
             '(-h --help)'{-h,--help}'[Súgó megjelenítése]'
           ;;
         remove|rm)
           _arguments \
+            '--scope[A piactér-deklaráció eltávolítása egy adott beállítási hatókörből (ha nincs megadva, eltávolítás minden hatókörből)]:scope:(user project local)' \
             '(-h --help)'{-h,--help}'[Súgó megjelenítése]' \
             '1:name:'
           ;;
@@ -534,6 +691,7 @@ _claude_agents() {
     '--setting-sources[A betöltendő beállításforrások vesszővel elválasztott listája (user, project, local)]:sources:' \
     '--settings[Az alkalmazandó beállításfájl vagy JSON-karakterlánc]:file-or-json:_files' \
     '--strict-mcp-config[Csak a --mcp-config szerinti MCP-kiszolgálók használata az elindított munkamenetekben]' \
+    '--restricted[A kiküldött munkamenetek indítása korlátozott módban]' \
     '(-h --help)'{-h,--help}'[Súgó megjelenítése a parancshoz]'
 }
 
@@ -560,7 +718,21 @@ _claude_auth() {
       ;;
     args)
       case $words[1] in
-        login|logout|status)
+        login)
+          _arguments \
+            '--email[Az e-mail-cím előzetes kitöltése a bejelentkezési oldalon]:email:' \
+            '--sso[SSO-bejelentkezési folyamat kényszerítése]' \
+            '(--claudeai)--console[Az Anthropic Console használata (API-használat alapú számlázás) Claude-előfizetés helyett]' \
+            '(--console)--claudeai[Claude-előfizetés használata (alapértelmezett)]' \
+            '(-h --help)'{-h,--help}'[Súgó megjelenítése a parancshoz]'
+          ;;
+        status)
+          _arguments \
+            '(--text)--json[Kimenet JSON-ként (alapértelmezett)]' \
+            '(--json)--text[Kimenet ember által olvasható szövegként]' \
+            '(-h --help)'{-h,--help}'[Súgó megjelenítése a parancshoz]'
+          ;;
+        logout)
           _arguments \
             '(-h --help)'{-h,--help}'[Súgó megjelenítése a parancshoz]'
           ;;
@@ -593,7 +765,22 @@ _claude_auto_mode() {
       ;;
     args)
       case $words[1] in
-        config|critique|defaults|reset)
+        critique)
+          _arguments \
+            '--model[A használt modell felülírása]:model:_claude_model_names' \
+            '(-h --help)'{-h,--help}'[Súgó megjelenítése a parancshoz]'
+          ;;
+        defaults)
+          _arguments \
+            '--label[Csak azon szabályok megjelenítése, amelyek címkéje ezzel az előtaggal kezdődik (kis- és nagybetűtől független)]:prefix:' \
+            '(-h --help)'{-h,--help}'[Súgó megjelenítése a parancshoz]'
+          ;;
+        reset)
+          _arguments \
+            '(-y --yes)'{-y,--yes}'[A megerősítő kérdés kihagyása]' \
+            '(-h --help)'{-h,--help}'[Súgó megjelenítése a parancshoz]'
+          ;;
+        config)
           _arguments \
             '(-h --help)'{-h,--help}'[Súgó megjelenítése a parancshoz]'
           ;;
@@ -631,8 +818,12 @@ _claude_project() {
       case $words[1] in
         purge)
           _arguments \
+            '--dry-run[A törlendő elemek listázása, anélkül hogy bármi törlődne]' \
+            '(-y --yes)'{-y,--yes}'[A megerősítő kérdés kihagyása]' \
+            '(-i --interactive)'{-i,--interactive}'[Rákérdezés minden elemre törlés előtt]' \
+            '(1)--all[Az állapot törlése minden projektre (elérési úttal együtt nem használható)]' \
             '(-h --help)'{-h,--help}'[Súgó megjelenítése a parancshoz]' \
-            '1:path:_directories'
+            '(--all)::path:_directories'
           ;;
       esac
       ;;
@@ -642,9 +833,34 @@ _claude_project() {
 _claude_ultrareview() {
   _arguments \
     '--json[A nyers bugs.json adatküldemény kiírása a formázott eredmények helyett]' \
-    '--timeout[A felülvizsgálat befejezésére való várakozás maximális perce]:minutes:' \
+    '--timeout[A felülvizsgálat befejezésére való várakozás leghosszabb ideje percben (alapértelmezett: 45)]:minutes:' \
+    '(--no-post)--post[A kész felülvizsgálat megállapításainak közzététele a PR-ben az Ön nevében (csak PR-célpontoknál; egyetlen egyszerű megjegyzés, nem felülvizsgálat)]' \
+    '(--post)--no-post[A megállapítások közzétételének mellőzése a PR-ben (alapértelmezett)]' \
     '(-h --help)'{-h,--help}'[Súgó megjelenítése a parancshoz]' \
     '1:target:'
+}
+
+_claude_respawn() {
+  _arguments \
+    '(1)--all[Az összes futó háttérmunkamenet újraindítása]' \
+    '(-h --help)'{-h,--help}'[Súgó megjelenítése a parancshoz]' \
+    '(--all)::session:_claude_background_sessions'
+}
+
+_claude_rm() {
+  _arguments \
+    '--discard-unpushed[A worktree fel nem töltött commitjainak és nem véglegesített módosításainak elvetése is (adja meg a korábbi claude rm által jelzett commit@worktree-id értéket)]:commit@worktree-id:' \
+    '--force-remove-worktree[A worktree-könyvtár törlése akkor is, ha a WorktreeRemove hook vagy a git nem tudta eltávolítani (adja meg a korábbi claude rm által jelzett worktree-id értéket)]:worktree-id:' \
+    '(-h --help)'{-h,--help}'[Súgó megjelenítése a parancshoz]' \
+    '1:session:_claude_background_sessions'
+}
+
+_claude_import() {
+  _arguments \
+    '--dry-run[Az importálandó elemek megjelenítése, anélkül hogy bármi kiírásra kerülne]' \
+    '--yes[Az interaktív választó kihagyása (fej nélküli felületeken adja meg a --yes=<digest> értéket az /import előnézetéből)]' \
+    '(-h --help)'{-h,--help}'[Súgó megjelenítése a parancshoz]' \
+    '::source:(codex gemini cursor)'
 }
 
 (( $+_comps[claude] )) || compdef _claude claude
