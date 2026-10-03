@@ -5,10 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [2.7.1] - 2026-10-03
+
+### Added
+- Every remaining locale now carries the 2.6.0 and 2.7.0 additions — the background-session commands, `import`, the new session and subcommand options, `--desktop`, `plugin configure` and `plugin test` — so all 120 completion files match the English one line for line. Each translation was checked by a second pass before it went in
 
 ### Changed
 - Release automation: the formula PR opened after a release now merges itself once `test` passes
+
+### Fixed
+- Spanish (`es` and the Latin American variants): exit-status notes said "salida N" (output N) rather than "código de salida N", and `--concurrency` counted agents rather than agent runs
 
 ## [2.7.0] - 2026-10-03
 
