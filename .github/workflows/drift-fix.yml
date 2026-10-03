@@ -81,6 +81,7 @@ jobs:
              It only reads the top-level `claude --help`; also run `claude <command> --help`
              for each command and subcommand, because nested options are missed by it.
              Never run `claude <command> help <sub>`: it starts an interactive session.
+             If nothing is missing, stop here without changing any file or opening a PR.
           2. Update completions/_claude, the source of truth, following the existing style.
              Remove nothing that the CLI still has.
           3. Copy completions/_claude over every completions/_claude.en-* file (they are identical to it).
