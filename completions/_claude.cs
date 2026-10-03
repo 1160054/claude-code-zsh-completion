@@ -121,6 +121,39 @@ _claude_agent_names() {
   compadd -a agents
 }
 
+_claude_background_sessions() {
+  local -a sessions state_files
+  local -A names states
+  local state_dir state_file line id rest
+
+  # Background sessions (`claude --bg`) live in <config>/jobs/<id>/, where
+  # <id> is the short id that attach, logs, stop, respawn and rm take.
+  for state_dir in ${(f)"$(_claude_state_dirs)"}; do
+    # Newest first
+    state_files=(${state_dir}/jobs/*/state.json(Nom))
+    (( ${#state_files} )) || continue
+
+    # One grep for all of them; the first "name" and "state" it reports for a
+    # file are that file's top-level ones
+    names=() states=()
+    for line in ${(f)"$(grep -HoE '"(name|state)"[[:space:]]*:[[:space:]]*"[^"]*"' $state_files 2>/dev/null)"}; do
+      id=${${line%%/state.json:*}:t}
+      rest=${line#*/state.json:}
+      case $rest in
+        \"name\"*)  [[ -z $names[$id] ]]  && names[$id]=${${rest#*:*\"}%\"} ;;
+        \"state\"*) [[ -z $states[$id] ]] && states[$id]=${${rest#*:*\"}%\"} ;;
+      esac
+    done
+
+    for state_file in $state_files; do
+      id=${state_file:h:t}
+      sessions+=("${id}:${names[$id]:-no name}${states[$id]:+ (${states[$id]})}")
+    done
+  done
+
+  _describe -t sessions 'background session' sessions
+}
+
 _claude_model_names() {
   local -a models config_files
   local state_dir config_file
@@ -155,9 +188,15 @@ _claude() {
     'mcp:Konfigurace a správa MCP serverů'
     'plugin:Správa pluginů Claude Code'
     'agents:Správa agentů na pozadí'
+    'attach:Otevřít relaci na pozadí v tomto terminálu'
+    'logs:Vypsat nedávný výstup terminálu relace na pozadí'
+    'stop:Zastavit relaci na pozadí (její konverzace zůstane zachována)'
+    'respawn:Restartovat relaci na pozadí, aby běžela na aktuální verzi Claude Code'
+    'rm:Smazat relaci na pozadí a její worktree, pokud je to bezpečné'
     'auth:Správa autentizace'
     'auto-mode:Prohlédnout nebo resetovat konfiguraci klasifikátoru automatického režimu'
     'gateway:Spustit podnikovou bránu pro autentizaci/telemetrii'
+    'import:Importovat konfiguraci z jiného AI agenta pro programování do Claude Code'
     'project:Správa stavu projektu Claude Code'
     'ultrareview:Spustit cloudovou multiagentní revizi kódu a vypsat zjištění'
     'setup-token:Nastavení tokenu pro dlouhodobou autentizaci (vyžaduje předplatné Claude)'
@@ -178,6 +217,7 @@ _claude() {
     '--mcp-debug[\[Zastaralé. Použijte --debug místo toho\] Zapnout režim ladění MCP (zobrazuje chyby MCP serveru)]'
     '--dangerously-skip-permissions[Obejít všechny kontroly oprávnění. Doporučeno pouze pro sandboxová prostředí bez přístupu k internetu]'
     '--allow-dangerously-skip-permissions[Povolit možnost obejití kontrol oprávnění bez povolení ve výchozím nastavení]'
+    '--restricted[Omezený režim: odebrat nástroje spouštějící příkazy nebo kód a WebFetch, ignorovat nastavení user/project/local a omezit souborové nástroje na pracovní adresáře]'
     '--max-budget-usd[Maximální částka v dolarech, kterou lze utratit za volání API (pouze --print)]:amount:'
     '--replay-user-messages[Znovu odeslat uživatelské zprávy ze stdin na stdout pro potvrzení]'
     '--allowed-tools[Seznam povolených názvů nástrojů oddělených čárkou nebo mezerou (např. "Bash(git:*) Edit")]:tools:'
@@ -187,8 +227,13 @@ _claude() {
     '--disallowedTools[Seznam zakázaných názvů nástrojů oddělených čárkou nebo mezerou (formát camelCase)]:tools:'
     '--mcp-config[Načíst MCP servery z JSON souboru nebo řetězce (oddělené mezerami)]:configs:'
     '--system-prompt[Systémový prompt pro použití v relaci]:prompt:'
+    '--system-prompt-file[Načíst systémový prompt ze souboru]:file:_files'
     '--append-system-prompt[Připojit systémový prompt ke standardnímu systémovému promptu]:prompt:'
+    '--append-system-prompt-file[Načíst systémový prompt ze souboru a připojit ho ke standardnímu systémovému promptu]:file:_files'
+    '--system-prompt-snapshot[Zaznamenat systémový prompt jednou za konverzaci a doslovně ho znovu použít při každém požadavku a obnovení (on, výchozí) nebo ho při každém požadavku vykreslit znovu (off)]:mode:(on off)'
     '--permission-mode[Režim oprávnění pro použití v relaci]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)'
+    '--permission-prompts[Kdo odpovídá na výzvy k oprávnění s --print: "host" (SDK host nebo --permission-prompt-tool) nebo "none" (vše, co by vyžadovalo výzvu, je zamítnuto)]:target:(host none)'
+    '--permission-prompt-tool[MCP nástroj pro výzvy k oprávnění (pouze --print)]:tool:'
     '(-c --continue)'{-c,--continue}'[Pokračovat v poslední konverzaci]'
     '(-r --resume)'{-r,--resume}'[Obnovit konverzaci - zadejte identifikátor relace nebo vyberte interaktivně]:sessionId:_claude_sessions'
     '--fork-session[Vytvořit nový identifikátor relace místo opětovného použití původního při obnovení (s --resume nebo --continue)]'
@@ -200,6 +245,7 @@ _claude() {
     '--settings[Cesta k JSON souboru s nastavením nebo JSON řetězec pro načtení dodatečných nastavení]:file-or-json:_files'
     '--add-dir[Další adresáře pro poskytnutí přístupu nástrojům]:directories:_directories'
     '--ide[Automaticky se připojit k IDE při spuštění pokud je dostupné právě jedno platné IDE]'
+    '--desktop[Otevřít v aplikaci Claude Desktop místo terminálu (s --continue nebo --resume <id> pro výběr relace)]'
     '--strict-mcp-config[Použít pouze MCP servery z --mcp-config a ignorovat všechna ostatní MCP nastavení]'
     '--session-id[Konkrétní identifikátor relace pro použití v konverzaci (musí být platné UUID)]:uuid:'
     '--agents[JSON objekt definující vlastní agenty]:json:'
@@ -208,11 +254,15 @@ _claude() {
     '--disable-slash-commands[Zakázat všechny lomítkové příkazy]'
     '(--bg --background)'{--bg,--background}'[Spustit relaci jako agenta na pozadí a okamžitě se vrátit]'
     '(-w --worktree)'{-w,--worktree}'[Vytvořit nový git worktree pro tuto relaci (volitelně zadejte název)]::name:'
-    '--tmux[Vytvořit tmux relaci pro worktree (vyžaduje --worktree)]'
+    '--tmux=-[Vytvořit tmux relaci pro worktree (vyžaduje --worktree). Použije nativní panely iTerm2, pokud jsou dostupné; --tmux=classic pro tradiční tmux]::mode:(classic)'
     '(-n --name)'{-n,--name}'[Nastavit zobrazovaný název pro tuto relaci]:name:'
     '--effort[Úroveň úsilí pro aktuální relaci]:level:(low medium high xhigh max)'
+    '--autocompact[Velikost okna automatické komprimace (auto, nebo 100k-1M tokenů)]:size:(auto)'
     '--debug-file[Zapisovat ladicí logy do konkrétní cesty souboru (implicitně zapne režim ladění)]:path:_files'
     '--from-pr[Obnovit relaci propojenou s PR podle čísla/URL, nebo otevřít interaktivní výběr]::value:'
+    '--teleport[Obnovit teleport relaci, volitelně zadat identifikátor relace]::session:'
+    '--cloud[Vytvořit cloudovou relaci se zadaným popisem, nebo se připojit k existující podle identifikátoru relace nebo URL claude.ai/code]::description-or-session:'
+    '--environment[Vytvořit novou cloudovou relaci, která běží v zadaném self-hosted prostředí (ccpool_...)]:environment_id:'
     '--remote-control[Spustit interaktivní relaci s povoleným vzdáleným ovládáním (volitelně pojmenovanou)]::name:'
     '--remote-control-session-name-prefix[Předpona pro automaticky generované názvy relací vzdáleného ovládání]:prefix:'
     '--chrome[Zapnout integraci Claude v Chrome]'
@@ -254,6 +304,17 @@ _claude() {
         agents)
           _claude_agents
           ;;
+        attach|logs|stop|kill)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Zobrazit nápovědu pro příkaz]' \
+            '1:session:_claude_background_sessions'
+          ;;
+        respawn)
+          _claude_respawn
+          ;;
+        rm)
+          _claude_rm
+          ;;
         auth)
           _claude_auth
           ;;
@@ -262,6 +323,9 @@ _claude() {
           ;;
         gateway)
           _claude_gateway
+          ;;
+        import)
+          _claude_import
           ;;
         project)
           _claude_project
@@ -319,6 +383,9 @@ _claude_mcp() {
             '(-t --transport)'{-t,--transport}'[Typ transportu (stdio, sse, http)]:transport:(stdio sse http)' \
             '(-e --env)'{-e,--env}'[Nastavit proměnnou prostředí (např. -e KEY=value)]:env:' \
             '(-H --header)'{-H,--header}'[Nastavit WebSocket hlavičku]:header:' \
+            '--client-id[OAuth client ID pro HTTP/SSE servery]:clientId:' \
+            '--client-secret[Vyžádat zadání OAuth client secret (nebo nastavit proměnnou prostředí MCP_CLIENT_SECRET)]' \
+            '--callback-port[Pevný port pro OAuth callback (pro servery vyžadující předregistrované přesměrovací URI)]:port:' \
             '(-h --help)'{-h,--help}'[Zobrazit nápovědu]' \
             '1:name:' \
             '2:commandOrUrl:' \
@@ -342,6 +409,7 @@ _claude_mcp() {
         add-json)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Rozsah konfigurace (local, user, project)]:scope:(local user project)' \
+            '--client-secret[Vyžádat zadání OAuth client secret (nebo nastavit proměnnou prostředí MCP_CLIENT_SECRET)]' \
             '(-h --help)'{-h,--help}'[Zobrazit nápovědu]' \
             '1:name:' \
             '2:json:'
@@ -355,7 +423,13 @@ _claude_mcp() {
           _arguments \
             '(-h --help)'{-h,--help}'[Zobrazit nápovědu]'
           ;;
-        login|logout)
+        login)
+          _arguments \
+            '--no-browser[Vypsat autorizační URL místo otevření prohlížeče (pro SSH/headless relace)]' \
+            '(-h --help)'{-h,--help}'[Zobrazit nápovědu]' \
+            '1:name:_claude_mcp_servers'
+          ;;
+        logout)
           _arguments \
             '(-h --help)'{-h,--help}'[Zobrazit nápovědu]' \
             '1:name:_claude_mcp_servers'
@@ -372,9 +446,11 @@ _claude_plugin() {
     'marketplace:Správa marketplace Claude Code'
     'list:Zobrazit seznam nainstalovaných pluginů'
     'details:Zobrazit inventář komponent a odhadovanou cenu v tokenech pro plugin'
+    'configure:Zobrazit možnosti pluginu a které z nich nejsou nastaveny, nebo uložit hodnoty ze stdin'
     'install:Nainstalovat plugin z dostupných marketplace'
     'i:Nainstalovat plugin z dostupných marketplace (zkratka pro install)'
     'init:Vytvořit kostru nového pluginu (automaticky se načte při další relaci)'
+    'new:Vytvořit kostru nového pluginu (alias pro init)'
     'uninstall:Odinstalovat nainstalovaný plugin'
     'remove:Odinstalovat nainstalovaný plugin (alias pro uninstall)'
     'enable:Povolit zakázaný plugin'
@@ -382,7 +458,9 @@ _claude_plugin() {
     'update:Aktualizovat plugin na nejnovější verzi'
     'eval:Spustit evaluační případy proti pluginu a nahlásit obodované výsledky'
     'prune:Odstranit automaticky nainstalované závislosti, které již nejsou potřeba'
+    'autoremove:Odstranit automaticky nainstalované závislosti, které již nejsou potřeba (alias pro prune)'
     'tag:Vytvořit git tag {name}--v{version} pro vydání pluginu'
+    'test:Spustit testy modu'
     'help:Zobrazit nápovědu'
   )
 
@@ -402,6 +480,8 @@ _claude_plugin() {
       case $words[1] in
         validate)
           _arguments \
+            '--strict[Považovat varování za chyby (exit kód 1)]' \
+            '--json[Vypsat validační zprávu jako JSON (stejné exit kódy)]' \
             '(-h --help)'{-h,--help}'[Zobrazit nápovědu]' \
             '1:path:_files'
           ;;
@@ -411,50 +491,122 @@ _claude_plugin() {
         install|i)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Rozsah instalace]:scope:(user project local)' \
+            '*--config[Nastavit možnost userConfig deklarovanou v manifestu pluginu (lze opakovat)]:key=value:' \
+            '(-y --yes)'{-y,--yes}'[Přijmout zobrazený příkaz deklarovaný marketplace bez potvrzovací výzvy]' \
+            '--json[Vypsat jeden strojově čitelný řádek s výsledkem místo zprávy pro člověka]' \
             '(-h --help)'{-h,--help}'[Zobrazit nápovědu]' \
             '1:plugin:'
           ;;
         uninstall|remove)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Rozsah instalace]:scope:(user project local)' \
+            '--keep-data[Zachovat adresář trvalých dat pluginu]' \
+            '--prune[Odstranit také automaticky nainstalované závislosti, které již nejsou potřeba]' \
+            '(-y --yes)'{-y,--yes}'[Přeskočit potvrzovací výzvu --prune]' \
+            '--json[Vypsat jeden strojově čitelný řádek s výsledkem místo zprávy pro člověka (ne s --prune)]' \
             '(-h --help)'{-h,--help}'[Zobrazit nápovědu]' \
             '1:plugin:_claude_installed_plugins'
           ;;
-        enable|disable)
+        enable)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Rozsah instalace]:scope:(user project local)' \
+            '--json[Vypsat jeden strojově čitelný řádek s výsledkem místo zprávy pro člověka]' \
             '(-h --help)'{-h,--help}'[Zobrazit nápovědu]' \
             '1:plugin:_claude_installed_plugins'
+          ;;
+        disable)
+          _arguments \
+            '(-a --all)'{-a,--all}'[Zakázat všechny povolené pluginy]' \
+            '(-s --scope)'{-s,--scope}'[Rozsah instalace]:scope:(user project local)' \
+            '--json[Vypsat jeden strojově čitelný řádek s výsledkem místo zprávy pro člověka]' \
+            '(-h --help)'{-h,--help}'[Zobrazit nápovědu]' \
+            '::plugin:_claude_installed_plugins'
           ;;
         update)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Rozsah instalace]:scope:(user project local managed)' \
+            '(-y --yes)'{-y,--yes}'[Přijmout zobrazený příkaz deklarovaný marketplace bez potvrzovací výzvy]' \
+            '--json[Vypsat jeden strojově čitelný řádek s výsledkem místo zprávy pro člověka]' \
             '(-h --help)'{-h,--help}'[Zobrazit nápovědu]' \
             '1:plugin:_claude_installed_plugins'
           ;;
-        list|prune)
+        list)
           _arguments \
+            '--json[Výstup jako JSON]' \
+            '--available[Zahrnout dostupné pluginy z marketplace (vyžaduje --json)]' \
             '(-h --help)'{-h,--help}'[Zobrazit nápovědu]'
+          ;;
+        prune|autoremove)
+          _arguments \
+            '(-s --scope)'{-s,--scope}'[Pročistit v rozsahu]:scope:(user project local)' \
+            '--dry-run[Vypsat, co by bylo odstraněno, bez odstranění]' \
+            '(-y --yes)'{-y,--yes}'[Přeskočit potvrzovací výzvu]' \
+            '(-h --help)'{-h,--help}'[Zobrazit nápovědu]'
+          ;;
+        configure)
+          _arguments \
+            '--json[Výstup jako JSON]' \
+            '--values-stdin[Načíst hodnoty možností ze stdin jako JSON objekt jednořádkových řetězců; vynechané možnosti si ponechají své hodnoty]' \
+            '(-h --help)'{-h,--help}'[Zobrazit nápovědu]' \
+            '1:plugin:_claude_installed_plugins'
           ;;
         details)
           _arguments \
             '(-h --help)'{-h,--help}'[Zobrazit nápovědu]' \
             '1:plugin:_claude_installed_plugins'
           ;;
-        init)
+        init|new)
           _arguments \
+            '--description[Popis v manifestu]:text:' \
+            '--author[Jméno autora (výchozí: git config user.name)]:name:' \
+            '--author-email[E-mail autora (výchozí: git config user.email)]:email:' \
+            '--with[Komponenty, pro které se má také vytvořit kostra]:components:' \
+            '(-f --force)'{-f,--force}'[Přepsat existující .claude-plugin/ v cíli]' \
             '(-h --help)'{-h,--help}'[Zobrazit nápovědu]' \
             '1:name:'
           ;;
         eval)
           _arguments \
+            '--case[Filtrovat případy podle glob vzoru názvu]:glob:' \
+            '*--tag[Filtrovat případy podle tagu (lze opakovat)]:tag:' \
+            '--runs[Přepsat počet běhů na případ (výchozí: case.runs, jinak 3)]:n:' \
+            '(-j --concurrency)'{-j,--concurrency}'[Spustit až n běhů agenta současně (1-8; výchozí 1)]:n:' \
+            '--model[Přepsat model pro všechny případy]:model:_claude_model_names' \
+            '--judge-model[Přepsat model LLM hodnotitele (výchozí: haiku)]:model:_claude_model_names' \
+            '--max-cost-usd[Pevný limit nákladů; při jeho dosažení přerušit a nahlásit částečné výsledky (exit kód 2)]:usd:' \
+            '--output-dir[Adresář pro aggregate-result.json]:dir:_directories' \
+            '--eval-dir[Název adresáře (pod pluginem), který obsahuje evaluační případy]:dir:' \
+            '--json[Vypsat úplný výsledek běhu jako JSON na stdout, nebo ho zapsat do tohoto .json souboru]::path:_files' \
+            '--threshold[Ukončit s exit kódem 1, pokud je skóre některého případu pod tímto prahem (výchozí: 1.0)]:threshold:' \
+            '*--allow-tools[Oprávnění udělené operátorem pro chráněné nástroje (Bash, Write, Edit, WebFetch, mcp__*)]:tools:' \
+            '(--no-scaffold)--scaffold[Spustit scaffold_script každého případu (spouští bash dodaný autorem pod vaším účtem; ve výchozím stavu vypnuto)]' \
+            '(--scaffold)--no-scaffold[Výslovně přeskočit scaffold_script]' \
+            '--trust-plugin[Potvrdit, že tomuto pluginu a jeho evaluační sadě důvěřujete, a přeskočit výzvu k důvěře při prvním spuštění (pro CI)]' \
+            '--ablation[Spustit srovnávací kontrolní skupinu bez pluginu a nahlásit rozdíl skóre]:mode:(none with-without)' \
+            '--mocks[Mock náhrady za MCP servery, z <eval dir>/mocks/]:mode:(record off)' \
+            '--allow-real-servers[S --mocks record: spustit také skutečné procesy MCP serverů, které nemají mock]' \
+            '--keep-temp[Zachovat adresáře kostry pro ladění]' \
+            '--verbose[Zapisovat události trasování jednotlivých zpráv do ladicího logu]' \
+            '--report[Zapsat samostatnou HTML zprávu do této cesty místo adresáře s výsledky]:path:_files' \
+            '(--no-publish)--publish-report[Vyžadovat také publikování zprávy na claude.ai]' \
+            '(--publish-report)--no-publish[Ponechat HTML zprávu pouze lokálně; přeskočit její publikování na claude.ai]' \
             '(-h --help)'{-h,--help}'[Zobrazit nápovědu]' \
-            '1:target:'
+            '::target: _alternative "plugins\:installed plugin\:_claude_installed_plugins" "files\:path\:_files"'
           ;;
         tag)
           _arguments \
+            '--push[Po vytvoření odeslat tag do --remote]' \
+            '--dry-run[Vypsat, co by bylo otagováno, bez vytvoření tagu]' \
+            '(-f --force)'{-f,--force}'[Přeskočit kontroly nečistého pracovního stromu a již existujícího tagu]' \
+            '(-m --message)'{-m,--message}'[Zpráva anotace tagu (použijte %s pro verzi)]:msg:' \
+            '--remote[Remote, kam odeslat s --push]:name:' \
             '(-h --help)'{-h,--help}'[Zobrazit nápovědu]' \
-            '1:path:_files'
+            '::path:_files'
+          ;;
+        test)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Zobrazit nápovědu]' \
+            '::dir:_directories'
           ;;
       esac
       ;;
@@ -488,15 +640,20 @@ _claude_plugin_marketplace() {
       case $words[1] in
         add)
           _arguments \
+            '--sparse[Omezit checkout na konkrétní adresáře pomocí git sparse-checkout (pro monorepa)]:paths:' \
+            '--scope[Kde deklarovat marketplace]:scope:(user project local)' \
+            '--claudeai[Přidat marketplace s tímto názvem, který pro vás hostuje claude.ai]' \
             '(-h --help)'{-h,--help}'[Zobrazit nápovědu]' \
             '1:source:'
           ;;
         list)
           _arguments \
+            '--json[Výstup jako JSON]' \
             '(-h --help)'{-h,--help}'[Zobrazit nápovědu]'
           ;;
         remove|rm)
           _arguments \
+            '--scope[Odstranit deklaraci marketplace z konkrétního rozsahu nastavení (vynechejte pro odstranění ze všech rozsahů)]:scope:(user project local)' \
             '(-h --help)'{-h,--help}'[Zobrazit nápovědu]' \
             '1:name:'
           ;;
@@ -534,6 +691,7 @@ _claude_agents() {
     '--setting-sources[Seznam zdrojů nastavení oddělených čárkou pro načtení (user, project, local)]:sources:' \
     '--settings[Soubor s nastavením nebo JSON řetězec k použití]:file-or-json:_files' \
     '--strict-mcp-config[Použít pouze MCP servery z --mcp-config v odeslaných relacích]' \
+    '--restricted[Spouštět odeslané relace v omezeném režimu]' \
     '(-h --help)'{-h,--help}'[Zobrazit nápovědu pro příkaz]'
 }
 
@@ -560,7 +718,21 @@ _claude_auth() {
       ;;
     args)
       case $words[1] in
-        login|logout|status)
+        login)
+          _arguments \
+            '--email[Předvyplnit e-mailovou adresu na přihlašovací stránce]:email:' \
+            '--sso[Vynutit přihlášení přes SSO]' \
+            '(--claudeai)--console[Použít Anthropic Console (účtování podle využití API) místo předplatného Claude]' \
+            '(--console)--claudeai[Použít předplatné Claude (výchozí)]' \
+            '(-h --help)'{-h,--help}'[Zobrazit nápovědu pro příkaz]'
+          ;;
+        status)
+          _arguments \
+            '(--text)--json[Výstup jako JSON (výchozí)]' \
+            '(--json)--text[Výstup jako text čitelný pro člověka]' \
+            '(-h --help)'{-h,--help}'[Zobrazit nápovědu pro příkaz]'
+          ;;
+        logout)
           _arguments \
             '(-h --help)'{-h,--help}'[Zobrazit nápovědu pro příkaz]'
           ;;
@@ -593,7 +765,22 @@ _claude_auto_mode() {
       ;;
     args)
       case $words[1] in
-        config|critique|defaults|reset)
+        critique)
+          _arguments \
+            '--model[Přepsat použitý model]:model:_claude_model_names' \
+            '(-h --help)'{-h,--help}'[Zobrazit nápovědu pro příkaz]'
+          ;;
+        defaults)
+          _arguments \
+            '--label[Zobrazit pouze pravidla, jejichž popisek začíná touto předponou (bez rozlišení velikosti písmen)]:prefix:' \
+            '(-h --help)'{-h,--help}'[Zobrazit nápovědu pro příkaz]'
+          ;;
+        reset)
+          _arguments \
+            '(-y --yes)'{-y,--yes}'[Přeskočit potvrzovací výzvu]' \
+            '(-h --help)'{-h,--help}'[Zobrazit nápovědu pro příkaz]'
+          ;;
+        config)
           _arguments \
             '(-h --help)'{-h,--help}'[Zobrazit nápovědu pro příkaz]'
           ;;
@@ -631,8 +818,12 @@ _claude_project() {
       case $words[1] in
         purge)
           _arguments \
+            '--dry-run[Vypsat, co by bylo smazáno, bez mazání čehokoli]' \
+            '(-y --yes)'{-y,--yes}'[Přeskočit potvrzovací výzvu]' \
+            '(-i --interactive)'{-i,--interactive}'[Před smazáním se u každé položky zeptat]' \
+            '(1)--all[Smazat stav pro všechny projekty (vzájemně se vylučuje s cestou)]' \
             '(-h --help)'{-h,--help}'[Zobrazit nápovědu pro příkaz]' \
-            '1:path:_directories'
+            '(--all)::path:_directories'
           ;;
       esac
       ;;
@@ -642,9 +833,34 @@ _claude_project() {
 _claude_ultrareview() {
   _arguments \
     '--json[Vypsat surová data bugs.json místo formátovaných zjištění]' \
-    '--timeout[Maximální počet minut čekání na dokončení revize]:minutes:' \
+    '--timeout[Maximální počet minut čekání na dokončení revize (výchozí: 45)]:minutes:' \
+    '(--no-post)--post[Zveřejnit zjištění z dokončené revize do PR pod vaším účtem (pouze cíle typu PR; jeden prostý komentář, ne revize)]' \
+    '(--post)--no-post[Nezveřejňovat zjištění do PR (výchozí)]' \
     '(-h --help)'{-h,--help}'[Zobrazit nápovědu pro příkaz]' \
     '1:target:'
+}
+
+_claude_respawn() {
+  _arguments \
+    '(1)--all[Restartovat všechny běžící relace na pozadí]' \
+    '(-h --help)'{-h,--help}'[Zobrazit nápovědu pro příkaz]' \
+    '(--all)::session:_claude_background_sessions'
+}
+
+_claude_rm() {
+  _arguments \
+    '--discard-unpushed[Zahodit také neodeslané commity a necommitnuté změny worktree (předejte commit@worktree-id, které nahlásil předchozí claude rm)]:commit@worktree-id:' \
+    '--force-remove-worktree[Smazat adresář worktree, i když ho hook WorktreeRemove nebo git nedokázal odstranit (předejte worktree-id, které nahlásil předchozí claude rm)]:worktree-id:' \
+    '(-h --help)'{-h,--help}'[Zobrazit nápovědu pro příkaz]' \
+    '1:session:_claude_background_sessions'
+}
+
+_claude_import() {
+  _arguments \
+    '--dry-run[Zobrazit, co by bylo importováno, bez zápisu čehokoli]' \
+    '--yes[Přeskočit interaktivní výběr (na headless rozhraních předejte --yes=<digest> z náhledu /import)]' \
+    '(-h --help)'{-h,--help}'[Zobrazit nápovědu pro příkaz]' \
+    '::source:(codex gemini cursor)'
 }
 
 (( $+_comps[claude] )) || compdef _claude claude
