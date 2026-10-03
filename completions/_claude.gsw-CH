@@ -121,6 +121,39 @@ _claude_agent_names() {
   compadd -a agents
 }
 
+_claude_background_sessions() {
+  local -a sessions state_files
+  local -A names states
+  local state_dir state_file line id rest
+
+  # Background sessions (`claude --bg`) live in <config>/jobs/<id>/, where
+  # <id> is the short id that attach, logs, stop, respawn and rm take.
+  for state_dir in ${(f)"$(_claude_state_dirs)"}; do
+    # Newest first
+    state_files=(${state_dir}/jobs/*/state.json(Nom))
+    (( ${#state_files} )) || continue
+
+    # One grep for all of them; the first "name" and "state" it reports for a
+    # file are that file's top-level ones
+    names=() states=()
+    for line in ${(f)"$(grep -HoE '"(name|state)"[[:space:]]*:[[:space:]]*"[^"]*"' $state_files 2>/dev/null)"}; do
+      id=${${line%%/state.json:*}:t}
+      rest=${line#*/state.json:}
+      case $rest in
+        \"name\"*)  [[ -z $names[$id] ]]  && names[$id]=${${rest#*:*\"}%\"} ;;
+        \"state\"*) [[ -z $states[$id] ]] && states[$id]=${${rest#*:*\"}%\"} ;;
+      esac
+    done
+
+    for state_file in $state_files; do
+      id=${state_file:h:t}
+      sessions+=("${id}:${names[$id]:-no name}${states[$id]:+ (${states[$id]})}")
+    done
+  done
+
+  _describe -t sessions 'background session' sessions
+}
+
 _claude_model_names() {
   local -a models config_files
   local state_dir config_file
@@ -155,9 +188,15 @@ _claude() {
     'mcp:MCP-Server konfiguriere u verwalte'
     'plugin:Claude Code-Erwitterige verwalte'
     'agents:Hintergrund-Agente verwalte'
+    'attach:Hintergrundsitzig i däm Terminal öffne'
+    'logs:Aktuelli Terminalusgab vo ere Hintergrundsitzig usgäh'
+    'stop:Hintergrundsitzig stoppe (d Konversation blibt erhalte)'
+    'respawn:Hintergrundsitzig nöi starte, damit si mit de aktuelle Claude Code-Version lauft'
+    'rm:Hintergrundsitzig lösche, u ire Worktree, wänn das gfahrlos gaht'
     'auth:Authentifizierig verwalte'
     'auto-mode:Auto-Modus-Klassifizierer-Konfiguration prüefe oder zrucksetze'
     'gateway:Enterprise-Authentifizierigs-/Telemetrie-Gateway usfüehre'
+    'import:Konfiguration vo eme andere KI-Coding-Agent i Claude Code importiere'
     'project:Claude Code-Projäktstatus verwalte'
     'ultrareview:Cloud-ghosteti Multi-Agent-Code-Überprüefig usfüehre u d Ergebnis usgäh'
     'setup-token:Langziit-Authentifizierigs-Token iirichte (bruucht Claude-Abonnemänt)'
@@ -178,6 +217,7 @@ _claude() {
     '--mcp-debug[\[Veraltet. Verwänded stattdesse --debug\] MCP-Debug-Modus aktiviere (zeigt MCP-Serverfähler)]'
     '--dangerously-skip-permissions[Alli Berechtigigsprüefige umgah. Nur für Sandboxe ohni Internetzuegang empfohle]'
     '--allow-dangerously-skip-permissions[Option zum Umgah vo Berechtigigsprüefige aktiviere, ohni standardmässig z aktiviere]'
+    '--restricted[Iigschränkte Modus: Wärkzüg, wo Befehl oder Code usfüehre, u WebFetch entferne, user/project/local-Iischtellige ignoriere u Datei-Wärkzüg uf d Arbetsverzeichnis beschränke]'
     '--max-budget-usd[Maximale Dollarbetrag zum Uusgäh für API-Ufruef (nur --print)]:amount:'
     '--replay-user-messages[Benutzernachrichtet vo stdin uf stdout zur Bestätigig nöimol sände]'
     '--allowed-tools[Komma- oder leerzeichegtrennte Liste erlaubte Wärkzügnäme (z.B. "Bash(git:*) Edit")]:tools:'
@@ -187,8 +227,13 @@ _claude() {
     '--disallowedTools[Komma- oder leerzeichegtrennte Liste nöd erlaubte Wärkzügnäme (camelCase-Format)]:tools:'
     '--mcp-config[MCP-Server us JSON-Datei oder String lade (leerzeichegtrennt)]:configs:'
     '--system-prompt[System-Prompt für Sitzig verwände]:prompt:'
+    '--system-prompt-file[System-Prompt us ere Datei lese]:file:_files'
     '--append-system-prompt[System-Prompt a Standard-System-Prompt aahänge]:prompt:'
+    '--append-system-prompt-file[System-Prompt us ere Datei lese u a Standard-System-Prompt aahänge]:file:_files'
+    '--system-prompt-snapshot[System-Prompt eimal pro Konversation ufzeichne u bi jeder Aafrag u jedem Fortsetzä unveränderet wiiderverwände (on, Standard) oder bi jeder Aafrag nöi erzüüge (off)]:mode:(on off)'
     '--permission-mode[Berechtigigs-Modus für Sitzig verwände]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)'
+    '--permission-prompts[Wer Berechtigigsabfrage mit --print beantwortet: "host" (de SDK-Host oder --permission-prompt-tool) oder "none" (alles, wo nachfrage würd, wird abglehnt)]:target:(host none)'
+    '--permission-prompt-tool[MCP-Tool für Berechtigigsabfrage (nur --print)]:tool:'
     '(-c --continue)'{-c,--continue}'[Di letst Konversation fortsetzä]'
     '(-r --resume)'{-r,--resume}'[Konversation fortsetzä - Sitzig-ID aagäh oder interaktiv uuswähle]:sessionId:_claude_sessions'
     '--fork-session[Nöii Sitzig-ID erstelle statt ursprünglichi Sitzig-ID bim Fortsetzä wiiderverwände (mit --resume oder --continue)]'
@@ -200,6 +245,7 @@ _claude() {
     '--settings[Pfad zu Iischtellige-JSON-Datei oder JSON-String zum Lade vo zuesätzliche Iischtellige]:file-or-json:_files'
     '--add-dir[Zuesätzlichi Verzeichnis für Wärkzügzuegang erlaube]:directories:_directories'
     '--ide[Automatisch mit IDE bim Start verbinde, wänn genau eis gültigs IDE verfüegbar isch]'
+    '--desktop[I de Claude Desktop-App statt im Terminal öffne (mit --continue oder --resume <id> d Sitzig uuswähle)]'
     '--strict-mcp-config[Nur MCP-Server us --mcp-config verwände u alli andere MCP-Iischtellige ignoriere]'
     '--session-id[Spezifischi Sitzig-ID für Konversation verwände (muess gültigi UUID sii)]:uuid:'
     '--agents[JSON-Objekt zur Definition vo benutzerdefinierte Agente]:json:'
@@ -208,11 +254,15 @@ _claude() {
     '--disable-slash-commands[Alli Slash-Befehl deaktiviere]'
     '(--bg --background)'{--bg,--background}'[Sitzig als Hintergrund-Agent starte u sofort zrucchäre]'
     '(-w --worktree)'{-w,--worktree}'[Nöie Git-Worktree für die Sitzig erstelle (optional en Name aagäh)]::name:'
-    '--tmux[tmux-Sitzig für de Worktree erstelle (bruucht --worktree)]'
+    '--tmux=-[tmux-Sitzig für de Worktree erstelle (bruucht --worktree). Verwändet nativi iTerm2-Panes, wänn verfüegbar; --tmux=classic für klassischs tmux]::mode:(classic)'
     '(-n --name)'{-n,--name}'[Aazeigename für die Sitzig festlege]:name:'
     '--effort[Ufwandsstufe für di aktuelli Sitzig]:level:(low medium high xhigh max)'
+    '--autocompact[Fänstergrössi fürs automatische Kompaktiere (auto oder 100k-1M Tokens)]:size:(auto)'
     '--debug-file[Debug-Protokoll i en bestimmte Dateipfad schriibe (aktiviert implizit de Debug-Modus)]:path:_files'
     '--from-pr[Mit eme PR verchnüpfti Sitzig nach Nummere/URL fortsetzä oder interaktivi Uuswahl öffne]::value:'
+    '--teleport[Teleport-Sitzig fortsetzä, optional Sitzig-ID aagäh]::session:'
+    '--cloud[Cloud-Sitzig mit de aagäbne Beschriibig erstelle oder per Sitzig-ID bzw. claude.ai/code-URL a e beschtähendi aahänge]::description-or-session:'
+    '--environment[Nöii Cloud-Sitzig erstelle, wo i de aagäbne sälber ghostete Umgäbig (ccpool_...) lauft]:environment_id:'
     '--remote-control[Interaktivi Sitzig mit aktivierter Fernsteuerig starte (optional benännt)]::name:'
     '--remote-control-session-name-prefix[Präfix für automatisch generierti Fernsteuerigs-Sitzigsnäme]:prefix:'
     '--chrome[Claude i Chrome-Integration aktiviere]'
@@ -254,6 +304,17 @@ _claude() {
         agents)
           _claude_agents
           ;;
+        attach|logs|stop|kill)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Hilf für Befehl aazeige]' \
+            '1:session:_claude_background_sessions'
+          ;;
+        respawn)
+          _claude_respawn
+          ;;
+        rm)
+          _claude_rm
+          ;;
         auth)
           _claude_auth
           ;;
@@ -262,6 +323,9 @@ _claude() {
           ;;
         gateway)
           _claude_gateway
+          ;;
+        import)
+          _claude_import
           ;;
         project)
           _claude_project
@@ -319,6 +383,9 @@ _claude_mcp() {
             '(-t --transport)'{-t,--transport}'[Transporttyp (stdio, sse, http)]:transport:(stdio sse http)' \
             '(-e --env)'{-e,--env}'[Umgäbigsvariable festlege (z.B. -e KEY=value)]:env:' \
             '(-H --header)'{-H,--header}'[WebSocket-Header festlege]:header:' \
+            '--client-id[OAuth-Client-ID für HTTP/SSE-Server]:clientId:' \
+            '--client-secret[OAuth-Client-Secret abfrage (oder Umgäbigsvariable MCP_CLIENT_SECRET setze)]' \
+            '--callback-port[Feste Port für de OAuth-Callback (für Server, wo vorregistrierti Redirect-URIs verlanged)]:port:' \
             '(-h --help)'{-h,--help}'[Hilf aazeige]' \
             '1:name:' \
             '2:commandOrUrl:' \
@@ -342,6 +409,7 @@ _claude_mcp() {
         add-json)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Konfigurationsbereich (local, user, project)]:scope:(local user project)' \
+            '--client-secret[OAuth-Client-Secret abfrage (oder Umgäbigsvariable MCP_CLIENT_SECRET setze)]' \
             '(-h --help)'{-h,--help}'[Hilf aazeige]' \
             '1:name:' \
             '2:json:'
@@ -355,7 +423,13 @@ _claude_mcp() {
           _arguments \
             '(-h --help)'{-h,--help}'[Hilf aazeige]'
           ;;
-        login|logout)
+        login)
+          _arguments \
+            '--no-browser[Autorisierigs-URL usgäh statt en Browser z öffne (für SSH-/Headless-Sitzige)]' \
+            '(-h --help)'{-h,--help}'[Hilf aazeige]' \
+            '1:name:_claude_mcp_servers'
+          ;;
+        logout)
           _arguments \
             '(-h --help)'{-h,--help}'[Hilf aazeige]' \
             '1:name:_claude_mcp_servers'
@@ -372,9 +446,11 @@ _claude_plugin() {
     'marketplace:Claude Code-Marktplätz verwalte'
     'list:Installierti Erwitterige uflistä'
     'details:Komponente-Inventar u vorussichtlichi Token-Choste für e Erwitterig aazeige'
+    'configure:Optione vo ere Erwitterig aazeige u weli devo nöd gsetzt sind, oder Wärt us stdin speichere'
     'install:Erwitterig vo verfüegbare Marktplätz installiere'
     'i:Erwitterig vo verfüegbare Marktplätz installiere (Kurzform für install)'
     'init:Nöii Erwitterig grüste (wird i nächster Sitzig automatisch glade)'
+    'new:Grüst für e nöii Erwitterig aalege (Alias für init)'
     'uninstall:Installierti Erwitterig deinstalliere'
     'remove:Installierti Erwitterig deinstalliere (Alias für uninstall)'
     'enable:Deaktiviärti Erwitterig aktiviere'
@@ -382,7 +458,9 @@ _claude_plugin() {
     'update:Erwitterig uf di nöischti Version aktualisiere'
     'eval:Eval-Fäll gäge e Erwitterig usfüehre u bewerteti Ergebnis mälde'
     'prune:Automatisch installierti Abhängigkeite entferne, wo nüme brucht wärde'
+    'autoremove:Automatisch installierti Abhängigkeite entferne, wo nüme brucht wärde (Alias für prune)'
     'tag:En {name}--v{version} Git-Tag für e Erwitterigs-Veröffentlichig erstelle'
+    'test:Tests vo eme Mod usfüehre'
     'help:Hilf aazeige'
   )
 
@@ -402,6 +480,8 @@ _claude_plugin() {
       case $words[1] in
         validate)
           _arguments \
+            '--strict[Warnige als Fähler behandle (Exit-Code 1)]' \
+            '--json[Validierigsbricht als JSON usgäh (glichi Exit-Codes)]' \
             '(-h --help)'{-h,--help}'[Hilf aazeige]' \
             '1:path:_files'
           ;;
@@ -411,50 +491,122 @@ _claude_plugin() {
         install|i)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Installationsbereich]:scope:(user project local)' \
+            '*--config[E im Erwitterigs-Manifest deklarierti userConfig-Option setze (wiiderholbar)]:key=value:' \
+            '(-y --yes)'{-y,--yes}'[De aazeigti, vom Marktplatz deklarierte Befehl ohni Bestätigigsabfrag akzeptiere]' \
+            '--json[Ei maschinelesbari Ergebniszeile statt de Mäldig für Mänsche usgäh]' \
             '(-h --help)'{-h,--help}'[Hilf aazeige]' \
             '1:plugin:'
           ;;
         uninstall|remove)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Installationsbereich]:scope:(user project local)' \
+            '--keep-data[Persistänts Dateverzeichnis vo de Erwitterig bhalte]' \
+            '--prune[Au automatisch installierti Abhängigkeite entferne, wo nüme brucht wärde]' \
+            '(-y --yes)'{-y,--yes}'[Bestätigigsabfrag für --prune überspringe]' \
+            '--json[Ei maschinelesbari Ergebniszeile statt de Mäldig für Mänsche usgäh (nöd mit --prune)]' \
             '(-h --help)'{-h,--help}'[Hilf aazeige]' \
             '1:plugin:_claude_installed_plugins'
           ;;
-        enable|disable)
+        enable)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Installationsbereich]:scope:(user project local)' \
+            '--json[Ei maschinelesbari Ergebniszeile statt de Mäldig für Mänsche usgäh]' \
             '(-h --help)'{-h,--help}'[Hilf aazeige]' \
             '1:plugin:_claude_installed_plugins'
+          ;;
+        disable)
+          _arguments \
+            '(-a --all)'{-a,--all}'[Alli aktivierte Erwitterige deaktiviere]' \
+            '(-s --scope)'{-s,--scope}'[Installationsbereich]:scope:(user project local)' \
+            '--json[Ei maschinelesbari Ergebniszeile statt de Mäldig für Mänsche usgäh]' \
+            '(-h --help)'{-h,--help}'[Hilf aazeige]' \
+            '::plugin:_claude_installed_plugins'
           ;;
         update)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Installationsbereich]:scope:(user project local managed)' \
+            '(-y --yes)'{-y,--yes}'[De aazeigti, vom Marktplatz deklarierte Befehl ohni Bestätigigsabfrag akzeptiere]' \
+            '--json[Ei maschinelesbari Ergebniszeile statt de Mäldig für Mänsche usgäh]' \
             '(-h --help)'{-h,--help}'[Hilf aazeige]' \
             '1:plugin:_claude_installed_plugins'
           ;;
-        list|prune)
+        list)
           _arguments \
+            '--json[Als JSON usgäh]' \
+            '--available[Verfüegbari Erwitterige us Marktplätz iischliesse (bruucht --json)]' \
             '(-h --help)'{-h,--help}'[Hilf aazeige]'
+          ;;
+        prune|autoremove)
+          _arguments \
+            '(-s --scope)'{-s,--scope}'[Bereich, wo bereinigt wird]:scope:(user project local)' \
+            '--dry-run[Uflistä, was entfernt würd, ohni öppis z entferne]' \
+            '(-y --yes)'{-y,--yes}'[Bestätigigsabfrag überspringe]' \
+            '(-h --help)'{-h,--help}'[Hilf aazeige]'
+          ;;
+        configure)
+          _arguments \
+            '--json[Als JSON usgäh]' \
+            '--values-stdin[Optionswärt us stdin als JSON-Objekt vo einzeilige Strings lese; nöd aagäbni Optione bhalted ire Wärt]' \
+            '(-h --help)'{-h,--help}'[Hilf aazeige]' \
+            '1:plugin:_claude_installed_plugins'
           ;;
         details)
           _arguments \
             '(-h --help)'{-h,--help}'[Hilf aazeige]' \
             '1:plugin:_claude_installed_plugins'
           ;;
-        init)
+        init|new)
           _arguments \
+            '--description[Beschriibig im Manifest]:text:' \
+            '--author[Name vom Autor (Standard: git config user.name)]:name:' \
+            '--author-email[E-Mail vom Autor (Standard: git config user.email)]:email:' \
+            '--with[Zuesätzlich aazlegendi Komponente]:components:' \
+            '(-f --force)'{-f,--force}'[Vorhandnigs .claude-plugin/ am Ziel überschriibe]' \
             '(-h --help)'{-h,--help}'[Hilf aazeige]' \
             '1:name:'
           ;;
         eval)
           _arguments \
+            '--case[Fäll nach Name-Glob filtere]:glob:' \
+            '*--tag[Fäll nach Tag filtere (wiiderholbar)]:tag:' \
+            '--runs[Durchläuf pro Fall überschriibe (Standard: case.runs, suscht 3)]:n:' \
+            '(-j --concurrency)'{-j,--concurrency}'[Bis zu n Agente-Durchläuf glichzitig usfüehre (1-8; Standard 1)]:n:' \
+            '--model[Modell für alli Fäll überschriibe]:model:_claude_model_names' \
+            '--judge-model[Modell vom LLM-Bewärter überschriibe (Standard: haiku)]:model:_claude_model_names' \
+            '--max-cost-usd[Harti Choste-Obergränze; bim Erreiche abbräche u Teilergebnis mälde (Exit-Code 2)]:usd:' \
+            '--output-dir[Verzeichnis für aggregate-result.json]:dir:_directories' \
+            '--eval-dir[Verzeichnisname (unterhalb vo de Erwitterig) mit de Eval-Fäll]:dir:' \
+            '--json[Vollständigs Laufergebnis als JSON uf stdout usgäh oder i die .json-Datei schriibe]::path:_files' \
+            '--threshold[Mit Exit-Code 1 beände, wänn de Score vo eme Fall under däm Schwällewärt liit (Standard: 1.0)]:threshold:' \
+            '*--allow-tools[Freigab vom Bediener für iigschränkti Wärkzüg (Bash, Write, Edit, WebFetch, mcp__*)]:tools:' \
+            '(--no-scaffold)--scaffold[scaffold_script vo jedem Fall usfüehre (füehrt vom Autor glieferts Bash under dim Benutzer us; standardmässig us)]' \
+            '(--scaffold)--no-scaffold[scaffold_script usdrücklich überspringe]' \
+            '--trust-plugin[Bestätige, dass du dere Erwitterig u ire Eval-Suite vertrausch, u d Vertrauensabfrag bim erste Lauf überspringe (für CI)]' \
+            '--ablation[Zuesätzlich e Vergliichsgruppe (Baseline) ohni Erwitterig usfüehre u d Score-Differänz mälde]:mode:(none with-without)' \
+            '--mocks[Mock-Stellvertreter für MCP-Server us <eval dir>/mocks/]:mode:(record off)' \
+            '--allow-real-servers[Mit --mocks record: au di echte MCP-Serverprozäss ohni Mock starte]' \
+            '--keep-temp[Scaffold-Verzeichnis zum Debugge bhalte]' \
+            '--verbose[Trace-Eräignis pro Nachricht is Debug-Log schriibe]' \
+            '--report[Eigeständige HTML-Bricht a dä Pfad statt is Ergebnisverzeichnis schriibe]:path:_files' \
+            '(--no-publish)--publish-report[Zuesätzlich d Veröffentlichig vom Bricht uf claude.ai verlange]' \
+            '(--publish-report)--no-publish[HTML-Bricht nur lokal bhalte; nöd uf claude.ai veröffentliche]' \
             '(-h --help)'{-h,--help}'[Hilf aazeige]' \
-            '1:target:'
+            '::target: _alternative "plugins\:installed plugin\:_claude_installed_plugins" "files\:path\:_files"'
           ;;
         tag)
           _arguments \
+            '--push[Tag nach em Erstelle uf --remote pushe]' \
+            '--dry-run[Usgäh, was taggt würd, ohni de Tag z erstelle]' \
+            '(-f --force)'{-f,--force}'[Prüefige uf nöd committeti Änderige u scho vorhandene Tag überspringe]' \
+            '(-m --message)'{-m,--message}'[Aamerkig vom Tag (%s staht für d Version)]:msg:' \
+            '--remote[Remote, wo mit --push dethi pusht wird]:name:' \
             '(-h --help)'{-h,--help}'[Hilf aazeige]' \
-            '1:path:_files'
+            '::path:_files'
+          ;;
+        test)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Hilf aazeige]' \
+            '::dir:_directories'
           ;;
       esac
       ;;
@@ -488,15 +640,20 @@ _claude_plugin_marketplace() {
       case $words[1] in
         add)
           _arguments \
+            '--sparse[Checkout per git sparse-checkout uf bestimmti Verzeichnis beschränke (für Monorepos)]:paths:' \
+            '--scope[Wo de Marktplatz deklariert wird]:scope:(user project local)' \
+            '--claudeai[De Marktplatz mit däm Name hinzuefüege, wo claude.ai für dich hostet]' \
             '(-h --help)'{-h,--help}'[Hilf aazeige]' \
             '1:source:'
           ;;
         list)
           _arguments \
+            '--json[Als JSON usgäh]' \
             '(-h --help)'{-h,--help}'[Hilf aazeige]'
           ;;
         remove|rm)
           _arguments \
+            '--scope[Marktplatz-Deklaration us eme bestimmte Iischtelligsbereich entferne (wäglah, zum si us allne Bereich z entferne)]:scope:(user project local)' \
             '(-h --help)'{-h,--help}'[Hilf aazeige]' \
             '1:name:'
           ;;
@@ -534,6 +691,7 @@ _claude_agents() {
     '--setting-sources[Kommatrennte Liste vo Iischtelligsquälle zum Lade (user, project, local)]:sources:' \
     '--settings[Iischtelligsdatei oder JSON-String zum Aawände]:file-or-json:_files' \
     '--strict-mcp-config[Nur MCP-Server us --mcp-config i versändte Sitzige verwände]' \
+    '--restricted[Versändti Sitzige im iigschränkte Modus starte]' \
     '(-h --help)'{-h,--help}'[Hilf für Befehl aazeige]'
 }
 
@@ -560,7 +718,21 @@ _claude_auth() {
       ;;
     args)
       case $words[1] in
-        login|logout|status)
+        login)
+          _arguments \
+            '--email[E-Mail-Adrässe uf de Aamäldesite vorusfülle]:email:' \
+            '--sso[SSO-Aamäldig erzwinge]' \
+            '(--claudeai)--console[Anthropic Console (Abrächnig nach API-Nutzig) statt Claude-Abonnemänt verwände]' \
+            '(--console)--claudeai[Claude-Abonnemänt verwände (Standard)]' \
+            '(-h --help)'{-h,--help}'[Hilf für Befehl aazeige]'
+          ;;
+        status)
+          _arguments \
+            '(--text)--json[Als JSON usgäh (Standard)]' \
+            '(--json)--text[Als läsbare Text usgäh]' \
+            '(-h --help)'{-h,--help}'[Hilf für Befehl aazeige]'
+          ;;
+        logout)
           _arguments \
             '(-h --help)'{-h,--help}'[Hilf für Befehl aazeige]'
           ;;
@@ -593,7 +765,22 @@ _claude_auto_mode() {
       ;;
     args)
       case $words[1] in
-        config|critique|defaults|reset)
+        critique)
+          _arguments \
+            '--model[Verwändets Modell überschriibe]:model:_claude_model_names' \
+            '(-h --help)'{-h,--help}'[Hilf für Befehl aazeige]'
+          ;;
+        defaults)
+          _arguments \
+            '--label[Nur Regle aazeige, wo ires Label mit däm Präfix aafangt (Gross-/Chliischriibig egal)]:prefix:' \
+            '(-h --help)'{-h,--help}'[Hilf für Befehl aazeige]'
+          ;;
+        reset)
+          _arguments \
+            '(-y --yes)'{-y,--yes}'[Bestätigigsabfrag überspringe]' \
+            '(-h --help)'{-h,--help}'[Hilf für Befehl aazeige]'
+          ;;
+        config)
           _arguments \
             '(-h --help)'{-h,--help}'[Hilf für Befehl aazeige]'
           ;;
@@ -631,8 +818,12 @@ _claude_project() {
       case $words[1] in
         purge)
           _arguments \
+            '--dry-run[Uflistä, was glöscht würd, ohni öppis z lösche]' \
+            '(-y --yes)'{-y,--yes}'[Bestätigigsabfrag überspringe]' \
+            '(-i --interactive)'{-i,--interactive}'[Vor em Lösche bi jedem Iitrag nachfrage]' \
+            '(1)--all[Status vo allne Projäkt lösche (schliesst en Pfad us)]' \
             '(-h --help)'{-h,--help}'[Hilf für Befehl aazeige]' \
-            '1:path:_directories'
+            '(--all)::path:_directories'
           ;;
       esac
       ;;
@@ -642,9 +833,34 @@ _claude_project() {
 _claude_ultrareview() {
   _arguments \
     '--json[Rohi bugs.json-Nutzlast statt formatierti Ergebnis usgäh]' \
-    '--timeout[Maximali Minute, wo uf de Abschluss vo de Überprüefig gwartet wird]:minutes:' \
+    '--timeout[Maximali Minute, wo uf de Abschluss vo de Überprüefig gwartet wird (Standard: 45)]:minutes:' \
+    '(--no-post)--post[Ergebnis vo de fertige Überprüefig i dim Name im PR poste (nur PR-Ziel; en einzige eifache Kommentar, käis Review)]' \
+    '(--post)--no-post[Ergebnis nöd im PR poste (Standard)]' \
     '(-h --help)'{-h,--help}'[Hilf für Befehl aazeige]' \
     '1:target:'
+}
+
+_claude_respawn() {
+  _arguments \
+    '(1)--all[Alli laufende Hintergrundsitzige nöi starte]' \
+    '(-h --help)'{-h,--help}'[Hilf für Befehl aazeige]' \
+    '(--all)::session:_claude_background_sessions'
+}
+
+_claude_rm() {
+  _arguments \
+    '--discard-unpushed[Au di nöd pushte Commits u nöd committete Änderige vom Worktree verwärfe (d vo eme früenere claude rm gmäldeti commit@worktree-id übergäh)]:commit@worktree-id:' \
+    '--force-remove-worktree[Worktree-Verzeichnis lösche, obwohl de WorktreeRemove-Hook oder git es nöd hät chöne entferne (d vo eme früenere claude rm gmäldeti worktree-id übergäh)]:worktree-id:' \
+    '(-h --help)'{-h,--help}'[Hilf für Befehl aazeige]' \
+    '1:session:_claude_background_sessions'
+}
+
+_claude_import() {
+  _arguments \
+    '--dry-run[Aazeige, was importiert würd, ohni öppis z schriibe]' \
+    '--yes[Interaktivi Uuswahl überspringe (i Headless-Umgäbige --yes=<digest> us de /import-Vorschau übergäh)]' \
+    '(-h --help)'{-h,--help}'[Hilf für Befehl aazeige]' \
+    '::source:(codex gemini cursor)'
 }
 
 (( $+_comps[claude] )) || compdef _claude claude
