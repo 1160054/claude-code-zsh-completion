@@ -198,6 +198,7 @@ _claude() {
     'gateway:运行企业身份验证/遥测网关'
     'import:将其他AI编码代理的配置导入Claude Code'
     'project:管理Claude Code项目状态'
+    'purge:删除项目的所有Claude Code状态（记录、任务、文件历史、配置条目）'
     'ultrareview:运行云托管的多代理代码审查并打印结果'
     'setup-token:设置长期身份验证令牌（需要Claude订阅）'
     'doctor:Claude Code自动更新器健康检查'
@@ -329,6 +330,9 @@ _claude() {
           ;;
         project)
           _claude_project
+          ;;
+        purge)
+          _claude_purge
           ;;
         ultrareview)
           _claude_ultrareview
@@ -491,7 +495,9 @@ _claude_plugin() {
         install|i)
           _arguments \
             '(-s --scope)'{-s,--scope}'[安装范围]:scope:(user project local)' \
+            '--accept-command[接受市场声明的命令，其 sha256 为上一次 --json 运行以 shownCommand.sha256 报告的值]:sha256:' \
             '*--config[设置插件清单中声明的userConfig选项（可重复）]:key=value:' \
+            '--registry[用于 package@npm 安装：从此 npm 注册表解析并下载]:url:' \
             '(-y --yes)'{-y,--yes}'[无需确认提示即接受显示的市场声明命令]' \
             '--json[打印一行机器可读的结果而非人类可读的消息]' \
             '(-h --help)'{-h,--help}'[显示帮助]' \
@@ -524,6 +530,7 @@ _claude_plugin() {
           ;;
         update)
           _arguments \
+            '--accept-command[接受市场声明的命令，其 sha256 为上一次 --json 运行以 shownCommand.sha256 报告的值]:sha256:' \
             '(-s --scope)'{-s,--scope}'[安装范围]:scope:(user project local managed)' \
             '(-y --yes)'{-y,--yes}'[无需确认提示即接受显示的市场声明命令]' \
             '--json[打印一行机器可读的结果而非人类可读的消息]' \
@@ -534,6 +541,7 @@ _claude_plugin() {
           _arguments \
             '--json[以JSON输出]' \
             '--available[包含市场中可用的插件（需要--json）]' \
+            '--data-size[测量每个已安装插件的已保存数据目录大小，或仅测量指定插件（需要 --json）]::plugin:_claude_installed_plugins' \
             '(-h --help)'{-h,--help}'[显示帮助]'
           ;;
         prune|autoremove)
@@ -566,6 +574,15 @@ _claude_plugin() {
             '1:name:'
           ;;
         eval)
+          if [[ $words[2] == init ]]; then
+            _arguments \
+              '--bare[写入空白模板，而不是运行访谈]' \
+              '--eval-dir[写入用例的目录（位于当前目录下）]:dir:_directories' \
+              '(-i --interactive)'{-i,--interactive}'[运行编写访谈（需要交互式终端）]' \
+              '(-h --help)'{-h,--help}'[显示帮助]' \
+              '::name:'
+            return
+          fi
           _arguments \
             '--case[按名称glob过滤用例]:glob:' \
             '*--tag[按标签过滤用例（可重复）]:tag:' \
@@ -591,7 +608,7 @@ _claude_plugin() {
             '(--no-publish)--publish-report[同时要求将报告发布到claude.ai]' \
             '(--publish-report)--no-publish[仅在本地保留HTML报告，不发布到claude.ai]' \
             '(-h --help)'{-h,--help}'[显示帮助]' \
-            '::target: _alternative "plugins\:installed plugin\:_claude_installed_plugins" "files\:path\:_files"'
+            '::target: _alternative "commands\:eval command\:(init)" "plugins\:installed plugin\:_claude_installed_plugins" "files\:path\:_files"'
           ;;
         tag)
           _arguments \
@@ -642,6 +659,7 @@ _claude_plugin_marketplace() {
           _arguments \
             '--sparse[通过git sparse-checkout仅检出特定目录（用于单体仓库）]:paths:' \
             '--scope[在何处声明市场]:scope:(user project local)' \
+            '--json[将一行机器可读的结果作为最后一行输出到标准输出]' \
             '--claudeai[添加claude.ai为你托管的此名称的市场]' \
             '(-h --help)'{-h,--help}'[显示帮助]' \
             '1:source:'
@@ -654,11 +672,13 @@ _claude_plugin_marketplace() {
         remove|rm)
           _arguments \
             '--scope[从特定设置范围移除市场声明（省略则从所有范围移除）]:scope:(user project local)' \
+            '--json[将一行机器可读的结果作为最后一行输出到标准输出]' \
             '(-h --help)'{-h,--help}'[显示帮助]' \
             '1:name:'
           ;;
         update)
           _arguments \
+            '--json[指定市场名称时：将一行机器可读的结果作为最后一行输出到标准输出]' \
             '(-h --help)'{-h,--help}'[显示帮助]' \
             '::name:'
           ;;
@@ -828,6 +848,16 @@ _claude_project() {
       esac
       ;;
   esac
+}
+
+_claude_purge() {
+  _arguments \
+    '--dry-run[列出将被删除的内容但不实际删除]' \
+    '(-y --yes)'{-y,--yes}'[跳过确认提示]' \
+    '(-i --interactive)'{-i,--interactive}'[删除前逐项确认]' \
+    '(1)--all[清除所有项目的状态（不能与路径同用）]' \
+    '(-h --help)'{-h,--help}'[显示命令帮助]' \
+    '(--all)::path:_directories'
 }
 
 _claude_ultrareview() {

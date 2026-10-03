@@ -198,6 +198,7 @@ _claude() {
     'gateway:엔터프라이즈 인증/텔레메트리 게이트웨이 실행'
     'import:다른 AI 코딩 에이전트의 설정을 Claude Code로 가져오기'
     'project:Claude Code 프로젝트 상태 관리'
+    'purge:프로젝트의 모든 Claude Code 상태 삭제(트랜스크립트, 작업, 파일 기록, 구성 항목)'
     'ultrareview:클라우드 호스팅 멀티 에이전트 코드 검토를 실행하고 결과 출력'
     'setup-token:장기 인증 토큰 설정(Claude 구독 필요)'
     'doctor:Claude Code 자동 업데이터 상태 점검'
@@ -329,6 +330,9 @@ _claude() {
           ;;
         project)
           _claude_project
+          ;;
+        purge)
+          _claude_purge
           ;;
         ultrareview)
           _claude_ultrareview
@@ -491,7 +495,9 @@ _claude_plugin() {
         install|i)
           _arguments \
             '(-s --scope)'{-s,--scope}'[설치 범위]:scope:(user project local)' \
+            '--accept-command[이전 --json 실행이 shownCommand.sha256으로 보고한 sha256의 마켓플레이스 선언 명령을 수락]:sha256:' \
             '*--config[플러그인 매니페스트에 선언된 userConfig 옵션 설정(반복 가능)]:key=value:' \
+            '--registry[package@npm 설치용: 이 npm 레지스트리에서 해석하고 다운로드]:url:' \
             '(-y --yes)'{-y,--yes}'[표시된 마켓플레이스 선언 명령을 확인 프롬프트 없이 수락]' \
             '--json[사람용 메시지 대신 기계가 읽을 수 있는 결과 한 줄 출력]' \
             '(-h --help)'{-h,--help}'[도움말 표시]' \
@@ -524,6 +530,7 @@ _claude_plugin() {
           ;;
         update)
           _arguments \
+            '--accept-command[이전 --json 실행이 shownCommand.sha256으로 보고한 sha256의 마켓플레이스 선언 명령을 수락]:sha256:' \
             '(-s --scope)'{-s,--scope}'[설치 범위]:scope:(user project local managed)' \
             '(-y --yes)'{-y,--yes}'[표시된 마켓플레이스 선언 명령을 확인 프롬프트 없이 수락]' \
             '--json[사람용 메시지 대신 기계가 읽을 수 있는 결과 한 줄 출력]' \
@@ -534,6 +541,7 @@ _claude_plugin() {
           _arguments \
             '--json[JSON으로 출력]' \
             '--available[마켓플레이스에서 사용 가능한 플러그인 포함(--json 필요)]' \
+            '--data-size[설치된 각 플러그인의 저장 데이터 디렉터리 또는 지정한 플러그인만 크기 측정 (--json 필요)]::plugin:_claude_installed_plugins' \
             '(-h --help)'{-h,--help}'[도움말 표시]'
           ;;
         prune|autoremove)
@@ -566,6 +574,15 @@ _claude_plugin() {
             '1:name:'
           ;;
         eval)
+          if [[ $words[2] == init ]]; then
+            _arguments \
+              '--bare[인터뷰를 실행하지 않고 빈 템플릿 작성]' \
+              '--eval-dir[케이스를 작성할 현재 디렉터리 아래의 디렉터리]:dir:_directories' \
+              '(-i --interactive)'{-i,--interactive}'[작성 인터뷰 실행 (대화형 터미널 필요)]' \
+              '(-h --help)'{-h,--help}'[도움말 표시]' \
+              '::name:'
+            return
+          fi
           _arguments \
             '--case[이름 glob으로 케이스 필터링]:glob:' \
             '*--tag[태그로 케이스 필터링(반복 가능)]:tag:' \
@@ -591,7 +608,7 @@ _claude_plugin() {
             '(--no-publish)--publish-report[보고서를 claude.ai에 게시하는 것도 필수로 지정]' \
             '(--publish-report)--no-publish[HTML 보고서를 로컬에만 보관하고 claude.ai에 게시하지 않음]' \
             '(-h --help)'{-h,--help}'[도움말 표시]' \
-            '::target: _alternative "plugins\:installed plugin\:_claude_installed_plugins" "files\:path\:_files"'
+            '::target: _alternative "commands\:eval command\:(init)" "plugins\:installed plugin\:_claude_installed_plugins" "files\:path\:_files"'
           ;;
         tag)
           _arguments \
@@ -642,6 +659,7 @@ _claude_plugin_marketplace() {
           _arguments \
             '--sparse[git sparse-checkout으로 특정 디렉터리만 체크아웃(모노레포용)]:paths:' \
             '--scope[마켓플레이스를 선언할 위치]:scope:(user project local)' \
+            '--json[기계가 읽을 수 있는 결과를 표준 출력의 마지막 줄로 한 줄 출력]' \
             '--claudeai[claude.ai가 호스팅하는 이 이름의 마켓플레이스 추가]' \
             '(-h --help)'{-h,--help}'[도움말 표시]' \
             '1:source:'
@@ -654,11 +672,13 @@ _claude_plugin_marketplace() {
         remove|rm)
           _arguments \
             '--scope[특정 설정 범위에서 마켓플레이스 선언 제거(생략하면 모든 범위에서 제거)]:scope:(user project local)' \
+            '--json[기계가 읽을 수 있는 결과를 표준 출력의 마지막 줄로 한 줄 출력]' \
             '(-h --help)'{-h,--help}'[도움말 표시]' \
             '1:name:'
           ;;
         update)
           _arguments \
+            '--json[마켓플레이스 이름 지정 시: 기계가 읽을 수 있는 결과를 표준 출력의 마지막 줄로 한 줄 출력]' \
             '(-h --help)'{-h,--help}'[도움말 표시]' \
             '::name:'
           ;;
@@ -828,6 +848,16 @@ _claude_project() {
       esac
       ;;
   esac
+}
+
+_claude_purge() {
+  _arguments \
+    '--dry-run[아무것도 삭제하지 않고 삭제될 항목 나열]' \
+    '(-y --yes)'{-y,--yes}'[확인 프롬프트 건너뛰기]' \
+    '(-i --interactive)'{-i,--interactive}'[삭제 전 각 항목마다 확인]' \
+    '(1)--all[모든 프로젝트의 상태 삭제(경로와 함께 사용 불가)]' \
+    '(-h --help)'{-h,--help}'[명령 도움말 표시]' \
+    '(--all)::path:_directories'
 }
 
 _claude_ultrareview() {

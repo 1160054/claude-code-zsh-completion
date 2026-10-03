@@ -198,6 +198,7 @@ _claude() {
     'gateway:Run the enterprise auth/telemetry gateway'
     'import:Import config from another AI coding agent into Claude Code'
     'project:Manage Claude Code project state'
+    'purge:Delete all Claude Code state for a project (transcripts, tasks, file history, config entry)'
     'ultrareview:Run a cloud-hosted multi-agent code review and print the findings'
     'setup-token:Set up long-term authentication token (requires Claude subscription)'
     'doctor:Health check for Claude Code auto-updater'
@@ -329,6 +330,9 @@ _claude() {
           ;;
         project)
           _claude_project
+          ;;
+        purge)
+          _claude_purge
           ;;
         ultrareview)
           _claude_ultrareview
@@ -491,7 +495,9 @@ _claude_plugin() {
         install|i)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Installation scope]:scope:(user project local)' \
+            '--accept-command[Accept the marketplace-declared command whose sha256 a previous --json run reported as shownCommand.sha256]:sha256:' \
             '*--config[Set a userConfig option declared in the plugin manifest (repeatable)]:key=value:' \
+            '--registry[For a package@npm install: resolve and download from this npm registry]:url:' \
             '(-y --yes)'{-y,--yes}'[Accept the displayed marketplace-declared command without the confirmation prompt]' \
             '--json[Print one machine-readable result line instead of the human message]' \
             '(-h --help)'{-h,--help}'[Display help]' \
@@ -524,6 +530,7 @@ _claude_plugin() {
           ;;
         update)
           _arguments \
+            '--accept-command[Accept the marketplace-declared command whose sha256 a previous --json run reported as shownCommand.sha256]:sha256:' \
             '(-s --scope)'{-s,--scope}'[Installation scope]:scope:(user project local managed)' \
             '(-y --yes)'{-y,--yes}'[Accept the displayed marketplace-declared command without the confirmation prompt]' \
             '--json[Print one machine-readable result line instead of the human message]' \
@@ -534,6 +541,7 @@ _claude_plugin() {
           _arguments \
             '--json[Output as JSON]' \
             '--available[Include available plugins from marketplaces (requires --json)]' \
+            '--data-size[Measure each installed plugin saved data directory, or only the named plugin (requires --json)]::plugin:_claude_installed_plugins' \
             '(-h --help)'{-h,--help}'[Display help]'
           ;;
         prune|autoremove)
@@ -566,6 +574,15 @@ _claude_plugin() {
             '1:name:'
           ;;
         eval)
+          if [[ $words[2] == init ]]; then
+            _arguments \
+              '--bare[Write a blank template instead of running the interview]' \
+              '--eval-dir[Directory below the current directory to write cases into]:dir:_directories' \
+              '(-i --interactive)'{-i,--interactive}'[Run the authoring interview (requires an interactive terminal)]' \
+              '(-h --help)'{-h,--help}'[Display help]' \
+              '::name:'
+            return
+          fi
           _arguments \
             '--case[Filter cases by name glob]:glob:' \
             '*--tag[Filter cases by tag (repeatable)]:tag:' \
@@ -591,7 +608,7 @@ _claude_plugin() {
             '(--no-publish)--publish-report[Also require publishing the report to claude.ai]' \
             '(--publish-report)--no-publish[Keep the HTML report local only; skip publishing it to claude.ai]' \
             '(-h --help)'{-h,--help}'[Display help]' \
-            '::target: _alternative "plugins\:installed plugin\:_claude_installed_plugins" "files\:path\:_files"'
+            '::target: _alternative "commands\:eval command\:(init)" "plugins\:installed plugin\:_claude_installed_plugins" "files\:path\:_files"'
           ;;
         tag)
           _arguments \
@@ -642,6 +659,7 @@ _claude_plugin_marketplace() {
           _arguments \
             '--sparse[Limit checkout to specific directories via git sparse-checkout (for monorepos)]:paths:' \
             '--scope[Where to declare the marketplace]:scope:(user project local)' \
+            '--json[Print one machine-readable result line as the last line on stdout]' \
             '--claudeai[Add the marketplace of this name that claude.ai hosts for you]' \
             '(-h --help)'{-h,--help}'[Display help]' \
             '1:source:'
@@ -654,11 +672,13 @@ _claude_plugin_marketplace() {
         remove|rm)
           _arguments \
             '--scope[Remove the marketplace declaration from a specific settings scope (omit to remove it from every scope)]:scope:(user project local)' \
+            '--json[Print one machine-readable result line as the last line on stdout]' \
             '(-h --help)'{-h,--help}'[Display help]' \
             '1:name:'
           ;;
         update)
           _arguments \
+            '--json[With a marketplace name: print one machine-readable result line as the last line on stdout]' \
             '(-h --help)'{-h,--help}'[Display help]' \
             '::name:'
           ;;
@@ -828,6 +848,16 @@ _claude_project() {
       esac
       ;;
   esac
+}
+
+_claude_purge() {
+  _arguments \
+    '--dry-run[List what would be deleted without deleting anything]' \
+    '(-y --yes)'{-y,--yes}'[Skip the confirmation prompt]' \
+    '(-i --interactive)'{-i,--interactive}'[Prompt for each item before deleting]' \
+    '(1)--all[Purge state for every project (mutually exclusive with a path)]' \
+    '(-h --help)'{-h,--help}'[Display help for command]' \
+    '(--all)::path:_directories'
 }
 
 _claude_ultrareview() {

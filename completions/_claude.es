@@ -198,6 +198,7 @@ _claude() {
     'gateway:Ejecutar la puerta de enlace empresarial de autenticación/telemetría'
     'import:Importar la configuración de otro agente de programación con IA a Claude Code'
     'project:Gestionar el estado del proyecto de Claude Code'
+    'purge:Eliminar todo el estado de Claude Code de un proyecto (transcripciones, tareas, historial de archivos, entrada de configuración)'
     'ultrareview:Ejecutar una revisión de código multiagente alojada en la nube e imprimir los hallazgos'
     'setup-token:Configurar token de autenticación a largo plazo (requiere suscripción a Claude)'
     'doctor:Verificación de salud del actualizador automático de Claude Code'
@@ -329,6 +330,9 @@ _claude() {
           ;;
         project)
           _claude_project
+          ;;
+        purge)
+          _claude_purge
           ;;
         ultrareview)
           _claude_ultrareview
@@ -491,7 +495,9 @@ _claude_plugin() {
         install|i)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Ámbito de instalación]:scope:(user project local)' \
+            '--accept-command[Aceptar el comando declarado por el marketplace cuyo sha256 informó una ejecución anterior de --json como shownCommand.sha256]:sha256:' \
             '*--config[Definir una opción userConfig declarada en el manifiesto del plugin (repetible)]:key=value:' \
+            '--registry[Para instalar package@npm: resolver y descargar desde este registro de npm]:url:' \
             '(-y --yes)'{-y,--yes}'[Aceptar el comando declarado por el marketplace que se muestra sin pedir confirmación]' \
             '--json[Mostrar una línea de resultado legible por máquina en lugar del mensaje para humanos]' \
             '(-h --help)'{-h,--help}'[Mostrar ayuda]' \
@@ -524,6 +530,7 @@ _claude_plugin() {
           ;;
         update)
           _arguments \
+            '--accept-command[Aceptar el comando declarado por el marketplace cuyo sha256 informó una ejecución anterior de --json como shownCommand.sha256]:sha256:' \
             '(-s --scope)'{-s,--scope}'[Ámbito de instalación]:scope:(user project local managed)' \
             '(-y --yes)'{-y,--yes}'[Aceptar el comando declarado por el marketplace que se muestra sin pedir confirmación]' \
             '--json[Mostrar una línea de resultado legible por máquina en lugar del mensaje para humanos]' \
@@ -534,6 +541,7 @@ _claude_plugin() {
           _arguments \
             '--json[Salida en JSON]' \
             '--available[Incluir los plugins disponibles en los marketplaces (requiere --json)]' \
+            '--data-size[Medir el directorio de datos guardados de cada plugin instalado, o solo el del plugin indicado (requiere --json)]::plugin:_claude_installed_plugins' \
             '(-h --help)'{-h,--help}'[Mostrar ayuda]'
           ;;
         prune|autoremove)
@@ -566,6 +574,15 @@ _claude_plugin() {
             '1:name:'
           ;;
         eval)
+          if [[ $words[2] == init ]]; then
+            _arguments \
+              '--bare[Escribir una plantilla en blanco en lugar de ejecutar la entrevista]' \
+              '--eval-dir[Directorio dentro del directorio actual donde escribir los casos]:dir:_directories' \
+              '(-i --interactive)'{-i,--interactive}'[Ejecutar la entrevista de creación (requiere un terminal interactivo)]' \
+              '(-h --help)'{-h,--help}'[Mostrar ayuda]' \
+              '::name:'
+            return
+          fi
           _arguments \
             '--case[Filtrar casos por glob de nombre]:glob:' \
             '*--tag[Filtrar casos por etiqueta (repetible)]:tag:' \
@@ -591,7 +608,7 @@ _claude_plugin() {
             '(--no-publish)--publish-report[Exigir también la publicación del informe en claude.ai]' \
             '(--publish-report)--no-publish[Mantener el informe HTML solo en local; no publicarlo en claude.ai]' \
             '(-h --help)'{-h,--help}'[Mostrar ayuda]' \
-            '::target: _alternative "plugins\:installed plugin\:_claude_installed_plugins" "files\:path\:_files"'
+            '::target: _alternative "commands\:eval command\:(init)" "plugins\:installed plugin\:_claude_installed_plugins" "files\:path\:_files"'
           ;;
         tag)
           _arguments \
@@ -642,6 +659,7 @@ _claude_plugin_marketplace() {
           _arguments \
             '--sparse[Limitar el checkout a directorios concretos mediante git sparse-checkout (para monorepos)]:paths:' \
             '--scope[Dónde declarar el marketplace]:scope:(user project local)' \
+            '--json[Imprimir una línea de resultado legible por máquina como última línea de stdout]' \
             '--claudeai[Añadir el marketplace con este nombre que claude.ai aloja para ti]' \
             '(-h --help)'{-h,--help}'[Mostrar ayuda]' \
             '1:source:'
@@ -654,11 +672,13 @@ _claude_plugin_marketplace() {
         remove|rm)
           _arguments \
             '--scope[Eliminar la declaración del marketplace de un ámbito de configuración concreto (omitir para eliminarla de todos)]:scope:(user project local)' \
+            '--json[Imprimir una línea de resultado legible por máquina como última línea de stdout]' \
             '(-h --help)'{-h,--help}'[Mostrar ayuda]' \
             '1:name:'
           ;;
         update)
           _arguments \
+            '--json[Con un nombre de marketplace: imprimir una línea de resultado legible por máquina como última línea de stdout]' \
             '(-h --help)'{-h,--help}'[Mostrar ayuda]' \
             '::name:'
           ;;
@@ -828,6 +848,16 @@ _claude_project() {
       esac
       ;;
   esac
+}
+
+_claude_purge() {
+  _arguments \
+    '--dry-run[Listar lo que se eliminaría sin eliminar nada]' \
+    '(-y --yes)'{-y,--yes}'[Omitir la pregunta de confirmación]' \
+    '(-i --interactive)'{-i,--interactive}'[Preguntar por cada elemento antes de eliminar]' \
+    '(1)--all[Purgar el estado de todos los proyectos (incompatible con una ruta)]' \
+    '(-h --help)'{-h,--help}'[Mostrar ayuda del comando]' \
+    '(--all)::path:_directories'
 }
 
 _claude_ultrareview() {

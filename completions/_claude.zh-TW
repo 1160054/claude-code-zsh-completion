@@ -198,6 +198,7 @@ _claude() {
     'gateway:執行企業驗證/遙測閘道'
     'import:將其他 AI 程式設計代理程式的設定匯入 Claude Code'
     'project:管理 Claude Code 專案狀態'
+    'purge:刪除專案的所有 Claude Code 狀態（記錄稿、工作、檔案歷程記錄、設定項目）'
     'ultrareview:執行雲端託管的多代理程式程式碼審查並列印結果'
     'setup-token:設定長期驗證權杖（需要 Claude 訂閱）'
     'doctor:Claude Code 自動更新程式的健全狀況檢查'
@@ -329,6 +330,9 @@ _claude() {
           ;;
         project)
           _claude_project
+          ;;
+        purge)
+          _claude_purge
           ;;
         ultrareview)
           _claude_ultrareview
@@ -491,7 +495,9 @@ _claude_plugin() {
         install|i)
           _arguments \
             '(-s --scope)'{-s,--scope}'[安裝範圍]:scope:(user project local)' \
+            '--accept-command[接受市集宣告的指令，其 sha256 為上一次 --json 執行以 shownCommand.sha256 回報的值]:sha256:' \
             '*--config[設定外掛程式資訊清單中宣告的 userConfig 選項（可重複）]:key=value:' \
+            '--registry[用於 package@npm 安裝：從此 npm 登錄庫解析並下載]:url:' \
             '(-y --yes)'{-y,--yes}'[不經確認提示即接受顯示的市集宣告命令]' \
             '--json[列印一行機器可讀的結果，而非人類可讀的訊息]' \
             '(-h --help)'{-h,--help}'[顯示說明]' \
@@ -524,6 +530,7 @@ _claude_plugin() {
           ;;
         update)
           _arguments \
+            '--accept-command[接受市集宣告的指令，其 sha256 為上一次 --json 執行以 shownCommand.sha256 回報的值]:sha256:' \
             '(-s --scope)'{-s,--scope}'[安裝範圍]:scope:(user project local managed)' \
             '(-y --yes)'{-y,--yes}'[不經確認提示即接受顯示的市集宣告命令]' \
             '--json[列印一行機器可讀的結果，而非人類可讀的訊息]' \
@@ -534,6 +541,7 @@ _claude_plugin() {
           _arguments \
             '--json[以 JSON 輸出]' \
             '--available[包含市集中可用的外掛程式（需要 --json）]' \
+            '--data-size[測量每個已安裝外掛程式的已儲存資料目錄大小，或僅測量指定的外掛程式（需要 --json）]::plugin:_claude_installed_plugins' \
             '(-h --help)'{-h,--help}'[顯示說明]'
           ;;
         prune|autoremove)
@@ -566,6 +574,15 @@ _claude_plugin() {
             '1:name:'
           ;;
         eval)
+          if [[ $words[2] == init ]]; then
+            _arguments \
+              '--bare[寫入空白範本，而不是執行訪談]' \
+              '--eval-dir[寫入案例的目錄（位於目前目錄下）]:dir:_directories' \
+              '(-i --interactive)'{-i,--interactive}'[執行撰寫訪談（需要互動式終端機）]' \
+              '(-h --help)'{-h,--help}'[顯示說明]' \
+              '::name:'
+            return
+          fi
           _arguments \
             '--case[依名稱 glob 篩選案例]:glob:' \
             '*--tag[依標籤篩選案例（可重複）]:tag:' \
@@ -591,7 +608,7 @@ _claude_plugin() {
             '(--no-publish)--publish-report[同時要求將報告發佈到 claude.ai]' \
             '(--publish-report)--no-publish[僅在本機保留 HTML 報告，不發佈到 claude.ai]' \
             '(-h --help)'{-h,--help}'[顯示說明]' \
-            '::target: _alternative "plugins\:installed plugin\:_claude_installed_plugins" "files\:path\:_files"'
+            '::target: _alternative "commands\:eval command\:(init)" "plugins\:installed plugin\:_claude_installed_plugins" "files\:path\:_files"'
           ;;
         tag)
           _arguments \
@@ -642,6 +659,7 @@ _claude_plugin_marketplace() {
           _arguments \
             '--sparse[透過 git sparse-checkout 僅簽出特定目錄（用於單一儲存庫）]:paths:' \
             '--scope[在何處宣告市集]:scope:(user project local)' \
+            '--json[將一行機器可讀的結果作為最後一行輸出到標準輸出]' \
             '--claudeai[新增 claude.ai 為你託管的此名稱的市集]' \
             '(-h --help)'{-h,--help}'[顯示說明]' \
             '1:source:'
@@ -654,11 +672,13 @@ _claude_plugin_marketplace() {
         remove|rm)
           _arguments \
             '--scope[從特定設定範圍移除市集宣告（省略則從所有範圍移除）]:scope:(user project local)' \
+            '--json[將一行機器可讀的結果作為最後一行輸出到標準輸出]' \
             '(-h --help)'{-h,--help}'[顯示說明]' \
             '1:name:'
           ;;
         update)
           _arguments \
+            '--json[指定市集名稱時：將一行機器可讀的結果作為最後一行輸出到標準輸出]' \
             '(-h --help)'{-h,--help}'[顯示說明]' \
             '::name:'
           ;;
@@ -828,6 +848,16 @@ _claude_project() {
       esac
       ;;
   esac
+}
+
+_claude_purge() {
+  _arguments \
+    '--dry-run[列出將被刪除的項目但不實際刪除]' \
+    '(-y --yes)'{-y,--yes}'[略過確認提示]' \
+    '(-i --interactive)'{-i,--interactive}'[刪除前逐項確認]' \
+    '(1)--all[清除所有專案的狀態（不能與路徑同用）]' \
+    '(-h --help)'{-h,--help}'[顯示命令說明]' \
+    '(--all)::path:_directories'
 }
 
 _claude_ultrareview() {
