@@ -237,6 +237,7 @@ _claude() {
     '--permission-prompt-tool[İzin istemleri için kullanılacak MCP aracı (yalnızca --print)]:tool:'
     '(-c --continue)'{-c,--continue}'[En son konuşmaya devam et]'
     '(-r --resume)'{-r,--resume}'[Bir konuşmayı sürdür - oturum kimliği belirt veya etkileşimli seç]:sessionId:_claude_sessions'
+    '--from-pr[Bir PR ile bağlantılı oturumu PR numarası veya URL ile sürdür ya da isteğe bağlı arama terimiyle etkileşimli seç]::value:'
     '--fork-session[Sürdürürken orijinal oturum kimliğini yeniden kullanmak yerine yeni oturum kimliği oluştur (--resume veya --continue ile)]'
     '--no-session-persistence[Oturum kalıcılığını devre dışı bırak - oturumlar kaydedilmez (yalnızca --print)]'
     '--model[Mevcut oturum için model. En son model için takma ad belirt (örn. '\''sonnet'\'' veya '\''opus'\'')]:model:_claude_model_names'

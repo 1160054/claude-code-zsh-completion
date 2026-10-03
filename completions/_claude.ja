@@ -237,6 +237,7 @@ _claude() {
     '--permission-prompt-tool[権限プロンプトに使うMCPツール（--printのみ）]:tool:'
     '(-c --continue)'{-c,--continue}'[最新の会話を続ける]'
     '(-r --resume)'{-r,--resume}'[会話を再開 - セッションIDを指定するか、対話的に選択]:sessionId:_claude_sessions'
+    '--from-pr[PRに紐づくセッションをPR番号またはURLで再開、または検索語を指定して対話的に選択]::value:'
     '--fork-session[再開時、元のセッションIDを再利用せず新しいセッションIDを作成（--resumeまたは--continueと併用）]'
     '--no-session-persistence[セッションの永続化を無効化 - セッションは保存されない（--printのみ）]'
     '--model[現在のセッション用モデル。最新モデルのエイリアス（例：'\''sonnet'\''または'\''opus'\''）を指定]:model:_claude_model_names'

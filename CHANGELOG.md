@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- Completion for `--from-pr` (CLI 2.1.288) in `_claude`, the `en-*` variants and the twelve translated locales
 - Completion for the CLI 2.1.288 additions the 2.7.0 update missed: the top-level `purge` command (`project purge` is kept), `plugin install --accept-command`/`--registry`, `plugin update --accept-command`, `plugin list --data-size`, `plugin marketplace add`/`remove`/`update --json` and the `plugin eval init` subcommand, in `_claude`, the `en-*` variants and the twelve translated locales
 
 ### Changed
