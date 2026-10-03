@@ -12,11 +12,14 @@ on:
       tag:
         description: 'Release tag to point the formula at (e.g. v2.4.0)'
         required: true
+      merge:
+        description: 'Turn on auto-merge for the PR (off to test this workflow)'
+        type: boolean
+        default: true
 
 permissions:
   contents: write
   pull-requests: write
-  actions: write
 
 jobs:
   bump:
@@ -65,7 +68,11 @@ jobs:
     - name: Open the bump PR
       if: steps.update.outputs.changed == 'true'
       env:
-        GH_TOKEN: ${{ github.token }}
+        # A PR opened with the workflow token gets its CI held for approval, so
+        # open it as the maintainer (fine-grained token: this repo, contents and
+        # pull requests). The push below still uses the workflow token.
+        GH_TOKEN: ${{ secrets.WORKFLOW_TOKEN || github.token }}
+        MERGE: ${{ github.event_name == 'release' || inputs.merge }}
         TAG: ${{ steps.release.outputs.tag }}
         SHA: ${{ steps.release.outputs.sha }}
       run: |
@@ -84,9 +91,6 @@ jobs:
           --title "Point Homebrew formula at ${TAG}" \
           --body "$(printf 'Automated bump after the %s release.\n\n- Checksum: `%s`\n\nMerging this makes `brew upgrade` pick up %s.\n' "$TAG" "$SHA" "$TAG")"
 
-        gh pr merge "$branch" --auto --squash --delete-branch
-
-        # The pull_request run for this PR waits for a maintainer's approval,
-        # so run `test` on the branch directly; its check satisfies the
-        # required status and lets the auto-merge go through.
-        gh workflow run test.yml --ref "$branch"
+        if [ "$MERGE" = "true" ]; then
+          gh pr merge "$branch" --auto --squash --delete-branch
+        fi
