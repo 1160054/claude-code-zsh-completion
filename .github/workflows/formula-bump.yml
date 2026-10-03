@@ -16,6 +16,7 @@ on:
 permissions:
   contents: write
   pull-requests: write
+  actions: write
 
 jobs:
   bump:
@@ -84,3 +85,8 @@ jobs:
           --body "$(printf 'Automated bump after the %s release.\n\n- Checksum: `%s`\n\nMerging this makes `brew upgrade` pick up %s.\n' "$TAG" "$SHA" "$TAG")"
 
         gh pr merge "$branch" --auto --squash --delete-branch
+
+        # The pull_request run for this PR waits for a maintainer's approval,
+        # so run `test` on the branch directly; its check satisfies the
+        # required status and lets the auto-merge go through.
+        gh workflow run test.yml --ref "$branch"
