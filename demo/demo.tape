@@ -17,7 +17,7 @@ Set Width 1100
 Set Height 620
 Set Theme "Dracula"
 Set Padding 20
-Set TypingSpeed 30ms
+Set TypingSpeed 15ms
 Set Framerate 24
 # Trims the pauses a little without retuning every Sleep below
 Set PlaybackSpeed 1.1
@@ -51,9 +51,9 @@ Type "claude() { : }"
 Enter
 Type "zmodload zsh/complist"
 Enter
-# Recording only: flash a <TAB> marker after the cursor so the viewer sees the
+# Recording only: flash a TAB marker at the right edge so the viewer sees the
 # key being pressed, then complete as usual
-Type `tab-flash() { POSTDISPLAY="  <TAB> "; region_highlight=("$(( $#BUFFER + 2 )) $(( $#BUFFER + 7 )) fg=black,bg=yellow,bold"); zle -R; sleep 0.45; POSTDISPLAY=""; region_highlight=(); zle tab-complete }`
+Type `tab-flash() { RPROMPT='%K{green}%F{black}%B TAB %b%f%k'; zle reset-prompt; zle -R; sleep 0.45; RPROMPT=''; zle reset-prompt; zle tab-complete }`
 Enter
 # A completion widget has to be called through zle -C: a plain widget calling
 # menu-select completes nothing
