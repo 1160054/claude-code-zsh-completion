@@ -121,6 +121,39 @@ _claude_agent_names() {
   compadd -a agents
 }
 
+_claude_background_sessions() {
+  local -a sessions state_files
+  local -A names states
+  local state_dir state_file line id rest
+
+  # Background sessions (`claude --bg`) live in <config>/jobs/<id>/, where
+  # <id> is the short id that attach, logs, stop, respawn and rm take.
+  for state_dir in ${(f)"$(_claude_state_dirs)"}; do
+    # Newest first
+    state_files=(${state_dir}/jobs/*/state.json(Nom))
+    (( ${#state_files} )) || continue
+
+    # One grep for all of them; the first "name" and "state" it reports for a
+    # file are that file's top-level ones
+    names=() states=()
+    for line in ${(f)"$(grep -HoE '"(name|state)"[[:space:]]*:[[:space:]]*"[^"]*"' $state_files 2>/dev/null)"}; do
+      id=${${line%%/state.json:*}:t}
+      rest=${line#*/state.json:}
+      case $rest in
+        \"name\"*)  [[ -z $names[$id] ]]  && names[$id]=${${rest#*:*\"}%\"} ;;
+        \"state\"*) [[ -z $states[$id] ]] && states[$id]=${${rest#*:*\"}%\"} ;;
+      esac
+    done
+
+    for state_file in $state_files; do
+      id=${state_file:h:t}
+      sessions+=("${id}:${names[$id]:-no name}${states[$id]:+ (${states[$id]})}")
+    done
+  done
+
+  _describe -t sessions 'background session' sessions
+}
+
 _claude_model_names() {
   local -a models config_files
   local state_dir config_file
@@ -155,9 +188,15 @@ _claude() {
     'mcp:MCP серверлерін конфигурациялау және басқару'
     'plugin:Claude Code плагиндерін басқару'
     'agents:Фондық агенттерді басқару'
+    'attach:Фондық сессияны осы терминалда ашу'
+    'logs:Фондық сессияның соңғы терминал шығысын басып шығару'
+    'stop:Фондық сессияны тоқтату (оның әңгімесі сақталады)'
+    'respawn:Фондық сессия Claude Code-тың ағымдағы нұсқасында жұмыс істеуі үшін оны қайта іске қосу'
+    'rm:Фондық сессияны және қауіпсіз болса, оның worktree-ін жою'
     'auth:Аутентификацияны басқару'
     'auto-mode:Авто режим классификаторының конфигурациясын тексеру немесе қалпына келтіру'
     'gateway:Кәсіпорын аутентификация/телеметрия шлюзін іске қосу'
+    'import:Басқа AI кодтау агентінен конфигурацияны Claude Code-қа импорттау'
     'project:Claude Code жоба күйін басқару'
     'ultrareview:Бұлтта орналастырылған көп агентті код шолуын іске қосу және нәтижелерін басып шығару'
     'setup-token:Ұзақ мерзімді аутентификация токенін орнату (Claude жазылымы қажет)'
@@ -178,6 +217,7 @@ _claude() {
     '--mcp-debug[\[Ескірген. Оның орнына --debug пайдаланыңыз\] MCP жөндеу режімін қосу (MCP сервер қателерін көрсетеді)]'
     '--dangerously-skip-permissions[Барлық рұқсат тексерулерінен өту. Тек интернетке қол жетімсіз sandbox ортасы үшін ұсынылады]'
     '--allow-dangerously-skip-permissions[Әдепкі бойынша қоспай-ақ рұқсат тексерулерінен өту опциясын қосу]'
+    '--restricted[Шектеулі режим: командаларды немесе кодты іске қосатын құралдарды және WebFetch-ті алып тастау, user/project/local параметрлерін елемеу және файл құралдарын жұмыс каталогтарымен шектеу]'
     '--max-budget-usd[API шақыруларына жұмсалатын максималды доллар сомасы (тек --print)]:amount:'
     '--replay-user-messages[Растау үшін stdin-ден stdout-қа пайдаланушы хабарламаларын қайта жіберу]'
     '--allowed-tools[Үтірмен немесе бос орынмен бөлінген рұқсат етілген құрал атауларының тізімі (мысалы, "Bash(git:*) Edit")]:tools:'
@@ -187,8 +227,13 @@ _claude() {
     '--disallowedTools[Үтірмен немесе бос орынмен бөлінген тыйым салынған құрал атауларының тізімі (camelCase форматы)]:tools:'
     '--mcp-config[JSON файлынан немесе жолдан MCP серверлерін жүктеу (бос орынмен бөлінген)]:configs:'
     '--system-prompt[Сессия үшін жүйелік ескерту]:prompt:'
+    '--system-prompt-file[Жүйелік ескертуді файлдан оқу]:file:_files'
     '--append-system-prompt[Әдепкі жүйелік ескертуге жүйелік ескертуді қосу]:prompt:'
+    '--append-system-prompt-file[Жүйелік ескертуді файлдан оқу және әдепкі жүйелік ескертуге қосу]:file:_files'
+    '--system-prompt-snapshot[Жүйелік ескертуді әр әңгімеге бір рет жазып алып, оны әр сұрауда және жалғастыруда сөзбе-сөз қайта пайдалану (on, әдепкі) немесе әр сұрауда жаңадан құрастыру (off)]:mode:(on off)'
     '--permission-mode[Сессия үшін рұқсат режімі]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)'
+    '--permission-prompts[--print кезінде рұқсат сұрауларына кім жауап береді: "host" (SDK хосты немесе --permission-prompt-tool) немесе "none" (сұрау тудыратын кез келген әрекет қабылданбайды)]:target:(host none)'
+    '--permission-prompt-tool[Рұқсат сұраулары үшін пайдаланылатын MCP құралы (тек --print)]:tool:'
     '(-c --continue)'{-c,--continue}'[Ең соңғы әңгімені жалғастыру]'
     '(-r --resume)'{-r,--resume}'[Әңгімені жалғастыру - сессия идентификаторын көрсетіңіз немесе интерактивті түрде таңдаңыз]:sessionId:_claude_sessions'
     '--fork-session[Жалғастыру кезінде түпнұсқа сессия идентификаторын қайта пайдалану орнына жаңа сессия идентификаторын жасау (--resume немесе --continue-мен)]'
@@ -200,6 +245,7 @@ _claude() {
     '--settings[Қосымша параметрлерді жүктеу үшін параметрлер JSON файлы немесе JSON жолының жолы]:file-or-json:_files'
     '--add-dir[Құрал қолжетімділігіне рұқсат беру үшін қосымша каталогтар]:directories:_directories'
     '--ide[Іске қосу кезінде дәл бір жарамды IDE қол жетімді болса, автоматты түрде IDE-ге қосылу]'
+    '--desktop[Терминалдың орнына Claude Desktop қолданбасында ашу (сессияны таңдау үшін --continue немесе --resume <id>-мен)]'
     '--strict-mcp-config[Тек --mcp-config-тен MCP серверлерін пайдалану және басқа барлық MCP параметрлерін елемеу]'
     '--session-id[Әңгіме үшін арнайы сессия идентификаторы (жарамды UUID болуы керек)]:uuid:'
     '--agents[Арнайы агенттерді анықтайтын JSON нысаны]:json:'
@@ -208,11 +254,15 @@ _claude() {
     '--disable-slash-commands[Барлық қиғаш сызық командаларын өшіру]'
     '(--bg --background)'{--bg,--background}'[Сессияны фондық агент ретінде іске қосу және дереу қайту]'
     '(-w --worktree)'{-w,--worktree}'[Осы сессия үшін жаңа git worktree жасау (қосымша ат көрсетуге болады)]::name:'
-    '--tmux[worktree үшін tmux сессиясын жасау (--worktree қажет)]'
+    '--tmux=-[worktree үшін tmux сессиясын жасау (--worktree қажет). Қолжетімді болса, iTerm2 кірістірілген панельдерін пайдаланады; дәстүрлі tmux үшін --tmux=classic]::mode:(classic)'
     '(-n --name)'{-n,--name}'[Осы сессия үшін көрсету атауын орнату]:name:'
     '--effort[Ағымдағы сессия үшін күш деңгейі]:level:(low medium high xhigh max)'
+    '--autocompact[Авто-ықшамдау терезесінің өлшемі (auto немесе 100k-1M токен)]:size:(auto)'
     '--debug-file[Жөндеу журналдарын белгілі бір файл жолына жазу (жасырын түрде жөндеу режімін қосады)]:path:_files'
     '--from-pr[Нөмір/URL бойынша PR-ге байланысты сессияны жалғастыру немесе интерактивті таңдаушыны ашу]::value:'
+    '--teleport[Teleport сессиясын жалғастыру, қосымша сессия идентификаторын көрсетуге болады]::session:'
+    '--cloud[Берілген сипаттамамен бұлттық сессия жасау немесе сессия идентификаторы не claude.ai/code URL бойынша бар сессияға қосылу]::description-or-session:'
+    '--environment[Берілген өзіндік хостталған ортада (ccpool_...) жұмыс істейтін жаңа бұлттық сессия жасау]:environment_id:'
     '--remote-control[Қашықтан басқару қосылған интерактивті сессияны іске қосу (қосымша атаумен)]::name:'
     '--remote-control-session-name-prefix[Автоматты жасалатын Қашықтан басқару сессия атауларының префиксі]:prefix:'
     '--chrome[Chrome-дағы Claude интеграциясын қосу]'
@@ -254,6 +304,17 @@ _claude() {
         agents)
           _claude_agents
           ;;
+        attach|logs|stop|kill)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Команда үшін анықтаманы көрсету]' \
+            '1:session:_claude_background_sessions'
+          ;;
+        respawn)
+          _claude_respawn
+          ;;
+        rm)
+          _claude_rm
+          ;;
         auth)
           _claude_auth
           ;;
@@ -262,6 +323,9 @@ _claude() {
           ;;
         gateway)
           _claude_gateway
+          ;;
+        import)
+          _claude_import
           ;;
         project)
           _claude_project
@@ -319,6 +383,9 @@ _claude_mcp() {
             '(-t --transport)'{-t,--transport}'[Тасымалдау түрі (stdio, sse, http)]:transport:(stdio sse http)' \
             '(-e --env)'{-e,--env}'[Орта айнымалысын орнату (мысалы, -e KEY=value)]:env:' \
             '(-H --header)'{-H,--header}'[WebSocket тақырыбын орнату]:header:' \
+            '--client-id[HTTP/SSE серверлері үшін OAuth клиент идентификаторы]:clientId:' \
+            '--client-secret[OAuth клиент құпиясын сұрау (немесе MCP_CLIENT_SECRET орта айнымалысын орнатыңыз)]' \
+            '--callback-port[OAuth кері шақыруы үшін тұрақты порт (алдын ала тіркелген қайта бағыттау URI-лерін талап ететін серверлер үшін)]:port:' \
             '(-h --help)'{-h,--help}'[Анықтаманы көрсету]' \
             '1:name:' \
             '2:commandOrUrl:' \
@@ -342,6 +409,7 @@ _claude_mcp() {
         add-json)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Конфигурация аясы (local, user, project)]:scope:(local user project)' \
+            '--client-secret[OAuth клиент құпиясын сұрау (немесе MCP_CLIENT_SECRET орта айнымалысын орнатыңыз)]' \
             '(-h --help)'{-h,--help}'[Анықтаманы көрсету]' \
             '1:name:' \
             '2:json:'
@@ -355,7 +423,13 @@ _claude_mcp() {
           _arguments \
             '(-h --help)'{-h,--help}'[Анықтаманы көрсету]'
           ;;
-        login|logout)
+        login)
+          _arguments \
+            '--no-browser[Браузерді ашудың орнына авторизация URL-ін басып шығару (SSH/headless сессиялары үшін)]' \
+            '(-h --help)'{-h,--help}'[Анықтаманы көрсету]' \
+            '1:name:_claude_mcp_servers'
+          ;;
+        logout)
           _arguments \
             '(-h --help)'{-h,--help}'[Анықтаманы көрсету]' \
             '1:name:_claude_mcp_servers'
@@ -372,9 +446,11 @@ _claude_plugin() {
     'marketplace:Claude Code нарықтарын басқару'
     'list:Орнатылған плагиндердің тізімі'
     'details:Плагин үшін компонент тізімі мен болжамды токен құнын көрсету'
+    'configure:Плагин опцияларын және қайсысы орнатылмағанын көрсету немесе мәндерді stdin-нен сақтау'
     'install:Қол жетімді нарықтардан плагин орнату'
     'i:Қол жетімді нарықтардан плагин орнату (install үшін қысқа)'
     'init:Жаңа плагинді құрастыру (келесі сессияда автоматты жүктеледі)'
+    'new:Жаңа плагинді құрастыру (init үшін бүркеншік ат)'
     'uninstall:Орнатылған плагинді жою'
     'remove:Орнатылған плагинді жою (uninstall үшін бүркеншік ат)'
     'enable:Өшірілген плагинді қосу'
@@ -382,7 +458,9 @@ _claude_plugin() {
     'update:Плагинді ең соңғы нұсқаға жаңарту'
     'eval:Плагинге қарсы бағалау жағдайларын іске қосу және бағаланған нәтижелерді есептеу'
     'prune:Қажет емес автоматты орнатылған тәуелділіктерді жою'
+    'autoremove:Енді қажет емес автоматты орнатылған тәуелділіктерді жою (prune үшін бүркеншік ат)'
     'tag:Плагин шығарылымы үшін {name}--v{version} git тегін жасау'
+    'test:Мод тесттерін іске қосу'
     'help:Анықтаманы көрсету'
   )
 
@@ -402,6 +480,8 @@ _claude_plugin() {
       case $words[1] in
         validate)
           _arguments \
+            '--strict[Ескертулерді қате ретінде қарастыру (шығу коды 1)]' \
+            '--json[Тексеру есебін JSON ретінде шығару (шығу кодтары бірдей)]' \
             '(-h --help)'{-h,--help}'[Анықтаманы көрсету]' \
             '1:path:_files'
           ;;
@@ -411,50 +491,122 @@ _claude_plugin() {
         install|i)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Орнату аясы]:scope:(user project local)' \
+            '*--config[Плагин манифестінде жарияланған userConfig опциясын орнату (қайталанатын)]:key=value:' \
+            '(-y --yes)'{-y,--yes}'[Нарық жариялаған көрсетілген команданы растау сұрауынсыз қабылдау]' \
+            '--json[Адамға арналған хабарламаның орнына машина оқитын бір нәтиже жолын басып шығару]' \
             '(-h --help)'{-h,--help}'[Анықтаманы көрсету]' \
             '1:plugin:'
           ;;
         uninstall|remove)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Орнату аясы]:scope:(user project local)' \
+            '--keep-data[Плагиннің тұрақты деректер каталогын сақтау]' \
+            '--prune[Сондай-ақ енді қажет емес автоматты орнатылған тәуелділіктерді жою]' \
+            '(-y --yes)'{-y,--yes}'[--prune растау сұрауын өткізіп жіберу]' \
+            '--json[Адамға арналған хабарламаның орнына машина оқитын бір нәтиже жолын басып шығару (--prune-мен емес)]' \
             '(-h --help)'{-h,--help}'[Анықтаманы көрсету]' \
             '1:plugin:_claude_installed_plugins'
           ;;
-        enable|disable)
+        enable)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Орнату аясы]:scope:(user project local)' \
+            '--json[Адамға арналған хабарламаның орнына машина оқитын бір нәтиже жолын басып шығару]' \
             '(-h --help)'{-h,--help}'[Анықтаманы көрсету]' \
             '1:plugin:_claude_installed_plugins'
+          ;;
+        disable)
+          _arguments \
+            '(-a --all)'{-a,--all}'[Барлық қосылған плагиндерді өшіру]' \
+            '(-s --scope)'{-s,--scope}'[Орнату аясы]:scope:(user project local)' \
+            '--json[Адамға арналған хабарламаның орнына машина оқитын бір нәтиже жолын басып шығару]' \
+            '(-h --help)'{-h,--help}'[Анықтаманы көрсету]' \
+            '::plugin:_claude_installed_plugins'
           ;;
         update)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Орнату аясы]:scope:(user project local managed)' \
+            '(-y --yes)'{-y,--yes}'[Нарық жариялаған көрсетілген команданы растау сұрауынсыз қабылдау]' \
+            '--json[Адамға арналған хабарламаның орнына машина оқитын бір нәтиже жолын басып шығару]' \
             '(-h --help)'{-h,--help}'[Анықтаманы көрсету]' \
             '1:plugin:_claude_installed_plugins'
           ;;
-        list|prune)
+        list)
           _arguments \
+            '--json[JSON ретінде шығару]' \
+            '--available[Нарықтардағы қолжетімді плагиндерді қосу (--json қажет)]' \
             '(-h --help)'{-h,--help}'[Анықтаманы көрсету]'
+          ;;
+        prune|autoremove)
+          _arguments \
+            '(-s --scope)'{-s,--scope}'[Көрсетілген аяда тазалау]:scope:(user project local)' \
+            '--dry-run[Жоймай-ақ, не жойылатынын тізімдеу]' \
+            '(-y --yes)'{-y,--yes}'[Растау сұрауын өткізіп жіберу]' \
+            '(-h --help)'{-h,--help}'[Анықтаманы көрсету]'
+          ;;
+        configure)
+          _arguments \
+            '--json[JSON ретінде шығару]' \
+            '--values-stdin[Опция мәндерін stdin-нен бір жолды жолдардан тұратын JSON нысаны ретінде оқу; көрсетілмеген опциялар өз мәндерін сақтайды]' \
+            '(-h --help)'{-h,--help}'[Анықтаманы көрсету]' \
+            '1:plugin:_claude_installed_plugins'
           ;;
         details)
           _arguments \
             '(-h --help)'{-h,--help}'[Анықтаманы көрсету]' \
             '1:plugin:_claude_installed_plugins'
           ;;
-        init)
+        init|new)
           _arguments \
+            '--description[Манифест сипаттамасы]:text:' \
+            '--author[Автор аты (әдепкі: git config user.name)]:name:' \
+            '--author-email[Автор электрондық поштасы (әдепкі: git config user.email)]:email:' \
+            '--with[Қосымша құрастырылатын компоненттер]:components:' \
+            '(-f --force)'{-f,--force}'[Мақсаттағы бар .claude-plugin/ каталогын қайта жазу]' \
             '(-h --help)'{-h,--help}'[Анықтаманы көрсету]' \
             '1:name:'
           ;;
         eval)
           _arguments \
+            '--case[Жағдайларды атау glob үлгісі бойынша сүзу]:glob:' \
+            '*--tag[Жағдайларды тег бойынша сүзу (қайталанатын)]:tag:' \
+            '--runs[Әр жағдайдағы іске қосулар санын қайта анықтау (әдепкі: case.runs, болмаса 3)]:n:' \
+            '(-j --concurrency)'{-j,--concurrency}'[Агент іске қосуларының n-ге дейінін бір уақытта орындау (1-8; әдепкі 1)]:n:' \
+            '--model[Барлық жағдайлар үшін модельді қайта анықтау]:model:_claude_model_names' \
+            '--judge-model[LLM-бағалаушы модельді қайта анықтау (әдепкі: haiku)]:model:_claude_model_names' \
+            '--max-cost-usd[Шығынның қатаң шегі; оған жеткенде тоқтатып, ішінара нәтижелерді хабарлау (шығу коды 2)]:usd:' \
+            '--output-dir[aggregate-result.json үшін каталог]:dir:_directories' \
+            '--eval-dir[Бағалау жағдайларын сақтайтын каталог атауы (плагин астында)]:dir:' \
+            '--json[Толық іске қосу нәтижесін JSON ретінде stdout-қа басып шығару немесе оны осы .json файлына жазу]::path:_files' \
+            '--threshold[Кез келген жағдайдың ұпайы осы шектен төмен болса, 1 шығу кодымен шығу (әдепкі: 1.0)]:threshold:' \
+            '*--allow-tools[Шектелген құралдарға оператор рұқсаты (Bash, Write, Edit, WebFetch, mcp__*)]:tools:' \
+            '(--no-scaffold)--scaffold[Әр жағдайдың scaffold_script-ін іске қосу (автор берген bash-ты сіздің атыңыздан іске қосады; әдепкі бойынша өшірулі)]' \
+            '(--scaffold)--no-scaffold[scaffold_script-ті анық түрде өткізіп жіберу]' \
+            '--trust-plugin[Осы плагинге және оның бағалау жиынтығына сенетініңізді растап, алғашқы іске қосудағы сенім сұрауын өткізіп жіберу (CI үшін)]' \
+            '--ablation[Плагинсіз базалық салыстыру тобын іске қосу және ұпай айырмасын хабарлау]:mode:(none with-without)' \
+            '--mocks[MCP серверлерінің орнын басатын mock-тар, <eval dir>/mocks/ ішінен]:mode:(record off)' \
+            '--allow-real-servers[--mocks record-пен: mock-ы жоқ нақты MCP сервер процестерін де іске қосу]' \
+            '--keep-temp[Жөндеу үшін құрастыру каталогтарын сақтау]' \
+            '--verbose[Әр хабарламаның трассалау оқиғаларын жөндеу журналына жазу]' \
+            '--report[Дербес HTML есебін нәтижелер каталогының орнына осы жолға жазу]:path:_files' \
+            '(--no-publish)--publish-report[Сондай-ақ есепті claude.ai-ге жариялауды талап ету]' \
+            '(--publish-report)--no-publish[HTML есебін тек жергілікті сақтау; оны claude.ai-ге жариялауды өткізіп жіберу]' \
             '(-h --help)'{-h,--help}'[Анықтаманы көрсету]' \
-            '1:target:'
+            '::target: _alternative "plugins\:installed plugin\:_claude_installed_plugins" "files\:path\:_files"'
           ;;
         tag)
           _arguments \
+            '--push[Тегті жасағаннан кейін оны --remote-қа жіберу]' \
+            '--dry-run[Тегті жасамай-ақ, не тегтелетінін басып шығару]' \
+            '(-f --force)'{-f,--force}'[Жұмыс ағашының таза еместігі және тегтің бұрыннан бар екені тексерулерін өткізіп жіберу]' \
+            '(-m --message)'{-m,--message}'[Тег аннотациясының хабарламасы (нұсқа үшін %s пайдаланыңыз)]:msg:' \
+            '--remote[--push кезінде жіберілетін remote]:name:' \
             '(-h --help)'{-h,--help}'[Анықтаманы көрсету]' \
-            '1:path:_files'
+            '::path:_files'
+          ;;
+        test)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Анықтаманы көрсету]' \
+            '::dir:_directories'
           ;;
       esac
       ;;
@@ -488,15 +640,20 @@ _claude_plugin_marketplace() {
       case $words[1] in
         add)
           _arguments \
+            '--sparse[git sparse-checkout арқылы checkout-ты белгілі бір каталогтармен шектеу (монорепозиторийлер үшін)]:paths:' \
+            '--scope[Нарықты қай жерде жариялау]:scope:(user project local)' \
+            '--claudeai[claude.ai сіз үшін хосттайтын осы атаулы нарықты қосу]' \
             '(-h --help)'{-h,--help}'[Анықтаманы көрсету]' \
             '1:source:'
           ;;
         list)
           _arguments \
+            '--json[JSON ретінде шығару]' \
             '(-h --help)'{-h,--help}'[Анықтаманы көрсету]'
           ;;
         remove|rm)
           _arguments \
+            '--scope[Нарық жариялауын белгілі бір параметрлер аясынан жою (барлық аядан жою үшін көрсетпеңіз)]:scope:(user project local)' \
             '(-h --help)'{-h,--help}'[Анықтаманы көрсету]' \
             '1:name:'
           ;;
@@ -534,6 +691,7 @@ _claude_agents() {
     '--setting-sources[Жүктеу үшін үтірмен бөлінген параметр көздерінің тізімі (user, project, local)]:sources:' \
     '--settings[Қолданылатын параметрлер файлы немесе JSON жолы]:file-or-json:_files' \
     '--strict-mcp-config[Жіберілген сессияларда тек --mcp-config-тен MCP серверлерін пайдалану]' \
+    '--restricted[Жіберілген сессияларды шектеулі режимде іске қосу]' \
     '(-h --help)'{-h,--help}'[Команда үшін анықтаманы көрсету]'
 }
 
@@ -560,7 +718,21 @@ _claude_auth() {
       ;;
     args)
       case $words[1] in
-        login|logout|status)
+        login)
+          _arguments \
+            '--email[Кіру бетінде электрондық пошта мекенжайын алдын ала толтыру]:email:' \
+            '--sso[SSO кіру ағынын мәжбүрлеу]' \
+            '(--claudeai)--console[Claude жазылымының орнына Anthropic Console (API пайдалану бойынша төлем) пайдалану]' \
+            '(--console)--claudeai[Claude жазылымын пайдалану (әдепкі)]' \
+            '(-h --help)'{-h,--help}'[Команда үшін анықтаманы көрсету]'
+          ;;
+        status)
+          _arguments \
+            '(--text)--json[JSON ретінде шығару (әдепкі)]' \
+            '(--json)--text[Адам оқи алатын мәтін ретінде шығару]' \
+            '(-h --help)'{-h,--help}'[Команда үшін анықтаманы көрсету]'
+          ;;
+        logout)
           _arguments \
             '(-h --help)'{-h,--help}'[Команда үшін анықтаманы көрсету]'
           ;;
@@ -593,7 +765,22 @@ _claude_auto_mode() {
       ;;
     args)
       case $words[1] in
-        config|critique|defaults|reset)
+        critique)
+          _arguments \
+            '--model[Пайдаланылатын модельді қайта анықтау]:model:_claude_model_names' \
+            '(-h --help)'{-h,--help}'[Команда үшін анықтаманы көрсету]'
+          ;;
+        defaults)
+          _arguments \
+            '--label[Белгісі осы префикстен басталатын ережелерді ғана көрсету (регистрге сезімтал емес)]:prefix:' \
+            '(-h --help)'{-h,--help}'[Команда үшін анықтаманы көрсету]'
+          ;;
+        reset)
+          _arguments \
+            '(-y --yes)'{-y,--yes}'[Растау сұрауын өткізіп жіберу]' \
+            '(-h --help)'{-h,--help}'[Команда үшін анықтаманы көрсету]'
+          ;;
+        config)
           _arguments \
             '(-h --help)'{-h,--help}'[Команда үшін анықтаманы көрсету]'
           ;;
@@ -631,8 +818,12 @@ _claude_project() {
       case $words[1] in
         purge)
           _arguments \
+            '--dry-run[Ештеңені жоймай-ақ, не жойылатынын тізімдеу]' \
+            '(-y --yes)'{-y,--yes}'[Растау сұрауын өткізіп жіберу]' \
+            '(-i --interactive)'{-i,--interactive}'[Жою алдында әр элемент үшін сұрау]' \
+            '(1)--all[Барлық жобалар үшін күйді тазалау (жолмен бірге қолданылмайды)]' \
             '(-h --help)'{-h,--help}'[Команда үшін анықтаманы көрсету]' \
-            '1:path:_directories'
+            '(--all)::path:_directories'
           ;;
       esac
       ;;
@@ -642,9 +833,34 @@ _claude_project() {
 _claude_ultrareview() {
   _arguments \
     '--json[Пішімделген нәтижелердің орнына шикі bugs.json пайдалы жүктемесін басып шығару]' \
-    '--timeout[Шолудың аяқталуын күтудің максималды минуттары]:minutes:' \
+    '--timeout[Шолудың аяқталуын күтудің максималды минуттары (әдепкі: 45)]:minutes:' \
+    '(--no-post)--post[Аяқталған шолу нәтижелерін PR-ге сіздің атыңыздан жариялау (тек PR мақсаттары үшін; шолу емес, бір қарапайым түсініктеме)]' \
+    '(--post)--no-post[Нәтижелерді PR-ге жарияламау (әдепкі)]' \
     '(-h --help)'{-h,--help}'[Команда үшін анықтаманы көрсету]' \
     '1:target:'
+}
+
+_claude_respawn() {
+  _arguments \
+    '(1)--all[Жұмыс істеп тұрған барлық фондық сессияларды қайта іске қосу]' \
+    '(-h --help)'{-h,--help}'[Команда үшін анықтаманы көрсету]' \
+    '(--all)::session:_claude_background_sessions'
+}
+
+_claude_rm() {
+  _arguments \
+    '--discard-unpushed[Сондай-ақ worktree-дің жіберілмеген коммиттері мен коммиттелмеген өзгерістерін алып тастау (алдыңғы claude rm хабарлаған commit@worktree-id мәнін беріңіз)]:commit@worktree-id:' \
+    '--force-remove-worktree[WorktreeRemove hook-ы немесе git жоя алмаса да, worktree каталогын жою (алдыңғы claude rm хабарлаған worktree-id мәнін беріңіз)]:worktree-id:' \
+    '(-h --help)'{-h,--help}'[Команда үшін анықтаманы көрсету]' \
+    '1:session:_claude_background_sessions'
+}
+
+_claude_import() {
+  _arguments \
+    '--dry-run[Ештеңе жазбай-ақ, не импортталатынын көрсету]' \
+    '--yes[Интерактивті таңдаушыны өткізіп жіберу (headless ортада /import алдын ала қарауынан --yes=<digest> беріңіз)]' \
+    '(-h --help)'{-h,--help}'[Команда үшін анықтаманы көрсету]' \
+    '::source:(codex gemini cursor)'
 }
 
 (( $+_comps[claude] )) || compdef _claude claude
