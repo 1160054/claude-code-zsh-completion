@@ -16,17 +16,29 @@ cd demo && vhs demo.tape && gifsicle -O3 --lossy=30 -o ../demo.gif ../demo.gif
 
 This will generate `demo.gif` in the project root.
 
+The Japanese demo (`demo.ja.gif`, shown under "Other languages") is the same
+tape recorded with `_claude.ja` and Japanese session and job names:
+
+```bash
+demo/make-ja.sh
+```
+
+It copies `demo/` to a temporary directory and rewrites the copy's fixtures, so
+the checked-in fixtures stay English. Re-record it whenever `demo.gif` changes.
+
 The `gifsicle` pass is part of the procedure, not an optional extra: VHS writes
 every frame at the full framerate, and since the demo is mostly a static screen
-waiting for the next keystroke, collapsing the identical frames takes the file
-from ~400 KB to ~310 KB with no visible quality loss (the duration and every
+waiting for the next keystroke, collapsing the identical frames and a light lossy
+pass keep the file around 800 KB with no visible quality loss (the duration and every
 scene stay exactly the same). Please run it before committing a new recording -
 the GIF is loaded by everyone who opens the README.
 
 ## Files
 
 - `demo.tape` - VHS script defining the demo scenario
+- `make-ja.sh` - records `demo.ja.gif` from the same tape
 - `fixtures/home/` - fake `$HOME` used during recording
+- `fixtures/sessions/` - session transcripts copied into place at recording time
 
 ## About the fixtures
 
