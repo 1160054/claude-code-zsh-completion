@@ -245,7 +245,6 @@ _claude() {
     '--settings[Path to settings JSON file or JSON string to load additional settings]:file-or-json:_files'
     '--add-dir[Additional directories to allow tool access]:directories:_directories'
     '--ide[Auto-connect to IDE on startup if exactly one valid IDE is available]'
-    '--desktop[Open in the Claude Desktop app instead of the terminal (with --continue or --resume <id> to pick the session)]'
     '--strict-mcp-config[Use only MCP servers from --mcp-config and ignore all other MCP settings]'
     '--session-id[Specific session ID to use for conversation (must be valid UUID)]:uuid:'
     '--agents[JSON object defining custom agents]:json:'
