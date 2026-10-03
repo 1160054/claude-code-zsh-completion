@@ -121,6 +121,39 @@ _claude_agent_names() {
   compadd -a agents
 }
 
+_claude_background_sessions() {
+  local -a sessions state_files
+  local -A names states
+  local state_dir state_file line id rest
+
+  # Background sessions (`claude --bg`) live in <config>/jobs/<id>/, where
+  # <id> is the short id that attach, logs, stop, respawn and rm take.
+  for state_dir in ${(f)"$(_claude_state_dirs)"}; do
+    # Newest first
+    state_files=(${state_dir}/jobs/*/state.json(Nom))
+    (( ${#state_files} )) || continue
+
+    # One grep for all of them; the first "name" and "state" it reports for a
+    # file are that file's top-level ones
+    names=() states=()
+    for line in ${(f)"$(grep -HoE '"(name|state)"[[:space:]]*:[[:space:]]*"[^"]*"' $state_files 2>/dev/null)"}; do
+      id=${${line%%/state.json:*}:t}
+      rest=${line#*/state.json:}
+      case $rest in
+        \"name\"*)  [[ -z $names[$id] ]]  && names[$id]=${${rest#*:*\"}%\"} ;;
+        \"state\"*) [[ -z $states[$id] ]] && states[$id]=${${rest#*:*\"}%\"} ;;
+      esac
+    done
+
+    for state_file in $state_files; do
+      id=${state_file:h:t}
+      sessions+=("${id}:${names[$id]:-no name}${states[$id]:+ (${states[$id]})}")
+    done
+  done
+
+  _describe -t sessions 'background session' sessions
+}
+
 _claude_model_names() {
   local -a models config_files
   local state_dir config_file
@@ -155,9 +188,15 @@ _claude() {
     'mcp:Konfigurá i manehá servidornan MCP'
     'plugin:Manehá pluginnan di Claude Code'
     'agents:Manehá agentenan di background'
+    'attach:Habri un seshon di background den e terminal aki'
+    'logs:Imprimí e salida resiente di terminal di un seshon di background'
+    'stop:Para un seshon di background (su konbersashon ta keda wardá)'
+    'respawn:Reinisiá un seshon di background pa e kore e vershon aktual di Claude Code'
+    'rm:Eliminá un seshon di background, i su worktree ora esei ta sigur'
     'auth:Manehá outentikashon'
     'auto-mode:Inspekshoná òf resetiá e konfigurashon di klasifikadó di modo outomátiko'
     'gateway:Kore e gateway di outentikashon/telemetria di empresa'
+    'import:Importá konfigurashon for di otro agente di kodifikashon di IA den Claude Code'
     'project:Manehá e estado di proyekto di Claude Code'
     'ultrareview:Kore un revishon di kódigo multi-agente den nube i mustra e resultadonan'
     'setup-token:Konfigurá un token di outentikashon di largu plaso (mester tin suskripshon di Claude)'
@@ -178,6 +217,7 @@ _claude() {
     '--mcp-debug[\[Obsoleto. Usa --debug na su lugá\] Habilitá modo debug di MCP (ta mustra erornan di servidó MCP)]'
     '--dangerously-skip-permissions[Salta tur chèk di permiso. Rekomendá solamente pa sandbox sin akseso na internet]'
     '--allow-dangerously-skip-permissions[Habilitá e opshon pa salta chèk di permiso sin habilitá pa default]'
+    '--restricted[Modo restringí: kita e hèrmèntnan ku ta kore komando òf kódigo i WebFetch, ignorá konfigurashon user/project/local, i limitá hèrmèntnan di archivo na e directorionan di trabou]'
     '--max-budget-usd[Kantidat máksimo di dòler pa gasta na yamadanan API (solamente --print)]:amount:'
     '--replay-user-messages[Re-manda mensahenan di usuario for di stdin riba stdout pa konfirmashon]'
     '--allowed-tools[Lista separá ku koma òf espasio di nòmbernan di hèrmènt permití (p.e., "Bash(git:*) Edit")]:tools:'
@@ -187,8 +227,13 @@ _claude() {
     '--disallowedTools[Lista separá ku koma òf espasio di nòmbernan di hèrmènt no permití (formato camelCase)]:tools:'
     '--mcp-config[Karga servidornan MCP for di archivo JSON òf string (separá ku espasio)]:configs:'
     '--system-prompt[Prompt di sistema pa usa pa e seshon]:prompt:'
+    '--system-prompt-file[Lesa prompt di sistema for di un archivo]:file:_files'
     '--append-system-prompt[Añadí prompt di sistema na e prompt di sistema default]:prompt:'
+    '--append-system-prompt-file[Lesa prompt di sistema for di un archivo i añadí e na e prompt di sistema default]:file:_files'
+    '--system-prompt-snapshot[Graba e prompt di sistema un biaha pa konbersashon i reutilisá e palabra pa palabra na kada petishon i retomamentu (on, e default) òf genera e di nobo na kada petishon (off)]:mode:(on off)'
     '--permission-mode[Modo di permiso pa usa pa e seshon]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)'
+    '--permission-prompts[Ken ta kontestá preguntanan di permiso ku --print: "host" (e host di SDK òf --permission-prompt-tool) òf "none" (tur loke lo a pidi permiso ta wòrdu nengá)]:target:(host none)'
+    '--permission-prompt-tool[Hèrmènt MCP pa usa pa preguntanan di permiso (solamente --print)]:tool:'
     '(-c --continue)'{-c,--continue}'[Kontinuá e konbersashon mas resiente]'
     '(-r --resume)'{-r,--resume}'[Retomá un konbersashon - spesifiká session ID òf selektá interaktivamente]:sessionId:_claude_sessions'
     '--fork-session[Krea un session ID nobo en bes di reutilisá e session ID original ora ta retomá (ku --resume òf --continue)]'
@@ -200,6 +245,7 @@ _claude() {
     '--settings[Kaminda na e archivo JSON di konfigurashon òf string JSON pa karga konfigurashon adishonal]:file-or-json:_files'
     '--add-dir[Directorionan adishonal pa permití akseso di hèrmènt]:directories:_directories'
     '--ide[Konektá outomátikamente na IDE na inisio si tin eksaktamente un IDE válido disponibel]'
+    '--desktop[Habri den e app Claude Desktop en bes di e terminal (ku --continue òf --resume <id> pa skohe e seshon)]'
     '--strict-mcp-config[Usa solamente servidornan MCP for di --mcp-config i ignorá tur otro konfigurashon MCP]'
     '--session-id[Session ID spesífiko pa usa pa e konbersashon (mester ta un UUID válido)]:uuid:'
     '--agents[Opheto JSON ku ta definí agentenan personalisá]:json:'
@@ -208,11 +254,15 @@ _claude() {
     '--disable-slash-commands[Desactivá tur komando slash]'
     '(--bg --background)'{--bg,--background}'[Kuminsá e seshon komo un agente di background i bolbe mesora]'
     '(-w --worktree)'{-w,--worktree}'[Krea un git worktree nobo pa e seshon aki (opshonalmente spesifiká un nòmber)]::name:'
-    '--tmux[Krea un seshon tmux pa e worktree (mester tin --worktree)]'
+    '--tmux=-[Krea un seshon tmux pa e worktree (mester tin --worktree). Ta usa panelnan nativo di iTerm2 ora ta disponibel; --tmux=classic pa tmux tradishonal]::mode:(classic)'
     '(-n --name)'{-n,--name}'[Pone un nòmber di mustra pa e seshon aki]:name:'
     '--effort[Nivel di esfuerso pa e seshon aktual]:level:(low medium high xhigh max)'
+    '--autocompact[Tamaño di bentana pa auto-kompaktashon (auto, òf 100k-1M token)]:size:(auto)'
     '--debug-file[Skirbi log di debug na un kaminda di archivo spesífiko (ta habilitá modo debug implísitamente)]:path:_files'
     '--from-pr[Retomá un seshon konektá na un PR pa number/URL, òf habri e selektor interaktivo]::value:'
+    '--teleport[Retomá un seshon di teleport, opshonalmente spesifiká session ID]::session:'
+    '--cloud[Krea un seshon den nube ku e deskripshon duná, òf konektá na un eksistente pa session ID òf URL di claude.ai/code]::description-or-session:'
+    '--environment[Krea un seshon nobo den nube ku ta kore riba e ambiente self-hosted duná (ccpool_...)]:environment_id:'
     '--remote-control[Kuminsá un seshon interaktivo ku Remote Control habilitá (opshonalmente ku nòmber)]::name:'
     '--remote-control-session-name-prefix[Prefiho pa nòmbernan di seshon Remote Control generá outomátikamente]:prefix:'
     '--chrome[Habilitá integrashon di Claude den Chrome]'
@@ -254,6 +304,17 @@ _claude() {
         agents)
           _claude_agents
           ;;
+        attach|logs|stop|kill)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Mustra yudansa pa e komando]' \
+            '1:session:_claude_background_sessions'
+          ;;
+        respawn)
+          _claude_respawn
+          ;;
+        rm)
+          _claude_rm
+          ;;
         auth)
           _claude_auth
           ;;
@@ -262,6 +323,9 @@ _claude() {
           ;;
         gateway)
           _claude_gateway
+          ;;
+        import)
+          _claude_import
           ;;
         project)
           _claude_project
@@ -319,6 +383,9 @@ _claude_mcp() {
             '(-t --transport)'{-t,--transport}'[Tipo di transporte (stdio, sse, http)]:transport:(stdio sse http)' \
             '(-e --env)'{-e,--env}'[Pone variabel di ambiente (p.e., -e KEY=value)]:env:' \
             '(-H --header)'{-H,--header}'[Pone header di WebSocket]:header:' \
+            '--client-id[OAuth client ID pa servidornan HTTP/SSE]:clientId:' \
+            '--client-secret[Pidi e OAuth client secret (òf pone e variabel di ambiente MCP_CLIENT_SECRET)]' \
+            '--callback-port[Port fiho pa OAuth callback (pa servidornan ku mester di URI di redirekshon pre-registrá)]:port:' \
             '(-h --help)'{-h,--help}'[Mustra yudansa]' \
             '1:name:' \
             '2:commandOrUrl:' \
@@ -342,6 +409,7 @@ _claude_mcp() {
         add-json)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Alkanse di konfigurashon (local, user, project)]:scope:(local user project)' \
+            '--client-secret[Pidi e OAuth client secret (òf pone e variabel di ambiente MCP_CLIENT_SECRET)]' \
             '(-h --help)'{-h,--help}'[Mustra yudansa]' \
             '1:name:' \
             '2:json:'
@@ -355,7 +423,13 @@ _claude_mcp() {
           _arguments \
             '(-h --help)'{-h,--help}'[Mustra yudansa]'
           ;;
-        login|logout)
+        login)
+          _arguments \
+            '--no-browser[Imprimí e URL di outorisashon en bes di habri un navegadó (pa seshonnan SSH/headless)]' \
+            '(-h --help)'{-h,--help}'[Mustra yudansa]' \
+            '1:name:_claude_mcp_servers'
+          ;;
+        logout)
           _arguments \
             '(-h --help)'{-h,--help}'[Mustra yudansa]' \
             '1:name:_claude_mcp_servers'
@@ -372,9 +446,11 @@ _claude_plugin() {
     'marketplace:Manehá merkadonan di Claude Code'
     'list:Lista e pluginnan instalá'
     'details:Mustra inventario di komponente i kosto di token proyektá pa un plugin'
+    'configure:Mustra e opshonnan di un plugin i kua no ta poné, òf warda balornan for di stdin'
     'install:Instalá un plugin for di e merkadonan disponibel'
     'i:Instalá un plugin for di e merkadonan disponibel (kòrtiku pa install)'
     'init:Krea e struktura di un plugin nobo (ta karga outomátikamente e siguiente seshon)'
+    'new:Krea e struktura di un plugin nobo (alias pa init)'
     'uninstall:Desinstalá un plugin instalá'
     'remove:Desinstalá un plugin instalá (alias pa uninstall)'
     'enable:Habilitá un plugin desactivá'
@@ -382,7 +458,9 @@ _claude_plugin() {
     'update:Aktualisá un plugin na e vershon mas resiente'
     'eval:Kore kasonan di eval kontra un plugin i reportá resultadonan ku punto'
     'prune:Kita dependensianan instalá outomátikamente ku no ta nesesario mas'
+    'autoremove:Kita dependensianan instalá outomátikamente ku no ta nesesario mas (alias pa prune)'
     'tag:Krea un git tag {name}--v{version} pa un release di plugin'
+    'test:Kore e testnan di un mod'
     'help:Mustra yudansa'
   )
 
@@ -402,6 +480,8 @@ _claude_plugin() {
       case $words[1] in
         validate)
           _arguments \
+            '--strict[Trata avisonan komo eror (kódigo di salida 1)]' \
+            '--json[Mustra e reporte di validashon komo JSON (mesun kódigonan di salida)]' \
             '(-h --help)'{-h,--help}'[Mustra yudansa]' \
             '1:path:_files'
           ;;
@@ -411,50 +491,122 @@ _claude_plugin() {
         install|i)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Alkanse di instalashon]:scope:(user project local)' \
+            '*--config[Pone un opshon userConfig deklará den e manifest di plugin (repetibel)]:key=value:' \
+            '(-y --yes)'{-y,--yes}'[Aseptá e komando mustrá ku e merkado a deklará sin e pregunta di konfirmashon]' \
+            '--json[Imprimí un liña di resultado lesabel pa máshin en bes di e mensahe pa hende]' \
             '(-h --help)'{-h,--help}'[Mustra yudansa]' \
             '1:plugin:'
           ;;
         uninstall|remove)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Alkanse di instalashon]:scope:(user project local)' \
+            '--keep-data[Preservá e directorio di datonan persistente di e plugin]' \
+            '--prune[Kita tambe dependensianan instalá outomátikamente ku no ta nesesario mas]' \
+            '(-y --yes)'{-y,--yes}'[Salta e pregunta di konfirmashon di --prune]' \
+            '--json[Imprimí un liña di resultado lesabel pa máshin en bes di e mensahe pa hende (no ku --prune)]' \
             '(-h --help)'{-h,--help}'[Mustra yudansa]' \
             '1:plugin:_claude_installed_plugins'
           ;;
-        enable|disable)
+        enable)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Alkanse di instalashon]:scope:(user project local)' \
+            '--json[Imprimí un liña di resultado lesabel pa máshin en bes di e mensahe pa hende]' \
             '(-h --help)'{-h,--help}'[Mustra yudansa]' \
             '1:plugin:_claude_installed_plugins'
+          ;;
+        disable)
+          _arguments \
+            '(-a --all)'{-a,--all}'[Desactivá tur plugin habilitá]' \
+            '(-s --scope)'{-s,--scope}'[Alkanse di instalashon]:scope:(user project local)' \
+            '--json[Imprimí un liña di resultado lesabel pa máshin en bes di e mensahe pa hende]' \
+            '(-h --help)'{-h,--help}'[Mustra yudansa]' \
+            '::plugin:_claude_installed_plugins'
           ;;
         update)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Alkanse di instalashon]:scope:(user project local managed)' \
+            '(-y --yes)'{-y,--yes}'[Aseptá e komando mustrá ku e merkado a deklará sin e pregunta di konfirmashon]' \
+            '--json[Imprimí un liña di resultado lesabel pa máshin en bes di e mensahe pa hende]' \
             '(-h --help)'{-h,--help}'[Mustra yudansa]' \
             '1:plugin:_claude_installed_plugins'
           ;;
-        list|prune)
+        list)
           _arguments \
+            '--json[Salida komo JSON]' \
+            '--available[Inkluí pluginnan disponibel for di merkadonan (mester tin --json)]' \
             '(-h --help)'{-h,--help}'[Mustra yudansa]'
+          ;;
+        prune|autoremove)
+          _arguments \
+            '(-s --scope)'{-s,--scope}'[Limpia den e alkanse]:scope:(user project local)' \
+            '--dry-run[Lista loke lo wòrdu kitá sin kita nada]' \
+            '(-y --yes)'{-y,--yes}'[Salta e pregunta di konfirmashon]' \
+            '(-h --help)'{-h,--help}'[Mustra yudansa]'
+          ;;
+        configure)
+          _arguments \
+            '--json[Salida komo JSON]' \
+            '--values-stdin[Lesa balornan di opshon for di stdin komo un opheto JSON di string di un solo liña; opshonnan no inkluí ta keda ku nan balor]' \
+            '(-h --help)'{-h,--help}'[Mustra yudansa]' \
+            '1:plugin:_claude_installed_plugins'
           ;;
         details)
           _arguments \
             '(-h --help)'{-h,--help}'[Mustra yudansa]' \
             '1:plugin:_claude_installed_plugins'
           ;;
-        init)
+        init|new)
           _arguments \
+            '--description[Deskripshon di manifest]:text:' \
+            '--author[Nòmber di autor (default: git config user.name)]:name:' \
+            '--author-email[Email di autor (default: git config user.email)]:email:' \
+            '--with[Komponentenan pa krea struktura pa nan tambe]:components:' \
+            '(-f --force)'{-f,--force}'[Sobreskirbi un .claude-plugin/ eksistente na e destino]' \
             '(-h --help)'{-h,--help}'[Mustra yudansa]' \
             '1:name:'
           ;;
         eval)
           _arguments \
+            '--case[Filtrá kasonan pa glob di nòmber]:glob:' \
+            '*--tag[Filtrá kasonan pa tag (repetibel)]:tag:' \
+            '--runs[Anulá e kantidat di ehekushon pa kaso (default: case.runs, sino 3)]:n:' \
+            '(-j --concurrency)'{-j,--concurrency}'[Kore te n ehekushon di agente na mes momento (1-8; default 1)]:n:' \
+            '--model[Anulá e modèl pa tur kaso]:model:_claude_model_names' \
+            '--judge-model[Anulá e modèl di evaluadó LLM (default: haiku)]:model:_claude_model_names' \
+            '--max-cost-usd[Límite máksimo fiho di kosto; aborta i reportá resultadonan parsial si e ta wòrdu alkansá (kódigo di salida 2)]:usd:' \
+            '--output-dir[Directorio pa aggregate-result.json]:dir:_directories' \
+            '--eval-dir[Nòmber di directorio (bou di e plugin) ku ta kontené e kasonan di eval]:dir:' \
+            '--json[Imprimí e resultado kompleto di e ehekushon komo JSON na stdout, òf skirbi e na e archivo .json aki]::path:_files' \
+            '--threshold[Sali ku kódigo di salida 1 si punto di kualke kaso ta bou di e límite aki (default: 1.0)]:threshold:' \
+            '*--allow-tools[Permiso di operadó pa hèrmèntnan restringí (Bash, Write, Edit, WebFetch, mcp__*)]:tools:' \
+            '(--no-scaffold)--scaffold[Kore e scaffold_script di kada kaso (ta kore bash duná pa e autor bou di bo kuenta; desactivá pa default)]' \
+            '(--scaffold)--no-scaffold[Salta scaffold_script eksplísitamente]' \
+            '--trust-plugin[Konfirmá ku bo ta konfia e plugin aki i su suite di eval, saltando e pregunta di konfiansa di promé ehekushon (pa CI)]' \
+            '--ablation[Kore un grupo di kontrol eksperimental sin plugin i reportá e diferensia di punto]:mode:(none with-without)' \
+            '--mocks[Substitutonan simulá (mock) pa servidornan MCP, for di <eval dir>/mocks/]:mode:(record off)' \
+            '--allow-real-servers[Ku --mocks record: kuminsá tambe e prosesonan real di servidó MCP ku no tin mock]' \
+            '--keep-temp[Preservá directorionan di struktura pa debug]' \
+            '--verbose[Registrá eventonan di trace pa kada mensahe den e log di debug]' \
+            '--report[Skirbi e reporte HTML outónomo na e kaminda aki en bes di e directorio di resultado]:path:_files' \
+            '(--no-publish)--publish-report[Eksigí tambe pa publiká e reporte na claude.ai]' \
+            '(--publish-report)--no-publish[Tene e reporte HTML solamente lokal; salta publikashon na claude.ai]' \
             '(-h --help)'{-h,--help}'[Mustra yudansa]' \
-            '1:target:'
+            '::target: _alternative "plugins\:installed plugin\:_claude_installed_plugins" "files\:path\:_files"'
           ;;
         tag)
           _arguments \
+            '--push[Push e tag na --remote despues di krea e]' \
+            '--dry-run[Imprimí loke lo hañá un tag sin krea e]' \
+            '(-f --force)'{-f,--force}'[Salta e chèknan di working tree sushi i di tag ku ya ta eksistí]' \
+            '(-m --message)'{-m,--message}'[Mensahe di anotashon di tag (usa %s pa e vershon)]:msg:' \
+            '--remote[Remote pa push na dje ku --push]:name:' \
             '(-h --help)'{-h,--help}'[Mustra yudansa]' \
-            '1:path:_files'
+            '::path:_files'
+          ;;
+        test)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Mustra yudansa]' \
+            '::dir:_directories'
           ;;
       esac
       ;;
@@ -488,15 +640,20 @@ _claude_plugin_marketplace() {
       case $words[1] in
         add)
           _arguments \
+            '--sparse[Limitá checkout na directorionan spesífiko via git sparse-checkout (pa monorepos)]:paths:' \
+            '--scope[Unda pa deklará e merkado]:scope:(user project local)' \
+            '--claudeai[Añadí e merkado ku e nòmber aki ku claude.ai ta hospedá pa bo]' \
             '(-h --help)'{-h,--help}'[Mustra yudansa]' \
             '1:source:'
           ;;
         list)
           _arguments \
+            '--json[Salida komo JSON]' \
             '(-h --help)'{-h,--help}'[Mustra yudansa]'
           ;;
         remove|rm)
           _arguments \
+            '--scope[Kita e deklarashon di merkado for di un alkanse di konfigurashon spesífiko (laga afó pa kita e for di tur alkanse)]:scope:(user project local)' \
             '(-h --help)'{-h,--help}'[Mustra yudansa]' \
             '1:name:'
           ;;
@@ -534,6 +691,7 @@ _claude_agents() {
     '--setting-sources[Lista separá ku koma di fuentenan di konfigurashon pa karga (user, project, local)]:sources:' \
     '--settings[Archivo di konfigurashon òf string JSON pa aplika]:file-or-json:_files' \
     '--strict-mcp-config[Usa solamente servidornan MCP for di --mcp-config den seshonnan despachá]' \
+    '--restricted[Kuminsá seshonnan despachá den modo restringí]' \
     '(-h --help)'{-h,--help}'[Mustra yudansa pa e komando]'
 }
 
@@ -560,7 +718,21 @@ _claude_auth() {
       ;;
     args)
       case $words[1] in
-        login|logout|status)
+        login)
+          _arguments \
+            '--email[Yena di antemano e adrès di email riba e página di login]:email:' \
+            '--sso[Forsá e flujo di login SSO]' \
+            '(--claudeai)--console[Usa Anthropic Console (fakturashon pa uso di API) en bes di suskripshon di Claude]' \
+            '(--console)--claudeai[Usa suskripshon di Claude (default)]' \
+            '(-h --help)'{-h,--help}'[Mustra yudansa pa e komando]'
+          ;;
+        status)
+          _arguments \
+            '(--text)--json[Salida komo JSON (default)]' \
+            '(--json)--text[Salida komo teksto lesabel pa hende]' \
+            '(-h --help)'{-h,--help}'[Mustra yudansa pa e komando]'
+          ;;
+        logout)
           _arguments \
             '(-h --help)'{-h,--help}'[Mustra yudansa pa e komando]'
           ;;
@@ -593,7 +765,22 @@ _claude_auto_mode() {
       ;;
     args)
       case $words[1] in
-        config|critique|defaults|reset)
+        critique)
+          _arguments \
+            '--model[Anulá kua modèl ta wòrdu usá]:model:_claude_model_names' \
+            '(-h --help)'{-h,--help}'[Mustra yudansa pa e komando]'
+          ;;
+        defaults)
+          _arguments \
+            '--label[Mustra solamente reglanan kuyo etiketa ta kuminsá ku e prefiho aki (sin distinguí mayúskula/minúskula)]:prefix:' \
+            '(-h --help)'{-h,--help}'[Mustra yudansa pa e komando]'
+          ;;
+        reset)
+          _arguments \
+            '(-y --yes)'{-y,--yes}'[Salta e pregunta di konfirmashon]' \
+            '(-h --help)'{-h,--help}'[Mustra yudansa pa e komando]'
+          ;;
+        config)
           _arguments \
             '(-h --help)'{-h,--help}'[Mustra yudansa pa e komando]'
           ;;
@@ -631,8 +818,12 @@ _claude_project() {
       case $words[1] in
         purge)
           _arguments \
+            '--dry-run[Lista loke lo wòrdu eliminá sin eliminá nada]' \
+            '(-y --yes)'{-y,--yes}'[Salta e pregunta di konfirmashon]' \
+            '(-i --interactive)'{-i,--interactive}'[Pidi konfirmashon pa kada elemento promé ku eliminá]' \
+            '(1)--all[Kita estado pa tur proyekto (mutuamente eksklusivo ku un kaminda)]' \
             '(-h --help)'{-h,--help}'[Mustra yudansa pa e komando]' \
-            '1:path:_directories'
+            '(--all)::path:_directories'
           ;;
       esac
       ;;
@@ -642,9 +833,34 @@ _claude_project() {
 _claude_ultrareview() {
   _arguments \
     '--json[Mustra e payload bugs.json krudo en bes di resultadonan formatiá]' \
-    '--timeout[Minüt máksimo pa spera pa e revishon kaba]:minutes:' \
+    '--timeout[Minüt máksimo pa spera pa e revishon kaba (default: 45)]:minutes:' \
+    '(--no-post)--post[Publiká e hayasgonan di e revishon kaba riba e PR na bo nòmber (solamente pa PR; un solo komentario simpel, no un review)]' \
+    '(--post)--no-post[No publiká e hayasgonan riba e PR (e default)]' \
     '(-h --help)'{-h,--help}'[Mustra yudansa pa e komando]' \
     '1:target:'
+}
+
+_claude_respawn() {
+  _arguments \
+    '(1)--all[Reinisiá tur seshon di background ku ta kore]' \
+    '(-h --help)'{-h,--help}'[Mustra yudansa pa e komando]' \
+    '(--all)::session:_claude_background_sessions'
+}
+
+_claude_rm() {
+  _arguments \
+    '--discard-unpushed[Deskartá tambe e commitnan no pushá i kambionan no commitá di e worktree (pasa e commit@worktree-id ku un claude rm anterior a reportá)]:commit@worktree-id:' \
+    '--force-remove-worktree[Eliminá e directorio di worktree aunke e hook WorktreeRemove òf git no por a kit'\''é (pasa e worktree-id ku un claude rm anterior a reportá)]:worktree-id:' \
+    '(-h --help)'{-h,--help}'[Mustra yudansa pa e komando]' \
+    '1:session:_claude_background_sessions'
+}
+
+_claude_import() {
+  _arguments \
+    '--dry-run[Mustra loke lo wòrdu importá sin skirbi nada]' \
+    '--yes[Salta e selektor interaktivo (riba superfisienan headless, pasa --yes=<digest> for di e vista previo di /import)]' \
+    '(-h --help)'{-h,--help}'[Mustra yudansa pa e komando]' \
+    '::source:(codex gemini cursor)'
 }
 
 (( $+_comps[claude] )) || compdef _claude claude
