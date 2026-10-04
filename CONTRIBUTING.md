@@ -22,8 +22,8 @@ Thank you for your interest in contributing to claude-code-zsh-completion!
 
 ## Demo GIF
 
-`demo.gif` records the **English** completion only, so language PRs never need to
-touch it. Please leave it alone unless your change affects what the demo shows -
+`demo.gif` records the **English** completion and `demo.ja.gif` the Japanese one;
+no other language has a demo, so language PRs never need to touch either. Please leave it alone unless your change affects what the demo shows -
 new top-level commands, renamed subcommands, or changed option values - since
 every re-recording adds another copy of the binary to the repository history.
 
