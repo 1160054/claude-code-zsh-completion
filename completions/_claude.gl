@@ -288,7 +288,9 @@ _claude() {
     '(-h --help)'{-h,--help}'[Mostrar axuda para o comando]'
   )
 
-  _arguments -C \
+  # Stop at the first non-option word, so that the options after a command reach
+  # that command's own specs instead of being consumed here
+  _arguments -C -A '-*' \
     $main_options \
     '1: :->command' \
     '*::arg:->args'
@@ -342,6 +344,12 @@ _claude() {
           ;;
         setup-token|doctor|update)
           _message "sen argumentos"
+          ;;
+        *)
+          # Not a command but the prompt: options may still follow it
+          _arguments \
+            $main_options \
+            '*: :'
           ;;
       esac
       ;;
