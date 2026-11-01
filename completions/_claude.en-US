@@ -203,6 +203,7 @@ _claude() {
     'auth:Manage authentication'
     'auto-mode:Inspect or reset auto mode classifier configuration'
     'gateway:Run the enterprise auth/telemetry gateway'
+    'self-hosted-runner:Host Claude Code cloud sessions on this machine or container'
     'import:Import config from another AI coding agent into Claude Code'
     'project:Manage Claude Code project state'
     'purge:Delete all Claude Code state for a project (transcripts, tasks, file history, config entry)'
@@ -331,6 +332,9 @@ _claude() {
           ;;
         gateway)
           _claude_gateway
+          ;;
+        self-hosted-runner)
+          _claude_self_hosted_runner
           ;;
         import)
           _claude_import
@@ -890,6 +894,49 @@ _claude_rm() {
     '--force-remove-worktree[Delete the worktree directory even though the WorktreeRemove hook or git could not remove it (pass the worktree-id a previous claude rm reported)]:worktree-id:' \
     '(-h --help)'{-h,--help}'[Display help for command]' \
     '1:session:_claude_background_sessions'
+}
+
+_claude_self_hosted_runner() {
+  _arguments \
+    '--api-url[API base URL (default: https://api.anthropic.com)]:url:' \
+    '--environment-secret-file[Path to environment secret file]:path:_files' \
+    '--lock-to-account[Lock runner to a single account at registration]:id:' \
+    '--client-label[Observability label sent at registration (default: hostname)]:label:' \
+    '(--proxy-authorization-file --agent-proxy-url)--proxy-authorization-command[Command whose stdout is the Proxy-Authorization header for egress proxies]:shell command:' \
+    '(--proxy-authorization-command --agent-proxy-url)--proxy-authorization-file[File holding the Proxy-Authorization header for egress proxies]:path:_files' \
+    '(--proxy-authorization-command --proxy-authorization-file)--agent-proxy-url[Route every session through the agent proxy at this URL (https only)]:url:' \
+    '--capacity[Max concurrent sessions (default: 1)]:n:' \
+    '--base-dir[Base directory for repo checkouts (default: /workspace)]:path:_directories' \
+    '--exec-path[Binary to spawn for child sessions (default: this binary)]:path:_files' \
+    '--hooks-dir[Directory of lifecycle hook scripts (checkout, command, post-session)]:path:_directories' \
+    '--session-stop-grace-sec[How long to wait for a clean exit after a session ends (default: 5)]:n:' \
+    '--post-session-hook-timeout-sec[SIGTERM budget for the post-session hook (default: 60)]:n:' \
+    '--checkout-hook-timeout-min[Wall-clock budget for each run of the checkout hook (default: 30; 0 disables)]:n:' \
+    '--drain-wait-sec[On SIGTERM/SIGINT, wait up to N seconds for in-flight work (default: 0)]:n:' \
+    '--drain-marker-file[Marker file with which the host announces a graceful drain]:path:_files' \
+    '*--git-ssh-rewrite[Rewrite https://<host>/... source URLs to git@<host>:... (repeatable)]:host:' \
+    '*--git-host-rewrite[Rewrite https://<f>/... source URLs to https://<t>/... (repeatable)]:from=to:' \
+    '--use-anthropic-git-proxy[Use Anthropic-managed git. WARNING: deletes and replaces the HOME-level git config, use only under a dedicated account]' \
+    '--configure-git[Set the global git identity and enable commit signing via the Anthropic signing service. Writes ~/.gitconfig]' \
+    '--push-outcome-on-release[Push tracked outcome branches on a runner-initiated non-completed session end]' \
+    '--trust-workspace[Seed persisted trust for the repo paths of each session (default: true)]::bool:(true false)' \
+    '--remove-session-state[Remove per-session state when a session ends (default: false)]::bool:(true false)' \
+    '--diff-finds-nested-repository[Show a repository cloned into a sub-folder in the Changes pane; requires --capacity 1 (default: false)]::bool:(true false)' \
+    '--confine-repo-settings[Repo-committed-settings confine guard mode (default: warn)]:mode:(warn enforce off)' \
+    '--server-auto-mode-lists[Which auto mode classifier lists from the server a session may receive (default: no-allow)]:mode:(all no-allow none)' \
+    '--host-config-snapshot[Where the startup snapshot of the host config is held (default: disk)]:mode:(disk memory)' \
+    '--health-port[Port for the /healthz HTTP listener (default: 8080; 0 disables)]:port:' \
+    '--log-level[Log level (default: info)]:level:(info debug)' \
+    '--log-file[Tee runner logs to a file in append mode]:path:_files' \
+    '--exit-if-unused-min[Exit the runner if never assigned work for N minutes]:n:' \
+    '--drain-grace-sec[Seconds to keep re-polling for work after active sessions finish (default: 0)]:n:' \
+    '--retire-at[Retire the runner at this absolute Unix time, in seconds]:epoch-seconds:' \
+    '--defer-shutdown-max-min[On the first SIGTERM/SIGINT, stop taking work and finish shutting down M minutes later (default: 0)]:m:' \
+    '--release-idle-session-min[Release a session slot after N minutes of no user input]:n:' \
+    '--startup-timeout-min[Release a session slot if the child has not finished starting up after N minutes (default: 15; 0 disables)]:n:' \
+    '--kill-session-after-min[Cap the wall-clock life of a session child at N minutes]:n:' \
+    '--debug-token-dir[DEBUG ONLY: writes live tokens to disk. Do not use in production]:path:_directories' \
+    '(-h --help)'{-h,--help}'[Show this help message]'
 }
 
 _claude_import() {
