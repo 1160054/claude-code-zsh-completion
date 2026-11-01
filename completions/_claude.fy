@@ -219,7 +219,7 @@ _claude() {
     '(-p --print)'{-p,--print}'[Antwurd printsje en ôfslute (foar gebrûk mei pipes). Noat: allinne yn fertroude mappen brûke]'
     '--output-format[Útfierformaat (mei --print): "text" (standert), "json" (inkeld resultaat), of "stream-json" (realtime streaming)]:format:(text json stream-json)'
     '--json-schema[JSON-skema foar strukturearre útfierfalidaasje]:schema:'
-    '--include-partial-messages[Partiële berjochtstikken opnimme sadree't se oankomme (mei --print en --output-format=stream-json)]'
+    '--include-partial-messages[Partiële berjochtstikken opnimme sadree'\''t se oankomme (mei --print en --output-format=stream-json)]'
     '--input-format[Ynfierformaat (mei --print): "text" (standert) of "stream-json" (realtime streaming-ynfier)]:format:(text stream-json)'
     '--mcp-debug[\[Ôfrieden. Brûk ynstee --debug\] MCP-debugmodus ynskeakelje (toant MCP-serverflaters)]'
     '--dangerously-skip-permissions[Alle tastimmingskontrôles omsile. Allinne oanret foar sandboxes sûnder ynternettagong]'
