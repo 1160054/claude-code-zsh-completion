@@ -210,6 +210,24 @@ test_first_call_completes() {
   [[ $out == *completed* ]]
 }
 
+# Test 9d: Added matches count as success even if the last step fails, and
+# without any match the status of that step stands
+test_status_follows_matches() {
+  local file="$1"
+  local out=$(zsh -fc '
+    functions[_claude]=$(<"$1")
+    compdef() { : }
+    typeset -A compstate
+    _arguments() { state=command }
+    _describe() { return 1 }
+    compstate[nmatches]=7
+    _claude && print added-ok
+    compstate[nmatches]=0
+    _claude || print empty-fails
+  ' zsh "$file" 2>/dev/null)
+  [[ $out == *added-ok* && $out == *empty-fails* ]]
+}
+
 # Test 10: Source file without error
 test_source_file() {
   local file="$1"
@@ -532,6 +550,14 @@ run_tests_for_file() {
     log_pass "First call of the autoloaded function completes"
   else
     log_fail "First call of the autoloaded function completes"
+    file_passed=false
+  fi
+
+  # Test 9d: Return status
+  if test_status_follows_matches "$file"; then
+    log_pass "Added matches count as success"
+  else
+    log_fail "Added matches count as success"
     file_passed=false
   fi
 
