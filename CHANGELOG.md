@@ -9,10 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - A Japanese demo (`demo.ja.gif`) under "Other languages" in the README, recorded with `_claude.ja` and Japanese session and job names by `demo/make-ja.sh`
+- Top-level options that `claude --help` does not list: `--max-turns`, `--advisor`, `--append-subagent-system-prompt` and its `-file` variant, `--teammate-mode`, `--channels`, `--dangerously-load-development-channels`, `--ref`, `--init`, `--init-only`, `--maintenance`, and the `--rc` and `--remote` aliases. In `_claude` and the `en-*` variants; the translated locales do not carry them yet
 
 ### Changed
 - Demo: `<TAB>` now flashes in plain text where the cursor is, instead of as a green badge at the right edge
 - Demo sessions and background jobs are everyday Claude Code work now: the job started in the demo reviews a PR through the GitHub MCP server just added, and `--resume` lists a CI failure, a pasted `TypeError`, a README pass and login-flow tests
+
+### Removed
+- `--mcp-debug`, which the CLI now rejects as an unknown option, from `_claude` and the `en-*` variants
 
 ## [2.8.0] - 2026-10-03
 
