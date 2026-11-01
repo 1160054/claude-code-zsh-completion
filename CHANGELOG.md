@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Frisian (`fy`): an unescaped apostrophe left the whole completion unusable
+- The first TAB in a fresh shell only loaded the completion and offered nothing; it now completes right away, in all 120 files
 
 ## [2.8.0] - 2026-10-03
 
