@@ -200,6 +200,8 @@ _claude() {
     'stop:Stop a background session (its conversation is kept)'
     'respawn:Restart a background session so it runs the current Claude Code version'
     'rm:Delete a background session, and its worktree when that is safe'
+    'remote-control:Control local sessions from claude.ai/code or the Claude mobile app'
+    'daemon:Manage the background-session supervisor'
     'auth:Manage authentication'
     'auto-mode:Inspect or reset auto mode classifier configuration'
     'gateway:Run the enterprise auth/telemetry gateway'
@@ -322,6 +324,12 @@ _claude() {
           ;;
         rm)
           _claude_rm
+          ;;
+        remote-control|rc|remote|sync|bridge)
+          _claude_remote_control
+          ;;
+        daemon)
+          _claude_daemon
           ;;
         auth)
           _claude_auth
@@ -890,6 +898,74 @@ _claude_rm() {
     '--force-remove-worktree[Delete the worktree directory even though the WorktreeRemove hook or git could not remove it (pass the worktree-id a previous claude rm reported)]:worktree-id:' \
     '(-h --help)'{-h,--help}'[Display help for command]' \
     '1:session:_claude_background_sessions'
+}
+
+_claude_remote_control() {
+  _arguments \
+    '--name[Name for the session (shown in claude.ai/code)]:name:' \
+    '--remote-control-session-name-prefix[Prefix for auto-generated session names (default: hostname)]:prefix:' \
+    '(-c --continue --session-id)'{-c,--continue}'[Reattach to the session last recorded for this directory or one of its git worktrees]' \
+    '(-c --continue --session-id)--session-id[Reattach to a specific session by ID]:id:' \
+    '--permission-mode[Permission mode for spawned sessions]:mode:(acceptEdits auto bypassPermissions default dontAsk plan)' \
+    '(--no-chrome)--chrome[Enable Claude in Chrome for spawned sessions]' \
+    '(--chrome)--no-chrome[Disable Claude in Chrome for spawned sessions]' \
+    '(-d --debug)'{-d,--debug}'[Enable debug mode with optional category filtering]::filter:' \
+    '--debug-file[Write debug logs to file]:path:_files' \
+    '(-v --verbose)'{-v,--verbose}'[Enable verbose output]' \
+    '--spawn[Spawn mode (default: same-dir)]:mode:(same-dir worktree session)' \
+    '--capacity[Max concurrent sessions in worktree or same-dir mode (default: 32)]:n:' \
+    '(--no-create-session-in-dir)--create-session-in-dir[Pre-create a session in the current directory (default)]' \
+    '(--create-session-in-dir)--no-create-session-in-dir[Do not pre-create a session in the current directory]' \
+    '(-h --help)'{-h,--help}'[Show this help]'
+}
+
+_claude_daemon() {
+  local -a daemon_commands common_options
+  daemon_commands=(
+    'run:Run the supervisor in the foreground'
+    'status:Show daemon pid, version, uptime'
+    'logs:Tail the daemon log (Ctrl-C to stop)'
+    'uninstall:Remove the background service (launchctl/systemd)'
+    'stop:Shut down the supervisor and terminate background sessions'
+  )
+  common_options=(
+    '--json-path[Config file (default: ~/.claude/daemon.json)]:path:_files'
+    '--log-file[Log file (default: ~/.claude/daemon.log)]:path:_files'
+    '(-h --help)'{-h,--help}'[Show this help]'
+  )
+
+  local curcontext="$curcontext" state line
+  typeset -A opt_args
+
+  _arguments -C \
+    $common_options \
+    '1: :->command' \
+    '*::arg:->args'
+
+  case $state in
+    command)
+      _describe -t commands 'daemon commands' daemon_commands
+      ;;
+    args)
+      case $words[1] in
+        run)
+          _arguments \
+            $common_options \
+            '::json-path:_files'
+          ;;
+        stop)
+          _arguments \
+            $common_options \
+            '--any[Also stop a transient (non-service) daemon]' \
+            '--keep-workers[Leave detached sessions running]'
+          ;;
+        status|logs|uninstall)
+          _arguments \
+            $common_options
+          ;;
+      esac
+      ;;
+  esac
 }
 
 _claude_import() {

@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - A Japanese demo (`demo.ja.gif`) under "Other languages" in the README, recorded with `_claude.ja` and Japanese session and job names by `demo/make-ja.sh`
+- `remote-control` (its `rc`, `remote`, `sync` and `bridge` aliases work when typed but are not offered) and `daemon`, which `claude --help` does not list. In `_claude` and the `en-*` variants; the translated locales do not carry them yet
 
 ### Changed
 - Demo: `<TAB>` now flashes in plain text where the cursor is, instead of as a green badge at the right edge
