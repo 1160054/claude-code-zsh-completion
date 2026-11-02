@@ -288,7 +288,9 @@ _claude() {
     '(-h --help)'{-h,--help}'[Komandoaren laguntza erakutsi]'
   )
 
-  _arguments -C \
+  # Stop at the first non-option word, so that the options after a command reach
+  # that command's own specs instead of being consumed here
+  _arguments -C -A '-*' \
     $main_options \
     '1: :->command' \
     '*::arg:->args'
@@ -343,9 +345,21 @@ _claude() {
         setup-token|doctor|update)
           _message "argumenturik ez"
           ;;
+        *)
+          # Not a command but the prompt: options may still follow it
+          _arguments \
+            $main_options \
+            '*: :'
+          ;;
       esac
       ;;
   esac
+  local ret=$?
+
+  # The last step, such as listing commands for --r, can fail although options
+  # were added before it. Report success then: on failure zsh moves on to the
+  # next completers, and _correct or _approximate pile on corrections
+  (( compstate[nmatches] > 0 )) || return $ret
 }
 
 _claude_mcp() {
@@ -870,4 +884,11 @@ _claude_import() {
     '::source:(codex gemini cursor)'
 }
 
-(( $+_comps[claude] )) || compdef _claude claude
+# compinit autoloads this file, and that first call only defines the functions
+# above: complete right away so the first TAB already works. Sourced directly,
+# there is nothing to complete yet, only the registration.
+if [[ $funcstack[1] == _claude ]]; then
+  _claude "$@"
+else
+  (( $+_comps[claude] )) || compdef _claude claude
+fi
