@@ -200,11 +200,15 @@ _claude() {
     'stop:Emisa seboka sa morao (puisano ya sona e a bolokwa)'
     'respawn:Qala hape seboka sa morao hore se sebedise phetolelo ya hona joale ya Claude Code'
     'rm:Hlakola seboka sa morao, le worktree ya sona ha ho bolokehile'
+    'remote-control:Laola diboka tsa lehae ho tswa ho claude.ai/code kapa app ya mehala ya Claude'
+    'daemon:Laola mookamedi wa diboka tsa morao'
     'auth:Laola netefatso'
     'auto-mode:Hlahloba kapa u khutlisetse tlhophiso ya sehlophi sa mokgwa wa auto'
     'gateway:Matha gateway ya netefatso/telemetry ya kgwebo'
+    'self-hosted-runner:Amohela diboka tsa leru tsa Claude Code mochining ona kapa container ena'
     'import:Kenya tlhophiso ho tswa ho agente e nngwe ya AI ya ho ngola khoutu ho Claude Code'
     'project:Laola boemo ba morero wa Claude Code'
+    'purge:Hlakola boemo bohle ba Claude Code bakeng sa morero (ditranskripta, mesebetsi, histori ya faele, kenyo ya tlhophiso)'
     'ultrareview:Matha tlhahlobo ya khoutu ya diagente-tse-ngata e tsamaisang lerung mme u hatise diphumano'
     'setup-token:Set up long-term authentication token (requires Claude subscription)'
     'doctor:Health check for Claude Code auto-updater'
@@ -221,11 +225,11 @@ _claude() {
     '--json-schema[JSON schema for structured output validation]:schema:'
     '--include-partial-messages[Include partial message chunks as they arrive (with --print and --output-format=stream-json)]'
     '--input-format[Input format (with --print): "text" (default) or "stream-json" (real-time streaming input)]:format:(text stream-json)'
-    '--mcp-debug[\[Deprecated. Use --debug instead\] Enable MCP debug mode (shows MCP server errors)]'
     '--dangerously-skip-permissions[Bypass all permission checks. Recommended only for sandboxes without internet access]'
     '--allow-dangerously-skip-permissions[Enable option to bypass permission checks without enabling by default]'
     '--restricted[Mokgwa o thibetsweng: tlosa disebediswa tse mathang ditaelo kapa khoutu le WebFetch, hlokomoloha ditlhophiso tsa user/project/local, mme u lekanyetse disebediswa tsa faele ho ditatelano tsa mosebetsi]'
     '--max-budget-usd[Palo e phahameng ya didolara tseo u ka di sebedisang ho mehala ya API (--print feela)]:amount:'
+    '--max-turns[Lekanyetsa palo ya mekgahlelo ya agente (--print feela)]:turns:'
     '--replay-user-messages[Re-send user messages from stdin on stdout for confirmation]'
     '--allowed-tools[Comma or space-separated list of allowed tool names (e.g., "Bash(git:*) Edit")]:tools:'
     '--allowedTools[Comma or space-separated list of allowed tool names (camelCase format)]:tools:'
@@ -237,6 +241,8 @@ _claude() {
     '--system-prompt-file[Bala prompt ya sistimi ho tswa faeleng]:file:_files'
     '--append-system-prompt[Append system prompt to default system prompt]:prompt:'
     '--append-system-prompt-file[Bala prompt ya sistimi ho tswa faeleng mme u e eketse ho prompt ya sistimi ya tlhaho]:file:_files'
+    '(--append-subagent-system-prompt-file)--append-subagent-system-prompt[Kenya mongolo qetellong ya system prompt ya subagent e nngwe le e nngwe (--print feela)]:prompt:'
+    '(--append-subagent-system-prompt)--append-subagent-system-prompt-file[Bala mongolo faeleng mme o o kenye qetellong ya di-system prompt tsa di-subagent (--print feela)]:file:_files'
     '--system-prompt-snapshot[Rekota prompt ya sistimi hang ka puisano mme u e sebedise hape ka ho tshwana hantle kopong e nngwe le e nngwe le tsosolosong (on, ka tlhaho) kapa u e hlahise bocha kopong e nngwe le e nngwe (off)]:mode:(on off)'
     '--permission-mode[Permission mode to use for session]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)'
     '--permission-prompts[Ke mang ya arabang dikopo tsa tumello ka --print: "host" (host ya SDK kapa --permission-prompt-tool) kapa "none" (eng kapa eng e neng e tla kopa e a hanwa)]:target:(host none)'
@@ -256,6 +262,8 @@ _claude() {
     '--strict-mcp-config[Use only MCP servers from --mcp-config and ignore all other MCP settings]'
     '--session-id[Specific session ID to use for conversation (must be valid UUID)]:uuid:'
     '--agents[JSON object defining custom agents]:json:'
+    '--advisor[Nolofatsa sesebediswa sa moeletsi sa lehlakoreng la seva bakeng sa seboka sena ka lebitso le leng la mmotlolo kapa ID e feletseng ya mmotlolo]:model:_claude_model_names'
+    '--teammate-mode[Kamoo ditho tsa sehlopha sa diagente di bontshwang kateng]:mode:(in-process auto tmux iterm2)'
     '--setting-sources[Comma-separated list of setting sources to load (user, project, local)]:sources:'
     '--plugin-dir[Directory to load plugins from for this session only (repeatable)]:paths:_directories'
     '--disable-slash-commands[Thibela ditaelo tsohle tsa slash]'
@@ -268,9 +276,11 @@ _claude() {
     '--debug-file[Ngola direkoto tsa debug tseleng e itseng ya faele (e nolofatsa mokgwa wa debug ka bofihlehi)]:path:_files'
     '--from-pr[Tsosolosa seboka se amanang le PR ka nomoro/URL, kapa bula sekgethi se sebedisanang]::value:'
     '--teleport[Tsosolosa seboka sa teleport, ka boikgethelo bolela ID ya seboka]::session:'
-    '--cloud[Theha seboka sa leru ka tlhaloso e fanweng, kapa o hokahane le se seng se ntse se le teng ka ID ya seboka kapa URL ya claude.ai/code]::description-or-session:'
+    '(--remote)--cloud[Theha seboka sa leru ka tlhaloso e fanweng, kapa o hokahane le se seng se ntse se le teng ka ID ya seboka kapa URL ya claude.ai/code]::description-or-session:'
+    '(--cloud)--remote[Lebitso la kgale le sa sebediswang la --cloud]::description-or-session:'
     '--environment[Theha seboka se setjha sa leru se sebetsang tikolohong e fanweng e tshwarwang ke wena (ccpool_...)]:environment_id:'
-    '--remote-control[Qala seboka se sebedisanang ka Remote Control e nolofaditsweng (ka boikgethelo le nang le lebitso)]::name:'
+    '--ref[Ka --environment: theha checkout ya seboka se setjha hodima ref e nang le lebitso ho ena le HEAD ya lehae]:branch:'
+    '(--remote-control --rc)'{--remote-control,--rc}'[Qala seboka se sebedisanang ka Remote Control e nolofaditsweng (ka boikgethelo le nang le lebitso)]::name:'
     '--remote-control-session-name-prefix[Sehlonghwa sa mabitso a diboka tsa Remote Control a iketsahallang]:prefix:'
     '--chrome[Nolofatsa kopano ya Claude ho Chrome]'
     '--no-chrome[Thibela kopano ya Claude ho Chrome]'
@@ -281,6 +291,11 @@ _claude() {
     '--include-hook-events[Kenyeletsa diketsahalo tsohle tsa bophelo ba hook phallong ya tswaho (ka stream-json)]'
     '--exclude-dynamic-system-prompt-sections[Fallisetsa dikarolo tsa mochine ka mong molaetseng wa pele wa mosebedisi ho ntlafatsa tshebediso-bocha ya prompt-cache]'
     '--brief[Nolofatsa sesebediswa sa SendUserMessage bakeng sa puisano ya agente-ho-mosebedisi]'
+    '*--channels[(Ponelopele ya dipatlisiso) Diseva tsa MCP tseo ditsebiso tsa tsona tsa kanale di lokelang ho mamelwa (plugin\:<name>@<marketplace>)]:entries:'
+    '*--dangerously-load-development-channels[Nolofatsa dikanale tse seng lenaneng le dumeletsweng, bakeng sa ntshetsopele ya lehae (plugin\:<name>@<marketplace> kapa server\:<name>)]:entries:'
+    '--init[Matha di-hook tsa Setup ka matcher ya init pele ho seboka (--print feela)]'
+    '--init-only[Matha di-hook tsa Setup le SessionStart, ebe o tswa ntle le ho qala puisano]'
+    '--maintenance[Matha di-hook tsa Setup ka matcher ya maintenance pele ho seboka (--print feela)]'
     '--safe-mode[Qala ka ditlhophiso tsohle tsa botho di thibetswe (e thusa ho rarolla tlhophiso e senyehileng)]'
     '--bare[Mokgwa o fokolang: tlola di-hook, LSP, plugin sync, attribution, auto-memory, le CLAUDE.md auto-discovery]'
     '--ax-screen-reader[Hlahisa tswaho e loketseng sebadi sa skrine (mongolo o bataletseng, ntle le mehala ya mokgabiso kapa dianimation)]'
@@ -304,7 +319,7 @@ _claude() {
         mcp)
           _claude_mcp
           ;;
-        plugin)
+        plugin|plugins)
           _claude_plugin
           ;;
         install)
@@ -324,6 +339,12 @@ _claude() {
         rm)
           _claude_rm
           ;;
+        remote-control|rc|remote|sync|bridge)
+          _claude_remote_control
+          ;;
+        daemon)
+          _claude_daemon
+          ;;
         auth)
           _claude_auth
           ;;
@@ -333,17 +354,24 @@ _claude() {
         gateway)
           _claude_gateway
           ;;
+        self-hosted-runner)
+          _claude_self_hosted_runner
+          ;;
         import)
           _claude_import
           ;;
         project)
           _claude_project
           ;;
+        purge)
+          _claude_purge
+          ;;
         ultrareview)
           _claude_ultrareview
           ;;
-        setup-token|doctor|update)
-          _message "ha ho na diparamethara"
+        setup-token|doctor|update|upgrade)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Display help for command]'
           ;;
         *)
           # Not a command but the prompt: options may still follow it
@@ -502,6 +530,7 @@ _claude_plugin() {
         validate)
           _arguments \
             '--strict[Nka ditemoso e le diphoso (khoutu ya ho tswa 1)]' \
+            '--profile[Tswa ka 1 hape ha khathalogo e boletsweng e ka hana ho romellwa ha plugin tlhahlobong eo taelo ena e e mathang]:name:(directory)' \
             '--json[Hlahisa tlaleho ya netefatso e le JSON (dikhoutu tsa ho tswa tse tshwanang)]' \
             '(-h --help)'{-h,--help}'[Display help]' \
             '1:path:_files'
@@ -512,7 +541,10 @@ _claude_plugin() {
         install|i)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Bophara ba ho kenya]:scope:(user project local)' \
+            '--accept-command[Amohela taelo e phatlaladitsweng ke mmaraka eo sha256 ya yona e tlalehilweng ke ho matha ha pele ha --json e le shownCommand.sha256]:sha256:' \
             '*--config[Beha kgetho ya userConfig e phatlaladitsweng ho manifest ya plugin (e ka pheta-phetwa)]:key=value:' \
+            '--marketplace[Kenya plugin ka lebitso la yona feela ho tswa mmarakeng o mohloding ona (owner/repo, URL ya git kapa https, kapa tsela), o o eketsa pele ha ho hlokahala]:source:' \
+            '--registry[Bakeng sa ho kenya package@npm: rarolla mme o jarolle ho tswa rejistering ena ya npm]:url:' \
             '(-y --yes)'{-y,--yes}'[Amohela taelo e bontshitsweng e phatlaladitsweng ke mmaraka ntle le kopo ya netefatso]' \
             '--json[Hatisa mola o le mong wa sephetho o balehang ke mochine sebakeng sa molaetsa wa motho]' \
             '(-h --help)'{-h,--help}'[Display help]' \
@@ -545,6 +577,7 @@ _claude_plugin() {
           ;;
         update)
           _arguments \
+            '--accept-command[Amohela taelo e phatlaladitsweng ke mmaraka eo sha256 ya yona e tlalehilweng ke ho matha ha pele ha --json e le shownCommand.sha256]:sha256:' \
             '(-s --scope)'{-s,--scope}'[Bophara ba ho kenya]:scope:(user project local managed)' \
             '(-y --yes)'{-y,--yes}'[Amohela taelo e bontshitsweng e phatlaladitsweng ke mmaraka ntle le kopo ya netefatso]' \
             '--json[Hatisa mola o le mong wa sephetho o balehang ke mochine sebakeng sa molaetsa wa motho]' \
@@ -555,6 +588,7 @@ _claude_plugin() {
           _arguments \
             '--json[Hlahisa e le JSON]' \
             '--available[Kenyeletsa di-plugin tse fumanehang ho tswa mebarakeng (e hloka --json)]' \
+            '--data-size[Lekanya directory ya data e bolokilweng ya plugin e nngwe le e nngwe e kentsweng, kapa ya plugin e boletsweng feela (e hloka --json)]::plugin:_claude_installed_plugins' \
             '(-h --help)'{-h,--help}'[Display help]'
           ;;
         prune|autoremove)
@@ -587,6 +621,15 @@ _claude_plugin() {
             '1:name:'
           ;;
         eval)
+          if [[ $words[2] == init ]]; then
+            _arguments \
+              '--bare[Ngola template e se nang letho ho ena le ho matha puisano ya dipotso]' \
+              '--eval-dir[Directory e ka tlase ho directory ya hona joale moo dinyewe di tla ngolwa teng]:dir:_directories' \
+              '(-i --interactive)'{-i,--interactive}'[Matha puisano ya dipotso ya ho ngola (e hloka terminale e sebedisanang)]' \
+              '(-h --help)'{-h,--help}'[Display help]' \
+              '::name:'
+            return
+          fi
           _arguments \
             '--case[Sefa dinyewe ka glob ya lebitso]:glob:' \
             '*--tag[Sefa dinyewe ka tag (e ka pheta-phetwa)]:tag:' \
@@ -600,6 +643,7 @@ _claude_plugin() {
             '--json[Hatisa sephetho se feletseng sa ho matha e le JSON ho stdout, kapa u se ngole faeleng ena ya .json]::path:_files' \
             '--threshold[Tswa ka khoutu ya ho tswa 1 haeba dintlha tsa nyewe efe kapa efe di le ka tlase ho moedi ona (ka tlhaho: 1.0)]:threshold:' \
             '*--allow-tools[Tumello ya mosebetsisi bakeng sa disebediswa tse thibetsweng (Bash, Write, Edit, WebFetch, mcp__*)]:tools:' \
+            '*--disallow-tools[Disebediswa tse kahare tse lokelang ho thibelwa ho Claude nyeweng e nngwe le e nngwe, le ha di dumeletswe]:tools:' \
             '(--no-scaffold)--scaffold[Matha scaffold_script ya nyewe ka nngwe (e matha bash e fanweng ke mongodi tlasa akhaonto ya hao; e timilwe ka tlhaho)]' \
             '(--scaffold)--no-scaffold[Tlola scaffold_script ka ho hlaka]' \
             '--trust-plugin[Tiisa hore o tshepa plugin ena le sehlopha sa yona sa eval, o tlola kopo ya tshepo ya ho matha ha pele (bakeng sa CI)]' \
@@ -612,7 +656,7 @@ _claude_plugin() {
             '(--no-publish)--publish-report[Hloka hape ho phatlalatsa tlaleho ho claude.ai]' \
             '(--publish-report)--no-publish[Boloka tlaleho ya HTML sebakeng sa heno feela; tlola ho e phatlalatsa ho claude.ai]' \
             '(-h --help)'{-h,--help}'[Display help]' \
-            '::target: _alternative "plugins\:installed plugin\:_claude_installed_plugins" "files\:path\:_files"'
+            '::target: _alternative "commands\:eval command\:(init)" "plugins\:installed plugin\:_claude_installed_plugins" "files\:path\:_files"'
           ;;
         tag)
           _arguments \
@@ -663,6 +707,7 @@ _claude_plugin_marketplace() {
           _arguments \
             '--sparse[Lekanyetsa checkout ho ditatelano tse itseng ka git sparse-checkout (bakeng sa di-monorepo)]:paths:' \
             '--scope[Moo mmaraka o tla phatlalatswa teng]:scope:(user project local)' \
+            '--json[Hatisa mola o le mong wa sephetho o balehang ke mochini e le mola wa ho qetela ho stdout]' \
             '--claudeai[Eketsa mmaraka wa lebitso lena oo claude.ai e o tshwarelang wena]' \
             '(-h --help)'{-h,--help}'[Display help]' \
             '1:source:'
@@ -675,11 +720,13 @@ _claude_plugin_marketplace() {
         remove|rm)
           _arguments \
             '--scope[Tlosa phatlalatso ya mmaraka bopharing bo itseng ba ditlhophiso (e tlohele ho e tlosa bopharing bohle)]:scope:(user project local)' \
+            '--json[Hatisa mola o le mong wa sephetho o balehang ke mochini e le mola wa ho qetela ho stdout]' \
             '(-h --help)'{-h,--help}'[Display help]' \
             '1:name:'
           ;;
         update)
           _arguments \
+            '--json[Ka lebitso la mmaraka: hatisa mola o le mong wa sephetho o balehang ke mochini e le mola wa ho qetela ho stdout]' \
             '(-h --help)'{-h,--help}'[Display help]' \
             '::name:'
           ;;
@@ -851,12 +898,23 @@ _claude_project() {
   esac
 }
 
+_claude_purge() {
+  _arguments \
+    '--dry-run[Thathamisa se neng se tla hlakolwa ntle le ho hlakola letho]' \
+    '(-y --yes)'{-y,--yes}'[Tlola kopo ya netefatso]' \
+    '(-i --interactive)'{-i,--interactive}'[Botsa bakeng sa ntho ka nngwe pele o hlakola]' \
+    '(1)--all[Hlakola boemo bakeng sa morero o mong le o mong (e ke ke ya sebediswa hammoho le tsela)]' \
+    '(-h --help)'{-h,--help}'[Display help for command]' \
+    '(--all)::path:_directories'
+}
+
 _claude_ultrareview() {
   _arguments \
     '--json[Hatisa payload ya bugs.json e sa lokiswang sebakeng sa diphumano tse hlophisitsweng]' \
     '--timeout[Metsotso e mengata ka ho fetisisa ya ho emela hore tlhahlobo e fele (ka tlhaho: 45)]:minutes:' \
     '(--no-post)--post[Romela diphumano tsa tlhahlobo e phethilweng ho PR tlasa akhaonto ya hao (dipheo tsa PR feela; tlhaloso e le nngwe e tlwaelehileng, eseng tlhahlobo)]' \
     '(--post)--no-post[O se ke wa romela diphumano ho PR (ka tlhaho)]' \
+    '--trust-workspace[Tshepa foldara ya hona joale bakeng sa ho matha hona feela, ntle le ho botsa (bakeng sa di-script le CI)]' \
     '(-h --help)'{-h,--help}'[Display help for command]' \
     '1:target:'
 }
@@ -874,6 +932,117 @@ _claude_rm() {
     '--force-remove-worktree[Hlakola tatelano ya worktree le ha hook ya WorktreeRemove kapa git di sa kgona ho e tlosa (fana ka worktree-id eo claude rm ya pejana e e tlalehileng)]:worktree-id:' \
     '(-h --help)'{-h,--help}'[Bontsha thuso bakeng sa taelo]' \
     '1:session:_claude_background_sessions'
+}
+
+_claude_self_hosted_runner() {
+  _arguments \
+    '--api-url[URL ya motheo ya API (ka tlhaho: https://api.anthropic.com)]:url:' \
+    '--environment-secret-file[Tsela e yang faeleng ya sephiri ya tikoloho]:path:_files' \
+    '--lock-to-account[Notlela runner akhaonteng e le nngwe nakong ya ngodiso]:id:' \
+    '--client-label[Leibole ya tebelo e romelwang nakong ya ngodiso (ka tlhaho: hostname)]:label:' \
+    '(--proxy-authorization-file --agent-proxy-url)--proxy-authorization-command[Taelo eo stdout ya yona e leng hlooho ya Proxy-Authorization bakeng sa di-proxy tsa ho tswa]:shell command:' \
+    '(--proxy-authorization-command --agent-proxy-url)--proxy-authorization-file[Faele e nang le hlooho ya Proxy-Authorization bakeng sa di-proxy tsa ho tswa]:path:_files' \
+    '(--proxy-authorization-command --proxy-authorization-file)--agent-proxy-url[Fetisa seboka se seng le se seng ka proxy ya agente URL ena (https feela)]:url:' \
+    '--capacity[Palo e phahameng ya diboka ka nako e le nngwe (ka tlhaho: 1)]:n:' \
+    '--base-dir[Directory ya motheo bakeng sa di-checkout tsa repo (ka tlhaho: /workspace)]:path:_directories' \
+    '--exec-path[Binary e qalwang bakeng sa diboka tsa ngwana (ka tlhaho: binary ena)]:path:_files' \
+    '--hooks-dir[Directory ya di-script tsa hook tsa potoloho ya bophelo (checkout, command, post-session)]:path:_directories' \
+    '--session-stop-grace-sec[Nako ya ho emela ho tswa ka bohlweki kamora hore seboka se fele (ka tlhaho: 5)]:n:' \
+    '--post-session-hook-timeout-sec[Nako ya SIGTERM bakeng sa hook ya post-session (ka tlhaho: 60)]:n:' \
+    '--checkout-hook-timeout-min[Nako ya sebele bakeng sa ho matha ho hong le ho hong ha hook ya checkout (ka tlhaho: 30; 0 e a thibela)]:n:' \
+    '--drain-wait-sec[Ho SIGTERM/SIGINT, ema ho fihlela metsotswana e N bakeng sa mosebetsi o ntseng o etswa (ka tlhaho: 0)]:n:' \
+    '--drain-marker-file[Faele ya letshwao eo ka yona host e phatlalatsang ho fokotsa mosebetsi ka botsitso]:path:_files' \
+    '*--git-ssh-rewrite[Ngola botjha di-URL tsa mohlodi https://<host>/... ho git@<host>:... (e ka phetwa)]:host:' \
+    '*--git-host-rewrite[Ngola botjha di-URL tsa mohlodi https://<f>/... ho https://<t>/... (e ka phetwa)]:from=to:' \
+    '--use-anthropic-git-proxy[Sebedisa git e laolwang ke Anthropic. TEMOSO: e hlakola le ho nkela tlhophiso ya git ya boemo ba HOME sebaka, e sebedise feela tlasa akhaonte e ikgethang]' \
+    '--configure-git[Beha boitsebiso ba git ba lefatshe ka bophara mme o nolofatse ho saena di-commit ka tshebeletso ya ho saena ya Anthropic. E ngola ~/.gitconfig]' \
+    '--push-outcome-on-release[Push makala a diphetho a latelwang ha runner e qetella seboka se sa phethelwang]' \
+    '--trust-workspace[Kenya pele tshepo e bolokwang bakeng sa ditsela tsa repo tsa seboka se seng le se seng (ka tlhaho: true)]::bool:(true false)' \
+    '--remove-session-state[Tlosa boemo ba seboka ka seng ha seboka se fela (ka tlhaho: false)]::bool:(true false)' \
+    '--diff-finds-nested-repository[Bontsha repository e kopilweng ka hara foldara e nyane pane ya Changes; e hloka --capacity 1 (ka tlhaho: false)]::bool:(true false)' \
+    '--confine-repo-settings[Mokgwa wa tshireletso wa ho thibela disetting tse kentsweng repo (ka tlhaho: warn)]:mode:(warn enforce off)' \
+    '--server-auto-mode-lists[Ke manane afe a sehlophi sa mokgwa wa auto ho tswa sevareng ao seboka se ka a amohelang (ka tlhaho: no-allow)]:mode:(all no-allow none)' \
+    '--host-config-snapshot[Moo setshwantsho sa qalo sa tlhophiso ya host se bolokwang teng (ka tlhaho: disk)]:mode:(disk memory)' \
+    '--health-port[Port bakeng sa mamedi wa HTTP wa /healthz (ka tlhaho: 8080; 0 e a thibela)]:port:' \
+    '--log-level[Boemo ba log (ka tlhaho: info)]:level:(info debug)' \
+    '--log-file[Kopitsa hape di-log tsa runner faeleng ka mokgwa wa ho eketsa]:path:_files' \
+    '--exit-if-unused-min[Tswa ho runner haeba e sa fuwa mosebetsi ka metsotso e N]:n:' \
+    '--drain-grace-sec[Metsotswana ya ho tswela pele ho botsa mosebetsi kamora hore diboka tse sebetsang di fele (ka tlhaho: 0)]:n:' \
+    '--retire-at[Tlohela runner mosebetsi ka nako ena e felletseng ya Unix, ka metsotswana]:epoch-seconds:' \
+    '--defer-shutdown-max-min[Ho SIGTERM/SIGINT ya pele, emisa ho amohela mosebetsi mme o qetele ho tima metsotso e M hamorao (ka tlhaho: 0)]:m:' \
+    '--release-idle-session-min[Lokolla sebaka sa seboka kamora metsotso e N ntle le ho kenya ha mosebedisi]:n:' \
+    '--startup-timeout-min[Lokolla sebaka sa seboka haeba ngwana a so qete ho qala kamora metsotso e N (ka tlhaho: 15; 0 e a thibela)]:n:' \
+    '--kill-session-after-min[Lekanyetsa bophelo ba nako ya sebele ba seboka sa ngwana ho metsotso e N]:n:' \
+    '--debug-token-dir[BAKENG SA DEBUG FEELA: e ngola di-token tse phelang diskeng. O se ke wa e sebedisa tlhahisong]:path:_directories' \
+    '(-h --help)'{-h,--help}'[Bontsha molaetsa ona wa thuso]'
+}
+
+_claude_remote_control() {
+  _arguments \
+    '--name[Lebitso la seboka (le bontshwa ho claude.ai/code)]:name:' \
+    '--remote-control-session-name-prefix[Selelekela sa mabitso a diboka a hlahiswang ka boiketsetso (ka tlhaho: hostname)]:prefix:' \
+    '(-c --continue --session-id)'{-c,--continue}'[Hokela hape sebokeng se rekotilweng sa ho qetela bakeng sa directory ena kapa e nngwe ya di-worktree tsa yona tsa git]' \
+    '(-c --continue --session-id)--session-id[Hokela hape sebokeng se itseng ka ID]:id:' \
+    '--permission-mode[Mokgwa wa tumello bakeng sa diboka tse qadilweng]:mode:(acceptEdits auto bypassPermissions default dontAsk plan)' \
+    '(--no-chrome)--chrome[Nolofatsa Claude in Chrome bakeng sa diboka tse qadilweng]' \
+    '(--chrome)--no-chrome[Thibela Claude in Chrome bakeng sa diboka tse qadilweng]' \
+    '(-d --debug)'{-d,--debug}'[Nolofatsa mokgwa wa debug ka ho hlopha mekgahlelo ka boikgethelo]::filter:' \
+    '--debug-file[Ngola di-log tsa debug faeleng]:path:_files' \
+    '(-v --verbose)'{-v,--verbose}'[Nolofatsa tswaho e qaqileng]' \
+    '--spawn[Mokgwa wa ho qala (ka tlhaho: same-dir)]:mode:(same-dir worktree session)' \
+    '--capacity[Palo e phahameng ya diboka ka nako e le nngwe mokgweng wa worktree kapa same-dir (ka tlhaho: 32)]:n:' \
+    '(--no-create-session-in-dir)--create-session-in-dir[Theha seboka esale pele directoring ya hona joale (ka tlhaho)]' \
+    '(--create-session-in-dir)--no-create-session-in-dir[O se ke wa theha seboka esale pele directoring ya hona joale]' \
+    '(-h --help)'{-h,--help}'[Bontsha thuso ena]'
+}
+
+_claude_daemon() {
+  local -a daemon_commands common_options
+  daemon_commands=(
+    'run:Matha mookamedi ka pele'
+    'status:Bontsha pid, phetolelo le nako ya ho sebetsa ya daemon'
+    'logs:Latela log ya daemon (Ctrl-C ho emisa)'
+    'uninstall:Tlosa tshebeletso ya morao (launchctl/systemd)'
+    'stop:Tima mookamedi mme o fedise diboka tsa morao'
+  )
+  common_options=(
+    '--json-path[Faele ya tlhophiso (ka tlhaho: ~/.claude/daemon.json)]:path:_files'
+    '--log-file[Faele ya log (ka tlhaho: ~/.claude/daemon.log)]:path:_files'
+    '(-h --help)'{-h,--help}'[Bontsha thuso ena]'
+  )
+
+  local curcontext="$curcontext" state line
+  typeset -A opt_args
+
+  _arguments -C \
+    $common_options \
+    '1: :->command' \
+    '*::arg:->args'
+
+  case $state in
+    command)
+      _describe -t commands 'ditaelo tsa daemon' daemon_commands
+      ;;
+    args)
+      case $words[1] in
+        run)
+          _arguments \
+            $common_options \
+            '::json-path:_files'
+          ;;
+        stop)
+          _arguments \
+            $common_options \
+            '--any[Emisa hape daemon ya nakwana (e seng tshebeletso)]' \
+            '--keep-workers[Tlohela diboka tse arohantsweng di ntse di sebetsa]'
+          ;;
+        status|logs|uninstall)
+          _arguments \
+            $common_options
+          ;;
+      esac
+      ;;
+  esac
 }
 
 _claude_import() {

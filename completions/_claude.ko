@@ -200,9 +200,12 @@ _claude() {
     'stop:백그라운드 세션 중지(대화는 유지됨)'
     'respawn:백그라운드 세션을 재시작하여 현재 Claude Code 버전으로 실행'
     'rm:백그라운드 세션 삭제(안전한 경우 worktree도 함께)'
+    'remote-control:claude.ai/code 또는 Claude 모바일 앱에서 로컬 세션 제어'
+    'daemon:백그라운드 세션 슈퍼바이저 관리'
     'auth:인증 관리'
     'auto-mode:자동 모드 분류기 구성 검사 또는 재설정'
     'gateway:엔터프라이즈 인증/텔레메트리 게이트웨이 실행'
+    'self-hosted-runner:이 머신 또는 컨테이너에서 Claude Code 클라우드 세션 호스팅'
     'import:다른 AI 코딩 에이전트의 설정을 Claude Code로 가져오기'
     'project:Claude Code 프로젝트 상태 관리'
     'purge:프로젝트의 모든 Claude Code 상태 삭제(트랜스크립트, 작업, 파일 기록, 구성 항목)'
@@ -222,11 +225,11 @@ _claude() {
     '--json-schema[구조화된 출력 검증을 위한 JSON 스키마]:schema:'
     '--include-partial-messages[도착하는 대로 부분 메시지 청크 포함(--print 및 --output-format=stream-json과 함께 사용)]'
     '--input-format[입력 형식(--print와 함께 사용): "text"(기본값) 또는 "stream-json"(실시간 스트리밍 입력)]:format:(text stream-json)'
-    '--mcp-debug[\[더 이상 사용되지 않음. 대신 --debug 사용\] MCP 디버그 모드 활성화(MCP 서버 오류 표시)]'
     '--dangerously-skip-permissions[모든 권한 확인 우회. 인터넷 액세스가 없는 샌드박스에만 권장]'
     '--allow-dangerously-skip-permissions[기본적으로 활성화하지 않고 권한 확인 우회 옵션 활성화]'
     '--restricted[제한 모드: 명령이나 코드를 실행하는 도구와 WebFetch를 제거하고, user/project/local 설정을 무시하며, 파일 도구를 작업 디렉터리로 제한]'
     '--max-budget-usd[API 호출에 사용할 최대 달러 금액(--print만)]:amount:'
+    '--max-turns[에이전트 턴 수 제한(--print만)]:turns:'
     '--replay-user-messages[확인을 위해 stdin의 사용자 메시지를 stdout으로 재전송]'
     '--allowed-tools[허용되는 도구 이름의 쉼표 또는 공백으로 구분된 목록(예: "Bash(git:*) Edit")]:tools:'
     '--allowedTools[허용되는 도구 이름의 쉼표 또는 공백으로 구분된 목록(camelCase 형식)]:tools:'
@@ -238,6 +241,8 @@ _claude() {
     '--system-prompt-file[파일에서 시스템 프롬프트 읽기]:file:_files'
     '--append-system-prompt[기본 시스템 프롬프트에 시스템 프롬프트 추가]:prompt:'
     '--append-system-prompt-file[파일에서 시스템 프롬프트를 읽어 기본 시스템 프롬프트에 추가]:file:_files'
+    '(--append-subagent-system-prompt-file)--append-subagent-system-prompt[모든 서브에이전트의 시스템 프롬프트에 텍스트 추가(--print만)]:prompt:'
+    '(--append-subagent-system-prompt)--append-subagent-system-prompt-file[파일에서 텍스트를 읽어 서브에이전트 시스템 프롬프트에 추가(--print만)]:file:_files'
     '--system-prompt-snapshot[시스템 프롬프트를 대화당 한 번 기록하고 모든 요청과 재개에서 그대로 재사용(on, 기본값)하거나 매 요청마다 새로 생성(off)]:mode:(on off)'
     '--permission-mode[세션에 사용할 권한 모드]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)'
     '--permission-prompts[--print 사용 시 권한 프롬프트에 누가 응답할지: "host"(SDK 호스트 또는 --permission-prompt-tool) 또는 "none"(프롬프트가 필요한 것은 모두 거부)]:target:(host none)'
@@ -257,6 +262,8 @@ _claude() {
     '--strict-mcp-config[--mcp-config의 MCP 서버만 사용하고 다른 모든 MCP 설정 무시]'
     '--session-id[대화에 사용할 특정 세션 ID(유효한 UUID여야 함)]:uuid:'
     '--agents[사용자 정의 에이전트를 정의하는 JSON 객체]:json:'
+    '--advisor[모델 별칭 또는 전체 모델 ID로 이 세션에 서버 측 어드바이저 도구 활성화]:model:_claude_model_names'
+    '--teammate-mode[에이전트 팀 팀원의 표시 방식]:mode:(in-process auto tmux iterm2)'
     '--setting-sources[로드할 설정 소스의 쉼표로 구분된 목록(user, project, local)]:sources:'
     '--plugin-dir[이 세션에만 플러그인을 로드할 디렉토리(반복 가능)]:paths:_directories'
     '--disable-slash-commands[모든 슬래시 명령 비활성화]'
@@ -269,9 +276,11 @@ _claude() {
     '--debug-file[특정 파일 경로에 디버그 로그 작성(암시적으로 디버그 모드 활성화)]:path:_files'
     '--from-pr[번호/URL로 PR에 연결된 세션 재개 또는 대화식 선택기 열기]::value:'
     '--teleport[텔레포트 세션 재개(선택적으로 세션 ID 지정)]::session:'
-    '--cloud[지정한 설명으로 클라우드 세션을 생성하거나 세션 ID 또는 claude.ai/code URL로 기존 세션에 연결]::description-or-session:'
+    '(--remote)--cloud[지정한 설명으로 클라우드 세션을 생성하거나 세션 ID 또는 claude.ai/code URL로 기존 세션에 연결]::description-or-session:'
+    '(--cloud)--remote[--cloud의 더 이상 사용되지 않는 별칭]::description-or-session:'
     '--environment[지정한 자체 호스팅 환경(ccpool_...)에서 실행되는 새 클라우드 세션 생성]:environment_id:'
-    '--remote-control[Remote Control이 활성화된 대화식 세션 시작(선택적으로 이름 지정)]::name:'
+    '--ref[--environment와 함께: 새 세션의 체크아웃을 로컬 HEAD 대신 지정한 ref 기준으로 생성]:branch:'
+    '(--remote-control --rc)'{--remote-control,--rc}'[Remote Control이 활성화된 대화식 세션 시작(선택적으로 이름 지정)]::name:'
     '--remote-control-session-name-prefix[자동 생성된 Remote Control 세션 이름의 접두사]:prefix:'
     '--chrome[Claude in Chrome 통합 활성화]'
     '--no-chrome[Claude in Chrome 통합 비활성화]'
@@ -282,6 +291,11 @@ _claude() {
     '--include-hook-events[출력 스트림에 모든 훅 수명 주기 이벤트 포함(stream-json과 함께 사용)]'
     '--exclude-dynamic-system-prompt-sections[머신별 섹션을 첫 번째 사용자 메시지로 이동하여 프롬프트 캐시 재사용 개선]'
     '--brief[에이전트-사용자 통신을 위한 SendUserMessage 도구 활성화]'
+    '*--channels[(리서치 프리뷰) 채널 알림을 수신할 MCP 서버(plugin\:<name>@<marketplace>)]:entries:'
+    '*--dangerously-load-development-channels[승인된 허용 목록에 없는 채널을 로컬 개발용으로 활성화(plugin\:<name>@<marketplace> 또는 server\:<name>)]:entries:'
+    '--init[세션 전에 init 매처로 Setup 훅 실행(--print만)]'
+    '--init-only[Setup 및 SessionStart 훅을 실행한 후 대화를 시작하지 않고 종료]'
+    '--maintenance[세션 전에 maintenance 매처로 Setup 훅 실행(--print만)]'
     '--safe-mode[모든 사용자 정의를 비활성화하고 시작(손상된 구성 문제 해결에 유용)]'
     '--bare[최소 모드: 훅, LSP, 플러그인 동기화, 속성, 자동 메모리 및 CLAUDE.md 자동 검색 건너뛰기]'
     '--ax-screen-reader[스크린 리더 친화적 출력 렌더링(장식용 테두리나 애니메이션 없는 평문 텍스트)]'
@@ -305,7 +319,7 @@ _claude() {
         mcp)
           _claude_mcp
           ;;
-        plugin)
+        plugin|plugins)
           _claude_plugin
           ;;
         install)
@@ -325,6 +339,12 @@ _claude() {
         rm)
           _claude_rm
           ;;
+        remote-control|rc|remote|sync|bridge)
+          _claude_remote_control
+          ;;
+        daemon)
+          _claude_daemon
+          ;;
         auth)
           _claude_auth
           ;;
@@ -333,6 +353,9 @@ _claude() {
           ;;
         gateway)
           _claude_gateway
+          ;;
+        self-hosted-runner)
+          _claude_self_hosted_runner
           ;;
         import)
           _claude_import
@@ -346,8 +369,9 @@ _claude() {
         ultrareview)
           _claude_ultrareview
           ;;
-        setup-token|doctor|update)
-          _message "인수 없음"
+        setup-token|doctor|update|upgrade)
+          _arguments \
+            '(-h --help)'{-h,--help}'[명령 도움말 표시]'
           ;;
         *)
           # Not a command but the prompt: options may still follow it
@@ -506,6 +530,7 @@ _claude_plugin() {
         validate)
           _arguments \
             '--strict[경고를 오류로 처리(종료 코드 1)]' \
+            '--profile[이 명령이 실행하는 검사에서 지정한 카탈로그가 플러그인 제출을 거부할 경우에도 exit 1로 종료]:name:(directory)' \
             '--json[검증 보고서를 JSON으로 출력(종료 코드는 동일)]' \
             '(-h --help)'{-h,--help}'[도움말 표시]' \
             '1:path:_files'
@@ -518,6 +543,7 @@ _claude_plugin() {
             '(-s --scope)'{-s,--scope}'[설치 범위]:scope:(user project local)' \
             '--accept-command[이전 --json 실행이 shownCommand.sha256으로 보고한 sha256의 마켓플레이스 선언 명령을 수락]:sha256:' \
             '*--config[플러그인 매니페스트에 선언된 userConfig 옵션 설정(반복 가능)]:key=value:' \
+            '--marketplace[이 소스(owner/repo, git 또는 https URL, 경로)의 마켓플레이스에서 플러그인을 이름만으로 설치(필요하면 마켓플레이스를 먼저 추가)]:source:' \
             '--registry[package@npm 설치용: 이 npm 레지스트리에서 해석하고 다운로드]:url:' \
             '(-y --yes)'{-y,--yes}'[표시된 마켓플레이스 선언 명령을 확인 프롬프트 없이 수락]' \
             '--json[사람용 메시지 대신 기계가 읽을 수 있는 결과 한 줄 출력]' \
@@ -617,6 +643,7 @@ _claude_plugin() {
             '--json[전체 실행 결과를 JSON으로 stdout에 출력하거나 이 .json 파일에 기록]::path:_files' \
             '--threshold[어떤 케이스라도 점수가 이 임계값 미만이면 종료 코드 1(기본값: 1.0)]:threshold:' \
             '*--allow-tools[제한된 도구(Bash, Write, Edit, WebFetch, mcp__*)에 대한 운영자 허용]:tools:' \
+            '*--disallow-tools[허용되더라도 항상 Claude가 사용하지 못하게 할 기본 제공 도구]:tools:' \
             '(--no-scaffold)--scaffold[각 케이스의 scaffold_script 실행(작성자가 제공한 bash를 사용자 권한으로 실행, 기본값 꺼짐)]' \
             '(--scaffold)--no-scaffold[scaffold_script를 명시적으로 건너뛰기]' \
             '--trust-plugin[이 플러그인과 평가 스위트를 신뢰함을 선언하여 첫 실행 신뢰 프롬프트 건너뛰기(CI용)]' \
@@ -887,6 +914,7 @@ _claude_ultrareview() {
     '--timeout[검토 완료를 기다릴 최대 분(기본값: 45)]:minutes:' \
     '(--no-post)--post[완료된 검토 결과를 사용자 명의로 PR에 게시(PR 대상만, 리뷰가 아닌 일반 댓글 하나)]' \
     '(--post)--no-post[결과를 PR에 게시하지 않음(기본값)]' \
+    '--trust-workspace[이번 실행에 한해 묻지 않고 현재 폴더 신뢰(스크립트 및 CI용)]' \
     '(-h --help)'{-h,--help}'[명령 도움말 표시]' \
     '1:target:'
 }
@@ -904,6 +932,117 @@ _claude_rm() {
     '--force-remove-worktree[WorktreeRemove 훅이나 git이 제거하지 못했더라도 worktree 디렉터리 삭제(이전 claude rm이 보고한 worktree-id 전달)]:worktree-id:' \
     '(-h --help)'{-h,--help}'[명령 도움말 표시]' \
     '1:session:_claude_background_sessions'
+}
+
+_claude_self_hosted_runner() {
+  _arguments \
+    '--api-url[API 기본 URL(기본값: https://api.anthropic.com)]:url:' \
+    '--environment-secret-file[환경 시크릿 파일 경로]:path:_files' \
+    '--lock-to-account[등록 시 러너를 단일 계정에 고정]:id:' \
+    '--client-label[등록 시 전송되는 관측용 레이블(기본값: hostname)]:label:' \
+    '(--proxy-authorization-file --agent-proxy-url)--proxy-authorization-command[stdout이 egress 프록시용 Proxy-Authorization 헤더가 되는 명령]:shell command:' \
+    '(--proxy-authorization-command --agent-proxy-url)--proxy-authorization-file[egress 프록시용 Proxy-Authorization 헤더가 담긴 파일]:path:_files' \
+    '(--proxy-authorization-command --proxy-authorization-file)--agent-proxy-url[모든 세션을 이 URL의 에이전트 프록시를 통해 라우팅(https만)]:url:' \
+    '--capacity[최대 동시 세션 수(기본값: 1)]:n:' \
+    '--base-dir[저장소 체크아웃의 기본 디렉터리(기본값: /workspace)]:path:_directories' \
+    '--exec-path[자식 세션으로 실행할 바이너리(기본값: 이 바이너리)]:path:_files' \
+    '--hooks-dir[수명 주기 훅 스크립트 디렉터리(checkout, command, post-session)]:path:_directories' \
+    '--session-stop-grace-sec[세션 종료 후 정상 종료를 기다리는 시간(기본값: 5)]:n:' \
+    '--post-session-hook-timeout-sec[post-session 훅의 SIGTERM 유예 시간(기본값: 60)]:n:' \
+    '--checkout-hook-timeout-min[checkout 훅 1회 실행당 실제 시간 한도(기본값: 30, 0이면 비활성화)]:n:' \
+    '--drain-wait-sec[SIGTERM/SIGINT 수신 시 진행 중인 작업을 최대 N초 대기(기본값: 0)]:n:' \
+    '--drain-marker-file[호스트가 정상 드레인을 알리는 마커 파일]:path:_files' \
+    '*--git-ssh-rewrite[https://<host>/... 소스 URL을 git@<host>:...로 재작성(반복 가능)]:host:' \
+    '*--git-host-rewrite[https://<f>/... 소스 URL을 https://<t>/...로 재작성(반복 가능)]:from=to:' \
+    '--use-anthropic-git-proxy[Anthropic 관리 git 사용. 경고: HOME 수준 git 설정을 삭제하고 대체하므로 전용 계정에서만 사용]' \
+    '--configure-git[전역 git ID를 설정하고 Anthropic 서명 서비스로 커밋 서명 활성화. ~/.gitconfig에 기록]' \
+    '--push-outcome-on-release[러너가 시작한 세션이 완료되지 않고 끝나면 추적 중인 결과 브랜치 푸시]' \
+    '--trust-workspace[각 세션의 저장소 경로에 대한 신뢰를 미리 저장(기본값: true)]::bool:(true false)' \
+    '--remove-session-state[세션 종료 시 세션별 상태 제거(기본값: false)]::bool:(true false)' \
+    '--diff-finds-nested-repository[하위 폴더에 복제된 저장소를 Changes 창에 표시. --capacity 1 필요(기본값: false)]::bool:(true false)' \
+    '--confine-repo-settings[저장소에 커밋된 설정을 제한하는 가드 모드(기본값: warn)]:mode:(warn enforce off)' \
+    '--server-auto-mode-lists[세션이 서버에서 받을 수 있는 자동 모드 분류기 목록(기본값: no-allow)]:mode:(all no-allow none)' \
+    '--host-config-snapshot[호스트 설정의 시작 시 스냅샷 보관 위치(기본값: disk)]:mode:(disk memory)' \
+    '--health-port[/healthz HTTP 리스너 포트(기본값: 8080, 0이면 비활성화)]:port:' \
+    '--log-level[로그 수준(기본값: info)]:level:(info debug)' \
+    '--log-file[러너 로그를 추가 모드로 파일에도 기록]:path:_files' \
+    '--exit-if-unused-min[N분 동안 작업이 한 번도 할당되지 않으면 러너 종료]:n:' \
+    '--drain-grace-sec[활성 세션이 끝난 후 작업을 계속 폴링할 시간(초)(기본값: 0)]:n:' \
+    '--retire-at[이 절대 Unix 시간(초)에 러너 퇴역]:epoch-seconds:' \
+    '--defer-shutdown-max-min[첫 SIGTERM/SIGINT에서 새 작업 수락을 멈추고 M분 후 종료 완료(기본값: 0)]:m:' \
+    '--release-idle-session-min[N분 동안 사용자 입력이 없으면 세션 슬롯 해제]:n:' \
+    '--startup-timeout-min[자식 프로세스가 N분이 지나도 시작을 마치지 못하면 세션 슬롯 해제(기본값: 15, 0이면 비활성화)]:n:' \
+    '--kill-session-after-min[세션 자식 프로세스의 실제 수명을 N분으로 제한]:n:' \
+    '--debug-token-dir[디버그 전용: 실제 토큰을 디스크에 기록. 프로덕션에서 사용 금지]:path:_directories' \
+    '(-h --help)'{-h,--help}'[이 도움말 메시지 표시]'
+}
+
+_claude_remote_control() {
+  _arguments \
+    '--name[세션 이름(claude.ai/code에 표시)]:name:' \
+    '--remote-control-session-name-prefix[자동 생성 세션 이름의 접두사(기본값: hostname)]:prefix:' \
+    '(-c --continue --session-id)'{-c,--continue}'[이 디렉터리 또는 해당 git worktree에 마지막으로 기록된 세션에 다시 연결]' \
+    '(-c --continue --session-id)--session-id[ID로 특정 세션에 다시 연결]:id:' \
+    '--permission-mode[생성된 세션의 권한 모드]:mode:(acceptEdits auto bypassPermissions default dontAsk plan)' \
+    '(--no-chrome)--chrome[생성된 세션에서 Claude in Chrome 활성화]' \
+    '(--chrome)--no-chrome[생성된 세션에서 Claude in Chrome 비활성화]' \
+    '(-d --debug)'{-d,--debug}'[선택적 카테고리 필터링으로 디버그 모드 활성화]::filter:' \
+    '--debug-file[디버그 로그를 파일에 기록]:path:_files' \
+    '(-v --verbose)'{-v,--verbose}'[상세 출력 활성화]' \
+    '--spawn[생성 모드(기본값: same-dir)]:mode:(same-dir worktree session)' \
+    '--capacity[worktree 또는 same-dir 모드의 최대 동시 세션 수(기본값: 32)]:n:' \
+    '(--no-create-session-in-dir)--create-session-in-dir[현재 디렉터리에 세션 미리 생성(기본값)]' \
+    '(--create-session-in-dir)--no-create-session-in-dir[현재 디렉터리에 세션을 미리 생성하지 않음]' \
+    '(-h --help)'{-h,--help}'[이 도움말 표시]'
+}
+
+_claude_daemon() {
+  local -a daemon_commands common_options
+  daemon_commands=(
+    'run:슈퍼바이저를 포그라운드에서 실행'
+    'status:daemon pid, 버전, 가동 시간 표시'
+    'logs:daemon 로그 추적(Ctrl-C로 중지)'
+    'uninstall:백그라운드 서비스 제거(launchctl/systemd)'
+    'stop:슈퍼바이저를 중지하고 백그라운드 세션 종료'
+  )
+  common_options=(
+    '--json-path[설정 파일(기본값: ~/.claude/daemon.json)]:path:_files'
+    '--log-file[로그 파일(기본값: ~/.claude/daemon.log)]:path:_files'
+    '(-h --help)'{-h,--help}'[이 도움말 표시]'
+  )
+
+  local curcontext="$curcontext" state line
+  typeset -A opt_args
+
+  _arguments -C \
+    $common_options \
+    '1: :->command' \
+    '*::arg:->args'
+
+  case $state in
+    command)
+      _describe -t commands 'daemon 명령' daemon_commands
+      ;;
+    args)
+      case $words[1] in
+        run)
+          _arguments \
+            $common_options \
+            '::json-path:_files'
+          ;;
+        stop)
+          _arguments \
+            $common_options \
+            '--any[일시적인(서비스가 아닌) daemon도 중지]' \
+            '--keep-workers[분리된 세션은 계속 실행]'
+          ;;
+        status|logs|uninstall)
+          _arguments \
+            $common_options
+          ;;
+      esac
+      ;;
+  esac
 }
 
 _claude_import() {

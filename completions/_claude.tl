@@ -200,11 +200,15 @@ _claude() {
     'stop:Ihinto ang isang background session (pinapanatili ang pag-uusap nito)'
     'respawn:I-restart ang isang background session para patakbuhin nito ang kasalukuyang bersyon ng Claude Code'
     'rm:Burahin ang isang background session, at ang worktree nito kapag ligtas itong gawin'
+    'remote-control:Kontrolin ang mga lokal na session mula sa claude.ai/code o sa Claude mobile app'
+    'daemon:Pamahalaan ang supervisor ng mga background session'
     'auth:Pamahalaan ang authentication'
     'auto-mode:Suriin o i-reset ang configuration ng auto mode classifier'
     'gateway:Patakbuhin ang enterprise auth/telemetry gateway'
+    'self-hosted-runner:Mag-host ng mga Claude Code cloud session sa machine o container na ito'
     'import:Mag-import ng config mula sa ibang AI coding agent papunta sa Claude Code'
     'project:Pamahalaan ang state ng Claude Code project'
+    'purge:Burahin ang lahat ng Claude Code state para sa isang project (mga transcript, task, file history, config entry)'
     'ultrareview:Magpatakbo ng cloud-hosted multi-agent code review at i-print ang mga natuklasan'
     'setup-token:I-set up ang pangmatagalang authentication token (kailangan ng Claude subscription)'
     'doctor:Health check para sa Claude Code auto-updater'
@@ -221,11 +225,11 @@ _claude() {
     '--json-schema[JSON schema para sa structured output validation]:schema:'
     '--include-partial-messages[Isama ang mga partial message chunk habang dumarating (kasama ang --print at --output-format=stream-json)]'
     '--input-format[Format ng input (kasama ang --print): "text" (default) o "stream-json" (real-time streaming input)]:format:(text stream-json)'
-    '--mcp-debug[\[Hindi na inirerekomenda. Gamitin ang --debug na lang\] Paganahin ang MCP debug mode (nagpapakita ng mga MCP server error)]'
     '--dangerously-skip-permissions[Laktawan ang lahat ng permission check. Inirerekomenda lang para sa mga sandbox na walang internet access]'
     '--allow-dangerously-skip-permissions[Paganahin ang opsyon na laktawan ang mga permission check nang hindi pinapagana by default]'
     '--restricted[Restricted mode: alisin ang mga tool na nagpapatakbo ng command o code at ang WebFetch, huwag pansinin ang mga user/project/local setting, at limitahan ang mga file tool sa mga working directory]'
     '--max-budget-usd[Pinakamataas na halaga ng dolyar na gagastusin sa mga API call (--print lang)]:amount:'
+    '--max-turns[Limitahan ang bilang ng mga agentic turn (--print lang)]:turns:'
     '--replay-user-messages[Ipadala ulit ang mga mensahe ng user mula sa stdin sa stdout para sa kumpirmasyon]'
     '--allowed-tools[Listahan ng mga pinahihintulutang pangalan ng tool na pinaghihiwalay ng kuwit o espasyo (hal.: "Bash(git:*) Edit")]:tools:'
     '--allowedTools[Listahan ng mga pinahihintulutang pangalan ng tool na pinaghihiwalay ng kuwit o espasyo (camelCase format)]:tools:'
@@ -237,6 +241,8 @@ _claude() {
     '--system-prompt-file[Basahin ang system prompt mula sa isang file]:file:_files'
     '--append-system-prompt[Idagdag ang system prompt sa default system prompt]:prompt:'
     '--append-system-prompt-file[Basahin ang system prompt mula sa isang file at idagdag ito sa default system prompt]:file:_files'
+    '(--append-subagent-system-prompt-file)--append-subagent-system-prompt[Magdagdag ng text sa system prompt ng bawat subagent (--print lang)]:prompt:'
+    '(--append-subagent-system-prompt)--append-subagent-system-prompt-file[Basahin ang text mula sa isang file at idagdag ito sa mga system prompt ng subagent (--print lang)]:file:_files'
     '--system-prompt-snapshot[I-record ang system prompt nang isang beses bawat pag-uusap at gamitin ulit ito nang eksakto sa bawat request at resume (on, ang default) o i-render ito nang bago sa bawat request (off)]:mode:(on off)'
     '--permission-mode[Permission mode na gagamitin para sa session]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)'
     '--permission-prompts[Kung sino ang sasagot sa mga permission prompt kasama ang --print: "host" (ang SDK host o --permission-prompt-tool) o "none" (tinatanggihan ang anumang magpo-prompt)]:target:(host none)'
@@ -256,6 +262,8 @@ _claude() {
     '--strict-mcp-config[Gumamit lang ng mga MCP server mula sa --mcp-config at huwag pansinin ang lahat ng iba pang MCP setting]'
     '--session-id[Partikular na session ID na gagamitin para sa pag-uusap (dapat valid na UUID)]:uuid:'
     '--agents[JSON object na nagtutukoy ng mga custom agent]:json:'
+    '--advisor[Paganahin ang server-side advisor tool para sa session na ito gamit ang model alias o buong model ID]:model:_claude_model_names'
+    '--teammate-mode[Paano ipinapakita ang mga teammate ng agent team]:mode:(in-process auto tmux iterm2)'
     '--setting-sources[Listahan ng mga setting source na pinaghihiwalay ng kuwit para i-load (user, project, local)]:sources:'
     '--plugin-dir[Direktoryo kung saan mag-load ng mga plugin para sa session na ito lang (maaaring ulitin)]:paths:_directories'
     '--disable-slash-commands[I-disable ang lahat ng slash command]'
@@ -268,9 +276,11 @@ _claude() {
     '--debug-file[Isulat ang mga debug log sa isang partikular na file path (awtomatikong pinapagana ang debug mode)]:path:_files'
     '--from-pr[Ipagpatuloy ang session na naka-link sa PR sa pamamagitan ng numero/URL, o buksan ang interactive picker]::value:'
     '--teleport[Ipagpatuloy ang isang teleport session, opsyonal na tukuyin ang session ID]::session:'
-    '--cloud[Lumikha ng cloud session na may ibinigay na paglalarawan, o kumonekta sa umiiral na session gamit ang session ID o claude.ai/code URL]::description-or-session:'
+    '(--remote)--cloud[Lumikha ng cloud session na may ibinigay na paglalarawan, o kumonekta sa umiiral na session gamit ang session ID o claude.ai/code URL]::description-or-session:'
+    '(--cloud)--remote[Deprecated na alyas para sa --cloud]::description-or-session:'
     '--environment[Lumikha ng bagong cloud session na tumatakbo sa ibinigay na self-hosted environment (ccpool_...)]:environment_id:'
-    '--remote-control[Simulan ang interactive session na may naka-enable na Remote Control (opsyonal na may pangalan)]::name:'
+    '--ref[Kasama ang --environment: ibatay ang checkout ng bagong session sa isang pinangalanang ref sa halip na sa lokal na HEAD]:branch:'
+    '(--remote-control --rc)'{--remote-control,--rc}'[Simulan ang interactive session na may naka-enable na Remote Control (opsyonal na may pangalan)]::name:'
     '--remote-control-session-name-prefix[Prefix para sa mga awtomatikong nabuong pangalan ng Remote Control session]:prefix:'
     '--chrome[Paganahin ang Claude in Chrome integration]'
     '--no-chrome[I-disable ang Claude in Chrome integration]'
@@ -281,6 +291,11 @@ _claude() {
     '--include-hook-events[Isama ang lahat ng hook lifecycle event sa output stream (kasama ang stream-json)]'
     '--exclude-dynamic-system-prompt-sections[Ilipat ang mga per-machine section sa unang mensahe ng user para mapabuti ang muling paggamit ng prompt-cache]'
     '--brief[Paganahin ang SendUserMessage tool para sa komunikasyon mula agent papuntang user]'
+    '*--channels[(Research preview) Mga MCP server na pakikinggan ang mga channel notification (plugin\:<name>@<marketplace>)]:entries:'
+    '*--dangerously-load-development-channels[Paganahin ang mga channel na wala sa aprubadong allowlist, para sa lokal na development (plugin\:<name>@<marketplace> o server\:<name>)]:entries:'
+    '--init[Patakbuhin ang mga Setup hook gamit ang init matcher bago ang session (--print lang)]'
+    '--init-only[Patakbuhin ang mga Setup at SessionStart hook, pagkatapos ay lumabas nang hindi nagsisimula ng pag-uusap]'
+    '--maintenance[Patakbuhin ang mga Setup hook gamit ang maintenance matcher bago ang session (--print lang)]'
     '--safe-mode[Magsimula na naka-disable ang lahat ng customization (kapaki-pakinabang sa pag-troubleshoot ng sirang configuration)]'
     '--bare[Minimal mode: laktawan ang hooks, LSP, plugin sync, attribution, auto-memory, at CLAUDE.md auto-discovery]'
     '--ax-screen-reader[Mag-render ng output na madaling gamitin sa screen reader (flat na text, walang dekoratibong border o animation)]'
@@ -304,7 +319,7 @@ _claude() {
         mcp)
           _claude_mcp
           ;;
-        plugin)
+        plugin|plugins)
           _claude_plugin
           ;;
         install)
@@ -324,6 +339,12 @@ _claude() {
         rm)
           _claude_rm
           ;;
+        remote-control|rc|remote|sync|bridge)
+          _claude_remote_control
+          ;;
+        daemon)
+          _claude_daemon
+          ;;
         auth)
           _claude_auth
           ;;
@@ -333,17 +354,24 @@ _claude() {
         gateway)
           _claude_gateway
           ;;
+        self-hosted-runner)
+          _claude_self_hosted_runner
+          ;;
         import)
           _claude_import
           ;;
         project)
           _claude_project
           ;;
+        purge)
+          _claude_purge
+          ;;
         ultrareview)
           _claude_ultrareview
           ;;
-        setup-token|doctor|update)
-          _message "walang mga argumento"
+        setup-token|doctor|update|upgrade)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Ipakita ang tulong para sa command]'
           ;;
         *)
           # Not a command but the prompt: options may still follow it
@@ -502,6 +530,7 @@ _claude_plugin() {
         validate)
           _arguments \
             '--strict[Ituring na error ang mga babala (exit code 1)]' \
+            '--profile[Lumabas din nang may exit code 1 kapag tatanggihan ng tinukoy na catalog ang submission ng plugin sa isang check na pinapatakbo ng command na ito]:name:(directory)' \
             '--json[Ilabas ang validation report bilang JSON (parehong mga exit code)]' \
             '(-h --help)'{-h,--help}'[Ipakita ang tulong]' \
             '1:path:_files'
@@ -512,7 +541,10 @@ _claude_plugin() {
         install|i)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Saklaw ng pag-install]:scope:(user project local)' \
+            '--accept-command[Tanggapin ang command na idineklara ng marketplace na ang sha256 ay iniulat ng nakaraang --json run bilang shownCommand.sha256]:sha256:' \
             '*--config[Itakda ang isang userConfig option na idineklara sa plugin manifest (maaaring ulitin)]:key=value:' \
+            '--marketplace[I-install ang plugin ayon sa payak na pangalan nito mula sa marketplace sa source na ito (owner/repo, git o https URL, o path), idinadagdag muna ito kung kailangan]:source:' \
+            '--registry[Para sa package@npm install: mag-resolve at mag-download mula sa npm registry na ito]:url:' \
             '(-y --yes)'{-y,--yes}'[Tanggapin ang ipinakitang command na idineklara ng marketplace nang walang confirmation prompt]' \
             '--json[Mag-print ng isang machine-readable na linya ng resulta sa halip na ang mensaheng para sa tao]' \
             '(-h --help)'{-h,--help}'[Ipakita ang tulong]' \
@@ -545,6 +577,7 @@ _claude_plugin() {
           ;;
         update)
           _arguments \
+            '--accept-command[Tanggapin ang command na idineklara ng marketplace na ang sha256 ay iniulat ng nakaraang --json run bilang shownCommand.sha256]:sha256:' \
             '(-s --scope)'{-s,--scope}'[Saklaw ng pag-install]:scope:(user project local managed)' \
             '(-y --yes)'{-y,--yes}'[Tanggapin ang ipinakitang command na idineklara ng marketplace nang walang confirmation prompt]' \
             '--json[Mag-print ng isang machine-readable na linya ng resulta sa halip na ang mensaheng para sa tao]' \
@@ -555,6 +588,7 @@ _claude_plugin() {
           _arguments \
             '--json[Ilabas bilang JSON]' \
             '--available[Isama ang mga available na plugin mula sa mga marketplace (kailangan ang --json)]' \
+            '--data-size[Sukatin ang naka-save na data directory ng bawat naka-install na plugin, o ng tinukoy na plugin lang (kailangan ang --json)]::plugin:_claude_installed_plugins' \
             '(-h --help)'{-h,--help}'[Ipakita ang tulong]'
           ;;
         prune|autoremove)
@@ -587,6 +621,15 @@ _claude_plugin() {
             '1:name:'
           ;;
         eval)
+          if [[ $words[2] == init ]]; then
+            _arguments \
+              '--bare[Magsulat ng blangkong template sa halip na patakbuhin ang interview]' \
+              '--eval-dir[Direktoryo sa ilalim ng kasalukuyang direktoryo kung saan isusulat ang mga case]:dir:_directories' \
+              '(-i --interactive)'{-i,--interactive}'[Patakbuhin ang authoring interview (kailangan ng interactive terminal)]' \
+              '(-h --help)'{-h,--help}'[Ipakita ang tulong]' \
+              '::name:'
+            return
+          fi
           _arguments \
             '--case[I-filter ang mga case ayon sa name glob]:glob:' \
             '*--tag[I-filter ang mga case ayon sa tag (maaaring ulitin)]:tag:' \
@@ -600,6 +643,7 @@ _claude_plugin() {
             '--json[I-print ang buong resulta ng run bilang JSON sa stdout, o isulat ito sa .json file na ito]::path:_files' \
             '--threshold[Lumabas nang may exit code 1 kung may score ng case na mas mababa sa threshold na ito (default: 1.0)]:threshold:' \
             '*--allow-tools[Operator grant para sa mga gated tool (Bash, Write, Edit, WebFetch, mcp__*)]:tools:' \
+            '*--disallow-tools[Mga built-in tool na hindi ibibigay kay Claude sa anumang kaso, kahit na pinahintulutan]:tools:' \
             '(--no-scaffold)--scaffold[Patakbuhin ang scaffold_script ng bawat case (nagpapatakbo ng bash na ibinigay ng author sa ilalim ng iyong account; naka-off by default)]' \
             '(--scaffold)--no-scaffold[Tahasang laktawan ang scaffold_script]' \
             '--trust-plugin[Ipahayag na pinagkakatiwalaan mo ang plugin na ito at ang eval suite nito, nilalaktawan ang trust prompt sa unang run (para sa CI)]' \
@@ -612,7 +656,7 @@ _claude_plugin() {
             '(--no-publish)--publish-report[Hingin din na i-publish ang report sa claude.ai]' \
             '(--publish-report)--no-publish[Panatilihing lokal lang ang HTML report; laktawan ang pag-publish nito sa claude.ai]' \
             '(-h --help)'{-h,--help}'[Ipakita ang tulong]' \
-            '::target: _alternative "plugins\:installed plugin\:_claude_installed_plugins" "files\:path\:_files"'
+            '::target: _alternative "commands\:eval command\:(init)" "plugins\:installed plugin\:_claude_installed_plugins" "files\:path\:_files"'
           ;;
         tag)
           _arguments \
@@ -663,6 +707,7 @@ _claude_plugin_marketplace() {
           _arguments \
             '--sparse[Limitahan ang checkout sa mga partikular na direktoryo gamit ang git sparse-checkout (para sa mga monorepo)]:paths:' \
             '--scope[Kung saan idedeklara ang marketplace]:scope:(user project local)' \
+            '--json[Mag-print ng isang machine-readable na linya ng resulta bilang huling linya sa stdout]' \
             '--claudeai[Idagdag ang marketplace na may ganitong pangalan na hino-host ng claude.ai para sa iyo]' \
             '(-h --help)'{-h,--help}'[Ipakita ang tulong]' \
             '1:source:'
@@ -675,11 +720,13 @@ _claude_plugin_marketplace() {
         remove|rm)
           _arguments \
             '--scope[Alisin ang deklarasyon ng marketplace mula sa isang partikular na settings scope (huwag tukuyin para alisin ito sa bawat scope)]:scope:(user project local)' \
+            '--json[Mag-print ng isang machine-readable na linya ng resulta bilang huling linya sa stdout]' \
             '(-h --help)'{-h,--help}'[Ipakita ang tulong]' \
             '1:name:'
           ;;
         update)
           _arguments \
+            '--json[Kasama ang pangalan ng marketplace: mag-print ng isang machine-readable na linya ng resulta bilang huling linya sa stdout]' \
             '(-h --help)'{-h,--help}'[Ipakita ang tulong]' \
             '::name:'
           ;;
@@ -851,12 +898,23 @@ _claude_project() {
   esac
 }
 
+_claude_purge() {
+  _arguments \
+    '--dry-run[Ilista ang buburahin nang walang binubura]' \
+    '(-y --yes)'{-y,--yes}'[Laktawan ang confirmation prompt]' \
+    '(-i --interactive)'{-i,--interactive}'[Magtanong para sa bawat item bago burahin]' \
+    '(1)--all[Burahin ang state para sa bawat project (hindi maaaring isabay sa isang path)]' \
+    '(-h --help)'{-h,--help}'[Ipakita ang tulong para sa command]' \
+    '(--all)::path:_directories'
+}
+
 _claude_ultrareview() {
   _arguments \
     '--json[I-print ang raw bugs.json payload sa halip na mga naka-format na natuklasan]' \
     '--timeout[Pinakamatagal na bilang ng minutong hihintayin para matapos ang review (default: 45)]:minutes:' \
     '(--no-post)--post[I-post ang mga natuklasan ng natapos na review sa PR sa ilalim ng iyong account (mga PR target lang; isang simpleng comment, hindi review)]' \
     '(--post)--no-post[Huwag i-post ang mga natuklasan sa PR (ang default)]' \
+    '--trust-workspace[Pagkatiwalaan ang kasalukuyang folder para sa run na ito lang, nang hindi nagtatanong (para sa mga script at CI)]' \
     '(-h --help)'{-h,--help}'[Ipakita ang tulong para sa command]' \
     '1:target:'
 }
@@ -874,6 +932,117 @@ _claude_rm() {
     '--force-remove-worktree[Burahin ang worktree directory kahit hindi ito naalis ng WorktreeRemove hook o ng git (ipasa ang worktree-id na iniulat ng naunang claude rm)]:worktree-id:' \
     '(-h --help)'{-h,--help}'[Ipakita ang tulong para sa command]' \
     '1:session:_claude_background_sessions'
+}
+
+_claude_self_hosted_runner() {
+  _arguments \
+    '--api-url[Base URL ng API (default: https://api.anthropic.com)]:url:' \
+    '--environment-secret-file[Path papunta sa environment secret file]:path:_files' \
+    '--lock-to-account[I-lock ang runner sa iisang account sa pag-register]:id:' \
+    '--client-label[Observability label na ipinapadala sa pag-register (default: hostname)]:label:' \
+    '(--proxy-authorization-file --agent-proxy-url)--proxy-authorization-command[Command na ang stdout ay ang Proxy-Authorization header para sa mga egress proxy]:shell command:' \
+    '(--proxy-authorization-command --agent-proxy-url)--proxy-authorization-file[File na naglalaman ng Proxy-Authorization header para sa mga egress proxy]:path:_files' \
+    '(--proxy-authorization-command --proxy-authorization-file)--agent-proxy-url[Iruta ang bawat session sa agent proxy sa URL na ito (https lang)]:url:' \
+    '--capacity[Pinakamaraming sabay-sabay na session (default: 1)]:n:' \
+    '--base-dir[Base na direktoryo para sa mga repo checkout (default: /workspace)]:path:_directories' \
+    '--exec-path[Binary na gagamitin para sa mga child session (default: ang binary na ito)]:path:_files' \
+    '--hooks-dir[Direktoryo ng mga lifecycle hook script (checkout, command, post-session)]:path:_directories' \
+    '--session-stop-grace-sec[Gaano katagal maghihintay ng malinis na exit pagkatapos matapos ang session (default: 5)]:n:' \
+    '--post-session-hook-timeout-sec[Palugit pagkatapos ng SIGTERM para sa post-session hook (default: 60)]:n:' \
+    '--checkout-hook-timeout-min[Wall-clock na limitasyon para sa bawat run ng checkout hook (default: 30; 0 para i-disable)]:n:' \
+    '--drain-wait-sec[Sa SIGTERM/SIGINT, maghintay nang hanggang N segundo para sa kasalukuyang trabaho (default: 0)]:n:' \
+    '--drain-marker-file[Marker file kung saan inaanunsyo ng host ang maayos na drain]:path:_files' \
+    '*--git-ssh-rewrite[I-rewrite ang mga source URL na https://<host>/... bilang git@<host>:... (maaaring ulitin)]:host:' \
+    '*--git-host-rewrite[I-rewrite ang mga source URL na https://<f>/... bilang https://<t>/... (maaaring ulitin)]:from=to:' \
+    '--use-anthropic-git-proxy[Gamitin ang git na pinamamahalaan ng Anthropic. BABALA: binubura at pinapalitan ang HOME-level na git config, gamitin lang sa isang nakalaang account]' \
+    '--configure-git[Itakda ang global na git identity at paganahin ang commit signing gamit ang Anthropic signing service. Isinusulat ang ~/.gitconfig]' \
+    '--push-outcome-on-release[I-push ang mga sinusubaybayang outcome branch kapag ang runner ang nagtapos sa isang hindi pa kumpletong session]' \
+    '--trust-workspace[Maglagay nang maaga ng persistent na trust para sa mga repo path ng bawat session (default: true)]::bool:(true false)' \
+    '--remove-session-state[Alisin ang state ng session kapag natapos ang session (default: false)]::bool:(true false)' \
+    '--diff-finds-nested-repository[Ipakita ang repository na na-clone sa isang sub-folder sa Changes pane; kailangan ang --capacity 1 (default: false)]::bool:(true false)' \
+    '--confine-repo-settings[Guard mode na naglilimita sa mga setting na naka-commit sa repo (default: warn)]:mode:(warn enforce off)' \
+    '--server-auto-mode-lists[Aling mga auto mode classifier list mula sa server ang maaaring matanggap ng session (default: no-allow)]:mode:(all no-allow none)' \
+    '--host-config-snapshot[Kung saan itinatago ang startup snapshot ng host config (default: disk)]:mode:(disk memory)' \
+    '--health-port[Port para sa /healthz HTTP listener (default: 8080; 0 para i-disable)]:port:' \
+    '--log-level[Log level (default: info)]:level:(info debug)' \
+    '--log-file[Kopyahin din ang mga runner log sa isang file sa append mode]:path:_files' \
+    '--exit-if-unused-min[Lumabas sa runner kung walang naitalagang trabaho sa loob ng N minuto]:n:' \
+    '--drain-grace-sec[Ilang segundo pang magpo-poll para sa trabaho pagkatapos matapos ang mga aktibong session (default: 0)]:n:' \
+    '--retire-at[Iretiro ang runner sa absolute Unix time na ito, sa segundo]:epoch-seconds:' \
+    '--defer-shutdown-max-min[Sa unang SIGTERM/SIGINT, huminto sa pagtanggap ng trabaho at tapusin ang pag-shut down pagkalipas ng M minuto (default: 0)]:m:' \
+    '--release-idle-session-min[Bitawan ang isang session slot pagkatapos ng N minutong walang input ng user]:n:' \
+    '--startup-timeout-min[Bitawan ang isang session slot kung hindi pa tapos mag-start up ang child pagkalipas ng N minuto (default: 15; 0 para i-disable)]:n:' \
+    '--kill-session-after-min[Limitahan sa N minuto ang wall-clock na buhay ng isang session child]:n:' \
+    '--debug-token-dir[PARA SA DEBUG LANG: isinusulat sa disk ang mga live token. Huwag gamitin sa production]:path:_directories' \
+    '(-h --help)'{-h,--help}'[Ipakita ang help message na ito]'
+}
+
+_claude_remote_control() {
+  _arguments \
+    '--name[Pangalan ng session (ipinapakita sa claude.ai/code)]:name:' \
+    '--remote-control-session-name-prefix[Prefix para sa mga awtomatikong nabuong pangalan ng session (default: hostname)]:prefix:' \
+    '(-c --continue --session-id)'{-c,--continue}'[Muling kumonekta sa session na huling naitala para sa direktoryong ito o sa isa sa mga git worktree nito]' \
+    '(-c --continue --session-id)--session-id[Muling kumonekta sa isang partikular na session ayon sa ID]:id:' \
+    '--permission-mode[Permission mode para sa mga sinimulang session]:mode:(acceptEdits auto bypassPermissions default dontAsk plan)' \
+    '(--no-chrome)--chrome[Paganahin ang Claude in Chrome para sa mga sinimulang session]' \
+    '(--chrome)--no-chrome[I-disable ang Claude in Chrome para sa mga sinimulang session]' \
+    '(-d --debug)'{-d,--debug}'[Paganahin ang debug mode na may opsyonal na pag-filter ng kategorya]::filter:' \
+    '--debug-file[Isulat ang mga debug log sa file]:path:_files' \
+    '(-v --verbose)'{-v,--verbose}'[Paganahin ang verbose output]' \
+    '--spawn[Mode ng pag-spawn (default: same-dir)]:mode:(same-dir worktree session)' \
+    '--capacity[Pinakamaraming sabay-sabay na session sa worktree o same-dir mode (default: 32)]:n:' \
+    '(--no-create-session-in-dir)--create-session-in-dir[Gumawa nang maaga ng session sa kasalukuyang direktoryo (default)]' \
+    '(--create-session-in-dir)--no-create-session-in-dir[Huwag gumawa nang maaga ng session sa kasalukuyang direktoryo]' \
+    '(-h --help)'{-h,--help}'[Ipakita ang tulong na ito]'
+}
+
+_claude_daemon() {
+  local -a daemon_commands common_options
+  daemon_commands=(
+    'run:Patakbuhin ang supervisor sa foreground'
+    'status:Ipakita ang pid, bersyon, uptime ng daemon'
+    'logs:Sundan ang daemon log (Ctrl-C para huminto)'
+    'uninstall:Alisin ang background service (launchctl/systemd)'
+    'stop:I-shut down ang supervisor at tapusin ang mga background session'
+  )
+  common_options=(
+    '--json-path[File ng config (default: ~/.claude/daemon.json)]:path:_files'
+    '--log-file[File ng log (default: ~/.claude/daemon.log)]:path:_files'
+    '(-h --help)'{-h,--help}'[Ipakita ang tulong na ito]'
+  )
+
+  local curcontext="$curcontext" state line
+  typeset -A opt_args
+
+  _arguments -C \
+    $common_options \
+    '1: :->command' \
+    '*::arg:->args'
+
+  case $state in
+    command)
+      _describe -t commands 'mga daemon command' daemon_commands
+      ;;
+    args)
+      case $words[1] in
+        run)
+          _arguments \
+            $common_options \
+            '::json-path:_files'
+          ;;
+        stop)
+          _arguments \
+            $common_options \
+            '--any[Ihinto rin ang pansamantalang daemon (hindi service)]' \
+            '--keep-workers[Hayaang tumatakbo ang mga detached na session]'
+          ;;
+        status|logs|uninstall)
+          _arguments \
+            $common_options
+          ;;
+      esac
+      ;;
+  esac
 }
 
 _claude_import() {

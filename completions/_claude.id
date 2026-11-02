@@ -200,11 +200,15 @@ _claude() {
     'stop:Hentikan sesi latar belakang (percakapannya tetap disimpan)'
     'respawn:Mulai ulang sesi latar belakang agar menjalankan versi Claude Code saat ini'
     'rm:Hapus sesi latar belakang, beserta worktree-nya jika aman'
+    'remote-control:Kendalikan sesi lokal dari claude.ai/code atau aplikasi seluler Claude'
+    'daemon:Kelola supervisor sesi latar belakang'
     'auth:Kelola autentikasi'
     'auto-mode:Periksa atau reset konfigurasi klasifikator mode otomatis'
     'gateway:Jalankan gateway auth/telemetri enterprise'
+    'self-hosted-runner:Host sesi cloud Claude Code di mesin atau container ini'
     'import:Impor konfigurasi dari agen coding AI lain ke Claude Code'
     'project:Kelola status proyek Claude Code'
+    'purge:Hapus semua status Claude Code untuk proyek (transkrip, tugas, riwayat file, entri konfigurasi)'
     'ultrareview:Jalankan tinjauan kode multi-agen berbasis cloud dan cetak temuannya'
     'setup-token:Atur token autentikasi jangka panjang (memerlukan langganan Claude)'
     'doctor:Pemeriksaan kesehatan untuk auto-updater Claude Code'
@@ -221,11 +225,11 @@ _claude() {
     '--json-schema[Skema JSON untuk validasi output terstruktur]:schema:'
     '--include-partial-messages[Sertakan potongan pesan parsial saat tiba (dengan --print dan --output-format=stream-json)]'
     '--input-format[Format input (dengan --print): "text" (default) atau "stream-json" (input streaming real-time)]:format:(text stream-json)'
-    '--mcp-debug[\[Usang. Gunakan --debug sebagai gantinya\] Aktifkan mode debug MCP (menampilkan error server MCP)]'
     '--dangerously-skip-permissions[Lewati semua pemeriksaan izin. Disarankan hanya untuk sandbox tanpa akses internet]'
     '--allow-dangerously-skip-permissions[Aktifkan opsi untuk melewati pemeriksaan izin tanpa mengaktifkan secara default]'
     '--restricted[Mode terbatas: hapus tool yang menjalankan perintah atau kode serta WebFetch, abaikan pengaturan user/project/local, dan batasi tool file ke direktori kerja]'
     '--max-budget-usd[Jumlah dolar maksimum untuk dibelanjakan pada panggilan API (hanya --print)]:amount:'
+    '--max-turns[Batasi jumlah giliran agentik (hanya --print)]:turns:'
     '--replay-user-messages[Kirim ulang pesan pengguna dari stdin ke stdout untuk konfirmasi]'
     '--allowed-tools[Daftar nama tool yang diizinkan, dipisahkan koma atau spasi (mis., "Bash(git:*) Edit")]:tools:'
     '--allowedTools[Daftar nama tool yang diizinkan, dipisahkan koma atau spasi (format camelCase)]:tools:'
@@ -237,6 +241,8 @@ _claude() {
     '--system-prompt-file[Baca prompt sistem dari file]:file:_files'
     '--append-system-prompt[Tambahkan prompt sistem ke prompt sistem default]:prompt:'
     '--append-system-prompt-file[Baca prompt sistem dari file dan tambahkan ke prompt sistem default]:file:_files'
+    '(--append-subagent-system-prompt-file)--append-subagent-system-prompt[Tambahkan teks ke prompt sistem setiap subagen (hanya --print)]:prompt:'
+    '(--append-subagent-system-prompt)--append-subagent-system-prompt-file[Baca teks dari file dan tambahkan ke prompt sistem subagen (hanya --print)]:file:_files'
     '--system-prompt-snapshot[Rekam prompt sistem sekali per percakapan dan gunakan ulang apa adanya pada setiap permintaan dan saat melanjutkan (on, default) atau render ulang pada setiap permintaan (off)]:mode:(on off)'
     '--permission-mode[Mode izin untuk digunakan dalam sesi]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)'
     '--permission-prompts[Siapa yang menjawab prompt izin dengan --print: "host" (host SDK atau --permission-prompt-tool) atau "none" (apa pun yang akan memunculkan prompt ditolak)]:target:(host none)'
@@ -256,6 +262,8 @@ _claude() {
     '--strict-mcp-config[Gunakan hanya server MCP dari --mcp-config dan abaikan semua pengaturan MCP lainnya]'
     '--session-id[ID sesi spesifik untuk digunakan dalam percakapan (harus UUID valid)]:uuid:'
     '--agents[Objek JSON yang mendefinisikan agen kustom]:json:'
+    '--advisor[Aktifkan tool advisor sisi server untuk sesi ini dengan alias model atau ID model lengkap]:model:_claude_model_names'
+    '--teammate-mode[Cara anggota tim agen ditampilkan]:mode:(in-process auto tmux iterm2)'
     '--setting-sources[Daftar sumber pengaturan yang akan dimuat, dipisahkan koma (user, project, local)]:sources:'
     '--plugin-dir[Direktori untuk memuat plugin hanya untuk sesi ini (dapat diulang)]:paths:_directories'
     '--disable-slash-commands[Nonaktifkan semua perintah slash]'
@@ -268,9 +276,11 @@ _claude() {
     '--debug-file[Tulis log debug ke jalur file tertentu (secara implisit mengaktifkan mode debug)]:path:_files'
     '--from-pr[Lanjutkan sesi yang tertaut ke PR berdasarkan nomor/URL, atau buka pemilih interaktif]::value:'
     '--teleport[Lanjutkan sesi teleport, opsional tentukan ID sesi]::session:'
-    '--cloud[Buat sesi cloud dengan deskripsi yang diberikan, atau sambungkan ke sesi yang ada berdasarkan ID sesi atau URL claude.ai/code]::description-or-session:'
+    '(--remote)--cloud[Buat sesi cloud dengan deskripsi yang diberikan, atau sambungkan ke sesi yang ada berdasarkan ID sesi atau URL claude.ai/code]::description-or-session:'
+    '(--cloud)--remote[Alias usang untuk --cloud]::description-or-session:'
     '--environment[Buat sesi cloud baru yang berjalan di environment self-hosted yang diberikan (ccpool_...)]:environment_id:'
-    '--remote-control[Mulai sesi interaktif dengan Remote Control diaktifkan (opsional diberi nama)]::name:'
+    '--ref[Dengan --environment: dasarkan checkout sesi baru pada ref bernama alih-alih HEAD lokal]:branch:'
+    '(--remote-control --rc)'{--remote-control,--rc}'[Mulai sesi interaktif dengan Remote Control diaktifkan (opsional diberi nama)]::name:'
     '--remote-control-session-name-prefix[Prefiks untuk nama sesi Remote Control yang dibuat otomatis]:prefix:'
     '--chrome[Aktifkan integrasi Claude in Chrome]'
     '--no-chrome[Nonaktifkan integrasi Claude in Chrome]'
@@ -281,6 +291,11 @@ _claude() {
     '--include-hook-events[Sertakan semua peristiwa siklus hidup hook dalam aliran output (dengan stream-json)]'
     '--exclude-dynamic-system-prompt-sections[Pindahkan bagian per-mesin ke pesan pengguna pertama untuk meningkatkan penggunaan ulang cache prompt]'
     '--brief[Aktifkan tool SendUserMessage untuk komunikasi agen-ke-pengguna]'
+    '*--channels[(Pratinjau riset) Server MCP yang notifikasi channel-nya akan didengarkan (plugin\:<name>@<marketplace>)]:entries:'
+    '*--dangerously-load-development-channels[Aktifkan channel yang tidak ada di allowlist yang disetujui, untuk pengembangan lokal (plugin\:<name>@<marketplace> atau server\:<name>)]:entries:'
+    '--init[Jalankan hook Setup dengan matcher init sebelum sesi (hanya --print)]'
+    '--init-only[Jalankan hook Setup dan SessionStart, lalu keluar tanpa memulai percakapan]'
+    '--maintenance[Jalankan hook Setup dengan matcher maintenance sebelum sesi (hanya --print)]'
     '--safe-mode[Mulai dengan semua kustomisasi dinonaktifkan (berguna untuk memecahkan masalah konfigurasi yang rusak)]'
     '--bare[Mode minimal: lewati hooks, LSP, sinkronisasi plugin, atribusi, auto-memory, dan penemuan otomatis CLAUDE.md]'
     '--ax-screen-reader[Render output ramah pembaca layar (teks datar, tanpa batas dekoratif atau animasi)]'
@@ -304,7 +319,7 @@ _claude() {
         mcp)
           _claude_mcp
           ;;
-        plugin)
+        plugin|plugins)
           _claude_plugin
           ;;
         install)
@@ -324,6 +339,12 @@ _claude() {
         rm)
           _claude_rm
           ;;
+        remote-control|rc|remote|sync|bridge)
+          _claude_remote_control
+          ;;
+        daemon)
+          _claude_daemon
+          ;;
         auth)
           _claude_auth
           ;;
@@ -333,17 +354,24 @@ _claude() {
         gateway)
           _claude_gateway
           ;;
+        self-hosted-runner)
+          _claude_self_hosted_runner
+          ;;
         import)
           _claude_import
           ;;
         project)
           _claude_project
           ;;
+        purge)
+          _claude_purge
+          ;;
         ultrareview)
           _claude_ultrareview
           ;;
-        setup-token|doctor|update)
-          _message "tanpa argumen"
+        setup-token|doctor|update|upgrade)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Tampilkan bantuan untuk perintah]'
           ;;
         *)
           # Not a command but the prompt: options may still follow it
@@ -502,6 +530,7 @@ _claude_plugin() {
         validate)
           _arguments \
             '--strict[Perlakukan peringatan sebagai error (kode keluar 1)]' \
+            '--profile[Keluar juga dengan exit 1 jika katalog yang disebut akan menolak pengajuan plugin pada pemeriksaan yang dijalankan perintah ini]:name:(directory)' \
             '--json[Keluarkan laporan validasi sebagai JSON (kode keluar sama)]' \
             '(-h --help)'{-h,--help}'[Tampilkan bantuan]' \
             '1:path:_files'
@@ -512,7 +541,10 @@ _claude_plugin() {
         install|i)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Cakupan instalasi]:scope:(user project local)' \
+            '--accept-command[Terima perintah yang dideklarasikan marketplace yang sha256-nya dilaporkan run --json sebelumnya sebagai shownCommand.sha256]:sha256:' \
             '*--config[Atur opsi userConfig yang dideklarasikan di manifest plugin (dapat diulang)]:key=value:' \
+            '--marketplace[Instal plugin berdasarkan nama polosnya dari marketplace di sumber ini (owner/repo, URL git atau https, atau path), tambahkan dulu jika perlu]:source:' \
+            '--registry[Untuk instalasi package@npm: resolve dan unduh dari registry npm ini]:url:' \
             '(-y --yes)'{-y,--yes}'[Terima perintah yang dideklarasikan marketplace yang ditampilkan tanpa prompt konfirmasi]' \
             '--json[Cetak satu baris hasil yang dapat dibaca mesin alih-alih pesan untuk manusia]' \
             '(-h --help)'{-h,--help}'[Tampilkan bantuan]' \
@@ -545,6 +577,7 @@ _claude_plugin() {
           ;;
         update)
           _arguments \
+            '--accept-command[Terima perintah yang dideklarasikan marketplace yang sha256-nya dilaporkan run --json sebelumnya sebagai shownCommand.sha256]:sha256:' \
             '(-s --scope)'{-s,--scope}'[Cakupan instalasi]:scope:(user project local managed)' \
             '(-y --yes)'{-y,--yes}'[Terima perintah yang dideklarasikan marketplace yang ditampilkan tanpa prompt konfirmasi]' \
             '--json[Cetak satu baris hasil yang dapat dibaca mesin alih-alih pesan untuk manusia]' \
@@ -555,6 +588,7 @@ _claude_plugin() {
           _arguments \
             '--json[Keluarkan sebagai JSON]' \
             '--available[Sertakan plugin yang tersedia dari marketplace (memerlukan --json)]' \
+            '--data-size[Ukur direktori data tersimpan setiap plugin yang terinstal, atau hanya plugin yang disebut (memerlukan --json)]::plugin:_claude_installed_plugins' \
             '(-h --help)'{-h,--help}'[Tampilkan bantuan]'
           ;;
         prune|autoremove)
@@ -587,6 +621,15 @@ _claude_plugin() {
             '1:name:'
           ;;
         eval)
+          if [[ $words[2] == init ]]; then
+            _arguments \
+              '--bare[Tulis template kosong alih-alih menjalankan wawancara]' \
+              '--eval-dir[Direktori di bawah direktori saat ini untuk menulis case]:dir:_directories' \
+              '(-i --interactive)'{-i,--interactive}'[Jalankan wawancara penyusunan (memerlukan terminal interaktif)]' \
+              '(-h --help)'{-h,--help}'[Tampilkan bantuan]' \
+              '::name:'
+            return
+          fi
           _arguments \
             '--case[Filter kasus berdasarkan glob nama]:glob:' \
             '*--tag[Filter kasus berdasarkan tag (dapat diulang)]:tag:' \
@@ -600,6 +643,7 @@ _claude_plugin() {
             '--json[Cetak hasil run lengkap sebagai JSON ke stdout, atau tulis ke file .json ini]::path:_files' \
             '--threshold[Keluar dengan kode keluar 1 jika skor kasus mana pun di bawah ambang ini (default: 1.0)]:threshold:' \
             '*--allow-tools[Izin operator untuk tool yang dibatasi (Bash, Write, Edit, WebFetch, mcp__*)]:tools:' \
+            '*--disallow-tools[Tool bawaan yang ditahan dari Claude dalam setiap kasus, meskipun diizinkan]:tools:' \
             '(--no-scaffold)--scaffold[Jalankan scaffold_script setiap kasus (menjalankan bash dari penulis atas nama Anda; nonaktif secara default)]' \
             '(--scaffold)--no-scaffold[Lewati scaffold_script secara eksplisit]' \
             '--trust-plugin[Nyatakan bahwa Anda memercayai plugin ini dan suite eval-nya, melewati prompt kepercayaan saat pertama kali dijalankan (untuk CI)]' \
@@ -612,7 +656,7 @@ _claude_plugin() {
             '(--no-publish)--publish-report[Juga wajibkan publikasi laporan ke claude.ai]' \
             '(--publish-report)--no-publish[Simpan laporan HTML hanya secara lokal; lewati publikasi ke claude.ai]' \
             '(-h --help)'{-h,--help}'[Tampilkan bantuan]' \
-            '::target: _alternative "plugins\:installed plugin\:_claude_installed_plugins" "files\:path\:_files"'
+            '::target: _alternative "commands\:eval command\:(init)" "plugins\:installed plugin\:_claude_installed_plugins" "files\:path\:_files"'
           ;;
         tag)
           _arguments \
@@ -663,6 +707,7 @@ _claude_plugin_marketplace() {
           _arguments \
             '--sparse[Batasi checkout ke direktori tertentu melalui git sparse-checkout (untuk monorepo)]:paths:' \
             '--scope[Tempat mendeklarasikan marketplace]:scope:(user project local)' \
+            '--json[Cetak satu baris hasil yang dapat dibaca mesin sebagai baris terakhir di stdout]' \
             '--claudeai[Tambahkan marketplace dengan nama ini yang di-host claude.ai untuk Anda]' \
             '(-h --help)'{-h,--help}'[Tampilkan bantuan]' \
             '1:source:'
@@ -675,11 +720,13 @@ _claude_plugin_marketplace() {
         remove|rm)
           _arguments \
             '--scope[Hapus deklarasi marketplace dari cakupan pengaturan tertentu (jika tidak ditentukan, hapus dari semua cakupan)]:scope:(user project local)' \
+            '--json[Cetak satu baris hasil yang dapat dibaca mesin sebagai baris terakhir di stdout]' \
             '(-h --help)'{-h,--help}'[Tampilkan bantuan]' \
             '1:name:'
           ;;
         update)
           _arguments \
+            '--json[Dengan nama marketplace: cetak satu baris hasil yang dapat dibaca mesin sebagai baris terakhir di stdout]' \
             '(-h --help)'{-h,--help}'[Tampilkan bantuan]' \
             '::name:'
           ;;
@@ -851,12 +898,23 @@ _claude_project() {
   esac
 }
 
+_claude_purge() {
+  _arguments \
+    '--dry-run[Tampilkan daftar yang akan dihapus tanpa menghapus apa pun]' \
+    '(-y --yes)'{-y,--yes}'[Lewati prompt konfirmasi]' \
+    '(-i --interactive)'{-i,--interactive}'[Minta konfirmasi untuk setiap item sebelum menghapus]' \
+    '(1)--all[Hapus status untuk setiap proyek (tidak dapat digabung dengan path)]' \
+    '(-h --help)'{-h,--help}'[Tampilkan bantuan untuk perintah]' \
+    '(--all)::path:_directories'
+}
+
 _claude_ultrareview() {
   _arguments \
     '--json[Cetak payload bugs.json mentah alih-alih temuan yang diformat]' \
     '--timeout[Menit maksimum untuk menunggu tinjauan selesai (default: 45)]:minutes:' \
     '(--no-post)--post[Posting temuan tinjauan yang selesai ke PR atas nama Anda (hanya target PR; satu komentar biasa, bukan review)]' \
     '(--post)--no-post[Jangan posting temuan ke PR (default)]' \
+    '--trust-workspace[Percayai folder saat ini hanya untuk run ini, tanpa bertanya (untuk skrip dan CI)]' \
     '(-h --help)'{-h,--help}'[Tampilkan bantuan untuk perintah]' \
     '1:target:'
 }
@@ -874,6 +932,117 @@ _claude_rm() {
     '--force-remove-worktree[Hapus direktori worktree meskipun hook WorktreeRemove atau git tidak dapat menghapusnya (berikan worktree-id yang dilaporkan claude rm sebelumnya)]:worktree-id:' \
     '(-h --help)'{-h,--help}'[Tampilkan bantuan untuk perintah]' \
     '1:session:_claude_background_sessions'
+}
+
+_claude_self_hosted_runner() {
+  _arguments \
+    '--api-url[URL dasar API (default: https://api.anthropic.com)]:url:' \
+    '--environment-secret-file[Path ke file rahasia environment]:path:_files' \
+    '--lock-to-account[Kunci runner ke satu akun saat registrasi]:id:' \
+    '--client-label[Label observabilitas yang dikirim saat registrasi (default: hostname)]:label:' \
+    '(--proxy-authorization-file --agent-proxy-url)--proxy-authorization-command[Perintah yang stdout-nya adalah header Proxy-Authorization untuk proxy egress]:shell command:' \
+    '(--proxy-authorization-command --agent-proxy-url)--proxy-authorization-file[File berisi header Proxy-Authorization untuk proxy egress]:path:_files' \
+    '(--proxy-authorization-command --proxy-authorization-file)--agent-proxy-url[Arahkan setiap sesi melalui proxy agen di URL ini (hanya https)]:url:' \
+    '--capacity[Sesi bersamaan maksimum (default: 1)]:n:' \
+    '--base-dir[Direktori dasar untuk checkout repo (default: /workspace)]:path:_directories' \
+    '--exec-path[Binary yang dijalankan untuk sesi anak (default: binary ini)]:path:_files' \
+    '--hooks-dir[Direktori skrip hook siklus hidup (checkout, command, post-session)]:path:_directories' \
+    '--session-stop-grace-sec[Berapa lama menunggu keluar bersih setelah sesi berakhir (default: 5)]:n:' \
+    '--post-session-hook-timeout-sec[Anggaran SIGTERM untuk hook post-session (default: 60)]:n:' \
+    '--checkout-hook-timeout-min[Anggaran waktu nyata untuk setiap run hook checkout (default: 30; 0 menonaktifkan)]:n:' \
+    '--drain-wait-sec[Saat SIGTERM/SIGINT, tunggu hingga N detik untuk pekerjaan yang sedang berjalan (default: 0)]:n:' \
+    '--drain-marker-file[File penanda yang digunakan host untuk mengumumkan pengurasan yang tertib]:path:_files' \
+    '*--git-ssh-rewrite[Tulis ulang URL sumber https://<host>/... menjadi git@<host>:... (dapat diulang)]:host:' \
+    '*--git-host-rewrite[Tulis ulang URL sumber https://<f>/... menjadi https://<t>/... (dapat diulang)]:from=to:' \
+    '--use-anthropic-git-proxy[Gunakan git yang dikelola Anthropic. PERINGATAN: menghapus dan mengganti konfigurasi git tingkat HOME, gunakan hanya di akun khusus]' \
+    '--configure-git[Atur identitas git global dan aktifkan penandatanganan commit melalui layanan penandatanganan Anthropic. Menulis ~/.gitconfig]' \
+    '--push-outcome-on-release[Push branch hasil yang dilacak saat runner mengakhiri sesi yang belum selesai]' \
+    '--trust-workspace[Isi awal kepercayaan persisten untuk path repo setiap sesi (default: true)]::bool:(true false)' \
+    '--remove-session-state[Hapus status per sesi saat sesi berakhir (default: false)]::bool:(true false)' \
+    '--diff-finds-nested-repository[Tampilkan repository yang di-clone ke subfolder di panel Changes; memerlukan --capacity 1 (default: false)]::bool:(true false)' \
+    '--confine-repo-settings[Mode penjaga yang membatasi pengaturan yang di-commit di repo (default: warn)]:mode:(warn enforce off)' \
+    '--server-auto-mode-lists[Daftar classifier mode otomatis dari server yang boleh diterima sesi (default: no-allow)]:mode:(all no-allow none)' \
+    '--host-config-snapshot[Tempat snapshot startup konfigurasi host disimpan (default: disk)]:mode:(disk memory)' \
+    '--health-port[Port untuk listener HTTP /healthz (default: 8080; 0 menonaktifkan)]:port:' \
+    '--log-level[Level log (default: info)]:level:(info debug)' \
+    '--log-file[Salin juga log runner ke file dalam mode append]:path:_files' \
+    '--exit-if-unused-min[Keluar dari runner jika tidak pernah diberi pekerjaan selama N menit]:n:' \
+    '--drain-grace-sec[Detik untuk terus polling pekerjaan setelah sesi aktif selesai (default: 0)]:n:' \
+    '--retire-at[Pensiunkan runner pada waktu Unix absolut ini, dalam detik]:epoch-seconds:' \
+    '--defer-shutdown-max-min[Pada SIGTERM/SIGINT pertama, berhenti menerima pekerjaan dan selesaikan shutdown M menit kemudian (default: 0)]:m:' \
+    '--release-idle-session-min[Lepaskan slot sesi setelah N menit tanpa input pengguna]:n:' \
+    '--startup-timeout-min[Lepaskan slot sesi jika proses anak belum selesai dimulai setelah N menit (default: 15; 0 menonaktifkan)]:n:' \
+    '--kill-session-after-min[Batasi masa hidup waktu nyata proses anak sesi hingga N menit]:n:' \
+    '--debug-token-dir[HANYA UNTUK DEBUG: menulis token aktif ke disk. Jangan gunakan di produksi]:path:_directories' \
+    '(-h --help)'{-h,--help}'[Tampilkan pesan bantuan ini]'
+}
+
+_claude_remote_control() {
+  _arguments \
+    '--name[Nama untuk sesi (ditampilkan di claude.ai/code)]:name:' \
+    '--remote-control-session-name-prefix[Prefiks untuk nama sesi yang dibuat otomatis (default: hostname)]:prefix:' \
+    '(-c --continue --session-id)'{-c,--continue}'[Sambungkan ulang ke sesi yang terakhir dicatat untuk direktori ini atau salah satu git worktree-nya]' \
+    '(-c --continue --session-id)--session-id[Sambungkan ulang ke sesi tertentu berdasarkan ID]:id:' \
+    '--permission-mode[Mode izin untuk sesi yang dijalankan]:mode:(acceptEdits auto bypassPermissions default dontAsk plan)' \
+    '(--no-chrome)--chrome[Aktifkan Claude in Chrome untuk sesi yang dijalankan]' \
+    '(--chrome)--no-chrome[Nonaktifkan Claude in Chrome untuk sesi yang dijalankan]' \
+    '(-d --debug)'{-d,--debug}'[Aktifkan mode debug dengan filter kategori opsional]::filter:' \
+    '--debug-file[Tulis log debug ke file]:path:_files' \
+    '(-v --verbose)'{-v,--verbose}'[Aktifkan output verbose]' \
+    '--spawn[Mode spawn (default: same-dir)]:mode:(same-dir worktree session)' \
+    '--capacity[Sesi bersamaan maksimum dalam mode worktree atau same-dir (default: 32)]:n:' \
+    '(--no-create-session-in-dir)--create-session-in-dir[Buat sesi terlebih dahulu di direktori saat ini (default)]' \
+    '(--create-session-in-dir)--no-create-session-in-dir[Jangan buat sesi terlebih dahulu di direktori saat ini]' \
+    '(-h --help)'{-h,--help}'[Tampilkan bantuan ini]'
+}
+
+_claude_daemon() {
+  local -a daemon_commands common_options
+  daemon_commands=(
+    'run:Jalankan supervisor di foreground'
+    'status:Tampilkan pid, versi, uptime daemon'
+    'logs:Ikuti log daemon (Ctrl-C untuk berhenti)'
+    'uninstall:Hapus layanan latar belakang (launchctl/systemd)'
+    'stop:Matikan supervisor dan hentikan sesi latar belakang'
+  )
+  common_options=(
+    '--json-path[File konfigurasi (default: ~/.claude/daemon.json)]:path:_files'
+    '--log-file[File log (default: ~/.claude/daemon.log)]:path:_files'
+    '(-h --help)'{-h,--help}'[Tampilkan bantuan ini]'
+  )
+
+  local curcontext="$curcontext" state line
+  typeset -A opt_args
+
+  _arguments -C \
+    $common_options \
+    '1: :->command' \
+    '*::arg:->args'
+
+  case $state in
+    command)
+      _describe -t commands 'perintah daemon' daemon_commands
+      ;;
+    args)
+      case $words[1] in
+        run)
+          _arguments \
+            $common_options \
+            '::json-path:_files'
+          ;;
+        stop)
+          _arguments \
+            $common_options \
+            '--any[Hentikan juga daemon sementara (bukan layanan)]' \
+            '--keep-workers[Biarkan sesi yang terlepas tetap berjalan]'
+          ;;
+        status|logs|uninstall)
+          _arguments \
+            $common_options
+          ;;
+      esac
+      ;;
+  esac
 }
 
 _claude_import() {

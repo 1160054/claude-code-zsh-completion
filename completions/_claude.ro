@@ -200,11 +200,15 @@ _claude() {
     'stop:Oprire sesiune în fundal (conversația sa este păstrată)'
     'respawn:Repornire sesiune în fundal pentru a rula versiunea curentă Claude Code'
     'rm:Ștergere sesiune în fundal și a worktree-ului său când acest lucru este sigur'
+    'remote-control:Controlare sesiuni locale din claude.ai/code sau din aplicația mobilă Claude'
+    'daemon:Gestionare supervizor al sesiunilor în fundal'
     'auth:Gestionare autentificare'
     'auto-mode:Inspectare sau resetare configurație clasificator mod automat'
     'gateway:Rulare gateway enterprise de autentificare/telemetrie'
+    'self-hosted-runner:Găzduire sesiuni cloud Claude Code pe această mașină sau container'
     'import:Importare configurație din alt agent AI de programare în Claude Code'
     'project:Gestionare stare proiect Claude Code'
+    'purge:Ștergere toată starea Claude Code pentru un proiect (transcrieri, sarcini, istoric fișiere, intrare configurație)'
     'ultrareview:Rulare revizuire de cod multi-agent găzduită în cloud și afișare rezultate'
     'setup-token:Configurare token de autentificare pe termen lung (necesită abonament Claude)'
     'doctor:Verificare stare pentru actualizatorul automat Claude Code'
@@ -221,11 +225,11 @@ _claude() {
     '--json-schema[Schemă JSON pentru validare ieșire structurată]:schema:'
     '--include-partial-messages[Include fragmente de mesaje parțiale pe măsură ce sosesc (cu --print și --output-format=stream-json)]'
     '--input-format[Format intrare (cu --print): "text" (implicit) sau "stream-json" (intrare streaming în timp real)]:format:(text stream-json)'
-    '--mcp-debug[\[Depreciat. Folosiți --debug în schimb\] Activare mod depanare MCP (afișează erori server MCP)]'
     '--dangerously-skip-permissions[Ocolire toate verificările de permisiuni. Recomandat doar pentru sandbox-uri fără acces la internet]'
     '--allow-dangerously-skip-permissions[Activare opțiune de ocolire a verificărilor de permisiuni fără activare implicită]'
     '--restricted[Mod restricționat: eliminare unelte care rulează comenzi sau cod și WebFetch, ignorare setări user/project/local și limitare unelte de fișiere la directoarele de lucru]'
     '--max-budget-usd[Suma maximă în dolari de cheltuit pe apeluri API (doar --print)]:amount:'
+    '--max-turns[Limitare număr de ture agentice (doar --print)]:turns:'
     '--replay-user-messages[Retrimiteri mesaje utilizator de la stdin pe stdout pentru confirmare]'
     '--allowed-tools[Listă separată prin virgule sau spații de nume de unelte permise (ex: "Bash(git:*) Edit")]:tools:'
     '--allowedTools[Listă separată prin virgule sau spații de nume de unelte permise (format camelCase)]:tools:'
@@ -237,6 +241,8 @@ _claude() {
     '--system-prompt-file[Citire prompt sistem dintr-un fișier]:file:_files'
     '--append-system-prompt[Adăugare prompt sistem la promptul sistem implicit]:prompt:'
     '--append-system-prompt-file[Citire prompt sistem dintr-un fișier și adăugare la promptul sistem implicit]:file:_files'
+    '(--append-subagent-system-prompt-file)--append-subagent-system-prompt[Adăugare text la promptul de sistem al fiecărui subagent (doar --print)]:prompt:'
+    '(--append-subagent-system-prompt)--append-subagent-system-prompt-file[Citire text dintr-un fișier și adăugare la prompturile de sistem ale subagenților (doar --print)]:file:_files'
     '--system-prompt-snapshot[Înregistrare prompt sistem o singură dată per conversație și reutilizare identică la fiecare cerere și reluare (on, implicit) sau randare nouă la fiecare cerere (off)]:mode:(on off)'
     '--permission-mode[Mod permisiuni de utilizat pentru sesiune]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)'
     '--permission-prompts[Cine răspunde la solicitările de permisiune cu --print: "host" (gazda SDK sau --permission-prompt-tool) sau "none" (orice ar necesita o solicitare este refuzat)]:target:(host none)'
@@ -256,6 +262,8 @@ _claude() {
     '--strict-mcp-config[Utilizare doar servere MCP din --mcp-config și ignorare toate celelalte setări MCP]'
     '--session-id[ID sesiune specific de utilizat pentru conversație (trebuie să fie UUID valid)]:uuid:'
     '--agents[Obiect JSON definind agenți personalizați]:json:'
+    '--advisor[Activare unealtă de consilier pe server pentru această sesiune, cu un alias de model sau ID complet de model]:model:_claude_model_names'
+    '--teammate-mode[Modul de afișare a colegilor din echipa de agenți]:mode:(in-process auto tmux iterm2)'
     '--setting-sources[Listă separată prin virgule de surse de setări de încărcat (user, project, local)]:sources:'
     '--plugin-dir[Director pentru încărcare plugin-uri doar pentru această sesiune (repetabil)]:paths:_directories'
     '--disable-slash-commands[Dezactivare toate comenzile slash]'
@@ -268,9 +276,11 @@ _claude() {
     '--debug-file[Scriere jurnale de depanare într-o cale de fișier specifică (activează implicit modul depanare)]:path:_files'
     '--from-pr[Reluare sesiune legată de un PR după număr/URL, sau deschidere selector interactiv]::value:'
     '--teleport[Reluare sesiune teleport, opțional specificați ID sesiune]::session:'
-    '--cloud[Creare sesiune cloud cu descrierea dată sau atașare la una existentă după ID sesiune sau URL claude.ai/code]::description-or-session:'
+    '(--remote)--cloud[Creare sesiune cloud cu descrierea dată sau atașare la una existentă după ID sesiune sau URL claude.ai/code]::description-or-session:'
+    '(--cloud)--remote[Alias învechit pentru --cloud]::description-or-session:'
     '--environment[Creare sesiune cloud nouă care rulează în mediul auto-găzduit specificat (ccpool_...)]:environment_id:'
-    '--remote-control[Pornire sesiune interactivă cu Remote Control activat (opțional denumită)]::name:'
+    '--ref[Cu --environment: baza checkout-ului noii sesiuni pe un ref numit în loc de HEAD local]:branch:'
+    '(--remote-control --rc)'{--remote-control,--rc}'[Pornire sesiune interactivă cu Remote Control activat (opțional denumită)]::name:'
     '--remote-control-session-name-prefix[Prefix pentru numele de sesiune Remote Control generate automat]:prefix:'
     '--chrome[Activare integrare Claude în Chrome]'
     '--no-chrome[Dezactivare integrare Claude în Chrome]'
@@ -281,6 +291,11 @@ _claude() {
     '--include-hook-events[Includere toate evenimentele din ciclul de viață al hook-urilor în fluxul de ieșire (cu stream-json)]'
     '--exclude-dynamic-system-prompt-sections[Mutare secțiuni per-mașină în primul mesaj utilizator pentru a îmbunătăți reutilizarea cache-ului de prompt]'
     '--brief[Activare unealtă SendUserMessage pentru comunicare agent-către-utilizator]'
+    '*--channels[(Previzualizare de cercetare) Servere MCP ale căror notificări de canal se ascultă (plugin\:<name>@<marketplace>)]:entries:'
+    '*--dangerously-load-development-channels[Activare canale care nu sunt pe lista aprobată, pentru dezvoltare locală (plugin\:<name>@<marketplace> sau server\:<name>)]:entries:'
+    '--init[Rulare hook-uri Setup cu matcher-ul init înainte de sesiune (doar --print)]'
+    '--init-only[Rulare hook-uri Setup și SessionStart, apoi ieșire fără a începe o conversație]'
+    '--maintenance[Rulare hook-uri Setup cu matcher-ul maintenance înainte de sesiune (doar --print)]'
     '--safe-mode[Pornire cu toate personalizările dezactivate (util pentru depanarea unei configurații defecte)]'
     '--bare[Mod minimal: omite hook-uri, LSP, sincronizare plugin-uri, atribuire, auto-memorie și descoperirea automată CLAUDE.md]'
     '--ax-screen-reader[Randare ieșire prietenoasă cu cititoarele de ecran (text plat, fără borduri decorative sau animații)]'
@@ -304,7 +319,7 @@ _claude() {
         mcp)
           _claude_mcp
           ;;
-        plugin)
+        plugin|plugins)
           _claude_plugin
           ;;
         install)
@@ -324,6 +339,12 @@ _claude() {
         rm)
           _claude_rm
           ;;
+        remote-control|rc|remote|sync|bridge)
+          _claude_remote_control
+          ;;
+        daemon)
+          _claude_daemon
+          ;;
         auth)
           _claude_auth
           ;;
@@ -333,17 +354,24 @@ _claude() {
         gateway)
           _claude_gateway
           ;;
+        self-hosted-runner)
+          _claude_self_hosted_runner
+          ;;
         import)
           _claude_import
           ;;
         project)
           _claude_project
           ;;
+        purge)
+          _claude_purge
+          ;;
         ultrareview)
           _claude_ultrareview
           ;;
-        setup-token|doctor|update)
-          _message "fără argumente"
+        setup-token|doctor|update|upgrade)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Afișare ajutor pentru comandă]'
           ;;
         *)
           # Not a command but the prompt: options may still follow it
@@ -502,6 +530,7 @@ _claude_plugin() {
         validate)
           _arguments \
             '--strict[Tratare avertismente ca erori (cod de ieșire 1)]' \
+            '--profile[Ieșire cu 1 și atunci când catalogul numit ar refuza o trimitere a plugin-ului la o verificare rulată de această comandă]:name:(directory)' \
             '--json[Afișare raport de validare ca JSON (aceleași coduri de ieșire)]' \
             '(-h --help)'{-h,--help}'[Afișare ajutor]' \
             '1:path:_files'
@@ -512,7 +541,10 @@ _claude_plugin() {
         install|i)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Domeniu instalare]:scope:(user project local)' \
+            '--accept-command[Acceptare comandă declarată de marketplace al cărei sha256 a fost raportat de o rulare --json anterioară ca shownCommand.sha256]:sha256:' \
             '*--config[Setare opțiune userConfig declarată în manifestul plugin-ului (repetabil)]:key=value:' \
+            '--marketplace[Instalare plugin după numele simplu din marketplace-ul de la această sursă (owner/repo, URL git sau https, sau cale), adăugându-l mai întâi dacă e nevoie]:source:' \
+            '--registry[Pentru o instalare package@npm: rezolvare și descărcare din acest registru npm]:url:' \
             '(-y --yes)'{-y,--yes}'[Acceptare comandă afișată declarată de marketplace fără solicitarea de confirmare]' \
             '--json[Afișare o singură linie de rezultat lizibilă de mașină în loc de mesajul pentru oameni]' \
             '(-h --help)'{-h,--help}'[Afișare ajutor]' \
@@ -545,6 +577,7 @@ _claude_plugin() {
           ;;
         update)
           _arguments \
+            '--accept-command[Acceptare comandă declarată de marketplace al cărei sha256 a fost raportat de o rulare --json anterioară ca shownCommand.sha256]:sha256:' \
             '(-s --scope)'{-s,--scope}'[Domeniu instalare]:scope:(user project local managed)' \
             '(-y --yes)'{-y,--yes}'[Acceptare comandă afișată declarată de marketplace fără solicitarea de confirmare]' \
             '--json[Afișare o singură linie de rezultat lizibilă de mașină în loc de mesajul pentru oameni]' \
@@ -555,6 +588,7 @@ _claude_plugin() {
           _arguments \
             '--json[Afișare ca JSON]' \
             '--available[Includere plugin-uri disponibile din marketplace-uri (necesită --json)]' \
+            '--data-size[Măsurare director de date salvate al fiecărui plugin instalat, sau doar al plugin-ului numit (necesită --json)]::plugin:_claude_installed_plugins' \
             '(-h --help)'{-h,--help}'[Afișare ajutor]'
           ;;
         prune|autoremove)
@@ -587,6 +621,15 @@ _claude_plugin() {
             '1:name:'
           ;;
         eval)
+          if [[ $words[2] == init ]]; then
+            _arguments \
+              '--bare[Scriere șablon gol în loc de rularea interviului]' \
+              '--eval-dir[Director sub directorul curent în care se scriu cazurile]:dir:_directories' \
+              '(-i --interactive)'{-i,--interactive}'[Rulare interviu de creare (necesită un terminal interactiv)]' \
+              '(-h --help)'{-h,--help}'[Afișare ajutor]' \
+              '::name:'
+            return
+          fi
           _arguments \
             '--case[Filtrare cazuri după glob de nume]:glob:' \
             '*--tag[Filtrare cazuri după etichetă (repetabil)]:tag:' \
@@ -600,6 +643,7 @@ _claude_plugin() {
             '--json[Afișare rezultat complet al rulării ca JSON pe stdout, sau scriere în acest fișier .json]::path:_files' \
             '--threshold[Ieșire cu codul de ieșire 1 dacă scorul vreunui caz este sub acest prag (implicit: 1.0)]:threshold:' \
             '*--allow-tools[Permisiune de operator pentru unelte restricționate (Bash, Write, Edit, WebFetch, mcp__*)]:tools:' \
+            '*--disallow-tools[Unelte integrate refuzate lui Claude în orice caz, chiar dacă sunt permise]:tools:' \
             '(--no-scaffold)--scaffold[Rulare scaffold_script al fiecărui caz (rulează bash furnizat de autor în numele dumneavoastră; dezactivat implicit)]' \
             '(--scaffold)--no-scaffold[Omitere explicită scaffold_script]' \
             '--trust-plugin[Confirmare că aveți încredere în acest plugin și în suita sa de evaluare, omițând solicitarea de încredere la prima rulare (pentru CI)]' \
@@ -612,7 +656,7 @@ _claude_plugin() {
             '(--no-publish)--publish-report[Publicarea raportului pe claude.ai devine și ea obligatorie]' \
             '(--publish-report)--no-publish[Păstrare raport HTML doar local; omitere publicare pe claude.ai]' \
             '(-h --help)'{-h,--help}'[Afișare ajutor]' \
-            '::target: _alternative "plugins\:installed plugin\:_claude_installed_plugins" "files\:path\:_files"'
+            '::target: _alternative "commands\:eval command\:(init)" "plugins\:installed plugin\:_claude_installed_plugins" "files\:path\:_files"'
           ;;
         tag)
           _arguments \
@@ -663,6 +707,7 @@ _claude_plugin_marketplace() {
           _arguments \
             '--sparse[Limitare checkout la directoare specifice prin git sparse-checkout (pentru monorepo-uri)]:paths:' \
             '--scope[Unde se declară marketplace-ul]:scope:(user project local)' \
+            '--json[Afișare o linie de rezultat lizibilă de mașină ca ultimă linie pe stdout]' \
             '--claudeai[Adăugare marketplace cu acest nume găzduit de claude.ai pentru dumneavoastră]' \
             '(-h --help)'{-h,--help}'[Afișare ajutor]' \
             '1:source:'
@@ -675,11 +720,13 @@ _claude_plugin_marketplace() {
         remove|rm)
           _arguments \
             '--scope[Eliminare declarație marketplace dintr-un domeniu de setări specific (omiteți pentru eliminare din toate domeniile)]:scope:(user project local)' \
+            '--json[Afișare o linie de rezultat lizibilă de mașină ca ultimă linie pe stdout]' \
             '(-h --help)'{-h,--help}'[Afișare ajutor]' \
             '1:name:'
           ;;
         update)
           _arguments \
+            '--json[Cu un nume de marketplace: afișare o linie de rezultat lizibilă de mașină ca ultimă linie pe stdout]' \
             '(-h --help)'{-h,--help}'[Afișare ajutor]' \
             '::name:'
           ;;
@@ -851,12 +898,23 @@ _claude_project() {
   esac
 }
 
+_claude_purge() {
+  _arguments \
+    '--dry-run[Listare ce ar fi șters fără a șterge nimic]' \
+    '(-y --yes)'{-y,--yes}'[Omitere solicitare de confirmare]' \
+    '(-i --interactive)'{-i,--interactive}'[Solicitare confirmare pentru fiecare element înainte de ștergere]' \
+    '(1)--all[Ștergere stare pentru toate proiectele (exclusiv reciproc cu o cale)]' \
+    '(-h --help)'{-h,--help}'[Afișare ajutor pentru comandă]' \
+    '(--all)::path:_directories'
+}
+
 _claude_ultrareview() {
   _arguments \
     '--json[Afișare payload brut bugs.json în loc de rezultate formatate]' \
     '--timeout[Numărul maxim de minute de așteptare pentru finalizarea revizuirii (implicit: 45)]:minutes:' \
     '(--no-post)--post[Publicare constatări ale revizuirii finalizate pe PR în numele dumneavoastră (doar pentru ținte PR; un singur comentariu simplu, nu o revizuire)]' \
     '(--post)--no-post[Fără publicarea constatărilor pe PR (implicit)]' \
+    '--trust-workspace[Încredere în folderul curent doar pentru această rulare, fără întrebare (pentru scripturi și CI)]' \
     '(-h --help)'{-h,--help}'[Afișare ajutor pentru comandă]' \
     '1:target:'
 }
@@ -874,6 +932,117 @@ _claude_rm() {
     '--force-remove-worktree[Ștergere director worktree chiar dacă hook-ul WorktreeRemove sau git nu l-au putut elimina (transmiteți worktree-id raportat de un claude rm anterior)]:worktree-id:' \
     '(-h --help)'{-h,--help}'[Afișare ajutor pentru comandă]' \
     '1:session:_claude_background_sessions'
+}
+
+_claude_self_hosted_runner() {
+  _arguments \
+    '--api-url[URL de bază API (implicit: https://api.anthropic.com)]:url:' \
+    '--environment-secret-file[Cale către fișierul secret al mediului]:path:_files' \
+    '--lock-to-account[Blocare runner la un singur cont la înregistrare]:id:' \
+    '--client-label[Etichetă de observabilitate trimisă la înregistrare (implicit: hostname)]:label:' \
+    '(--proxy-authorization-file --agent-proxy-url)--proxy-authorization-command[Comandă al cărei stdout este antetul Proxy-Authorization pentru proxy-urile de ieșire]:shell command:' \
+    '(--proxy-authorization-command --agent-proxy-url)--proxy-authorization-file[Fișier care conține antetul Proxy-Authorization pentru proxy-urile de ieșire]:path:_files' \
+    '(--proxy-authorization-command --proxy-authorization-file)--agent-proxy-url[Rutare fiecare sesiune prin proxy-ul de agent de la acest URL (doar https)]:url:' \
+    '--capacity[Număr maxim de sesiuni simultane (implicit: 1)]:n:' \
+    '--base-dir[Director de bază pentru checkout-urile repo (implicit: /workspace)]:path:_directories' \
+    '--exec-path[Binar de lansat pentru sesiunile copil (implicit: acest binar)]:path:_files' \
+    '--hooks-dir[Director cu scripturi hook de ciclu de viață (checkout, command, post-session)]:path:_directories' \
+    '--session-stop-grace-sec[Cât timp se așteaptă o ieșire curată după încheierea unei sesiuni (implicit: 5)]:n:' \
+    '--post-session-hook-timeout-sec[Buget SIGTERM pentru hook-ul post-session (implicit: 60)]:n:' \
+    '--checkout-hook-timeout-min[Buget de timp real pentru fiecare rulare a hook-ului checkout (implicit: 30; 0 dezactivează)]:n:' \
+    '--drain-wait-sec[La SIGTERM/SIGINT, așteptare până la N secunde pentru lucrul în curs (implicit: 0)]:n:' \
+    '--drain-marker-file[Fișier marcator prin care gazda anunță o golire controlată]:path:_files' \
+    '*--git-ssh-rewrite[Rescriere URL-uri sursă https://<host>/... în git@<host>:... (repetabil)]:host:' \
+    '*--git-host-rewrite[Rescriere URL-uri sursă https://<f>/... în https://<t>/... (repetabil)]:from=to:' \
+    '--use-anthropic-git-proxy[Utilizare git gestionat de Anthropic. AVERTISMENT: șterge și înlocuiește configurația git la nivel HOME, utilizați doar sub un cont dedicat]' \
+    '--configure-git[Setare identitate git globală și activare semnare commit-uri prin serviciul de semnare Anthropic. Scrie ~/.gitconfig]' \
+    '--push-outcome-on-release[Push pentru ramurile de rezultat urmărite când runner-ul încheie o sesiune nefinalizată]' \
+    '--trust-workspace[Inițializare încredere persistentă pentru căile repo ale fiecărei sesiuni (implicit: true)]::bool:(true false)' \
+    '--remove-session-state[Eliminare stare per sesiune la încheierea unei sesiuni (implicit: false)]::bool:(true false)' \
+    '--diff-finds-nested-repository[Afișare depozit clonat într-un subfolder în panoul Changes; necesită --capacity 1 (implicit: false)]::bool:(true false)' \
+    '--confine-repo-settings[Mod de protecție pentru limitarea setărilor comise în repo (implicit: warn)]:mode:(warn enforce off)' \
+    '--server-auto-mode-lists[Ce liste ale clasificatorului mod automat de pe server poate primi o sesiune (implicit: no-allow)]:mode:(all no-allow none)' \
+    '--host-config-snapshot[Unde se păstrează instantaneul de pornire al configurației gazdei (implicit: disk)]:mode:(disk memory)' \
+    '--health-port[Port pentru ascultătorul HTTP /healthz (implicit: 8080; 0 dezactivează)]:port:' \
+    '--log-level[Nivel jurnal (implicit: info)]:level:(info debug)' \
+    '--log-file[Copiere suplimentară a jurnalelor runner-ului într-un fișier în mod de adăugare]:path:_files' \
+    '--exit-if-unused-min[Ieșire din runner dacă nu i se atribuie niciun lucru timp de N minute]:n:' \
+    '--drain-grace-sec[Secunde de continuare a interogării pentru lucru după terminarea sesiunilor active (implicit: 0)]:n:' \
+    '--retire-at[Retragere runner la acest moment Unix absolut, în secunde]:epoch-seconds:' \
+    '--defer-shutdown-max-min[La primul SIGTERM/SIGINT, oprire preluare lucru și finalizare oprire după M minute (implicit: 0)]:m:' \
+    '--release-idle-session-min[Eliberare slot de sesiune după N minute fără input de la utilizator]:n:' \
+    '--startup-timeout-min[Eliberare slot de sesiune dacă procesul copil nu a terminat pornirea după N minute (implicit: 15; 0 dezactivează)]:n:' \
+    '--kill-session-after-min[Limitare durată de viață în timp real a unei sesiuni copil la N minute]:n:' \
+    '--debug-token-dir[DOAR PENTRU DEPANARE: scrie token-uri active pe disc. Nu utilizați în producție]:path:_directories' \
+    '(-h --help)'{-h,--help}'[Afișare acest mesaj de ajutor]'
+}
+
+_claude_remote_control() {
+  _arguments \
+    '--name[Nume pentru sesiune (afișat în claude.ai/code)]:name:' \
+    '--remote-control-session-name-prefix[Prefix pentru numele de sesiune generate automat (implicit: hostname)]:prefix:' \
+    '(-c --continue --session-id)'{-c,--continue}'[Reatașare la sesiunea înregistrată ultima pentru acest director sau unul dintre worktree-urile sale git]' \
+    '(-c --continue --session-id)--session-id[Reatașare la o sesiune anume după ID]:id:' \
+    '--permission-mode[Mod de permisiuni pentru sesiunile lansate]:mode:(acceptEdits auto bypassPermissions default dontAsk plan)' \
+    '(--no-chrome)--chrome[Activare Claude in Chrome pentru sesiunile lansate]' \
+    '(--chrome)--no-chrome[Dezactivare Claude in Chrome pentru sesiunile lansate]' \
+    '(-d --debug)'{-d,--debug}'[Activare mod depanare cu filtrare opțională pe categorie]::filter:' \
+    '--debug-file[Scriere jurnale de depanare în fișier]:path:_files' \
+    '(-v --verbose)'{-v,--verbose}'[Activare ieșire detaliată]' \
+    '--spawn[Mod de lansare (implicit: same-dir)]:mode:(same-dir worktree session)' \
+    '--capacity[Număr maxim de sesiuni simultane în modul worktree sau same-dir (implicit: 32)]:n:' \
+    '(--no-create-session-in-dir)--create-session-in-dir[Pre-creare sesiune în directorul curent (implicit)]' \
+    '(--create-session-in-dir)--no-create-session-in-dir[Fără pre-creare sesiune în directorul curent]' \
+    '(-h --help)'{-h,--help}'[Afișare acest ajutor]'
+}
+
+_claude_daemon() {
+  local -a daemon_commands common_options
+  daemon_commands=(
+    'run:Rulare supervizor în prim-plan'
+    'status:Afișare pid, versiune și timp de funcționare ale daemon-ului'
+    'logs:Urmărire jurnal daemon (Ctrl-C pentru oprire)'
+    'uninstall:Eliminare serviciu de fundal (launchctl/systemd)'
+    'stop:Oprire supervizor și terminare sesiuni în fundal'
+  )
+  common_options=(
+    '--json-path[Fișier de configurare (implicit: ~/.claude/daemon.json)]:path:_files'
+    '--log-file[Fișier jurnal (implicit: ~/.claude/daemon.log)]:path:_files'
+    '(-h --help)'{-h,--help}'[Afișare acest ajutor]'
+  )
+
+  local curcontext="$curcontext" state line
+  typeset -A opt_args
+
+  _arguments -C \
+    $common_options \
+    '1: :->command' \
+    '*::arg:->args'
+
+  case $state in
+    command)
+      _describe -t commands 'comenzi daemon' daemon_commands
+      ;;
+    args)
+      case $words[1] in
+        run)
+          _arguments \
+            $common_options \
+            '::json-path:_files'
+          ;;
+        stop)
+          _arguments \
+            $common_options \
+            '--any[Oprire și a unui daemon temporar (care nu rulează ca serviciu)]' \
+            '--keep-workers[Sesiunile detașate rămân pornite]'
+          ;;
+        status|logs|uninstall)
+          _arguments \
+            $common_options
+          ;;
+      esac
+      ;;
+  esac
 }
 
 _claude_import() {

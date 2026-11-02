@@ -200,11 +200,15 @@ _claude() {
     'stop:Stöðva bakgrunnslotu (samtalið er varðveitt)'
     'respawn:Endurræsa bakgrunnslotu svo hún keyri núverandi útgáfu af Claude Code'
     'rm:Eyða bakgrunnslotu, og worktree hennar þegar það er öruggt'
+    'remote-control:Stjórna staðbundnum lotum frá claude.ai/code eða Claude farsímaforritinu'
+    'daemon:Stjórna umsjónarforriti bakgrunnslotna'
     'auth:Stjórna auðkenningu'
     'auto-mode:Skoða eða endurstilla stillingar auto mode flokkara'
     'gateway:Keyra fyrirtækja auðkennis-/fjarmælingargátt'
+    'self-hosted-runner:Hýsa Claude Code skýlotur á þessari vél eða gámi'
     'import:Flytja inn stillingar frá öðrum gervigreindar kóðunarumboðsmanni í Claude Code'
     'project:Stjórna stöðu Claude Code verkefnis'
+    'purge:Eyða allri Claude Code stöðu fyrir verkefni (afrit, verkefni, skráarsaga, stillingarfærsla)'
     'ultrareview:Keyra skýhýsta fjölumboðsmanna kóðarýni og prenta niðurstöður'
     'setup-token:Stilla langtíma auðkenningarmerki (krefst Claude áskriftar)'
     'doctor:Heilsuathugun fyrir Claude Code sjálfvirka uppfæringar'
@@ -221,11 +225,11 @@ _claude() {
     '--json-schema[JSON skema fyrir skipulagt úttak villuleit]:schema:'
     '--include-partial-messages[Taka með hluta skilaboða þegar þau berast (með --print og --output-format=stream-json)]'
     '--input-format[Inntak snið (með --print): "text" (sjálfgefið) eða "stream-json" (rauntíma streyming inntak)]:format:(text stream-json)'
-    '--mcp-debug[\[Úrelt. Notaðu --debug í staðinn\] Virkja MCP kembiham (sýnir MCP-þjóns villur)]'
     '--dangerously-skip-permissions[Fara framhjá öllum heimildaathugunum. Mælt með aðeins fyrir sandkassa án netaðgangs]'
     '--allow-dangerously-skip-permissions[Virkja valkost til að fara framhjá heimildaathugunum án þess að virkja sem sjálfgefið]'
     '--restricted[Takmarkaður hamur: fjarlægja verkfæri sem keyra skipanir eða kóða og WebFetch, hunsa user/project/local stillingar og takmarka skráarverkfæri við vinnumöppurnar]'
     '--max-budget-usd[Hámarks dollaraupphæð til að eyða í API köll (aðeins --print)]:amount:'
+    '--max-turns[Takmarka fjölda umboðsumferða (aðeins --print)]:turns:'
     '--replay-user-messages[Endursenda notendarskilaboð frá stdin á stdout til staðfestingar]'
     '--allowed-tools[Komma eða bil aðskilinn listi yfir leyfileg verkfæranöfn (t.d. "Bash(git:*) Edit")]:tools:'
     '--allowedTools[Komma eða bil aðskilinn listi yfir leyfileg verkfæranöfn (camelCase snið)]:tools:'
@@ -237,6 +241,8 @@ _claude() {
     '--system-prompt-file[Lesa kerfis fyrirspurn úr skrá]:file:_files'
     '--append-system-prompt[Bæta kerfis fyrirspurn við sjálfgefna kerfis fyrirspurn]:prompt:'
     '--append-system-prompt-file[Lesa kerfis fyrirspurn úr skrá og bæta henni við sjálfgefna kerfis fyrirspurn]:file:_files'
+    '(--append-subagent-system-prompt-file)--append-subagent-system-prompt[Bæta texta við kerfis fyrirspurn hvers undirumboðsmanns (aðeins --print)]:prompt:'
+    '(--append-subagent-system-prompt)--append-subagent-system-prompt-file[Lesa texta úr skrá og bæta honum við kerfis fyrirspurnir undirumboðsmanna (aðeins --print)]:file:_files'
     '--system-prompt-snapshot[Skrá kerfis fyrirspurn einu sinni í hverju samtali og endurnýta hana orðrétt í hverri beiðni og við áframhald (on, sjálfgefið) eða mynda hana upp á nýtt í hverri beiðni (off)]:mode:(on off)'
     '--permission-mode[Heimildarhamur til að nota fyrir lotu]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)'
     '--permission-prompts[Hver svarar heimildabeiðnum með --print: "host" (SDK hýsillinn eða --permission-prompt-tool) eða "none" (öllu sem myndi kalla á beiðni er hafnað)]:target:(host none)'
@@ -256,6 +262,8 @@ _claude() {
     '--strict-mcp-config[Nota aðeins MCP-þjóna frá --mcp-config og hunsa allar aðrar MCP stillingar]'
     '--session-id[Sérstakt lotu-auðkenni til að nota fyrir samtal (verður að vera gilt UUID)]:uuid:'
     '--agents[JSON hlutur sem skilgreinir sérsniðna umboðsmenn]:json:'
+    '--advisor[Virkja ráðgjafaverkfærið á þjóninum fyrir þessa lotu með samnefni líkans eða fullu líkans-auðkenni]:model:_claude_model_names'
+    '--teammate-mode[Hvernig liðsfélagar í umboðsmannateymi birtast]:mode:(in-process auto tmux iterm2)'
     '--setting-sources[Kommu aðskilinn listi yfir stillingarheimildir til að hlaða (user, project, local)]:sources:'
     '--plugin-dir[Mappa til að hlaða viðbótum frá aðeins fyrir þessa lotu (má endurtaka)]:paths:_directories'
     '--disable-slash-commands[Slökkva á öllum skástriksskipunum]'
@@ -268,9 +276,11 @@ _claude() {
     '--debug-file[Skrifa kembilog í tiltekna skráarslóð (virkjar óbeint kembiham)]:path:_files'
     '--from-pr[Halda áfram lotu tengdri PR eftir númeri/URL, eða opna gagnvirkan valmynd]::value:'
     '--teleport[Halda áfram teleport lotu, valkvætt tilgreina lotu-auðkenni]::session:'
-    '--cloud[Búa til skýlotu með gefinni lýsingu, eða tengjast fyrirliggjandi lotu eftir lotu-auðkenni eða claude.ai/code URL]::description-or-session:'
+    '(--remote)--cloud[Búa til skýlotu með gefinni lýsingu, eða tengjast fyrirliggjandi lotu eftir lotu-auðkenni eða claude.ai/code URL]::description-or-session:'
+    '(--cloud)--remote[Úrelt samnefni fyrir --cloud]::description-or-session:'
     '--environment[Búa til nýja skýlotu sem keyrir á gefnu sjálfhýstu umhverfi (ccpool_...)]:environment_id:'
-    '--remote-control[Ræsa gagnvirka lotu með Remote Control virkt (valkvætt nefnt)]::name:'
+    '--ref[Með --environment: byggja útskráningu nýju lotunnar á nefndri tilvísun (ref) í stað staðbundins HEAD]:branch:'
+    '(--remote-control --rc)'{--remote-control,--rc}'[Ræsa gagnvirka lotu með Remote Control virkt (valkvætt nefnt)]::name:'
     '--remote-control-session-name-prefix[Forskeyti fyrir sjálfvirkt mynduð Remote Control lotunöfn]:prefix:'
     '--chrome[Virkja Claude í Chrome samþættingu]'
     '--no-chrome[Slökkva á Claude í Chrome samþættingu]'
@@ -281,6 +291,11 @@ _claude() {
     '--include-hook-events[Taka með alla hook lífsferilsatburði í úttaksstraumnum (með stream-json)]'
     '--exclude-dynamic-system-prompt-sections[Færa vélarsértæka hluta í fyrstu notendaskilaboðin til að bæta endurnýtingu fyrirspurnar-skyndiminnis]'
     '--brief[Virkja SendUserMessage verkfæri fyrir samskipti umboðsmanns við notanda]'
+    '*--channels[(Rannsóknarforskoðun) MCP-þjónar sem hlusta skal á rásatilkynningar frá (plugin\:<name>@<marketplace>)]:entries:'
+    '*--dangerously-load-development-channels[Virkja rásir sem eru ekki á samþykktum leyfislista, fyrir staðbundna þróun (plugin\:<name>@<marketplace> eða server\:<name>)]:entries:'
+    '--init[Keyra Setup hooks með init matcher fyrir lotuna (aðeins --print)]'
+    '--init-only[Keyra Setup og SessionStart hooks og hætta svo án þess að hefja samtal]'
+    '--maintenance[Keyra Setup hooks með maintenance matcher fyrir lotuna (aðeins --print)]'
     '--safe-mode[Ræsa með allar sérstillingar óvirkar (gagnlegt við úrræðaleit á bilaðri stillingu)]'
     '--bare[Lágmarkshamur: sleppa hooks, LSP, viðbótasamstillingu, eignun, sjálfvirku minni og CLAUDE.md sjálfvirkri uppgötvun]'
     '--ax-screen-reader[Birta skjálesaravænt úttak (flatur texti, engir skreytingarrammar eða hreyfingar)]'
@@ -304,7 +319,7 @@ _claude() {
         mcp)
           _claude_mcp
           ;;
-        plugin)
+        plugin|plugins)
           _claude_plugin
           ;;
         install)
@@ -324,6 +339,12 @@ _claude() {
         rm)
           _claude_rm
           ;;
+        remote-control|rc|remote|sync|bridge)
+          _claude_remote_control
+          ;;
+        daemon)
+          _claude_daemon
+          ;;
         auth)
           _claude_auth
           ;;
@@ -333,17 +354,24 @@ _claude() {
         gateway)
           _claude_gateway
           ;;
+        self-hosted-runner)
+          _claude_self_hosted_runner
+          ;;
         import)
           _claude_import
           ;;
         project)
           _claude_project
           ;;
+        purge)
+          _claude_purge
+          ;;
         ultrareview)
           _claude_ultrareview
           ;;
-        setup-token|doctor|update)
-          _message "engin viðfang"
+        setup-token|doctor|update|upgrade)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Sýna hjálp fyrir skipun]'
           ;;
         *)
           # Not a command but the prompt: options may still follow it
@@ -502,6 +530,7 @@ _claude_plugin() {
         validate)
           _arguments \
             '--strict[Meðhöndla viðvaranir sem villur (útgangskóði 1)]' \
+            '--profile[Hætta einnig með útgangskóða 1 þegar nefnda skráin myndi hafna innsendingu viðbótarinnar vegna athugunar sem þessi skipun keyrir]:name:(directory)' \
             '--json[Skila villuleitarskýrslunni sem JSON (sömu útgangskóðar)]' \
             '(-h --help)'{-h,--help}'[Sýna hjálp]' \
             '1:path:_files'
@@ -512,7 +541,10 @@ _claude_plugin() {
         install|i)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Uppsetningar umfang]:scope:(user project local)' \
+            '--accept-command[Samþykkja skipunina sem markaðstorgið skilgreinir og fyrri --json keyrsla tilkynnti sha256 hennar sem shownCommand.sha256]:sha256:' \
             '*--config[Stilla userConfig valkost sem er skilgreindur í lýsiskrá viðbótarinnar (má endurtaka)]:key=value:' \
+            '--marketplace[Setja upp viðbótina eftir beru nafni hennar úr markaðstorginu á þessum uppruna (owner/repo, git eða https URL, eða slóð), og bæta því fyrst við ef þarf]:source:' \
+            '--registry[Fyrir package@npm uppsetningu: leysa og sækja úr þessari npm skrá (registry)]:url:' \
             '(-y --yes)'{-y,--yes}'[Samþykkja birtu skipunina sem markaðstorgið skilgreinir án staðfestingarbeiðni]' \
             '--json[Prenta eina véllesanlega niðurstöðulínu í stað skilaboða fyrir menn]' \
             '(-h --help)'{-h,--help}'[Sýna hjálp]' \
@@ -545,6 +577,7 @@ _claude_plugin() {
           ;;
         update)
           _arguments \
+            '--accept-command[Samþykkja skipunina sem markaðstorgið skilgreinir og fyrri --json keyrsla tilkynnti sha256 hennar sem shownCommand.sha256]:sha256:' \
             '(-s --scope)'{-s,--scope}'[Uppsetningar umfang]:scope:(user project local managed)' \
             '(-y --yes)'{-y,--yes}'[Samþykkja birtu skipunina sem markaðstorgið skilgreinir án staðfestingarbeiðni]' \
             '--json[Prenta eina véllesanlega niðurstöðulínu í stað skilaboða fyrir menn]' \
@@ -555,6 +588,7 @@ _claude_plugin() {
           _arguments \
             '--json[Úttak sem JSON]' \
             '--available[Taka með tiltækar viðbætur úr markaðstorgum (krefst --json)]' \
+            '--data-size[Mæla vistuðu gagnamöppu hverrar uppsettrar viðbótar, eða aðeins nefndu viðbótarinnar (krefst --json)]::plugin:_claude_installed_plugins' \
             '(-h --help)'{-h,--help}'[Sýna hjálp]'
           ;;
         prune|autoremove)
@@ -587,6 +621,15 @@ _claude_plugin() {
             '1:name:'
           ;;
         eval)
+          if [[ $words[2] == init ]]; then
+            _arguments \
+              '--bare[Skrifa autt sniðmát í stað þess að keyra viðtalið]' \
+              '--eval-dir[Mappa undir núverandi möppu til að skrifa tilvik í]:dir:_directories' \
+              '(-i --interactive)'{-i,--interactive}'[Keyra höfundarviðtalið (krefst gagnvirkrar útstöðvar)]' \
+              '(-h --help)'{-h,--help}'[Sýna hjálp]' \
+              '::name:'
+            return
+          fi
           _arguments \
             '--case[Sía tilvik eftir nafnamynstri (glob)]:glob:' \
             '*--tag[Sía tilvik eftir merki (má endurtaka)]:tag:' \
@@ -600,6 +643,7 @@ _claude_plugin() {
             '--json[Prenta alla keyrsluniðurstöðuna sem JSON á stdout, eða skrifa hana í þessa .json skrá]::path:_files' \
             '--threshold[Hætta með útgangskóða 1 ef stig einhvers tilviks eru undir þessum þröskuldi (sjálfgefið: 1.0)]:threshold:' \
             '*--allow-tools[Heimild rekstraraðila fyrir læst verkfæri (Bash, Write, Edit, WebFetch, mcp__*)]:tools:' \
+            '*--disallow-tools[Innbyggð verkfæri sem Claude fær aldrei í neinu tilviki, jafnvel þótt þau séu veitt]:tools:' \
             '(--no-scaffold)--scaffold[Keyra scaffold_script hvers tilviks (keyrir bash frá höfundi í þínu nafni; óvirkt sjálfgefið)]' \
             '(--scaffold)--no-scaffold[Sleppa scaffold_script sérstaklega]' \
             '--trust-plugin[Staðfesta að þú treystir þessari viðbót og eval safni hennar, og sleppa traustbeiðni fyrstu keyrslu (fyrir CI)]' \
@@ -612,7 +656,7 @@ _claude_plugin() {
             '(--no-publish)--publish-report[Einnig krefjast þess að skýrslan sé birt á claude.ai]' \
             '(--publish-report)--no-publish[Halda HTML skýrslunni aðeins staðbundinni; sleppa því að birta hana á claude.ai]' \
             '(-h --help)'{-h,--help}'[Sýna hjálp]' \
-            '::target: _alternative "plugins\:installed plugin\:_claude_installed_plugins" "files\:path\:_files"'
+            '::target: _alternative "commands\:eval command\:(init)" "plugins\:installed plugin\:_claude_installed_plugins" "files\:path\:_files"'
           ;;
         tag)
           _arguments \
@@ -663,6 +707,7 @@ _claude_plugin_marketplace() {
           _arguments \
             '--sparse[Takmarka git checkout við tilteknar möppur með git sparse-checkout (fyrir monorepos)]:paths:' \
             '--scope[Hvar á að skilgreina markaðstorgið]:scope:(user project local)' \
+            '--json[Prenta eina véllesanlega niðurstöðulínu sem síðustu línu á stdout]' \
             '--claudeai[Bæta við markaðstorginu með þessu nafni sem claude.ai hýsir fyrir þig]' \
             '(-h --help)'{-h,--help}'[Sýna hjálp]' \
             '1:source:'
@@ -675,11 +720,13 @@ _claude_plugin_marketplace() {
         remove|rm)
           _arguments \
             '--scope[Fjarlægja skilgreiningu markaðstorgsins úr tilteknu stillinga umfangi (sleppa til að fjarlægja hana úr öllum umföngum)]:scope:(user project local)' \
+            '--json[Prenta eina véllesanlega niðurstöðulínu sem síðustu línu á stdout]' \
             '(-h --help)'{-h,--help}'[Sýna hjálp]' \
             '1:name:'
           ;;
         update)
           _arguments \
+            '--json[Með nafni markaðstorgs: prenta eina véllesanlega niðurstöðulínu sem síðustu línu á stdout]' \
             '(-h --help)'{-h,--help}'[Sýna hjálp]' \
             '::name:'
           ;;
@@ -851,12 +898,23 @@ _claude_project() {
   esac
 }
 
+_claude_purge() {
+  _arguments \
+    '--dry-run[Sýna hvað yrði eytt án þess að eyða neinu]' \
+    '(-y --yes)'{-y,--yes}'[Sleppa staðfestingarbeiðninni]' \
+    '(-i --interactive)'{-i,--interactive}'[Spyrja um hvert atriði áður en því er eytt]' \
+    '(1)--all[Eyða stöðu fyrir öll verkefni (útilokar slóð)]' \
+    '(-h --help)'{-h,--help}'[Sýna hjálp fyrir skipun]' \
+    '(--all)::path:_directories'
+}
+
 _claude_ultrareview() {
   _arguments \
     '--json[Prenta hráa bugs.json gögnin í stað sniðinna niðurstaðna]' \
     '--timeout[Hámarks mínútur til að bíða eftir að rýnin ljúki (sjálfgefið: 45)]:minutes:' \
     '(--no-post)--post[Birta niðurstöður lokinnar rýni á PR í þínu nafni (aðeins þegar rýnt er í PR; ein venjuleg athugasemd, ekki rýni)]' \
     '(--post)--no-post[Ekki birta niðurstöðurnar á PR (sjálfgefið)]' \
+    '--trust-workspace[Treysta núverandi möppu aðeins fyrir þessa keyrslu, án þess að spyrja (fyrir skriftur og CI)]' \
     '(-h --help)'{-h,--help}'[Sýna hjálp fyrir skipun]' \
     '1:target:'
 }
@@ -874,6 +932,117 @@ _claude_rm() {
     '--force-remove-worktree[Eyða worktree möppunni þótt WorktreeRemove hook eða git hafi ekki getað fjarlægt hana (gefa upp worktree-id sem fyrri claude rm tilkynnti)]:worktree-id:' \
     '(-h --help)'{-h,--help}'[Sýna hjálp fyrir skipun]' \
     '1:session:_claude_background_sessions'
+}
+
+_claude_self_hosted_runner() {
+  _arguments \
+    '--api-url[Grunn-URL API (sjálfgefið: https://api.anthropic.com)]:url:' \
+    '--environment-secret-file[Slóð að leyndarmálaskrá umhverfis]:path:_files' \
+    '--lock-to-account[Læsa keyranda við einn reikning við skráningu]:id:' \
+    '--client-label[Vöktunarmerki sent við skráningu (sjálfgefið: hostname)]:label:' \
+    '(--proxy-authorization-file --agent-proxy-url)--proxy-authorization-command[Skipun sem skilar Proxy-Authorization hausnum á stdout fyrir útleiðarproxy]:shell command:' \
+    '(--proxy-authorization-command --agent-proxy-url)--proxy-authorization-file[Skrá sem geymir Proxy-Authorization hausinn fyrir útleiðarproxy]:path:_files' \
+    '(--proxy-authorization-command --proxy-authorization-file)--agent-proxy-url[Beina hverri lotu í gegnum umboðsmannaproxy á þessari URL (aðeins https)]:url:' \
+    '--capacity[Hámarksfjöldi samhliða lotna (sjálfgefið: 1)]:n:' \
+    '--base-dir[Grunnmappa fyrir útskráningar geymslna (sjálfgefið: /workspace)]:path:_directories' \
+    '--exec-path[Keyrsluskrá til að ræsa fyrir undirlotur (sjálfgefið: þessi keyrsluskrá)]:path:_files' \
+    '--hooks-dir[Mappa með hook skriftum lífsferils (checkout, command, post-session)]:path:_directories' \
+    '--session-stop-grace-sec[Hversu lengi á að bíða eftir hreinni lokun eftir að lotu lýkur (sjálfgefið: 5)]:n:' \
+    '--post-session-hook-timeout-sec[Tímamörk eftir SIGTERM fyrir post-session hook (sjálfgefið: 60)]:n:' \
+    '--checkout-hook-timeout-min[Rauntímamörk fyrir hverja keyrslu checkout hook (sjálfgefið: 30; 0 slekkur á)]:n:' \
+    '--drain-wait-sec[Við SIGTERM/SIGINT, bíða í allt að N sekúndur eftir yfirstandandi vinnu (sjálfgefið: 0)]:n:' \
+    '--drain-marker-file[Merkiskrá sem hýsillinn tilkynnir mjúka tæmingu með]:path:_files' \
+    '*--git-ssh-rewrite[Endurskrifa uppruna-URL https://<host>/... í git@<host>:... (má endurtaka)]:host:' \
+    '*--git-host-rewrite[Endurskrifa uppruna-URL https://<f>/... í https://<t>/... (má endurtaka)]:from=to:' \
+    '--use-anthropic-git-proxy[Nota git sem Anthropic stýrir. VIÐVÖRUN: eyðir og kemur í stað git stillingar á HOME-stigi, notið aðeins undir sérstökum reikningi]' \
+    '--configure-git[Stilla alþjóðlegt git auðkenni og virkja undirritun commita í gegnum undirritunarþjónustu Anthropic. Skrifar ~/.gitconfig]' \
+    '--push-outcome-on-release[Pusha vöktuðum niðurstöðugreinum þegar lotu lýkur óklárað að frumkvæði keyrandans]' \
+    '--trust-workspace[Forstilla varanlegt traust fyrir geymsluslóðir hverrar lotu (sjálfgefið: true)]::bool:(true false)' \
+    '--remove-session-state[Fjarlægja stöðu lotunnar þegar lotu lýkur (sjálfgefið: false)]::bool:(true false)' \
+    '--diff-finds-nested-repository[Sýna geymslu sem er klónuð í undirmöppu í Changes svæðinu; krefst --capacity 1 (sjálfgefið: false)]::bool:(true false)' \
+    '--confine-repo-settings[Hamur varnar sem takmarkar stillingar sem eru commitaðar í geymsluna (sjálfgefið: warn)]:mode:(warn enforce off)' \
+    '--server-auto-mode-lists[Hvaða flokkaralista sjálfvirks hams frá þjóninum lota má fá (sjálfgefið: no-allow)]:mode:(all no-allow none)' \
+    '--host-config-snapshot[Hvar ræsiafrit af stillingu hýsilsins er geymt (sjálfgefið: disk)]:mode:(disk memory)' \
+    '--health-port[Tengi fyrir /healthz HTTP hlustara (sjálfgefið: 8080; 0 slekkur á)]:port:' \
+    '--log-level[Logstig (sjálfgefið: info)]:level:(info debug)' \
+    '--log-file[Afrita einnig log keyrandans í skrá í viðbótarham (append)]:path:_files' \
+    '--exit-if-unused-min[Hætta keyrandanum ef honum er aldrei úthlutað vinnu í N mínútur]:n:' \
+    '--drain-grace-sec[Sekúndur til að halda áfram að leita eftir vinnu eftir að virkum lotum lýkur (sjálfgefið: 0)]:n:' \
+    '--retire-at[Leggja keyrandann niður á þessum algilda Unix tíma, í sekúndum]:epoch-seconds:' \
+    '--defer-shutdown-max-min[Við fyrsta SIGTERM/SIGINT, hætta að taka við vinnu og ljúka lokun M mínútum síðar (sjálfgefið: 0)]:m:' \
+    '--release-idle-session-min[Losa lotuhólf eftir N mínútur án inntaks frá notanda]:n:' \
+    '--startup-timeout-min[Losa lotuhólf ef undirferlið hefur ekki lokið ræsingu eftir N mínútur (sjálfgefið: 15; 0 slekkur á)]:n:' \
+    '--kill-session-after-min[Takmarka rauntímalíftíma undirferlis lotu við N mínútur]:n:' \
+    '--debug-token-dir[AÐEINS FYRIR KEMBUN: skrifar virk auðkenningarmerki á disk. Notið ekki í framleiðslu]:path:_directories' \
+    '(-h --help)'{-h,--help}'[Sýna þessi hjálparskilaboð]'
+}
+
+_claude_remote_control() {
+  _arguments \
+    '--name[Nafn lotunnar (birt í claude.ai/code)]:name:' \
+    '--remote-control-session-name-prefix[Forskeyti fyrir sjálfvirkt mynduð lotunöfn (sjálfgefið: hostname)]:prefix:' \
+    '(-c --continue --session-id)'{-c,--continue}'[Tengjast aftur lotunni sem síðast var skráð fyrir þessa möppu eða eitt af git worktree hennar]' \
+    '(-c --continue --session-id)--session-id[Tengjast aftur tiltekinni lotu eftir auðkenni]:id:' \
+    '--permission-mode[Heimildarhamur fyrir ræstar lotur]:mode:(acceptEdits auto bypassPermissions default dontAsk plan)' \
+    '(--no-chrome)--chrome[Virkja Claude in Chrome fyrir ræstar lotur]' \
+    '(--chrome)--no-chrome[Slökkva á Claude in Chrome fyrir ræstar lotur]' \
+    '(-d --debug)'{-d,--debug}'[Virkja kembiham með valkvæðri flokkasíun]::filter:' \
+    '--debug-file[Skrifa kembilog í skrá]:path:_files' \
+    '(-v --verbose)'{-v,--verbose}'[Virkja ítarlegt úttak]' \
+    '--spawn[Ræsingarhamur (sjálfgefið: same-dir)]:mode:(same-dir worktree session)' \
+    '--capacity[Hámarksfjöldi samhliða lotna í worktree eða same-dir ham (sjálfgefið: 32)]:n:' \
+    '(--no-create-session-in-dir)--create-session-in-dir[Búa til lotu fyrirfram í núverandi möppu (sjálfgefið)]' \
+    '(--create-session-in-dir)--no-create-session-in-dir[Ekki búa til lotu fyrirfram í núverandi möppu]' \
+    '(-h --help)'{-h,--help}'[Sýna þessa hjálp]'
+}
+
+_claude_daemon() {
+  local -a daemon_commands common_options
+  daemon_commands=(
+    'run:Keyra umsjónarforritið í forgrunni'
+    'status:Sýna pid, útgáfu og uppitíma daemon'
+    'logs:Fylgja daemon loginu (Ctrl-C til að stöðva)'
+    'uninstall:Fjarlægja bakgrunnsþjónustuna (launchctl/systemd)'
+    'stop:Slökkva á umsjónarforritinu og ljúka bakgrunnslotum'
+  )
+  common_options=(
+    '--json-path[Stillingarskrá (sjálfgefið: ~/.claude/daemon.json)]:path:_files'
+    '--log-file[Logskrá (sjálfgefið: ~/.claude/daemon.log)]:path:_files'
+    '(-h --help)'{-h,--help}'[Sýna þessa hjálp]'
+  )
+
+  local curcontext="$curcontext" state line
+  typeset -A opt_args
+
+  _arguments -C \
+    $common_options \
+    '1: :->command' \
+    '*::arg:->args'
+
+  case $state in
+    command)
+      _describe -t commands 'daemon skipanir' daemon_commands
+      ;;
+    args)
+      case $words[1] in
+        run)
+          _arguments \
+            $common_options \
+            '::json-path:_files'
+          ;;
+        stop)
+          _arguments \
+            $common_options \
+            '--any[Stöðva einnig tímabundinn daemon (ekki þjónustu)]' \
+            '--keep-workers[Láta aftengdar lotur halda áfram að keyra]'
+          ;;
+        status|logs|uninstall)
+          _arguments \
+            $common_options
+          ;;
+      esac
+      ;;
+  esac
 }
 
 _claude_import() {

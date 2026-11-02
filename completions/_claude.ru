@@ -200,9 +200,12 @@ _claude() {
     'stop:Остановить фоновую сессию (её диалог сохраняется)'
     'respawn:Перезапустить фоновую сессию, чтобы она работала на текущей версии Claude Code'
     'rm:Удалить фоновую сессию, а также её worktree, если это безопасно'
+    'remote-control:Управлять локальными сессиями из claude.ai/code или мобильного приложения Claude'
+    'daemon:Управлять супервизором фоновых сессий'
     'auth:Управление аутентификацией'
     'auto-mode:Просмотр или сброс конфигурации классификатора авторежима'
     'gateway:Запустить корпоративный шлюз аутентификации/телеметрии'
+    'self-hosted-runner:Размещать облачные сессии Claude Code на этой машине или в контейнере'
     'import:Импортировать конфигурацию другого ИИ-агента для программирования в Claude Code'
     'project:Управление состоянием проекта Claude Code'
     'purge:Удалить все состояние Claude Code для проекта (транскрипты, задачи, история файлов, запись конфигурации)'
@@ -222,11 +225,11 @@ _claude() {
     '--json-schema[JSON схема для валидации структурированного вывода]:schema:'
     '--include-partial-messages[Включить частичные фрагменты сообщений по мере их поступления (с --print и --output-format=stream-json)]'
     '--input-format[Формат ввода (с --print): "text" (по умолчанию) или "stream-json" (потоковый ввод в реальном времени)]:format:(text stream-json)'
-    '--mcp-debug[\[Устарело. Используйте --debug вместо этого\] Включить режим отладки MCP (показывает ошибки MCP сервера)]'
     '--dangerously-skip-permissions[Обойти все проверки разрешений. Рекомендуется только для изолированных сред без доступа к интернету]'
     '--allow-dangerously-skip-permissions[Включить возможность обхода проверок разрешений без включения по умолчанию]'
     '--restricted[Ограниченный режим: убирает инструменты, выполняющие команды или код, и WebFetch, игнорирует настройки user/project/local и ограничивает файловые инструменты рабочими каталогами]'
     '--max-budget-usd[Максимальная сумма в долларах для расходов на вызовы API (только --print)]:amount:'
+    '--max-turns[Ограничить число агентных ходов (только --print)]:turns:'
     '--replay-user-messages[Повторно отправить сообщения пользователя из stdin в stdout для подтверждения]'
     '--allowed-tools[Список разрешенных инструментов через запятую или пробел (например, "Bash(git:*) Edit")]:tools:'
     '--allowedTools[Список разрешенных инструментов через запятую или пробел (формат camelCase)]:tools:'
@@ -238,6 +241,8 @@ _claude() {
     '--system-prompt-file[Прочитать системный промпт из файла]:file:_files'
     '--append-system-prompt[Добавить системный промпт к системному промпту по умолчанию]:prompt:'
     '--append-system-prompt-file[Прочитать системный промпт из файла и добавить к системному промпту по умолчанию]:file:_files'
+    '(--append-subagent-system-prompt-file)--append-subagent-system-prompt[Добавить текст к системному промпту каждого субагента (только --print)]:prompt:'
+    '(--append-subagent-system-prompt)--append-subagent-system-prompt-file[Прочитать текст из файла и добавить его к системным промптам субагентов (только --print)]:file:_files'
     '--system-prompt-snapshot[Записать системный промпт один раз на диалог и использовать его без изменений при каждом запросе и возобновлении (on, по умолчанию) или формировать заново при каждом запросе (off)]:mode:(on off)'
     '--permission-mode[Режим разрешений для использования в сессии]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)'
     '--permission-prompts[Кто отвечает на запросы разрешений при --print: "host" (хост SDK или --permission-prompt-tool) или "none" (всё, что потребовало бы запроса, отклоняется)]:target:(host none)'
@@ -257,6 +262,8 @@ _claude() {
     '--strict-mcp-config[Использовать только MCP серверы из --mcp-config и игнорировать все остальные настройки MCP]'
     '--session-id[Конкретный ID сессии для использования в разговоре (должен быть валидным UUID)]:uuid:'
     '--agents[JSON объект, определяющий пользовательских агентов]:json:'
+    '--advisor[Включить серверный инструмент advisor для этой сессии с псевдонимом модели или полным ID модели]:model:_claude_model_names'
+    '--teammate-mode[Как отображаются участники команды агентов]:mode:(in-process auto tmux iterm2)'
     '--setting-sources[Список источников настроек через запятую для загрузки (user, project, local)]:sources:'
     '--plugin-dir[Директория для загрузки плагинов только для этой сессии (может повторяться)]:paths:_directories'
     '--disable-slash-commands[Отключить все слэш-команды]'
@@ -269,9 +276,11 @@ _claude() {
     '--debug-file[Записывать журналы отладки в указанный файл (неявно включает режим отладки)]:path:_files'
     '--from-pr[Возобновить сессию, связанную с PR по номеру/URL, или открыть интерактивный выбор]::value:'
     '--teleport[Возобновить teleport-сессию, опционально указав ID сессии]::session:'
-    '--cloud[Создать облачную сессию с указанным описанием или подключиться к существующей по ID сессии или URL claude.ai/code]::description-or-session:'
+    '(--remote)--cloud[Создать облачную сессию с указанным описанием или подключиться к существующей по ID сессии или URL claude.ai/code]::description-or-session:'
+    '(--cloud)--remote[Устаревший псевдоним для --cloud]::description-or-session:'
     '--environment[Создать новую облачную сессию, работающую в указанном самостоятельно размещённом окружении (ccpool_...)]:environment_id:'
-    '--remote-control[Запустить интерактивную сессию с включенным удаленным управлением (опционально с именем)]::name:'
+    '--ref[С --environment: основывать checkout новой сессии на именованной ссылке вместо локального HEAD]:branch:'
+    '(--remote-control --rc)'{--remote-control,--rc}'[Запустить интерактивную сессию с включенным удаленным управлением (опционально с именем)]::name:'
     '--remote-control-session-name-prefix[Префикс для автоматически генерируемых имен сессий удаленного управления]:prefix:'
     '--chrome[Включить интеграцию Claude в Chrome]'
     '--no-chrome[Отключить интеграцию Claude в Chrome]'
@@ -282,6 +291,11 @@ _claude() {
     '--include-hook-events[Включить все события жизненного цикла хуков в поток вывода (с stream-json)]'
     '--exclude-dynamic-system-prompt-sections[Переместить секции для конкретной машины в первое сообщение пользователя для улучшения переиспользования кэша промптов]'
     '--brief[Включить инструмент SendUserMessage для связи агента с пользователем]'
+    '*--channels[(Предварительная версия) MCP-серверы, уведомления каналов которых нужно слушать (plugin\:<name>@<marketplace>)]:entries:'
+    '*--dangerously-load-development-channels[Включить каналы вне утвержденного списка разрешенных для локальной разработки (plugin\:<name>@<marketplace> или server\:<name>)]:entries:'
+    '--init[Запустить хуки Setup с матчером init перед сессией (только --print)]'
+    '--init-only[Запустить хуки Setup и SessionStart, затем выйти, не начиная разговор]'
+    '--maintenance[Запустить хуки Setup с матчером maintenance перед сессией (только --print)]'
     '--safe-mode[Запуск со всеми отключенными настройками (полезно для устранения неполадок сломанной конфигурации)]'
     '--bare[Минимальный режим: пропустить хуки, LSP, синхронизацию плагинов, атрибуцию, авто-память и автообнаружение CLAUDE.md]'
     '--ax-screen-reader[Выводить дружественный к экранному диктору вывод (плоский текст, без декоративных границ или анимаций)]'
@@ -305,7 +319,7 @@ _claude() {
         mcp)
           _claude_mcp
           ;;
-        plugin)
+        plugin|plugins)
           _claude_plugin
           ;;
         install)
@@ -325,6 +339,12 @@ _claude() {
         rm)
           _claude_rm
           ;;
+        remote-control|rc|remote|sync|bridge)
+          _claude_remote_control
+          ;;
+        daemon)
+          _claude_daemon
+          ;;
         auth)
           _claude_auth
           ;;
@@ -333,6 +353,9 @@ _claude() {
           ;;
         gateway)
           _claude_gateway
+          ;;
+        self-hosted-runner)
+          _claude_self_hosted_runner
           ;;
         import)
           _claude_import
@@ -346,8 +369,9 @@ _claude() {
         ultrareview)
           _claude_ultrareview
           ;;
-        setup-token|doctor|update)
-          _message "no arguments"
+        setup-token|doctor|update|upgrade)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Показать справку по команде]'
           ;;
         *)
           # Not a command but the prompt: options may still follow it
@@ -506,6 +530,7 @@ _claude_plugin() {
         validate)
           _arguments \
             '--strict[Считать предупреждения ошибками (код выхода 1)]' \
+            '--profile[Также завершаться с кодом выхода 1, если указанный каталог отклонил бы отправку плагина по проверке, которую выполняет эта команда]:name:(directory)' \
             '--json[Вывести отчёт валидации в JSON (те же коды выхода)]' \
             '(-h --help)'{-h,--help}'[Показать справку]' \
             '1:path:_files'
@@ -518,6 +543,7 @@ _claude_plugin() {
             '(-s --scope)'{-s,--scope}'[Область установки]:scope:(user project local)' \
             '--accept-command[Принять объявленную маркетплейсом команду, sha256 которой предыдущий запуск с --json сообщил как shownCommand.sha256]:sha256:' \
             '*--config[Задать опцию userConfig, объявленную в манифесте плагина (можно повторять)]:key=value:' \
+            '--marketplace[Установить плагин по простому имени из marketplace по этому источнику (owner/repo, git- или https-URL либо путь), при необходимости сначала добавив его]:source:' \
             '--registry[Для установки package@npm: разрешить и загрузить из этого реестра npm]:url:' \
             '(-y --yes)'{-y,--yes}'[Принять показанную команду, объявленную маркетплейсом, без запроса подтверждения]' \
             '--json[Вывести одну машиночитаемую строку результата вместо сообщения для человека]' \
@@ -617,6 +643,7 @@ _claude_plugin() {
             '--json[Вывести полный результат запуска в JSON в stdout или записать в этот .json файл]::path:_files' \
             '--threshold[Выйти с кодом 1, если оценка любого кейса ниже этого порога (по умолчанию: 1.0)]:threshold:' \
             '*--allow-tools[Разрешение оператора для ограниченных инструментов (Bash, Write, Edit, WebFetch, mcp__*)]:tools:' \
+            '*--disallow-tools[Встроенные инструменты, которые всегда недоступны Claude, даже если разрешены]:tools:' \
             '(--no-scaffold)--scaffold[Запускать scaffold_script каждого кейса (выполняет bash от автора от вашего имени; по умолчанию выключено)]' \
             '(--scaffold)--no-scaffold[Явно пропустить scaffold_script]' \
             '--trust-plugin[Подтвердить доверие к этому плагину и его набору оценок, пропустив запрос доверия при первом запуске (для CI)]' \
@@ -887,6 +914,7 @@ _claude_ultrareview() {
     '--timeout[Максимальное количество минут ожидания завершения проверки (по умолчанию: 45)]:minutes:' \
     '(--no-post)--post[Опубликовать результаты завершённой проверки в PR от вашего имени (только для PR; один обычный комментарий, не review)]' \
     '(--post)--no-post[Не публиковать результаты в PR (по умолчанию)]' \
+    '--trust-workspace[Доверять текущей папке только для этого запуска, без запроса (для скриптов и CI)]' \
     '(-h --help)'{-h,--help}'[Показать справку по команде]' \
     '1:target:'
 }
@@ -904,6 +932,117 @@ _claude_rm() {
     '--force-remove-worktree[Удалить каталог worktree, даже если хук WorktreeRemove или git не смогли его убрать (передайте worktree-id, который сообщил предыдущий claude rm)]:worktree-id:' \
     '(-h --help)'{-h,--help}'[Показать справку по команде]' \
     '1:session:_claude_background_sessions'
+}
+
+_claude_self_hosted_runner() {
+  _arguments \
+    '--api-url[Базовый URL API (по умолчанию: https://api.anthropic.com)]:url:' \
+    '--environment-secret-file[Путь к файлу секретов окружения]:path:_files' \
+    '--lock-to-account[Привязать раннер к одному аккаунту при регистрации]:id:' \
+    '--client-label[Метка наблюдаемости, отправляемая при регистрации (по умолчанию: hostname)]:label:' \
+    '(--proxy-authorization-file --agent-proxy-url)--proxy-authorization-command[Команда, stdout которой является заголовком Proxy-Authorization для исходящих прокси]:shell command:' \
+    '(--proxy-authorization-command --agent-proxy-url)--proxy-authorization-file[Файл с заголовком Proxy-Authorization для исходящих прокси]:path:_files' \
+    '(--proxy-authorization-command --proxy-authorization-file)--agent-proxy-url[Направлять каждую сессию через прокси агента по этому URL (только https)]:url:' \
+    '--capacity[Максимум одновременных сессий (по умолчанию: 1)]:n:' \
+    '--base-dir[Базовая директория для checkout репозиториев (по умолчанию: /workspace)]:path:_directories' \
+    '--exec-path[Бинарный файл для запуска дочерних сессий (по умолчанию: этот бинарный файл)]:path:_files' \
+    '--hooks-dir[Директория скриптов хуков жизненного цикла (checkout, command, post-session)]:path:_directories' \
+    '--session-stop-grace-sec[Сколько ждать чистого завершения после окончания сессии (по умолчанию: 5)]:n:' \
+    '--post-session-hook-timeout-sec[Лимит времени SIGTERM для хука post-session (по умолчанию: 60)]:n:' \
+    '--checkout-hook-timeout-min[Лимит реального времени на каждый запуск хука checkout (по умолчанию: 30; 0 отключает)]:n:' \
+    '--drain-wait-sec[При SIGTERM/SIGINT ждать до N секунд завершения текущей работы (по умолчанию: 0)]:n:' \
+    '--drain-marker-file[Файл-маркер, которым хост объявляет плавный вывод из работы]:path:_files' \
+    '*--git-ssh-rewrite[Переписывать URL источников https://<host>/... в git@<host>:... (можно повторять)]:host:' \
+    '*--git-host-rewrite[Переписывать URL источников https://<f>/... в https://<t>/... (можно повторять)]:from=to:' \
+    '--use-anthropic-git-proxy[Использовать git под управлением Anthropic. ВНИМАНИЕ: удаляет и заменяет конфигурацию git уровня HOME, используйте только под отдельным аккаунтом]' \
+    '--configure-git[Задать глобальную git-идентичность и включить подпись коммитов через сервис подписи Anthropic. Записывает ~/.gitconfig]' \
+    '--push-outcome-on-release[Отправлять (push) отслеживаемые ветки результатов, если раннер завершает незавершенную сессию]' \
+    '--trust-workspace[Заранее задать сохраняемое доверие для путей репозиториев каждой сессии (по умолчанию: true)]::bool:(true false)' \
+    '--remove-session-state[Удалять состояние сессии после ее окончания (по умолчанию: false)]::bool:(true false)' \
+    '--diff-finds-nested-repository[Показывать репозиторий, клонированный в подпапку, на панели Changes; требуется --capacity 1 (по умолчанию: false)]::bool:(true false)' \
+    '--confine-repo-settings[Режим защиты, ограничивающий закоммиченные в репозиторий настройки (по умолчанию: warn)]:mode:(warn enforce off)' \
+    '--server-auto-mode-lists[Какие списки классификатора auto mode с сервера может получать сессия (по умолчанию: no-allow)]:mode:(all no-allow none)' \
+    '--host-config-snapshot[Где хранится снимок конфигурации хоста при запуске (по умолчанию: disk)]:mode:(disk memory)' \
+    '--health-port[Порт HTTP-слушателя /healthz (по умолчанию: 8080; 0 отключает)]:port:' \
+    '--log-level[Уровень журнала (по умолчанию: info)]:level:(info debug)' \
+    '--log-file[Дублировать журналы раннера в файл в режиме дозаписи]:path:_files' \
+    '--exit-if-unused-min[Завершить раннер, если ему N минут не назначали работу]:n:' \
+    '--drain-grace-sec[Сколько секунд продолжать запрашивать работу после завершения активных сессий (по умолчанию: 0)]:n:' \
+    '--retire-at[Вывести раннер из работы в это абсолютное время Unix, в секундах]:epoch-seconds:' \
+    '--defer-shutdown-max-min[При первом SIGTERM/SIGINT перестать брать работу и завершить остановку через M минут (по умолчанию: 0)]:m:' \
+    '--release-idle-session-min[Освободить слот сессии после N минут без ввода пользователя]:n:' \
+    '--startup-timeout-min[Освободить слот сессии, если дочерний процесс не завершил запуск за N минут (по умолчанию: 15; 0 отключает)]:n:' \
+    '--kill-session-after-min[Ограничить реальное время жизни дочернего процесса сессии N минутами]:n:' \
+    '--debug-token-dir[ТОЛЬКО ДЛЯ ОТЛАДКИ: записывает действующие токены на диск. Не использовать в продакшене]:path:_directories' \
+    '(-h --help)'{-h,--help}'[Показать это справочное сообщение]'
+}
+
+_claude_remote_control() {
+  _arguments \
+    '--name[Имя сессии (отображается в claude.ai/code)]:name:' \
+    '--remote-control-session-name-prefix[Префикс для автоматически генерируемых имен сессий (по умолчанию: hostname)]:prefix:' \
+    '(-c --continue --session-id)'{-c,--continue}'[Переподключиться к сессии, последней записанной для этой директории или одного из ее git worktree]' \
+    '(-c --continue --session-id)--session-id[Переподключиться к определенной сессии по ID]:id:' \
+    '--permission-mode[Режим разрешений для запускаемых сессий]:mode:(acceptEdits auto bypassPermissions default dontAsk plan)' \
+    '(--no-chrome)--chrome[Включить Claude in Chrome для запускаемых сессий]' \
+    '(--chrome)--no-chrome[Отключить Claude in Chrome для запускаемых сессий]' \
+    '(-d --debug)'{-d,--debug}'[Включить режим отладки с опциональной фильтрацией по категориям]::filter:' \
+    '--debug-file[Записывать журналы отладки в файл]:path:_files' \
+    '(-v --verbose)'{-v,--verbose}'[Включить подробный вывод]' \
+    '--spawn[Режим запуска (по умолчанию: same-dir)]:mode:(same-dir worktree session)' \
+    '--capacity[Максимум одновременных сессий в режиме worktree или same-dir (по умолчанию: 32)]:n:' \
+    '(--no-create-session-in-dir)--create-session-in-dir[Заранее создать сессию в текущей директории (по умолчанию)]' \
+    '(--create-session-in-dir)--no-create-session-in-dir[Не создавать заранее сессию в текущей директории]' \
+    '(-h --help)'{-h,--help}'[Показать эту справку]'
+}
+
+_claude_daemon() {
+  local -a daemon_commands common_options
+  daemon_commands=(
+    'run:Запустить супервизор на переднем плане'
+    'status:Показать pid, версию и время работы демона'
+    'logs:Следить за журналом демона (Ctrl-C для остановки)'
+    'uninstall:Удалить фоновую службу (launchctl/systemd)'
+    'stop:Остановить супервизор и завершить фоновые сессии'
+  )
+  common_options=(
+    '--json-path[Файл конфигурации (по умолчанию: ~/.claude/daemon.json)]:path:_files'
+    '--log-file[Файл журнала (по умолчанию: ~/.claude/daemon.log)]:path:_files'
+    '(-h --help)'{-h,--help}'[Показать эту справку]'
+  )
+
+  local curcontext="$curcontext" state line
+  typeset -A opt_args
+
+  _arguments -C \
+    $common_options \
+    '1: :->command' \
+    '*::arg:->args'
+
+  case $state in
+    command)
+      _describe -t commands 'daemon commands' daemon_commands
+      ;;
+    args)
+      case $words[1] in
+        run)
+          _arguments \
+            $common_options \
+            '::json-path:_files'
+          ;;
+        stop)
+          _arguments \
+            $common_options \
+            '--any[Также остановить временный демон (не службу)]' \
+            '--keep-workers[Оставить отсоединенные сессии работающими]'
+          ;;
+        status|logs|uninstall)
+          _arguments \
+            $common_options
+          ;;
+      esac
+      ;;
+  esac
 }
 
 _claude_import() {

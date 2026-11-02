@@ -200,11 +200,15 @@ _claude() {
     'stop:Stoppa en bakgrundssession (konversationen sparas)'
     'respawn:Starta om en bakgrundssession så att den kör den aktuella versionen av Claude Code'
     'rm:Ta bort en bakgrundssession, och dess worktree när det är säkert'
+    'remote-control:Styr lokala sessioner från claude.ai/code eller Claude-mobilappen'
+    'daemon:Hantera övervakaren för bakgrundssessioner'
     'auth:Hantera autentisering'
     'auto-mode:Inspektera eller återställ konfiguration för auto-läge-klassificerare'
     'gateway:Kör företagets autentiserings-/telemetrigateway'
+    'self-hosted-runner:Kör Claude Code-molnsessioner på den här datorn eller containern'
     'import:Importera konfiguration från en annan AI-kodagent till Claude Code'
     'project:Hantera Claude Code-projekttillstånd'
+    'purge:Ta bort allt Claude Code-tillstånd för ett projekt (transkript, uppgifter, filhistorik, konfigurationspost)'
     'ultrareview:Kör en molnbaserad kodgranskning med flera agenter och skriv ut resultaten'
     'setup-token:Konfigurera långsiktig autentiseringstoken (kräver Claude-prenumeration)'
     'doctor:Hälsokontroll för Claude Code-automatisk uppdaterare'
@@ -221,11 +225,11 @@ _claude() {
     '--json-schema[JSON-schema för strukturerad utdatavalidering]:schema:'
     '--include-partial-messages[Inkludera partiella meddelandebitar när de anländer (med --print och --output-format=stream-json)]'
     '--input-format[Indataformat (med --print): "text" (standard) eller "stream-json" (realtidsströmning)]:format:(text stream-json)'
-    '--mcp-debug[\[Föråldrat. Använd --debug istället\] Aktivera MCP-felsökningsläge (visar MCP-serverfel)]'
     '--dangerously-skip-permissions[Kringgå alla behörighetskontroller. Rekommenderas endast för sandlådor utan internetåtkomst]'
     '--allow-dangerously-skip-permissions[Aktivera alternativ för att kringgå behörighetskontroller utan att aktivera som standard]'
     '--restricted[Begränsat läge: ta bort verktygen som kör kommandon eller kod samt WebFetch, ignorera user/project/local-inställningar och begränsa filverktygen till arbetskatalogerna]'
     '--max-budget-usd[Maximalt dollarbelopp att spendera på API-anrop (endast --print)]:amount:'
+    '--max-turns[Begränsa antalet agentiska turer (endast --print)]:turns:'
     '--replay-user-messages[Skicka användarmeddelanden från stdin på stdout för bekräftelse]'
     '--allowed-tools[Komma- eller mellanslagseparerad lista över tillåtna verktygsnamn (t.ex. "Bash(git:*) Edit")]:tools:'
     '--allowedTools[Komma- eller mellanslagseparerad lista över tillåtna verktygsnamn (camelCase-format)]:tools:'
@@ -237,6 +241,8 @@ _claude() {
     '--system-prompt-file[Läs systemprompt från en fil]:file:_files'
     '--append-system-prompt[Lägg till systemprompt till standardsystemprompt]:prompt:'
     '--append-system-prompt-file[Läs systemprompt från en fil och lägg till den i standardsystemprompten]:file:_files'
+    '(--append-subagent-system-prompt-file)--append-subagent-system-prompt[Lägg till text i systemprompten för varje underagent (endast --print)]:prompt:'
+    '(--append-subagent-system-prompt)--append-subagent-system-prompt-file[Läs text från en fil och lägg till den i underagenters systemprompter (endast --print)]:file:_files'
     '--system-prompt-snapshot[Spara systemprompten en gång per konversation och återanvänd den ordagrant vid varje begäran och återupptagning (on, standard) eller generera den på nytt vid varje begäran (off)]:mode:(on off)'
     '--permission-mode[Behörighetsläge att använda för session]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)'
     '--permission-prompts[Vem som besvarar behörighetsfrågor med --print: "host" (SDK-värden eller --permission-prompt-tool) eller "none" (allt som skulle ge en fråga nekas)]:target:(host none)'
@@ -256,6 +262,8 @@ _claude() {
     '--strict-mcp-config[Använd endast MCP-servrar från --mcp-config och ignorera alla andra MCP-inställningar]'
     '--session-id[Specifikt sessions-ID att använda för konversation (måste vara giltig UUID)]:uuid:'
     '--agents[JSON-objekt som definierar anpassade agenter]:json:'
+    '--advisor[Aktivera det serverbaserade rådgivarverktyget för denna session med ett modellalias eller fullständigt modell-ID]:model:_claude_model_names'
+    '--teammate-mode[Hur lagkamrater i agentteam visas]:mode:(in-process auto tmux iterm2)'
     '--setting-sources[Kommaseparerad lista över inställningskällor att ladda (user, project, local)]:sources:'
     '--plugin-dir[Katalog att ladda tillägg från endast för denna session (upprepningsbar)]:paths:_directories'
     '--disable-slash-commands[Inaktivera alla snedstreckskommandon]'
@@ -268,9 +276,11 @@ _claude() {
     '--debug-file[Skriv felsökningsloggar till en specifik filsökväg (aktiverar implicit felsökningsläge)]:path:_files'
     '--from-pr[Återuppta en session länkad till en PR via nummer/URL, eller öppna interaktiv väljare]::value:'
     '--teleport[Återuppta en teleportsession, ange valfritt sessions-ID]::session:'
-    '--cloud[Skapa en molnsession med den angivna beskrivningen, eller anslut till en befintlig via sessions-ID eller claude.ai/code-URL]::description-or-session:'
+    '(--remote)--cloud[Skapa en molnsession med den angivna beskrivningen, eller anslut till en befintlig via sessions-ID eller claude.ai/code-URL]::description-or-session:'
+    '(--cloud)--remote[Föråldrat alias för --cloud]::description-or-session:'
     '--environment[Skapa en ny molnsession som körs i den angivna självhostade miljön (ccpool_...)]:environment_id:'
-    '--remote-control[Starta en interaktiv session med Fjärrkontroll aktiverad (valfritt namngiven)]::name:'
+    '--ref[Med --environment: basera den nya sessionens utcheckning på en namngiven ref i stället för lokalt HEAD]:branch:'
+    '(--remote-control --rc)'{--remote-control,--rc}'[Starta en interaktiv session med Fjärrkontroll aktiverad (valfritt namngiven)]::name:'
     '--remote-control-session-name-prefix[Prefix för automatiskt genererade Fjärrkontroll-sessionsnamn]:prefix:'
     '--chrome[Aktivera Claude i Chrome-integration]'
     '--no-chrome[Inaktivera Claude i Chrome-integration]'
@@ -281,6 +291,11 @@ _claude() {
     '--include-hook-events[Inkludera alla hook-livscykelhändelser i utdataströmmen (med stream-json)]'
     '--exclude-dynamic-system-prompt-sections[Flytta per-maskin-sektioner till det första användarmeddelandet för att förbättra promptcache-återanvändning]'
     '--brief[Aktivera SendUserMessage-verktyget för kommunikation mellan agent och användare]'
+    '*--channels[(Forskningsförhandsvisning) MCP-servrar vars kanalaviseringar ska avlyssnas (plugin\:<name>@<marketplace>)]:entries:'
+    '*--dangerously-load-development-channels[Aktivera kanaler som inte finns på den godkända listan, för lokal utveckling (plugin\:<name>@<marketplace> eller server\:<name>)]:entries:'
+    '--init[Kör Setup-hooks med init-matcharen före sessionen (endast --print)]'
+    '--init-only[Kör Setup- och SessionStart-hooks och avsluta sedan utan att starta en konversation]'
+    '--maintenance[Kör Setup-hooks med maintenance-matcharen före sessionen (endast --print)]'
     '--safe-mode[Starta med alla anpassningar inaktiverade (användbart för felsökning av en trasig konfiguration)]'
     '--bare[Minimalt läge: hoppa över hooks, LSP, tilläggssynkronisering, attribution, auto-minne och CLAUDE.md-autoidentifiering]'
     '--ax-screen-reader[Rendera skärmläsarvänlig utdata (platt text, inga dekorativa kanter eller animationer)]'
@@ -304,7 +319,7 @@ _claude() {
         mcp)
           _claude_mcp
           ;;
-        plugin)
+        plugin|plugins)
           _claude_plugin
           ;;
         install)
@@ -324,6 +339,12 @@ _claude() {
         rm)
           _claude_rm
           ;;
+        remote-control|rc|remote|sync|bridge)
+          _claude_remote_control
+          ;;
+        daemon)
+          _claude_daemon
+          ;;
         auth)
           _claude_auth
           ;;
@@ -333,17 +354,24 @@ _claude() {
         gateway)
           _claude_gateway
           ;;
+        self-hosted-runner)
+          _claude_self_hosted_runner
+          ;;
         import)
           _claude_import
           ;;
         project)
           _claude_project
           ;;
+        purge)
+          _claude_purge
+          ;;
         ultrareview)
           _claude_ultrareview
           ;;
-        setup-token|doctor|update)
-          _message "inga argument"
+        setup-token|doctor|update|upgrade)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Visa hjälp för kommando]'
           ;;
         *)
           # Not a command but the prompt: options may still follow it
@@ -502,6 +530,7 @@ _claude_plugin() {
         validate)
           _arguments \
             '--strict[Behandla varningar som fel (slutkod 1)]' \
+            '--profile[Avsluta även med 1 när den namngivna katalogen skulle avvisa ett inskick av tillägget vid en kontroll som detta kommando kör]:name:(directory)' \
             '--json[Skriv ut valideringsrapporten som JSON (samma slutkoder)]' \
             '(-h --help)'{-h,--help}'[Visa hjälp]' \
             '1:path:_files'
@@ -512,7 +541,10 @@ _claude_plugin() {
         install|i)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Installationsomfång]:scope:(user project local)' \
+            '--accept-command[Godkänn det marketplace-deklarerade kommandot vars sha256 en tidigare --json-körning rapporterade som shownCommand.sha256]:sha256:' \
             '*--config[Sätt ett userConfig-alternativ som deklareras i tilläggsmanifestet (kan upprepas)]:key=value:' \
+            '--marketplace[Installera tillägget via dess namn från marknadsplatsen på denna källa (owner/repo, git- eller https-URL, eller sökväg) och lägg först till den vid behov]:source:' \
+            '--registry[För en package@npm-installation: slå upp och ladda ner från detta npm-register]:url:' \
             '(-y --yes)'{-y,--yes}'[Godkänn det visade kommandot som marknadsplatsen deklarerar utan bekräftelsefråga]' \
             '--json[Skriv ut en maskinläsbar resultatrad i stället för meddelandet för människor]' \
             '(-h --help)'{-h,--help}'[Visa hjälp]' \
@@ -545,6 +577,7 @@ _claude_plugin() {
           ;;
         update)
           _arguments \
+            '--accept-command[Godkänn det marketplace-deklarerade kommandot vars sha256 en tidigare --json-körning rapporterade som shownCommand.sha256]:sha256:' \
             '(-s --scope)'{-s,--scope}'[Installationsomfång]:scope:(user project local managed)' \
             '(-y --yes)'{-y,--yes}'[Godkänn det visade kommandot som marknadsplatsen deklarerar utan bekräftelsefråga]' \
             '--json[Skriv ut en maskinläsbar resultatrad i stället för meddelandet för människor]' \
@@ -555,6 +588,7 @@ _claude_plugin() {
           _arguments \
             '--json[Utdata som JSON]' \
             '--available[Inkludera tillgängliga tillägg från marknadsplatser (kräver --json)]' \
+            '--data-size[Mät varje installerat tilläggs katalog för sparade data, eller endast det namngivna tillägget (kräver --json)]::plugin:_claude_installed_plugins' \
             '(-h --help)'{-h,--help}'[Visa hjälp]'
           ;;
         prune|autoremove)
@@ -587,6 +621,15 @@ _claude_plugin() {
             '1:name:'
           ;;
         eval)
+          if [[ $words[2] == init ]]; then
+            _arguments \
+              '--bare[Skriv en tom mall i stället för att köra intervjun]' \
+              '--eval-dir[Katalog under den aktuella katalogen att skriva fall till]:dir:_directories' \
+              '(-i --interactive)'{-i,--interactive}'[Kör författarintervjun (kräver en interaktiv terminal)]' \
+              '(-h --help)'{-h,--help}'[Visa hjälp]' \
+              '::name:'
+            return
+          fi
           _arguments \
             '--case[Filtrera fall efter namn-glob]:glob:' \
             '*--tag[Filtrera fall efter tagg (kan upprepas)]:tag:' \
@@ -600,6 +643,7 @@ _claude_plugin() {
             '--json[Skriv ut hela körresultatet som JSON till stdout, eller skriv det till den här .json-filen]::path:_files' \
             '--threshold[Avsluta med slutkod 1 om något falls poäng är under detta tröskelvärde (standard: 1.0)]:threshold:' \
             '*--allow-tools[Operatörens tillstånd för spärrade verktyg (Bash, Write, Edit, WebFetch, mcp__*)]:tools:' \
+            '*--disallow-tools[Inbyggda verktyg som ska hållas borta från Claude i varje fall, även om de beviljats]:tools:' \
             '(--no-scaffold)--scaffold[Kör varje falls scaffold_script (kör bash från författaren under ditt konto; av som standard)]' \
             '(--scaffold)--no-scaffold[Hoppa uttryckligen över scaffold_script]' \
             '--trust-plugin[Intyga att du litar på det här tillägget och dess utvärderingssvit, så att förtroendefrågan vid första körningen hoppas över (för CI)]' \
@@ -612,7 +656,7 @@ _claude_plugin() {
             '(--no-publish)--publish-report[Kräv även att rapporten publiceras på claude.ai]' \
             '(--publish-report)--no-publish[Behåll HTML-rapporten endast lokalt; publicera den inte på claude.ai]' \
             '(-h --help)'{-h,--help}'[Visa hjälp]' \
-            '::target: _alternative "plugins\:installed plugin\:_claude_installed_plugins" "files\:path\:_files"'
+            '::target: _alternative "commands\:eval command\:(init)" "plugins\:installed plugin\:_claude_installed_plugins" "files\:path\:_files"'
           ;;
         tag)
           _arguments \
@@ -663,6 +707,7 @@ _claude_plugin_marketplace() {
           _arguments \
             '--sparse[Begränsa utcheckningen till specifika kataloger via git sparse-checkout (för monorepon)]:paths:' \
             '--scope[Var marknadsplatsen ska deklareras]:scope:(user project local)' \
+            '--json[Skriv ut en maskinläsbar resultatrad som sista rad på stdout]' \
             '--claudeai[Lägg till marknadsplatsen med det här namnet som claude.ai är värd för åt dig]' \
             '(-h --help)'{-h,--help}'[Visa hjälp]' \
             '1:source:'
@@ -675,11 +720,13 @@ _claude_plugin_marketplace() {
         remove|rm)
           _arguments \
             '--scope[Ta bort marknadsplatsdeklarationen från ett visst inställningsomfång (utelämna för att ta bort den från alla omfång)]:scope:(user project local)' \
+            '--json[Skriv ut en maskinläsbar resultatrad som sista rad på stdout]' \
             '(-h --help)'{-h,--help}'[Visa hjälp]' \
             '1:name:'
           ;;
         update)
           _arguments \
+            '--json[Med ett marketplace-namn: skriv ut en maskinläsbar resultatrad som sista rad på stdout]' \
             '(-h --help)'{-h,--help}'[Visa hjälp]' \
             '::name:'
           ;;
@@ -851,12 +898,23 @@ _claude_project() {
   esac
 }
 
+_claude_purge() {
+  _arguments \
+    '--dry-run[Lista vad som skulle tas bort utan att ta bort något]' \
+    '(-y --yes)'{-y,--yes}'[Hoppa över bekräftelsefrågan]' \
+    '(-i --interactive)'{-i,--interactive}'[Fråga för varje objekt innan det tas bort]' \
+    '(1)--all[Rensa tillståndet för alla projekt (kan inte kombineras med en sökväg)]' \
+    '(-h --help)'{-h,--help}'[Visa hjälp för kommando]' \
+    '(--all)::path:_directories'
+}
+
 _claude_ultrareview() {
   _arguments \
     '--json[Skriv ut den råa bugs.json-nyttolasten istället för formaterade resultat]' \
     '--timeout[Maximalt antal minuter att vänta på att granskningen blir klar (standard: 45)]:minutes:' \
     '(--no-post)--post[Publicera den färdiga granskningens fynd i PR:en i ditt namn (endast PR-mål; en vanlig kommentar, inte en granskning)]' \
     '(--post)--no-post[Publicera inte fynden i PR:en (standard)]' \
+    '--trust-workspace[Lita på den aktuella mappen endast för denna körning, utan att fråga (för skript och CI)]' \
     '(-h --help)'{-h,--help}'[Visa hjälp för kommando]' \
     '1:target:'
 }
@@ -874,6 +932,117 @@ _claude_rm() {
     '--force-remove-worktree[Ta bort worktree-katalogen även om WorktreeRemove-hooken eller git inte kunde ta bort den (ange det worktree-id som ett tidigare claude rm rapporterade)]:worktree-id:' \
     '(-h --help)'{-h,--help}'[Visa hjälp för kommando]' \
     '1:session:_claude_background_sessions'
+}
+
+_claude_self_hosted_runner() {
+  _arguments \
+    '--api-url[API-bas-URL (standard: https://api.anthropic.com)]:url:' \
+    '--environment-secret-file[Sökväg till miljöns hemlighetsfil]:path:_files' \
+    '--lock-to-account[Lås runnern till ett enda konto vid registreringen]:id:' \
+    '--client-label[Observerbarhetsetikett som skickas vid registreringen (standard: hostname)]:label:' \
+    '(--proxy-authorization-file --agent-proxy-url)--proxy-authorization-command[Kommando vars stdout är Proxy-Authorization-huvudet för utgående proxyservrar]:shell command:' \
+    '(--proxy-authorization-command --agent-proxy-url)--proxy-authorization-file[Fil som innehåller Proxy-Authorization-huvudet för utgående proxyservrar]:path:_files' \
+    '(--proxy-authorization-command --proxy-authorization-file)--agent-proxy-url[Dirigera varje session genom agentproxyn på denna URL (endast https)]:url:' \
+    '--capacity[Max antal samtidiga sessioner (standard: 1)]:n:' \
+    '--base-dir[Baskatalog för repo-utcheckningar (standard: /workspace)]:path:_directories' \
+    '--exec-path[Binärfil att starta för undersessioner (standard: denna binärfil)]:path:_files' \
+    '--hooks-dir[Katalog med livscykel-hookskript (checkout, command, post-session)]:path:_directories' \
+    '--session-stop-grace-sec[Hur länge att vänta på ett rent avslut efter att en session avslutats (standard: 5)]:n:' \
+    '--post-session-hook-timeout-sec[SIGTERM-tidsgräns för post-session-hooken (standard: 60)]:n:' \
+    '--checkout-hook-timeout-min[Tidsgräns i verklig tid för varje körning av checkout-hooken (standard: 30; 0 inaktiverar)]:n:' \
+    '--drain-wait-sec[Vid SIGTERM/SIGINT, vänta upp till N sekunder på pågående arbete (standard: 0)]:n:' \
+    '--drain-marker-file[Markörfil med vilken värden aviserar en kontrollerad avveckling]:path:_files' \
+    '*--git-ssh-rewrite[Skriv om käll-URL:er https://<host>/... till git@<host>:... (upprepningsbar)]:host:' \
+    '*--git-host-rewrite[Skriv om käll-URL:er https://<f>/... till https://<t>/... (upprepningsbar)]:from=to:' \
+    '--use-anthropic-git-proxy[Använd Anthropic-hanterad git. VARNING: tar bort och ersätter git-konfigurationen på HOME-nivå, använd endast under ett dedikerat konto]' \
+    '--configure-git[Ange den globala git-identiteten och aktivera commit-signering via Anthropics signeringstjänst. Skriver ~/.gitconfig]' \
+    '--push-outcome-on-release[Pusha spårade resultatgrenar när runnern avslutar en session som inte slutförts]' \
+    '--trust-workspace[Förinställ beständigt förtroende för varje sessions repo-sökvägar (standard: true)]::bool:(true false)' \
+    '--remove-session-state[Ta bort sessionsspecifikt tillstånd när en session avslutas (standard: false)]::bool:(true false)' \
+    '--diff-finds-nested-repository[Visa ett repository klonat i en undermapp i Changes-panelen; kräver --capacity 1 (standard: false)]::bool:(true false)' \
+    '--confine-repo-settings[Skyddsläge för att begränsa repo-incheckade inställningar (standard: warn)]:mode:(warn enforce off)' \
+    '--server-auto-mode-lists[Vilka listor för auto-läge-klassificeraren från servern en session får ta emot (standard: no-allow)]:mode:(all no-allow none)' \
+    '--host-config-snapshot[Var startögonblicksbilden av värdkonfigurationen lagras (standard: disk)]:mode:(disk memory)' \
+    '--health-port[Port för HTTP-lyssnaren /healthz (standard: 8080; 0 inaktiverar)]:port:' \
+    '--log-level[Loggnivå (standard: info)]:level:(info debug)' \
+    '--log-file[Kopiera även runnerloggarna till en fil i tilläggsläge]:path:_files' \
+    '--exit-if-unused-min[Avsluta runnern om den inte tilldelats arbete på N minuter]:n:' \
+    '--drain-grace-sec[Sekunder att fortsätta fråga efter arbete efter att aktiva sessioner avslutats (standard: 0)]:n:' \
+    '--retire-at[Pensionera runnern vid denna absoluta Unix-tid, i sekunder]:epoch-seconds:' \
+    '--defer-shutdown-max-min[Vid första SIGTERM/SIGINT, sluta ta emot arbete och slutför nedstängningen M minuter senare (standard: 0)]:m:' \
+    '--release-idle-session-min[Frigör en sessionsplats efter N minuter utan användarinmatning]:n:' \
+    '--startup-timeout-min[Frigör en sessionsplats om undersessionen inte har startat klart efter N minuter (standard: 15; 0 inaktiverar)]:n:' \
+    '--kill-session-after-min[Begränsa en undersessions livslängd i verklig tid till N minuter]:n:' \
+    '--debug-token-dir[ENDAST FÖR FELSÖKNING: skriver aktiva tokens till disk. Använd inte i produktion]:path:_directories' \
+    '(-h --help)'{-h,--help}'[Visa detta hjälpmeddelande]'
+}
+
+_claude_remote_control() {
+  _arguments \
+    '--name[Namn på sessionen (visas i claude.ai/code)]:name:' \
+    '--remote-control-session-name-prefix[Prefix för automatiskt genererade sessionsnamn (standard: hostname)]:prefix:' \
+    '(-c --continue --session-id)'{-c,--continue}'[Återanslut till den session som senast registrerades för denna katalog eller någon av dess git-worktrees]' \
+    '(-c --continue --session-id)--session-id[Återanslut till en specifik session via ID]:id:' \
+    '--permission-mode[Behörighetsläge för startade sessioner]:mode:(acceptEdits auto bypassPermissions default dontAsk plan)' \
+    '(--no-chrome)--chrome[Aktivera Claude in Chrome för startade sessioner]' \
+    '(--chrome)--no-chrome[Inaktivera Claude in Chrome för startade sessioner]' \
+    '(-d --debug)'{-d,--debug}'[Aktivera felsökningsläge med valfri kategorifiltrering]::filter:' \
+    '--debug-file[Skriv felsökningsloggar till fil]:path:_files' \
+    '(-v --verbose)'{-v,--verbose}'[Aktivera utförlig utdata]' \
+    '--spawn[Startläge (standard: same-dir)]:mode:(same-dir worktree session)' \
+    '--capacity[Max antal samtidiga sessioner i worktree- eller same-dir-läge (standard: 32)]:n:' \
+    '(--no-create-session-in-dir)--create-session-in-dir[Skapa en session i förväg i den aktuella katalogen (standard)]' \
+    '(--create-session-in-dir)--no-create-session-in-dir[Skapa inte en session i förväg i den aktuella katalogen]' \
+    '(-h --help)'{-h,--help}'[Visa denna hjälp]'
+}
+
+_claude_daemon() {
+  local -a daemon_commands common_options
+  daemon_commands=(
+    'run:Kör övervakaren i förgrunden'
+    'status:Visa daemonens pid, version och drifttid'
+    'logs:Följ daemonloggen (Ctrl-C för att avsluta)'
+    'uninstall:Ta bort bakgrundstjänsten (launchctl/systemd)'
+    'stop:Stäng av övervakaren och avsluta bakgrundssessioner'
+  )
+  common_options=(
+    '--json-path[Konfigurationsfil (standard: ~/.claude/daemon.json)]:path:_files'
+    '--log-file[Loggfil (standard: ~/.claude/daemon.log)]:path:_files'
+    '(-h --help)'{-h,--help}'[Visa denna hjälp]'
+  )
+
+  local curcontext="$curcontext" state line
+  typeset -A opt_args
+
+  _arguments -C \
+    $common_options \
+    '1: :->command' \
+    '*::arg:->args'
+
+  case $state in
+    command)
+      _describe -t commands 'daemon-kommandon' daemon_commands
+      ;;
+    args)
+      case $words[1] in
+        run)
+          _arguments \
+            $common_options \
+            '::json-path:_files'
+          ;;
+        stop)
+          _arguments \
+            $common_options \
+            '--any[Stoppa även en tillfällig daemon (inte som tjänst)]' \
+            '--keep-workers[Låt frånkopplade sessioner fortsätta köra]'
+          ;;
+        status|logs|uninstall)
+          _arguments \
+            $common_options
+          ;;
+      esac
+      ;;
+  esac
 }
 
 _claude_import() {

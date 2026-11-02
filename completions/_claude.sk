@@ -200,11 +200,15 @@ _claude() {
     'stop:Zastaviť reláciu na pozadí (jej konverzácia sa zachová)'
     'respawn:Reštartovať reláciu na pozadí, aby bežala na aktuálnej verzii Claude Code'
     'rm:Odstrániť reláciu na pozadí a jej worktree, ak je to bezpečné'
+    'remote-control:Ovládať lokálne relácie z claude.ai/code alebo mobilnej aplikácie Claude'
+    'daemon:Správa supervízora relácií na pozadí'
     'auth:Správa autentizácie'
     'auto-mode:Zobraziť alebo resetovať konfiguráciu klasifikátora automatického režimu'
     'gateway:Spustiť podnikovú bránu autentizácie/telemetrie'
+    'self-hosted-runner:Hostiť cloudové relácie Claude Code na tomto počítači alebo kontajneri'
     'import:Importovať konfiguráciu z iného AI agenta na programovanie do Claude Code'
     'project:Správa stavu projektu Claude Code'
+    'purge:Odstrániť všetok stav Claude Code pre projekt (prepisy, úlohy, história súborov, konfiguračný záznam)'
     'ultrareview:Spustiť cloudovú multi-agentovú kontrolu kódu a vypísať zistenia'
     'setup-token:Nastavenie tokenu pre dlhodobú autentizáciu (vyžaduje predplatné Claude)'
     'doctor:Kontrola zdravia systému automatických aktualizácií Claude Code'
@@ -221,11 +225,11 @@ _claude() {
     '--json-schema[JSON schéma pre validáciu štruktúrovaného výstupu]:schema:'
     '--include-partial-messages[Zahrnúť čiastočné fragmenty správ pri ich príchode (s --print a --output-format=stream-json)]'
     '--input-format[Formát vstupu (s --print): "text" (predvolené) alebo "stream-json" (streamovaný vstup v reálnom čase)]:format:(text stream-json)'
-    '--mcp-debug[\[Zastarané. Použite --debug namiesto toho\] Zapnúť režim ladenia MCP (zobrazuje chyby MCP servera)]'
     '--dangerously-skip-permissions[Obísť všetky kontroly oprávnení. Odporúčané len pre sandboxové prostredia bez prístupu k internetu]'
     '--allow-dangerously-skip-permissions[Povoliť možnosť obídenia kontrol oprávnení bez povolenia v predvolenom nastavení]'
     '--restricted[Obmedzený režim: odstrániť nástroje, ktoré spúšťajú príkazy alebo kód, a WebFetch, ignorovať nastavenia user/project/local a obmedziť súborové nástroje na pracovné adresáre]'
     '--max-budget-usd[Maximálna suma v dolároch na míňanie na API volania (len --print)]:amount:'
+    '--max-turns[Obmedziť počet agentických ťahov (len --print)]:turns:'
     '--replay-user-messages[Znovu odoslať používateľské správy zo stdin na stdout pre potvrdenie]'
     '--allowed-tools[Zoznam povolených názvov nástrojov oddelených čiarkou alebo medzerou (napr. "Bash(git:*) Edit")]:tools:'
     '--allowedTools[Zoznam povolených názvov nástrojov oddelených čiarkou alebo medzerou (formát camelCase)]:tools:'
@@ -237,6 +241,8 @@ _claude() {
     '--system-prompt-file[Načítať systémový prompt zo súboru]:file:_files'
     '--append-system-prompt[Pripojiť systémový prompt k štandardnému systémovému promptu]:prompt:'
     '--append-system-prompt-file[Načítať systémový prompt zo súboru a pripojiť ho k predvolenému systémovému promptu]:file:_files'
+    '(--append-subagent-system-prompt-file)--append-subagent-system-prompt[Pripojiť text k systémovému promptu každého subagenta (len --print)]:prompt:'
+    '(--append-subagent-system-prompt)--append-subagent-system-prompt-file[Načítať text zo súboru a pripojiť ho k systémovým promptom subagentov (len --print)]:file:_files'
     '--system-prompt-snapshot[Zaznamenať systémový prompt raz za konverzáciu a doslovne ho opätovne použiť pri každej požiadavke a obnove (on, predvolené), alebo ho vygenerovať nanovo pri každej požiadavke (off)]:mode:(on off)'
     '--permission-mode[Režim oprávnení pre použitie v relácii]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)'
     '--permission-prompts[Kto odpovedá na výzvy na oprávnenia s --print: "host" (hostiteľ SDK alebo --permission-prompt-tool) alebo "none" (všetko, čo by vyžadovalo výzvu, sa zamietne)]:target:(host none)'
@@ -256,6 +262,8 @@ _claude() {
     '--strict-mcp-config[Použiť len MCP servery z --mcp-config a ignorovať všetky ostatné MCP nastavenia]'
     '--session-id[Konkrétny identifikátor relácie pre použitie v konverzácii (musí byť platné UUID)]:uuid:'
     '--agents[JSON objekt definujúci vlastné agenty]:json:'
+    '--advisor[Zapnúť serverový nástroj poradcu pre túto reláciu s aliasom modelu alebo úplným ID modelu]:model:_claude_model_names'
+    '--teammate-mode[Ako sa zobrazujú členovia tímu agentov]:mode:(in-process auto tmux iterm2)'
     '--setting-sources[Zoznam zdrojov nastavení oddelených čiarkou pre načítanie (user, project, local)]:sources:'
     '--plugin-dir[Adresár pre načítanie pluginov len pre túto reláciu (možno opakovať)]:paths:_directories'
     '--disable-slash-commands[Vypnúť všetky lomkové príkazy]'
@@ -268,9 +276,11 @@ _claude() {
     '--debug-file[Zapisovať ladiace záznamy do konkrétnej cesty súboru (implicitne zapne režim ladenia)]:path:_files'
     '--from-pr[Obnoviť reláciu prepojenú s PR podľa čísla/URL, alebo otvoriť interaktívny výber]::value:'
     '--teleport[Obnoviť teleport reláciu, voliteľne zadajte identifikátor relácie]::session:'
-    '--cloud[Vytvoriť cloudovú reláciu so zadaným popisom, alebo sa pripojiť k existujúcej podľa identifikátora relácie alebo URL claude.ai/code]::description-or-session:'
+    '(--remote)--cloud[Vytvoriť cloudovú reláciu so zadaným popisom, alebo sa pripojiť k existujúcej podľa identifikátora relácie alebo URL claude.ai/code]::description-or-session:'
+    '(--cloud)--remote[Zastaraný alias pre --cloud]::description-or-session:'
     '--environment[Vytvoriť novú cloudovú reláciu, ktorá beží v zadanom vlastnom hostovanom prostredí (ccpool_...)]:environment_id:'
-    '--remote-control[Spustiť interaktívnu reláciu so zapnutým vzdialeným ovládaním (voliteľne pomenovanú)]::name:'
+    '--ref[S --environment: založiť checkout novej relácie na pomenovanej ref namiesto lokálneho HEAD]:branch:'
+    '(--remote-control --rc)'{--remote-control,--rc}'[Spustiť interaktívnu reláciu so zapnutým vzdialeným ovládaním (voliteľne pomenovanú)]::name:'
     '--remote-control-session-name-prefix[Predpona pre automaticky generované názvy relácií vzdialeného ovládania]:prefix:'
     '--chrome[Zapnúť integráciu Claude v Chrome]'
     '--no-chrome[Vypnúť integráciu Claude v Chrome]'
@@ -281,6 +291,11 @@ _claude() {
     '--include-hook-events[Zahrnúť všetky udalosti životného cyklu hookov do výstupného streamu (s stream-json)]'
     '--exclude-dynamic-system-prompt-sections[Presunúť sekcie špecifické pre stroj do prvej používateľskej správy pre zlepšenie opätovného využitia cache promptov]'
     '--brief[Zapnúť nástroj SendUserMessage pre komunikáciu agenta s používateľom]'
+    '*--channels[(Výskumná ukážka) MCP servery, ktorých notifikácie kanálov sa majú počúvať (plugin\:<name>@<marketplace>)]:entries:'
+    '*--dangerously-load-development-channels[Povoliť kanály mimo schváleného zoznamu, pre lokálny vývoj (plugin\:<name>@<marketplace> alebo server\:<name>)]:entries:'
+    '--init[Spustiť hooky Setup s matcherom init pred reláciou (len --print)]'
+    '--init-only[Spustiť hooky Setup a SessionStart a potom skončiť bez začatia konverzácie]'
+    '--maintenance[Spustiť hooky Setup s matcherom maintenance pred reláciou (len --print)]'
     '--safe-mode[Spustiť s vypnutými všetkými prispôsobeniami (užitočné pri riešení problémov s poškodenou konfiguráciou)]'
     '--bare[Minimálny režim: preskočiť hooky, LSP, synchronizáciu pluginov, atribúciu, automatickú pamäť a automatické zisťovanie CLAUDE.md]'
     '--ax-screen-reader[Vykresliť výstup vhodný pre čítačky obrazovky (plochý text, bez dekoratívnych okrajov alebo animácií)]'
@@ -304,7 +319,7 @@ _claude() {
         mcp)
           _claude_mcp
           ;;
-        plugin)
+        plugin|plugins)
           _claude_plugin
           ;;
         install)
@@ -324,6 +339,12 @@ _claude() {
         rm)
           _claude_rm
           ;;
+        remote-control|rc|remote|sync|bridge)
+          _claude_remote_control
+          ;;
+        daemon)
+          _claude_daemon
+          ;;
         auth)
           _claude_auth
           ;;
@@ -333,17 +354,24 @@ _claude() {
         gateway)
           _claude_gateway
           ;;
+        self-hosted-runner)
+          _claude_self_hosted_runner
+          ;;
         import)
           _claude_import
           ;;
         project)
           _claude_project
           ;;
+        purge)
+          _claude_purge
+          ;;
         ultrareview)
           _claude_ultrareview
           ;;
-        setup-token|doctor|update)
-          _message "bez argumentov"
+        setup-token|doctor|update|upgrade)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Zobraziť pomoc pre príkaz]'
           ;;
         *)
           # Not a command but the prompt: options may still follow it
@@ -502,6 +530,7 @@ _claude_plugin() {
         validate)
           _arguments \
             '--strict[Považovať varovania za chyby (návratový kód 1)]' \
+            '--profile[Skončiť aj s kódom 1, keď by pomenovaný katalóg odmietol odoslanie pluginu pri kontrole, ktorú tento príkaz spúšťa]:name:(directory)' \
             '--json[Vypísať správu o validácii ako JSON (rovnaké návratové kódy)]' \
             '(-h --help)'{-h,--help}'[Zobraziť pomoc]' \
             '1:path:_files'
@@ -512,7 +541,10 @@ _claude_plugin() {
         install|i)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Rozsah inštalácie]:scope:(user project local)' \
+            '--accept-command[Prijať príkaz deklarovaný marketplace, ktorého sha256 nahlásil predchádzajúci beh s --json ako shownCommand.sha256]:sha256:' \
             '*--config[Nastaviť možnosť userConfig deklarovanú v manifeste pluginu (možno opakovať)]:key=value:' \
+            '--marketplace[Nainštalovať plugin podľa samotného názvu z marketplace z tohto zdroja (owner/repo, git alebo https URL, alebo cesta), v prípade potreby ho najprv pridať]:source:' \
+            '--registry[Pre inštaláciu package@npm: vyhľadať a stiahnuť z tohto npm registra]:url:' \
             '(-y --yes)'{-y,--yes}'[Prijať zobrazený príkaz deklarovaný marketplace bez výzvy na potvrdenie]' \
             '--json[Vypísať jeden strojovo čitateľný riadok výsledku namiesto správy pre človeka]' \
             '(-h --help)'{-h,--help}'[Zobraziť pomoc]' \
@@ -545,6 +577,7 @@ _claude_plugin() {
           ;;
         update)
           _arguments \
+            '--accept-command[Prijať príkaz deklarovaný marketplace, ktorého sha256 nahlásil predchádzajúci beh s --json ako shownCommand.sha256]:sha256:' \
             '(-s --scope)'{-s,--scope}'[Rozsah inštalácie]:scope:(user project local managed)' \
             '(-y --yes)'{-y,--yes}'[Prijať zobrazený príkaz deklarovaný marketplace bez výzvy na potvrdenie]' \
             '--json[Vypísať jeden strojovo čitateľný riadok výsledku namiesto správy pre človeka]' \
@@ -555,6 +588,7 @@ _claude_plugin() {
           _arguments \
             '--json[Výstup ako JSON]' \
             '--available[Zahrnúť dostupné pluginy z marketplace (vyžaduje --json)]' \
+            '--data-size[Zmerať adresár uložených dát každého nainštalovaného pluginu alebo len pomenovaného pluginu (vyžaduje --json)]::plugin:_claude_installed_plugins' \
             '(-h --help)'{-h,--help}'[Zobraziť pomoc]'
           ;;
         prune|autoremove)
@@ -587,6 +621,15 @@ _claude_plugin() {
             '1:name:'
           ;;
         eval)
+          if [[ $words[2] == init ]]; then
+            _arguments \
+              '--bare[Zapísať prázdnu šablónu namiesto spustenia interview]' \
+              '--eval-dir[Adresár pod aktuálnym adresárom, do ktorého sa zapíšu prípady]:dir:_directories' \
+              '(-i --interactive)'{-i,--interactive}'[Spustiť autorské interview (vyžaduje interaktívny terminál)]' \
+              '(-h --help)'{-h,--help}'[Zobraziť pomoc]' \
+              '::name:'
+            return
+          fi
           _arguments \
             '--case[Filtrovať prípady podľa glob vzoru názvu]:glob:' \
             '*--tag[Filtrovať prípady podľa značky (možno opakovať)]:tag:' \
@@ -600,6 +643,7 @@ _claude_plugin() {
             '--json[Vypísať úplný výsledok behu ako JSON na stdout, alebo ho zapísať do tohto .json súboru]::path:_files' \
             '--threshold[Ukončiť s návratovým kódom 1, ak je skóre niektorého prípadu pod týmto prahom (predvolené: 1.0)]:threshold:' \
             '*--allow-tools[Povolenie operátora pre chránené nástroje (Bash, Write, Edit, WebFetch, mcp__*)]:tools:' \
+            '*--disallow-tools[Vstavané nástroje, ktoré Claude nedostane v žiadnom prípade, ani keď sú povolené]:tools:' \
             '(--no-scaffold)--scaffold[Spustiť scaffold_script každého prípadu (spúšťa bash dodaný autorom pod vaším účtom; predvolene vypnuté)]' \
             '(--scaffold)--no-scaffold[Výslovne preskočiť scaffold_script]' \
             '--trust-plugin[Potvrdiť, že dôverujete tomuto pluginu a jeho evaluačnej sade, a preskočiť výzvu na dôveru pri prvom spustení (pre CI)]' \
@@ -612,7 +656,7 @@ _claude_plugin() {
             '(--no-publish)--publish-report[Vyžadovať aj zverejnenie správy na claude.ai]' \
             '(--publish-report)--no-publish[Ponechať HTML správu len lokálne; preskočiť jej zverejnenie na claude.ai]' \
             '(-h --help)'{-h,--help}'[Zobraziť pomoc]' \
-            '::target: _alternative "plugins\:installed plugin\:_claude_installed_plugins" "files\:path\:_files"'
+            '::target: _alternative "commands\:eval command\:(init)" "plugins\:installed plugin\:_claude_installed_plugins" "files\:path\:_files"'
           ;;
         tag)
           _arguments \
@@ -663,6 +707,7 @@ _claude_plugin_marketplace() {
           _arguments \
             '--sparse[Obmedziť checkout na konkrétne adresáre pomocou git sparse-checkout (pre monorepozitáre)]:paths:' \
             '--scope[Kde deklarovať marketplace]:scope:(user project local)' \
+            '--json[Vypísať jeden strojovo čitateľný riadok výsledku ako posledný riadok na stdout]' \
             '--claudeai[Pridať marketplace s týmto názvom, ktorý pre vás hostuje claude.ai]' \
             '(-h --help)'{-h,--help}'[Zobraziť pomoc]' \
             '1:source:'
@@ -675,11 +720,13 @@ _claude_plugin_marketplace() {
         remove|rm)
           _arguments \
             '--scope[Odstrániť deklaráciu marketplace z konkrétneho rozsahu nastavení (vynechajte na odstránenie zo všetkých rozsahov)]:scope:(user project local)' \
+            '--json[Vypísať jeden strojovo čitateľný riadok výsledku ako posledný riadok na stdout]' \
             '(-h --help)'{-h,--help}'[Zobraziť pomoc]' \
             '1:name:'
           ;;
         update)
           _arguments \
+            '--json[S názvom marketplace: vypísať jeden strojovo čitateľný riadok výsledku ako posledný riadok na stdout]' \
             '(-h --help)'{-h,--help}'[Zobraziť pomoc]' \
             '::name:'
           ;;
@@ -851,12 +898,23 @@ _claude_project() {
   esac
 }
 
+_claude_purge() {
+  _arguments \
+    '--dry-run[Vypísať, čo by sa odstránilo, bez odstránenia čohokoľvek]' \
+    '(-y --yes)'{-y,--yes}'[Preskočiť výzvu na potvrdenie]' \
+    '(-i --interactive)'{-i,--interactive}'[Pred odstránením sa pýtať na každú položku]' \
+    '(1)--all[Odstrániť stav pre všetky projekty (vzájomne sa vylučuje s cestou)]' \
+    '(-h --help)'{-h,--help}'[Zobraziť pomoc pre príkaz]' \
+    '(--all)::path:_directories'
+}
+
 _claude_ultrareview() {
   _arguments \
     '--json[Vypísať surové bugs.json dáta namiesto naformátovaných zistení]' \
     '--timeout[Maximálny počet minút na čakanie na dokončenie kontroly (predvolené: 45)]:minutes:' \
     '(--no-post)--post[Zverejniť zistenia dokončenej kontroly v PR vo vašom mene (len pre ciele PR; jeden obyčajný komentár, nie review)]' \
     '(--post)--no-post[Nezverejňovať zistenia v PR (predvolené)]' \
+    '--trust-workspace[Dôverovať aktuálnemu priečinku len pre tento beh, bez pýtania (pre skripty a CI)]' \
     '(-h --help)'{-h,--help}'[Zobraziť pomoc pre príkaz]' \
     '1:target:'
 }
@@ -874,6 +932,117 @@ _claude_rm() {
     '--force-remove-worktree[Odstrániť adresár worktree, aj keď ho hook WorktreeRemove alebo git nedokázal odstrániť (zadajte worktree-id, ktorý nahlásil predchádzajúci claude rm)]:worktree-id:' \
     '(-h --help)'{-h,--help}'[Zobraziť pomoc pre príkaz]' \
     '1:session:_claude_background_sessions'
+}
+
+_claude_self_hosted_runner() {
+  _arguments \
+    '--api-url[Základná URL API (predvolené: https://api.anthropic.com)]:url:' \
+    '--environment-secret-file[Cesta k súboru s tajomstvom prostredia]:path:_files' \
+    '--lock-to-account[Pri registrácii uzamknúť runner na jeden účet]:id:' \
+    '--client-label[Štítok pozorovateľnosti odoslaný pri registrácii (predvolené: hostname)]:label:' \
+    '(--proxy-authorization-file --agent-proxy-url)--proxy-authorization-command[Príkaz, ktorého stdout je hlavička Proxy-Authorization pre odchádzajúce proxy]:shell command:' \
+    '(--proxy-authorization-command --agent-proxy-url)--proxy-authorization-file[Súbor s hlavičkou Proxy-Authorization pre odchádzajúce proxy]:path:_files' \
+    '(--proxy-authorization-command --proxy-authorization-file)--agent-proxy-url[Smerovať každú reláciu cez agentovú proxy na tejto URL (len https)]:url:' \
+    '--capacity[Max. počet súbežných relácií (predvolené: 1)]:n:' \
+    '--base-dir[Základný adresár pre checkouty repozitárov (predvolené: /workspace)]:path:_directories' \
+    '--exec-path[Binárka, ktorá sa spustí pre podriadené relácie (predvolené: táto binárka)]:path:_files' \
+    '--hooks-dir[Adresár skriptov hookov životného cyklu (checkout, command, post-session)]:path:_directories' \
+    '--session-stop-grace-sec[Ako dlho čakať na čisté ukončenie po skončení relácie (predvolené: 5)]:n:' \
+    '--post-session-hook-timeout-sec[Časový limit SIGTERM pre hook post-session (predvolené: 60)]:n:' \
+    '--checkout-hook-timeout-min[Limit reálneho času pre každý beh hooku checkout (predvolené: 30; 0 vypína)]:n:' \
+    '--drain-wait-sec[Pri SIGTERM/SIGINT čakať až N sekúnd na rozpracovanú prácu (predvolené: 0)]:n:' \
+    '--drain-marker-file[Značkovací súbor, ktorým hostiteľ oznamuje riadené vyprázdnenie]:path:_files' \
+    '*--git-ssh-rewrite[Prepísať zdrojové URL https://<host>/... na git@<host>:... (možno opakovať)]:host:' \
+    '*--git-host-rewrite[Prepísať zdrojové URL https://<f>/... na https://<t>/... (možno opakovať)]:from=to:' \
+    '--use-anthropic-git-proxy[Použiť git spravovaný Anthropic. UPOZORNENIE: odstráni a nahradí git konfiguráciu na úrovni HOME, používajte len pod vyhradeným účtom]' \
+    '--configure-git[Nastaviť globálnu git identitu a zapnúť podpisovanie commitov cez podpisovú službu Anthropic. Zapisuje ~/.gitconfig]' \
+    '--push-outcome-on-release[Pushnúť sledované výsledné vetvy, keď runner ukončí nedokončenú reláciu]' \
+    '--trust-workspace[Predvyplniť trvalú dôveru pre cesty repozitárov každej relácie (predvolené: true)]::bool:(true false)' \
+    '--remove-session-state[Odstrániť stav jednotlivej relácie po jej skončení (predvolené: false)]::bool:(true false)' \
+    '--diff-finds-nested-repository[Zobraziť repozitár naklonovaný do podpriečinka v paneli Changes; vyžaduje --capacity 1 (predvolené: false)]::bool:(true false)' \
+    '--confine-repo-settings[Režim ochrany obmedzujúcej nastavenia commitnuté v repozitári (predvolené: warn)]:mode:(warn enforce off)' \
+    '--server-auto-mode-lists[Ktoré zoznamy klasifikátora automatického režimu zo servera môže relácia prijať (predvolené: no-allow)]:mode:(all no-allow none)' \
+    '--host-config-snapshot[Kde sa uchováva snímka konfigurácie hostiteľa pri štarte (predvolené: disk)]:mode:(disk memory)' \
+    '--health-port[Port pre HTTP listener /healthz (predvolené: 8080; 0 vypína)]:port:' \
+    '--log-level[Úroveň logovania (predvolené: info)]:level:(info debug)' \
+    '--log-file[Kopírovať logy runnera aj do súboru v režime pripájania]:path:_files' \
+    '--exit-if-unused-min[Ukončiť runner, ak mu N minút nebola pridelená práca]:n:' \
+    '--drain-grace-sec[Počet sekúnd, počas ktorých sa ďalej pýtať na prácu po skončení aktívnych relácií (predvolené: 0)]:n:' \
+    '--retire-at[Vyradiť runner v tomto absolútnom čase Unix, v sekundách]:epoch-seconds:' \
+    '--defer-shutdown-max-min[Pri prvom SIGTERM/SIGINT prestať prijímať prácu a dokončiť vypínanie o M minút neskôr (predvolené: 0)]:m:' \
+    '--release-idle-session-min[Uvoľniť slot relácie po N minútach bez vstupu používateľa]:n:' \
+    '--startup-timeout-min[Uvoľniť slot relácie, ak podriadený proces nedokončil štart do N minút (predvolené: 15; 0 vypína)]:n:' \
+    '--kill-session-after-min[Obmedziť dĺžku života podriadenej relácie v reálnom čase na N minút]:n:' \
+    '--debug-token-dir[LEN NA LADENIE: zapisuje živé tokeny na disk. Nepoužívajte v produkcii]:path:_directories' \
+    '(-h --help)'{-h,--help}'[Zobraziť túto nápovedu]'
+}
+
+_claude_remote_control() {
+  _arguments \
+    '--name[Názov relácie (zobrazený v claude.ai/code)]:name:' \
+    '--remote-control-session-name-prefix[Prefix pre automaticky generované názvy relácií (predvolené: hostname)]:prefix:' \
+    '(-c --continue --session-id)'{-c,--continue}'[Znovu sa pripojiť k relácii naposledy zaznamenanej pre tento adresár alebo niektorý z jeho git worktree]' \
+    '(-c --continue --session-id)--session-id[Znovu sa pripojiť ku konkrétnej relácii podľa ID]:id:' \
+    '--permission-mode[Režim oprávnení pre spustené relácie]:mode:(acceptEdits auto bypassPermissions default dontAsk plan)' \
+    '(--no-chrome)--chrome[Zapnúť Claude in Chrome pre spustené relácie]' \
+    '(--chrome)--no-chrome[Vypnúť Claude in Chrome pre spustené relácie]' \
+    '(-d --debug)'{-d,--debug}'[Zapnúť režim ladenia s voliteľným filtrovaním kategórií]::filter:' \
+    '--debug-file[Zapisovať ladiace záznamy do súboru]:path:_files' \
+    '(-v --verbose)'{-v,--verbose}'[Zapnúť podrobný výstup]' \
+    '--spawn[Režim spúšťania (predvolené: same-dir)]:mode:(same-dir worktree session)' \
+    '--capacity[Max. počet súbežných relácií v režime worktree alebo same-dir (predvolené: 32)]:n:' \
+    '(--no-create-session-in-dir)--create-session-in-dir[Vopred vytvoriť reláciu v aktuálnom adresári (predvolené)]' \
+    '(--create-session-in-dir)--no-create-session-in-dir[Nevytvárať vopred reláciu v aktuálnom adresári]' \
+    '(-h --help)'{-h,--help}'[Zobraziť túto nápovedu]'
+}
+
+_claude_daemon() {
+  local -a daemon_commands common_options
+  daemon_commands=(
+    'run:Spustiť supervízora na popredí'
+    'status:Zobraziť pid, verziu a dobu behu démona'
+    'logs:Sledovať log démona (Ctrl-C na zastavenie)'
+    'uninstall:Odstrániť službu na pozadí (launchctl/systemd)'
+    'stop:Vypnúť supervízora a ukončiť relácie na pozadí'
+  )
+  common_options=(
+    '--json-path[Konfiguračný súbor (predvolené: ~/.claude/daemon.json)]:path:_files'
+    '--log-file[Súbor logu (predvolené: ~/.claude/daemon.log)]:path:_files'
+    '(-h --help)'{-h,--help}'[Zobraziť túto nápovedu]'
+  )
+
+  local curcontext="$curcontext" state line
+  typeset -A opt_args
+
+  _arguments -C \
+    $common_options \
+    '1: :->command' \
+    '*::arg:->args'
+
+  case $state in
+    command)
+      _describe -t commands 'príkazy daemon' daemon_commands
+      ;;
+    args)
+      case $words[1] in
+        run)
+          _arguments \
+            $common_options \
+            '::json-path:_files'
+          ;;
+        stop)
+          _arguments \
+            $common_options \
+            '--any[Zastaviť aj dočasného démona (nie ako služba)]' \
+            '--keep-workers[Nechať odpojené relácie bežať]'
+          ;;
+        status|logs|uninstall)
+          _arguments \
+            $common_options
+          ;;
+      esac
+      ;;
+  esac
 }
 
 _claude_import() {

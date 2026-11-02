@@ -200,11 +200,15 @@ _claude() {
     'stop:Zaustavi pozadinsku sesiju (njen razgovor se čuva)'
     'respawn:Ponovo pokreni pozadinsku sesiju da bi koristila trenutnu verziju Claude Code'
     'rm:Izbriši pozadinsku sesiju i njeno radno stablo kada je to bezbedno'
+    'remote-control:Upravljaj lokalnim sesijama iz claude.ai/code ili Claude mobilne aplikacije'
+    'daemon:Upravljanje nadzornikom pozadinskih sesija'
     'auth:Upravljanje autentifikacijom'
     'auto-mode:Pregledaj ili resetuj konfiguraciju klasifikatora automatskog režima'
     'gateway:Pokreni enterprise gateway za autentifikaciju/telemetriju'
+    'self-hosted-runner:Hostuj Claude Code sesije u oblaku na ovoj mašini ili kontejneru'
     'import:Uvezi konfiguraciju iz drugog AI agenta za programiranje u Claude Code'
     'project:Upravljanje stanjem Claude Code projekta'
+    'purge:Izbriši sve Claude Code stanje za projekat (transkripti, zadaci, istorija datoteka, unos konfiguracije)'
     'ultrareview:Pokreni višeagentski pregled koda u oblaku i ispiši nalaze'
     'setup-token:Podešavanje tokena za dugotrajnu autentifikaciju (zahteva Claude pretplatu)'
     'doctor:Provera zdravlja Claude Code automatskog ažuriranja'
@@ -221,11 +225,11 @@ _claude() {
     '--json-schema[JSON šema za validaciju strukturiranog izlaza]:schema:'
     '--include-partial-messages[Uključi delimične fragmente poruka kako pristižu (uz --print i --output-format=stream-json)]'
     '--input-format[Format ulaza (uz --print): "text" (podrazumevano) ili "stream-json" (strimovani unos u realnom vremenu)]:format:(text stream-json)'
-    '--mcp-debug[\[Zastarelo. Umesto toga koristite --debug\] Omogući MCP režim za otklanjanje grešaka (prikazuje greške MCP servera)]'
     '--dangerously-skip-permissions[Zaobiđi sve provere dozvola. Preporučuje se samo za sandbox okruženja bez pristupa internetu]'
     '--allow-dangerously-skip-permissions[Omogući opciju zaobilaženja provera dozvola bez podrazumevanog omogućavanja]'
     '--restricted[Ograničeni režim: ukloni alate koji pokreću naredbe ili kod i WebFetch, ignoriši user/project/local podešavanja i ograniči datotečne alate na radne direktorijume]'
     '--max-budget-usd[Maksimalni iznos u dolarima za potrošnju na API pozive (samo --print)]:amount:'
+    '--max-turns[Ograniči broj agentskih poteza (samo --print)]:turns:'
     '--replay-user-messages[Ponovo pošalji korisničke poruke sa stdin na stdout radi potvrde]'
     '--allowed-tools[Lista dozvoljenih imena alata razdvojenih zarezom ili razmakom (npr. "Bash(git:*) Edit")]:tools:'
     '--allowedTools[Lista dozvoljenih imena alata razdvojenih zarezom ili razmakom (camelCase format)]:tools:'
@@ -237,6 +241,8 @@ _claude() {
     '--system-prompt-file[Učitaj sistemski prompt iz datoteke]:file:_files'
     '--append-system-prompt[Dodaj sistemski prompt na podrazumevani sistemski prompt]:prompt:'
     '--append-system-prompt-file[Učitaj sistemski prompt iz datoteke i dodaj ga na podrazumevani sistemski prompt]:file:_files'
+    '(--append-subagent-system-prompt-file)--append-subagent-system-prompt[Dodaj tekst sistemskom promptu svakog podagenta (samo --print)]:prompt:'
+    '(--append-subagent-system-prompt)--append-subagent-system-prompt-file[Pročitaj tekst iz datoteke i dodaj ga sistemskim promptovima podagenata (samo --print)]:file:_files'
     '--system-prompt-snapshot[Zabeleži sistemski prompt jednom po razgovoru i koristi ga doslovno pri svakom zahtevu i nastavljanju (on, podrazumevano) ili ga generiši iznova pri svakom zahtevu (off)]:mode:(on off)'
     '--permission-mode[Režim dozvola za korišćenje u sesiji]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)'
     '--permission-prompts[Ko odgovara na upite za dozvole uz --print: "host" (SDK host ili --permission-prompt-tool) ili "none" (sve što bi zahtevalo upit se odbija)]:target:(host none)'
@@ -256,6 +262,8 @@ _claude() {
     '--strict-mcp-config[Koristi samo MCP servere iz --mcp-config i ignoriši sva ostala MCP podešavanja]'
     '--session-id[Određeni ID sesije za korišćenje u razgovoru (mora biti važeći UUID)]:uuid:'
     '--agents[JSON objekat koji definiše prilagođene agente]:json:'
+    '--advisor[Omogući serverski alat savetnika za ovu sesiju uz alias modela ili pun ID modela]:model:_claude_model_names'
+    '--teammate-mode[Kako se prikazuju članovi tima agenata]:mode:(in-process auto tmux iterm2)'
     '--setting-sources[Lista izvora podešavanja razdvojenih zarezom za učitavanje (user, project, local)]:sources:'
     '--plugin-dir[Direktorijum za učitavanje dodataka samo za ovu sesiju (može se ponavljati)]:paths:_directories'
     '--disable-slash-commands[Onemogući sve slash naredbe]'
@@ -268,9 +276,11 @@ _claude() {
     '--debug-file[Zapiši dnevnike otklanjanja grešaka u određenu datoteku (implicitno omogućava režim otklanjanja grešaka)]:path:_files'
     '--from-pr[Nastavi sesiju povezanu sa PR-om po broju/URL-u ili otvori interaktivni birač]::value:'
     '--teleport[Nastavi teleport sesiju, opcionalno navedite ID sesije]::session:'
-    '--cloud[Napravi sesiju u oblaku sa datim opisom ili se poveži na postojeću po ID-u sesije ili claude.ai/code URL-u]::description-or-session:'
+    '(--remote)--cloud[Napravi sesiju u oblaku sa datim opisom ili se poveži na postojeću po ID-u sesije ili claude.ai/code URL-u]::description-or-session:'
+    '(--cloud)--remote[Zastareli alias za --cloud]::description-or-session:'
     '--environment[Napravi novu sesiju u oblaku koja se izvršava u datom samostalno hostovanom okruženju (ccpool_...)]:environment_id:'
-    '--remote-control[Pokreni interaktivnu sesiju sa omogućenom daljinskom kontrolom (opcionalno imenovanu)]::name:'
+    '--ref[Uz --environment: zasnuj checkout nove sesije na imenovanoj ref umesto na lokalnom HEAD]:branch:'
+    '(--remote-control --rc)'{--remote-control,--rc}'[Pokreni interaktivnu sesiju sa omogućenom daljinskom kontrolom (opcionalno imenovanu)]::name:'
     '--remote-control-session-name-prefix[Prefiks za automatski generisana imena sesija daljinske kontrole]:prefix:'
     '--chrome[Omogući integraciju Claude u Chrome]'
     '--no-chrome[Onemogući integraciju Claude u Chrome]'
@@ -281,6 +291,11 @@ _claude() {
     '--include-hook-events[Uključi sve događaje životnog ciklusa hookova u izlazni tok (uz stream-json)]'
     '--exclude-dynamic-system-prompt-sections[Premesti odeljke specifične za mašinu u prvu korisničku poruku radi boljeg ponovnog korišćenja keša prompta]'
     '--brief[Omogući alat SendUserMessage za komunikaciju agenta sa korisnikom]'
+    '*--channels[(Istraživački pregled) MCP serveri čija obaveštenja kanala treba slušati (plugin\:<name>@<marketplace>)]:entries:'
+    '*--dangerously-load-development-channels[Omogući kanale koji nisu na odobrenoj listi, za lokalni razvoj (plugin\:<name>@<marketplace> ili server\:<name>)]:entries:'
+    '--init[Pokreni Setup hookove sa init matcherom pre sesije (samo --print)]'
+    '--init-only[Pokreni Setup i SessionStart hookove, zatim izađi bez započinjanja razgovora]'
+    '--maintenance[Pokreni Setup hookove sa maintenance matcherom pre sesije (samo --print)]'
     '--safe-mode[Pokreni sa svim onemogućenim prilagođavanjima (korisno za rešavanje problema neispravne konfiguracije)]'
     '--bare[Minimalni režim: preskoči hookove, LSP, sinhronizaciju dodataka, atribuciju, automatsku memoriju i automatsko otkrivanje CLAUDE.md]'
     '--ax-screen-reader[Prikaži izlaz prilagođen čitačima ekrana (ravan tekst, bez dekorativnih ivica ili animacija)]'
@@ -304,7 +319,7 @@ _claude() {
         mcp)
           _claude_mcp
           ;;
-        plugin)
+        plugin|plugins)
           _claude_plugin
           ;;
         install)
@@ -324,6 +339,12 @@ _claude() {
         rm)
           _claude_rm
           ;;
+        remote-control|rc|remote|sync|bridge)
+          _claude_remote_control
+          ;;
+        daemon)
+          _claude_daemon
+          ;;
         auth)
           _claude_auth
           ;;
@@ -333,17 +354,24 @@ _claude() {
         gateway)
           _claude_gateway
           ;;
+        self-hosted-runner)
+          _claude_self_hosted_runner
+          ;;
         import)
           _claude_import
           ;;
         project)
           _claude_project
           ;;
+        purge)
+          _claude_purge
+          ;;
         ultrareview)
           _claude_ultrareview
           ;;
-        setup-token|doctor|update)
-          _message "nema argumenata"
+        setup-token|doctor|update|upgrade)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Prikaži pomoć za naredbu]'
           ;;
         *)
           # Not a command but the prompt: options may still follow it
@@ -502,6 +530,7 @@ _claude_plugin() {
         validate)
           _arguments \
             '--strict[Tretiraj upozorenja kao greške (izlazni kod 1)]' \
+            '--profile[Izađi sa 1 i kada bi imenovani katalog odbio prijavu dodatka na proveri koju ova naredba pokreće]:name:(directory)' \
             '--json[Ispiši izveštaj o validaciji kao JSON (isti izlazni kodovi)]' \
             '(-h --help)'{-h,--help}'[Prikaži pomoć]' \
             '1:path:_files'
@@ -512,7 +541,10 @@ _claude_plugin() {
         install|i)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Opseg instalacije]:scope:(user project local)' \
+            '--accept-command[Prihvati naredbu koju je deklarisalo tržište, čiji je sha256 prethodno pokretanje sa --json prijavilo kao shownCommand.sha256]:sha256:' \
             '*--config[Postavi userConfig opciju deklarisanu u manifestu dodatka (može se ponavljati)]:key=value:' \
+            '--marketplace[Instaliraj dodatak po samom imenu sa tržišta na ovom izvoru (owner/repo, git ili https URL, ili putanja), uz prethodno dodavanje ako je potrebno]:source:' \
+            '--registry[Za package@npm instalaciju: razreši i preuzmi iz ovog npm registra]:url:' \
             '(-y --yes)'{-y,--yes}'[Prihvati prikazanu naredbu deklarisanu u tržištu bez upita za potvrdu]' \
             '--json[Ispiši jedan mašinski čitljiv red rezultata umesto poruke za ljude]' \
             '(-h --help)'{-h,--help}'[Prikaži pomoć]' \
@@ -545,6 +577,7 @@ _claude_plugin() {
           ;;
         update)
           _arguments \
+            '--accept-command[Prihvati naredbu koju je deklarisalo tržište, čiji je sha256 prethodno pokretanje sa --json prijavilo kao shownCommand.sha256]:sha256:' \
             '(-s --scope)'{-s,--scope}'[Opseg instalacije]:scope:(user project local managed)' \
             '(-y --yes)'{-y,--yes}'[Prihvati prikazanu naredbu deklarisanu u tržištu bez upita za potvrdu]' \
             '--json[Ispiši jedan mašinski čitljiv red rezultata umesto poruke za ljude]' \
@@ -555,6 +588,7 @@ _claude_plugin() {
           _arguments \
             '--json[Ispiši kao JSON]' \
             '--available[Uključi dostupne dodatke sa tržišta (zahteva --json)]' \
+            '--data-size[Izmeri direktorijum sačuvanih podataka svakog instaliranog dodatka ili samo imenovanog dodatka (zahteva --json)]::plugin:_claude_installed_plugins' \
             '(-h --help)'{-h,--help}'[Prikaži pomoć]'
           ;;
         prune|autoremove)
@@ -587,6 +621,15 @@ _claude_plugin() {
             '1:name:'
           ;;
         eval)
+          if [[ $words[2] == init ]]; then
+            _arguments \
+              '--bare[Zapiši prazan šablon umesto pokretanja intervjua]' \
+              '--eval-dir[Direktorijum ispod trenutnog direktorijuma u koji se upisuju slučajevi]:dir:_directories' \
+              '(-i --interactive)'{-i,--interactive}'[Pokreni autorski intervju (zahteva interaktivni terminal)]' \
+              '(-h --help)'{-h,--help}'[Prikaži pomoć]' \
+              '::name:'
+            return
+          fi
           _arguments \
             '--case[Filtriraj slučajeve po glob šablonu imena]:glob:' \
             '*--tag[Filtriraj slučajeve po oznaci (može se ponavljati)]:tag:' \
@@ -600,6 +643,7 @@ _claude_plugin() {
             '--json[Ispiši ceo rezultat pokretanja kao JSON na stdout ili ga zapiši u ovu .json datoteku]::path:_files' \
             '--threshold[Izađi sa izlaznim kodom 1 ako je ocena bilo kog slučaja ispod ovog praga (podrazumevano: 1.0)]:threshold:' \
             '*--allow-tools[Odobrenje operatora za ograničene alate (Bash, Write, Edit, WebFetch, mcp__*)]:tools:' \
+            '*--disallow-tools[Ugrađeni alati koje Claude ni u kom slučaju ne dobija, čak i ako su dozvoljeni]:tools:' \
             '(--no-scaffold)--scaffold[Pokreni scaffold_script svakog slučaja (izvršava bash koji je dostavio autor pod tvojim nalogom; podrazumevano isključeno)]' \
             '(--scaffold)--no-scaffold[Eksplicitno preskoči scaffold_script]' \
             '--trust-plugin[Potvrdi da veruješ ovom dodatku i njegovom skupu eval testova, preskačući upit o poverenju pri prvom pokretanju (za CI)]' \
@@ -612,7 +656,7 @@ _claude_plugin() {
             '(--no-publish)--publish-report[Zahtevaj i objavljivanje izveštaja na claude.ai]' \
             '(--publish-report)--no-publish[Zadrži HTML izveštaj samo lokalno; preskoči njegovo objavljivanje na claude.ai]' \
             '(-h --help)'{-h,--help}'[Prikaži pomoć]' \
-            '::target: _alternative "plugins\:installed plugin\:_claude_installed_plugins" "files\:path\:_files"'
+            '::target: _alternative "commands\:eval command\:(init)" "plugins\:installed plugin\:_claude_installed_plugins" "files\:path\:_files"'
           ;;
         tag)
           _arguments \
@@ -663,6 +707,7 @@ _claude_plugin_marketplace() {
           _arguments \
             '--sparse[Ograniči checkout na određene direktorijume preko git sparse-checkout (za monorepoe)]:paths:' \
             '--scope[Gde deklarisati tržište]:scope:(user project local)' \
+            '--json[Ispiši jedan mašinski čitljiv red rezultata kao poslednji red na stdout]' \
             '--claudeai[Dodaj tržište ovog imena koje claude.ai hostuje za tebe]' \
             '(-h --help)'{-h,--help}'[Prikaži pomoć]' \
             '1:source:'
@@ -675,11 +720,13 @@ _claude_plugin_marketplace() {
         remove|rm)
           _arguments \
             '--scope[Ukloni deklaraciju tržišta iz određenog opsega podešavanja (izostavi da bi je uklonio iz svih opsega)]:scope:(user project local)' \
+            '--json[Ispiši jedan mašinski čitljiv red rezultata kao poslednji red na stdout]' \
             '(-h --help)'{-h,--help}'[Prikaži pomoć]' \
             '1:name:'
           ;;
         update)
           _arguments \
+            '--json[Uz ime tržišta: ispiši jedan mašinski čitljiv red rezultata kao poslednji red na stdout]' \
             '(-h --help)'{-h,--help}'[Prikaži pomoć]' \
             '::name:'
           ;;
@@ -851,12 +898,23 @@ _claude_project() {
   esac
 }
 
+_claude_purge() {
+  _arguments \
+    '--dry-run[Prikaži listu onoga što bi bilo izbrisano bez brisanja ičega]' \
+    '(-y --yes)'{-y,--yes}'[Preskoči upit za potvrdu]' \
+    '(-i --interactive)'{-i,--interactive}'[Zatraži potvrdu za svaku stavku pre brisanja]' \
+    '(1)--all[Izbriši stanje za svaki projekat (međusobno isključivo sa putanjom)]' \
+    '(-h --help)'{-h,--help}'[Prikaži pomoć za naredbu]' \
+    '(--all)::path:_directories'
+}
+
 _claude_ultrareview() {
   _arguments \
     '--json[Ispiši sirovi bugs.json sadržaj umesto formatiranih nalaza]' \
     '--timeout[Maksimalan broj minuta za čekanje na završetak pregleda (podrazumevano: 45)]:minutes:' \
     '(--no-post)--post[Objavi nalaze završenog pregleda na PR u tvoje ime (samo za PR ciljeve; jedan običan komentar, ne pregled)]' \
     '(--post)--no-post[Ne objavljuj nalaze na PR (podrazumevano)]' \
+    '--trust-workspace[Veruj trenutnoj fascikli samo za ovo pokretanje, bez pitanja (za skripte i CI)]' \
     '(-h --help)'{-h,--help}'[Prikaži pomoć za naredbu]' \
     '1:target:'
 }
@@ -874,6 +932,117 @@ _claude_rm() {
     '--force-remove-worktree[Izbriši direktorijum radnog stabla iako ga WorktreeRemove hook ili git nisu mogli ukloniti (prosledi worktree-id koji je prijavio prethodni claude rm)]:worktree-id:' \
     '(-h --help)'{-h,--help}'[Prikaži pomoć za naredbu]' \
     '1:session:_claude_background_sessions'
+}
+
+_claude_self_hosted_runner() {
+  _arguments \
+    '--api-url[Osnovni URL API-ja (podrazumevano: https://api.anthropic.com)]:url:' \
+    '--environment-secret-file[Putanja do datoteke sa tajnom okruženja]:path:_files' \
+    '--lock-to-account[Zaključaj runner na jedan nalog pri registraciji]:id:' \
+    '--client-label[Oznaka za opservabilnost poslata pri registraciji (podrazumevano: hostname)]:label:' \
+    '(--proxy-authorization-file --agent-proxy-url)--proxy-authorization-command[Naredba čiji je stdout Proxy-Authorization zaglavlje za izlazne proksije]:shell command:' \
+    '(--proxy-authorization-command --agent-proxy-url)--proxy-authorization-file[Datoteka sa Proxy-Authorization zaglavljem za izlazne proksije]:path:_files' \
+    '(--proxy-authorization-command --proxy-authorization-file)--agent-proxy-url[Usmeri svaku sesiju kroz agentski proksi na ovom URL-u (samo https)]:url:' \
+    '--capacity[Maksimalan broj istovremenih sesija (podrazumevano: 1)]:n:' \
+    '--base-dir[Osnovni direktorijum za checkout repozitorijuma (podrazumevano: /workspace)]:path:_directories' \
+    '--exec-path[Binarna datoteka koja se pokreće za podređene sesije (podrazumevano: ova binarna datoteka)]:path:_files' \
+    '--hooks-dir[Direktorijum skripti hookova životnog ciklusa (checkout, command, post-session)]:path:_directories' \
+    '--session-stop-grace-sec[Koliko dugo čekati na čist izlaz nakon završetka sesije (podrazumevano: 5)]:n:' \
+    '--post-session-hook-timeout-sec[SIGTERM vremenski budžet za post-session hook (podrazumevano: 60)]:n:' \
+    '--checkout-hook-timeout-min[Budžet stvarnog vremena za svako pokretanje checkout hooka (podrazumevano: 30; 0 onemogućava)]:n:' \
+    '--drain-wait-sec[Na SIGTERM/SIGINT čekaj do N sekundi na rad u toku (podrazumevano: 0)]:n:' \
+    '--drain-marker-file[Datoteka-oznaka kojom host najavljuje kontrolisano pražnjenje]:path:_files' \
+    '*--git-ssh-rewrite[Prepiši izvorne URL-ove https://<host>/... u git@<host>:... (može se ponavljati)]:host:' \
+    '*--git-host-rewrite[Prepiši izvorne URL-ove https://<f>/... u https://<t>/... (može se ponavljati)]:from=to:' \
+    '--use-anthropic-git-proxy[Koristi git kojim upravlja Anthropic. UPOZORENJE: briše i zamenjuje git konfiguraciju na nivou HOME, koristite samo pod namenskim nalogom]' \
+    '--configure-git[Postavi globalni git identitet i omogući potpisivanje komitova preko Anthropic usluge za potpisivanje. Upisuje ~/.gitconfig]' \
+    '--push-outcome-on-release[Pošalji praćene grane sa rezultatima kada runner završi nedovršenu sesiju]' \
+    '--trust-workspace[Unapred postavi trajno poverenje za putanje repozitorijuma svake sesije (podrazumevano: true)]::bool:(true false)' \
+    '--remove-session-state[Ukloni stanje pojedinačne sesije kada se sesija završi (podrazumevano: false)]::bool:(true false)' \
+    '--diff-finds-nested-repository[Prikaži repozitorijum kloniran u podfasciklu u oknu Changes; zahteva --capacity 1 (podrazumevano: false)]::bool:(true false)' \
+    '--confine-repo-settings[Režim zaštite za ograničavanje podešavanja komitovanih u repozitorijum (podrazumevano: warn)]:mode:(warn enforce off)' \
+    '--server-auto-mode-lists[Koje liste klasifikatora automatskog režima sa servera sesija sme da primi (podrazumevano: no-allow)]:mode:(all no-allow none)' \
+    '--host-config-snapshot[Gde se čuva početni snimak konfiguracije hosta (podrazumevano: disk)]:mode:(disk memory)' \
+    '--health-port[Port za /healthz HTTP slušalac (podrazumevano: 8080; 0 onemogućava)]:port:' \
+    '--log-level[Nivo dnevnika (podrazumevano: info)]:level:(info debug)' \
+    '--log-file[Kopiraj i dnevnike runnera u datoteku u režimu dodavanja]:path:_files' \
+    '--exit-if-unused-min[Izađi iz runnera ako mu N minuta nije dodeljen nikakav rad]:n:' \
+    '--drain-grace-sec[Sekunde nastavka proveravanja za rad nakon završetka aktivnih sesija (podrazumevano: 0)]:n:' \
+    '--retire-at[Penzioniši runner u ovo apsolutno Unix vreme, u sekundama]:epoch-seconds:' \
+    '--defer-shutdown-max-min[Na prvi SIGTERM/SIGINT prestani da primaš rad i završi gašenje M minuta kasnije (podrazumevano: 0)]:m:' \
+    '--release-idle-session-min[Oslobodi mesto sesije nakon N minuta bez korisničkog unosa]:n:' \
+    '--startup-timeout-min[Oslobodi mesto sesije ako podređeni proces nije završio pokretanje nakon N minuta (podrazumevano: 15; 0 onemogućava)]:n:' \
+    '--kill-session-after-min[Ograniči životni vek podređene sesije u stvarnom vremenu na N minuta]:n:' \
+    '--debug-token-dir[SAMO ZA OTKLANJANJE GREŠAKA: upisuje žive tokene na disk. Ne koristiti u produkciji]:path:_directories' \
+    '(-h --help)'{-h,--help}'[Prikaži ovu poruku pomoći]'
+}
+
+_claude_remote_control() {
+  _arguments \
+    '--name[Ime sesije (prikazuje se u claude.ai/code)]:name:' \
+    '--remote-control-session-name-prefix[Prefiks za automatski generisana imena sesija (podrazumevano: hostname)]:prefix:' \
+    '(-c --continue --session-id)'{-c,--continue}'[Ponovo se poveži na sesiju poslednju zabeleženu za ovaj direktorijum ili jedno od njegovih git radnih stabala]' \
+    '(-c --continue --session-id)--session-id[Ponovo se poveži na određenu sesiju po ID-ju]:id:' \
+    '--permission-mode[Režim dozvola za pokrenute sesije]:mode:(acceptEdits auto bypassPermissions default dontAsk plan)' \
+    '(--no-chrome)--chrome[Omogući Claude in Chrome za pokrenute sesije]' \
+    '(--chrome)--no-chrome[Onemogući Claude in Chrome za pokrenute sesije]' \
+    '(-d --debug)'{-d,--debug}'[Omogući režim za otklanjanje grešaka uz opcionalno filtriranje kategorija]::filter:' \
+    '--debug-file[Zapiši dnevnike otklanjanja grešaka u datoteku]:path:_files' \
+    '(-v --verbose)'{-v,--verbose}'[Omogući detaljan izlaz]' \
+    '--spawn[Režim pokretanja (podrazumevano: same-dir)]:mode:(same-dir worktree session)' \
+    '--capacity[Maksimalan broj istovremenih sesija u worktree ili same-dir režimu (podrazumevano: 32)]:n:' \
+    '(--no-create-session-in-dir)--create-session-in-dir[Unapred napravi sesiju u trenutnom direktorijumu (podrazumevano)]' \
+    '(--create-session-in-dir)--no-create-session-in-dir[Ne pravi sesiju unapred u trenutnom direktorijumu]' \
+    '(-h --help)'{-h,--help}'[Prikaži ovu pomoć]'
+}
+
+_claude_daemon() {
+  local -a daemon_commands common_options
+  daemon_commands=(
+    'run:Pokreni nadzornika u prvom planu'
+    'status:Prikaži pid, verziju i vreme rada demona'
+    'logs:Prati dnevnik demona (Ctrl-C za zaustavljanje)'
+    'uninstall:Ukloni pozadinsku uslugu (launchctl/systemd)'
+    'stop:Ugasi nadzornika i prekini pozadinske sesije'
+  )
+  common_options=(
+    '--json-path[Konfiguraciona datoteka (podrazumevano: ~/.claude/daemon.json)]:path:_files'
+    '--log-file[Datoteka dnevnika (podrazumevano: ~/.claude/daemon.log)]:path:_files'
+    '(-h --help)'{-h,--help}'[Prikaži ovu pomoć]'
+  )
+
+  local curcontext="$curcontext" state line
+  typeset -A opt_args
+
+  _arguments -C \
+    $common_options \
+    '1: :->command' \
+    '*::arg:->args'
+
+  case $state in
+    command)
+      _describe -t commands 'daemon naredbe' daemon_commands
+      ;;
+    args)
+      case $words[1] in
+        run)
+          _arguments \
+            $common_options \
+            '::json-path:_files'
+          ;;
+        stop)
+          _arguments \
+            $common_options \
+            '--any[Zaustavi i privremeni demon (koji nije usluga)]' \
+            '--keep-workers[Ostavi odvojene sesije da rade]'
+          ;;
+        status|logs|uninstall)
+          _arguments \
+            $common_options
+          ;;
+      esac
+      ;;
+  esac
 }
 
 _claude_import() {

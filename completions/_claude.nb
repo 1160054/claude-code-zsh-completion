@@ -200,11 +200,15 @@ _claude() {
     'stop:Stopp en bakgrunnsøkt (samtalen beholdes)'
     'respawn:Start en bakgrunnsøkt på nytt slik at den kjører gjeldende Claude Code-versjon'
     'rm:Slett en bakgrunnsøkt, og arbeidstreet dens når det er trygt'
+    'remote-control:Styr lokale økter fra claude.ai/code eller Claude-mobilappen'
+    'daemon:Administrer tilsynsprosessen for bakgrunnsøkter'
     'auth:Administrer autentisering'
     'auto-mode:Inspiser eller tilbakestill konfigurasjon for auto-modus-klassifisering'
     'gateway:Kjør enterprise-gateway for autentisering/telemetri'
+    'self-hosted-runner:Vert Claude Code-skyøkter på denne maskinen eller containeren'
     'import:Importer konfigurasjon fra en annen AI-kodeagent til Claude Code'
     'project:Administrer Claude Code-prosjekttilstand'
+    'purge:Slett all Claude Code-tilstand for et prosjekt (transkripsjoner, oppgaver, filhistorikk, konfigurasjonsoppføring)'
     'ultrareview:Kjør en skybasert multi-agent kodegjennomgang og skriv ut funnene'
     'setup-token:Konfigurer langsiktig autentiseringstoken (krever Claude-abonnement)'
     'doctor:Helsekontroll for Claude Code automatisk oppdatering'
@@ -221,11 +225,11 @@ _claude() {
     '--json-schema[JSON-skjema for strukturert utdatavalidering]:schema:'
     '--include-partial-messages[Inkluder delvise meldingsbiter når de ankommer (med --print og --output-format=stream-json)]'
     '--input-format[Inndataformat (med --print): "text" (standard) eller "stream-json" (sanntidsstrømming)]:format:(text stream-json)'
-    '--mcp-debug[\[Foreldet. Bruk --debug i stedet\] Aktiver MCP-feilsøkingsmodus (viser MCP-serverfeil)]'
     '--dangerously-skip-permissions[Omgå alle tillatelseskontroller. Anbefales kun for sandkasser uten internettilgang]'
     '--allow-dangerously-skip-permissions[Aktiver mulighet for å omgå tillatelseskontroller uten å aktivere som standard]'
     '--restricted[Begrenset modus: fjern verktøyene som kjører kommandoer eller kode samt WebFetch, ignorer user/project/local-innstillinger, og begrens filverktøy til arbeidsmappene]'
     '--max-budget-usd[Maksimalt dollarbeløp å bruke på API-kall (kun --print)]:amount:'
+    '--max-turns[Begrens antall agentiske runder (kun --print)]:turns:'
     '--replay-user-messages[Send brukermeldinger fra stdin på stdout for bekreftelse]'
     '--allowed-tools[Komma- eller mellomromseparert liste over tillatte verktøynavn (f.eks. "Bash(git:*) Edit")]:tools:'
     '--allowedTools[Komma- eller mellomromseparert liste over tillatte verktøynavn (camelCase-format)]:tools:'
@@ -237,6 +241,8 @@ _claude() {
     '--system-prompt-file[Les systemprompt fra en fil]:file:_files'
     '--append-system-prompt[Legg til systemprompt til standard systemprompt]:prompt:'
     '--append-system-prompt-file[Les systemprompt fra en fil og legg den til standard systemprompt]:file:_files'
+    '(--append-subagent-system-prompt-file)--append-subagent-system-prompt[Legg til tekst i systemprompten til hver underagent (kun --print)]:prompt:'
+    '(--append-subagent-system-prompt)--append-subagent-system-prompt-file[Les tekst fra en fil og legg den til i systemprompter for underagenter (kun --print)]:file:_files'
     '--system-prompt-snapshot[Registrer systemprompten én gang per samtale og gjenbruk den ordrett ved hver forespørsel og gjenopptagelse (on, standard), eller generer den på nytt ved hver forespørsel (off)]:mode:(on off)'
     '--permission-mode[Tillatelsesmodus å bruke for økt]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)'
     '--permission-prompts[Hvem som besvarer tillatelsesforespørsler med --print: "host" (SDK-verten eller --permission-prompt-tool) eller "none" (alt som ville krevd forespørsel avvises)]:target:(host none)'
@@ -256,6 +262,8 @@ _claude() {
     '--strict-mcp-config[Bruk kun MCP-servere fra --mcp-config og ignorer alle andre MCP-innstillinger]'
     '--session-id[Spesifikk økt-ID å bruke for samtale (må være gyldig UUID)]:uuid:'
     '--agents[JSON-objekt som definerer tilpassede agenter]:json:'
+    '--advisor[Aktiver rådgiververktøyet på serversiden for denne økten med et modellalias eller full modell-ID]:model:_claude_model_names'
+    '--teammate-mode[Hvordan lagkamerater i agentteam vises]:mode:(in-process auto tmux iterm2)'
     '--setting-sources[Kommaseparert liste over innstillingskilder å laste (user, project, local)]:sources:'
     '--plugin-dir[Mappe å laste tillegg fra kun for denne økten (kan gjentas)]:paths:_directories'
     '--disable-slash-commands[Deaktiver alle skråstrek-kommandoer]'
@@ -268,9 +276,11 @@ _claude() {
     '--debug-file[Skriv feilsøkingslogger til en bestemt filsti (aktiverer implisitt feilsøkingsmodus)]:path:_files'
     '--from-pr[Gjenoppta en økt knyttet til en PR via nummer/URL, eller åpne interaktiv velger]::value:'
     '--teleport[Gjenoppta en teleport-økt, angi eventuelt økt-ID]::session:'
-    '--cloud[Opprett en skyøkt med den angitte beskrivelsen, eller koble til en eksisterende via økt-ID eller claude.ai/code-URL]::description-or-session:'
+    '(--remote)--cloud[Opprett en skyøkt med den angitte beskrivelsen, eller koble til en eksisterende via økt-ID eller claude.ai/code-URL]::description-or-session:'
+    '(--cloud)--remote[Utdatert alias for --cloud]::description-or-session:'
     '--environment[Opprett en ny skyøkt som kjører i det angitte selvdriftede miljøet (ccpool_...)]:environment_id:'
-    '--remote-control[Start en interaktiv økt med fjernstyring aktivert (kan navngis)]::name:'
+    '--ref[Med --environment: baser utsjekkingen for den nye økten på en navngitt ref i stedet for lokal HEAD]:branch:'
+    '(--remote-control --rc)'{--remote-control,--rc}'[Start en interaktiv økt med fjernstyring aktivert (kan navngis)]::name:'
     '--remote-control-session-name-prefix[Prefiks for automatisk genererte fjernstyringsøktnavn]:prefix:'
     '--chrome[Aktiver Claude i Chrome-integrasjon]'
     '--no-chrome[Deaktiver Claude i Chrome-integrasjon]'
@@ -281,6 +291,11 @@ _claude() {
     '--include-hook-events[Inkluder alle hook-livssyklushendelser i utdatastrømmen (med stream-json)]'
     '--exclude-dynamic-system-prompt-sections[Flytt per-maskin-seksjoner inn i den første brukermeldingen for å forbedre gjenbruk av promptcache]'
     '--brief[Aktiver SendUserMessage-verktøyet for agent-til-bruker-kommunikasjon]'
+    '*--channels[(Forskningsforhåndsvisning) MCP-servere hvis kanalvarsler skal lyttes etter (plugin\:<name>@<marketplace>)]:entries:'
+    '*--dangerously-load-development-channels[Aktiver kanaler som ikke står på den godkjente tillatelseslisten, for lokal utvikling (plugin\:<name>@<marketplace> eller server\:<name>)]:entries:'
+    '--init[Kjør Setup-hooks med init-matcheren før økten (kun --print)]'
+    '--init-only[Kjør Setup- og SessionStart-hooks, og avslutt uten å starte en samtale]'
+    '--maintenance[Kjør Setup-hooks med maintenance-matcheren før økten (kun --print)]'
     '--safe-mode[Start med alle tilpasninger deaktivert (nyttig for feilsøking av en ødelagt konfigurasjon)]'
     '--bare[Minimal modus: hopp over hooks, LSP, tilleggssynkronisering, attribusjon, auto-minne og automatisk CLAUDE.md-oppdagelse]'
     '--ax-screen-reader[Gjengi skjermleservennlig utdata (flat tekst, ingen dekorative kanter eller animasjoner)]'
@@ -304,7 +319,7 @@ _claude() {
         mcp)
           _claude_mcp
           ;;
-        plugin)
+        plugin|plugins)
           _claude_plugin
           ;;
         install)
@@ -324,6 +339,12 @@ _claude() {
         rm)
           _claude_rm
           ;;
+        remote-control|rc|remote|sync|bridge)
+          _claude_remote_control
+          ;;
+        daemon)
+          _claude_daemon
+          ;;
         auth)
           _claude_auth
           ;;
@@ -333,17 +354,24 @@ _claude() {
         gateway)
           _claude_gateway
           ;;
+        self-hosted-runner)
+          _claude_self_hosted_runner
+          ;;
         import)
           _claude_import
           ;;
         project)
           _claude_project
           ;;
+        purge)
+          _claude_purge
+          ;;
         ultrareview)
           _claude_ultrareview
           ;;
-        setup-token|doctor|update)
-          _message "ingen argumenter"
+        setup-token|doctor|update|upgrade)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Vis hjelp for kommando]'
           ;;
         *)
           # Not a command but the prompt: options may still follow it
@@ -502,6 +530,7 @@ _claude_plugin() {
         validate)
           _arguments \
             '--strict[Behandle advarsler som feil (avslutningskode 1)]' \
+            '--profile[Avslutt også med exit 1 når den navngitte katalogen ville avvist en innsending av tillegget på en kontroll denne kommandoen kjører]:name:(directory)' \
             '--json[Skriv ut valideringsrapporten som JSON (samme avslutningskoder)]' \
             '(-h --help)'{-h,--help}'[Vis hjelp]' \
             '1:path:_files'
@@ -512,7 +541,10 @@ _claude_plugin() {
         install|i)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Installasjonsomfang]:scope:(user project local)' \
+            '--accept-command[Godta den markedsplassdeklarerte kommandoen hvis sha256 en tidligere --json-kjøring rapporterte som shownCommand.sha256]:sha256:' \
             '*--config[Angi et userConfig-alternativ deklarert i tilleggsmanifestet (kan gjentas)]:key=value:' \
+            '--marketplace[Installer tillegget med bare navnet fra markedsplassen ved denne kilden (owner/repo, git- eller https-URL, eller sti), og legg den til først om nødvendig]:source:' \
+            '--registry[For en package@npm-installasjon: slå opp og last ned fra dette npm-registeret]:url:' \
             '(-y --yes)'{-y,--yes}'[Godta den viste kommandoen deklarert av markedsplassen uten bekreftelsesforespørsel]' \
             '--json[Skriv ut én maskinlesbar resultatlinje i stedet for den menneskelesbare meldingen]' \
             '(-h --help)'{-h,--help}'[Vis hjelp]' \
@@ -545,6 +577,7 @@ _claude_plugin() {
           ;;
         update)
           _arguments \
+            '--accept-command[Godta den markedsplassdeklarerte kommandoen hvis sha256 en tidligere --json-kjøring rapporterte som shownCommand.sha256]:sha256:' \
             '(-s --scope)'{-s,--scope}'[Installasjonsomfang]:scope:(user project local managed)' \
             '(-y --yes)'{-y,--yes}'[Godta den viste kommandoen deklarert av markedsplassen uten bekreftelsesforespørsel]' \
             '--json[Skriv ut én maskinlesbar resultatlinje i stedet for den menneskelesbare meldingen]' \
@@ -555,6 +588,7 @@ _claude_plugin() {
           _arguments \
             '--json[Skriv ut som JSON]' \
             '--available[Inkluder tilgjengelige tillegg fra markedsplasser (krever --json)]' \
+            '--data-size[Mål lagret datamappe for hvert installerte tillegg, eller bare det navngitte tillegget (krever --json)]::plugin:_claude_installed_plugins' \
             '(-h --help)'{-h,--help}'[Vis hjelp]'
           ;;
         prune|autoremove)
@@ -587,6 +621,15 @@ _claude_plugin() {
             '1:name:'
           ;;
         eval)
+          if [[ $words[2] == init ]]; then
+            _arguments \
+              '--bare[Skriv en tom mal i stedet for å kjøre intervjuet]' \
+              '--eval-dir[Mappe under gjeldende mappe som tilfeller skrives til]:dir:_directories' \
+              '(-i --interactive)'{-i,--interactive}'[Kjør forfatterintervjuet (krever en interaktiv terminal)]' \
+              '(-h --help)'{-h,--help}'[Vis hjelp]' \
+              '::name:'
+            return
+          fi
           _arguments \
             '--case[Filtrer tilfeller etter navne-glob]:glob:' \
             '*--tag[Filtrer tilfeller etter tagg (kan gjentas)]:tag:' \
@@ -600,6 +643,7 @@ _claude_plugin() {
             '--json[Skriv ut hele kjøringsresultatet som JSON til stdout, eller skriv det til denne .json-filen]::path:_files' \
             '--threshold[Avslutt med avslutningskode 1 hvis et tilfelles poengsum er under denne terskelen (standard: 1.0)]:threshold:' \
             '*--allow-tools[Operatørtillatelse for begrensede verktøy (Bash, Write, Edit, WebFetch, mcp__*)]:tools:' \
+            '*--disallow-tools[Innebygde verktøy som Claude aldri får, selv om de er tillatt]:tools:' \
             '(--no-scaffold)--scaffold[Kjør hvert tilfelles scaffold_script (kjører bash levert av forfatteren under din bruker; av som standard)]' \
             '(--scaffold)--no-scaffold[Hopp eksplisitt over scaffold_script]' \
             '--trust-plugin[Bekreft at du stoler på dette tillegget og eval-pakken dets, og hopp over tillitsforespørselen ved første kjøring (for CI)]' \
@@ -612,7 +656,7 @@ _claude_plugin() {
             '(--no-publish)--publish-report[Krev også publisering av rapporten til claude.ai]' \
             '(--publish-report)--no-publish[Behold HTML-rapporten kun lokalt; hopp over publisering til claude.ai]' \
             '(-h --help)'{-h,--help}'[Vis hjelp]' \
-            '::target: _alternative "plugins\:installed plugin\:_claude_installed_plugins" "files\:path\:_files"'
+            '::target: _alternative "commands\:eval command\:(init)" "plugins\:installed plugin\:_claude_installed_plugins" "files\:path\:_files"'
           ;;
         tag)
           _arguments \
@@ -663,6 +707,7 @@ _claude_plugin_marketplace() {
           _arguments \
             '--sparse[Begrens utsjekking til bestemte mapper via git sparse-checkout (for monorepoer)]:paths:' \
             '--scope[Hvor markedsplassen skal deklareres]:scope:(user project local)' \
+            '--json[Skriv ut én maskinlesbar resultatlinje som siste linje på stdout]' \
             '--claudeai[Legg til markedsplassen med dette navnet som claude.ai driver for deg]' \
             '(-h --help)'{-h,--help}'[Vis hjelp]' \
             '1:source:'
@@ -675,11 +720,13 @@ _claude_plugin_marketplace() {
         remove|rm)
           _arguments \
             '--scope[Fjern markedsplassdeklarasjonen fra et bestemt innstillingsomfang (utelat for å fjerne den fra alle omfang)]:scope:(user project local)' \
+            '--json[Skriv ut én maskinlesbar resultatlinje som siste linje på stdout]' \
             '(-h --help)'{-h,--help}'[Vis hjelp]' \
             '1:name:'
           ;;
         update)
           _arguments \
+            '--json[Med et markedsplassnavn: skriv ut én maskinlesbar resultatlinje som siste linje på stdout]' \
             '(-h --help)'{-h,--help}'[Vis hjelp]' \
             '::name:'
           ;;
@@ -851,12 +898,23 @@ _claude_project() {
   esac
 }
 
+_claude_purge() {
+  _arguments \
+    '--dry-run[Vis hva som ville blitt slettet uten å slette noe]' \
+    '(-y --yes)'{-y,--yes}'[Hopp over bekreftelsesforespørselen]' \
+    '(-i --interactive)'{-i,--interactive}'[Spør for hvert element før sletting]' \
+    '(1)--all[Slett tilstand for alle prosjekter (gjensidig utelukkende med en sti)]' \
+    '(-h --help)'{-h,--help}'[Vis hjelp for kommando]' \
+    '(--all)::path:_directories'
+}
+
 _claude_ultrareview() {
   _arguments \
     '--json[Skriv ut den rå bugs.json-nyttelasten i stedet for formaterte funn]' \
     '--timeout[Maksimalt antall minutter å vente på at gjennomgangen fullføres (standard: 45)]:minutes:' \
     '(--no-post)--post[Publiser funnene fra den ferdige gjennomgangen på PR-en i ditt navn (kun PR-mål; én vanlig kommentar, ikke en gjennomgang)]' \
     '(--post)--no-post[Ikke publiser funnene på PR-en (standard)]' \
+    '--trust-workspace[Stol på gjeldende mappe kun for denne kjøringen, uten å spørre (for skript og CI)]' \
     '(-h --help)'{-h,--help}'[Vis hjelp for kommando]' \
     '1:target:'
 }
@@ -874,6 +932,117 @@ _claude_rm() {
     '--force-remove-worktree[Slett arbeidstremappen selv om WorktreeRemove-hooken eller git ikke kunne fjerne den (angi worktree-id som en tidligere claude rm rapporterte)]:worktree-id:' \
     '(-h --help)'{-h,--help}'[Vis hjelp for kommando]' \
     '1:session:_claude_background_sessions'
+}
+
+_claude_self_hosted_runner() {
+  _arguments \
+    '--api-url[API-basis-URL (standard: https://api.anthropic.com)]:url:' \
+    '--environment-secret-file[Sti til hemmelighetsfil for miljøet]:path:_files' \
+    '--lock-to-account[Lås runneren til én enkelt konto ved registrering]:id:' \
+    '--client-label[Observerbarhetsetikett sendt ved registrering (standard: hostname)]:label:' \
+    '(--proxy-authorization-file --agent-proxy-url)--proxy-authorization-command[Kommando hvis stdout er Proxy-Authorization-headeren for utgående proxyer]:shell command:' \
+    '(--proxy-authorization-command --agent-proxy-url)--proxy-authorization-file[Fil som inneholder Proxy-Authorization-headeren for utgående proxyer]:path:_files' \
+    '(--proxy-authorization-command --proxy-authorization-file)--agent-proxy-url[Send hver økt gjennom agentproxyen på denne URL-en (kun https)]:url:' \
+    '--capacity[Maks samtidige økter (standard: 1)]:n:' \
+    '--base-dir[Basismappe for repo-utsjekkinger (standard: /workspace)]:path:_directories' \
+    '--exec-path[Binærfil som startes for underøkter (standard: denne binærfilen)]:path:_files' \
+    '--hooks-dir[Mappe med livssyklus-hook-skript (checkout, command, post-session)]:path:_directories' \
+    '--session-stop-grace-sec[Hvor lenge det ventes på ren avslutning etter at en økt slutter (standard: 5)]:n:' \
+    '--post-session-hook-timeout-sec[SIGTERM-tidsbudsjett for post-session-hooken (standard: 60)]:n:' \
+    '--checkout-hook-timeout-min[Veggklokkebudsjett for hver kjøring av checkout-hooken (standard: 30; 0 deaktiverer)]:n:' \
+    '--drain-wait-sec[Ved SIGTERM/SIGINT, vent opptil N sekunder på pågående arbeid (standard: 0)]:n:' \
+    '--drain-marker-file[Markørfil som verten bruker til å varsle en kontrollert tømming]:path:_files' \
+    '*--git-ssh-rewrite[Skriv om https://<host>/...-kilde-URL-er til git@<host>:... (kan gjentas)]:host:' \
+    '*--git-host-rewrite[Skriv om https://<f>/...-kilde-URL-er til https://<t>/... (kan gjentas)]:from=to:' \
+    '--use-anthropic-git-proxy[Bruk Anthropic-administrert git. ADVARSEL: sletter og erstatter git-konfigurasjonen på HOME-nivå, bruk kun under en dedikert konto]' \
+    '--configure-git[Angi global git-identitet og aktiver commit-signering via Anthropics signeringstjeneste. Skriver ~/.gitconfig]' \
+    '--push-outcome-on-release[Push sporede resultatgrener når en økt avsluttes uferdig på initiativ fra runneren]' \
+    '--trust-workspace[Forhåndsfyll lagret tillit for repo-stiene til hver økt (standard: true)]::bool:(true false)' \
+    '--remove-session-state[Fjern tilstand per økt når en økt slutter (standard: false)]::bool:(true false)' \
+    '--diff-finds-nested-repository[Vis et repository klonet inn i en undermappe i Changes-panelet; krever --capacity 1 (standard: false)]::bool:(true false)' \
+    '--confine-repo-settings[Vaktmodus som begrenser innstillinger committet i repoet (standard: warn)]:mode:(warn enforce off)' \
+    '--server-auto-mode-lists[Hvilke klassifiseringslister for auto-modus fra serveren en økt kan motta (standard: no-allow)]:mode:(all no-allow none)' \
+    '--host-config-snapshot[Hvor oppstartsøyeblikksbildet av vertskonfigurasjonen holdes (standard: disk)]:mode:(disk memory)' \
+    '--health-port[Port for /healthz-HTTP-lytteren (standard: 8080; 0 deaktiverer)]:port:' \
+    '--log-level[Loggnivå (standard: info)]:level:(info debug)' \
+    '--log-file[Kopier runner-logger også til en fil i tilføyingsmodus (tee)]:path:_files' \
+    '--exit-if-unused-min[Avslutt runneren hvis den aldri får tildelt arbeid på N minutter]:n:' \
+    '--drain-grace-sec[Sekunder det fortsatt polles etter arbeid etter at aktive økter er ferdige (standard: 0)]:n:' \
+    '--retire-at[Pensjoner runneren på dette absolutte Unix-tidspunktet, i sekunder]:epoch-seconds:' \
+    '--defer-shutdown-max-min[Ved første SIGTERM/SIGINT, slutt å ta imot arbeid og fullfør nedstengingen M minutter senere (standard: 0)]:m:' \
+    '--release-idle-session-min[Frigjør en øktplass etter N minutter uten brukerinndata]:n:' \
+    '--startup-timeout-min[Frigjør en øktplass hvis underprosessen ikke er ferdig med å starte etter N minutter (standard: 15; 0 deaktiverer)]:n:' \
+    '--kill-session-after-min[Begrens veggklokkelevetiden til en underprosess for økt til N minutter]:n:' \
+    '--debug-token-dir[KUN FOR FEILSØKING: skriver aktive tokener til disk. Ikke bruk i produksjon]:path:_directories' \
+    '(-h --help)'{-h,--help}'[Vis denne hjelpemeldingen]'
+}
+
+_claude_remote_control() {
+  _arguments \
+    '--name[Navn på økten (vises i claude.ai/code)]:name:' \
+    '--remote-control-session-name-prefix[Prefiks for automatisk genererte øktnavn (standard: hostname)]:prefix:' \
+    '(-c --continue --session-id)'{-c,--continue}'[Koble til igjen økten sist registrert for denne mappen eller et av dens git-arbeidstrær]' \
+    '(-c --continue --session-id)--session-id[Koble til igjen en bestemt økt etter ID]:id:' \
+    '--permission-mode[Tillatelsesmodus for startede økter]:mode:(acceptEdits auto bypassPermissions default dontAsk plan)' \
+    '(--no-chrome)--chrome[Aktiver Claude in Chrome for startede økter]' \
+    '(--chrome)--no-chrome[Deaktiver Claude in Chrome for startede økter]' \
+    '(-d --debug)'{-d,--debug}'[Aktiver feilsøkingsmodus med valgfri kategorifiltrering]::filter:' \
+    '--debug-file[Skriv feilsøkingslogger til fil]:path:_files' \
+    '(-v --verbose)'{-v,--verbose}'[Aktiver detaljert utdata]' \
+    '--spawn[Startmodus (standard: same-dir)]:mode:(same-dir worktree session)' \
+    '--capacity[Maks samtidige økter i worktree- eller same-dir-modus (standard: 32)]:n:' \
+    '(--no-create-session-in-dir)--create-session-in-dir[Opprett en økt på forhånd i gjeldende mappe (standard)]' \
+    '(--create-session-in-dir)--no-create-session-in-dir[Ikke opprett en økt på forhånd i gjeldende mappe]' \
+    '(-h --help)'{-h,--help}'[Vis denne hjelpen]'
+}
+
+_claude_daemon() {
+  local -a daemon_commands common_options
+  daemon_commands=(
+    'run:Kjør tilsynsprosessen i forgrunnen'
+    'status:Vis daemonens pid, versjon og oppetid'
+    'logs:Følg daemon-loggen (Ctrl-C for å stoppe)'
+    'uninstall:Fjern bakgrunnstjenesten (launchctl/systemd)'
+    'stop:Slå av tilsynsprosessen og avslutt bakgrunnsøkter'
+  )
+  common_options=(
+    '--json-path[Konfigurasjonsfil (standard: ~/.claude/daemon.json)]:path:_files'
+    '--log-file[Loggfil (standard: ~/.claude/daemon.log)]:path:_files'
+    '(-h --help)'{-h,--help}'[Vis denne hjelpen]'
+  )
+
+  local curcontext="$curcontext" state line
+  typeset -A opt_args
+
+  _arguments -C \
+    $common_options \
+    '1: :->command' \
+    '*::arg:->args'
+
+  case $state in
+    command)
+      _describe -t commands 'daemon-kommandoer' daemon_commands
+      ;;
+    args)
+      case $words[1] in
+        run)
+          _arguments \
+            $common_options \
+            '::json-path:_files'
+          ;;
+        stop)
+          _arguments \
+            $common_options \
+            '--any[Stopp også en midlertidig daemon (ikke tjeneste)]' \
+            '--keep-workers[La frakoblede økter fortsette å kjøre]'
+          ;;
+        status|logs|uninstall)
+          _arguments \
+            $common_options
+          ;;
+      esac
+      ;;
+  esac
 }
 
 _claude_import() {

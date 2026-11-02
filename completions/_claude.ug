@@ -200,11 +200,15 @@ _claude() {
     'stop:ئارقا سۇپا يىغىنىنى توختىتىش (سۆھبىتى ساقلىنىدۇ)'
     'respawn:ئارقا سۇپا يىغىنىنى ھازىرقى Claude Code نۇسخىسىدا ئىجرا بولۇشى ئۈچۈن قايتا قوزغىتىش'
     'rm:ئارقا سۇپا يىغىنىنى ئۆچۈرۈش، بىخەتەر بولغاندا ئۇنىڭ worktree سىنىمۇ ئۆچۈرۈش'
+    'remote-control:يەرلىك يىغىنلارنى claude.ai/code ياكى Claude يانفون ئەپىدىن كونترول قىلىش'
+    'daemon:ئارقا سۇپا يىغىنلىرىنىڭ نازارەتچىسىنى باشقۇرۇش'
     'auth:دەلىللەشنى باشقۇرۇش'
     'auto-mode:ئاپتوماتىك ھالەت تۈرگە ئايرىغۇچ سەپلىمىسىنى تەكشۈرۈش ياكى ئەسلىگە قايتۇرۇش'
     'gateway:كارخانا دەلىللەش/تېلېمېترىيە ئۆتكىلىنى ئىجرا قىلىش'
+    'self-hosted-runner:Claude Code بۇلۇت يىغىنلىرىنى بۇ ماشىنا ياكى قاچىدا ساھىبخانلىق قىلىش'
     'import:باشقا AI كودلاش ۋاكالەتچىسىدىن سەپلىمىنى Claude Code غا ئەكىرىش'
     'project:Claude Code تۈر ھالىتىنى باشقۇرۇش'
+    'purge:تۈر ئۈچۈن بارلىق Claude Code ھالىتىنى ئۆچۈرۈش (سۆزلەشمىلەر، ۋەزىپىلەر، ھۆججەت تارىخى، سەپلىمە تۈرى)'
     'ultrareview:بۇلۇتتا جايلاشقان كۆپ ۋاكالەتچىلىك كود تەكشۈرۈشىنى ئىجرا قىلىش ۋە بايقاشلارنى بېسىپ چىقىرىش'
     'setup-token:ئۇزۇن مۇددەتلىك دەلىللەش بەلگىسىنى تەڭشەش (Claude تەلەپنامىسى زۆرۈر)'
     'doctor:Claude Code ئاپتوماتىك يېڭىلانمىسى ئۈچۈن ساغلاملىق تەكشۈرۈش'
@@ -221,11 +225,11 @@ _claude() {
     '--json-schema[قۇرۇلمىلىق چىقىرىشنى دەلىللەش ئۈچۈن JSON لايىھىسى]:schema:'
     '--include-partial-messages[كەلگەندە قىسمەن ئۇچۇر پارچىلىرىنى قوشۇش (--print ۋە --output-format=stream-json بىلەن)]'
     '--input-format[كىرگۈزۈش فورماتى (--print بىلەن): "text" (سۈكۈتتىكى) ياكى "stream-json" (ھەقىقىي ۋاقىت ئېقىمى كىرگۈزۈشى)]:format:(text stream-json)'
-    '--mcp-debug[\[ۋاقتى ئۆتكەن. ئۇنىڭ ئورنىغا --debug ئىشلىتىڭ\] MCP سازلاش ھالىتىنى قوزغىتىش (MCP مۇلازىمېتىر خاتالىقلىرىنى كۆرسىتىدۇ)]'
     '--dangerously-skip-permissions[بارلىق ئىجازەت تەكشۈرۈشلىرىنى ئاتلاش. پەقەت تورغا كىرىش ھوقۇقى يوق ساندۇق مۇھىتى ئۈچۈن تەۋسىيە قىلىنىدۇ]'
     '--allow-dangerously-skip-permissions[سۈكۈتتە قوزغاتماي ئىجازەت تەكشۈرۈشنى ئاتلاش تاللانمىسىنى قوزغىتىش]'
     '--restricted[چەكلىك ھالەت: بۇيرۇق ياكى كود ئىجرا قىلىدىغان قوراللار ۋە WebFetch نى چىقىرىۋېتىش، user/project/local تەڭشەكلىرىنى پەرۋا قىلماسلىق، ھۆججەت قوراللىرىنى خىزمەت مۇندەرىجىلىرى بىلەن چەكلەش]'
     '--max-budget-usd[API چاقىرىقلىرىغا سەرپ قىلىدىغان ئەڭ يۇقىرى دوللار مىقدارى (پەقەت --print)]:amount:'
+    '--max-turns[ۋاكالەتچى نۆۋەتلىرىنىڭ سانىنى چەكلەش (پەقەت --print)]:turns:'
     '--replay-user-messages[تەستىقلاش ئۈچۈن stdin دىن stdout غا ئىشلەتكۈچى ئۇچۇرلىرىنى قايتا يوللاش]'
     '--allowed-tools[پەش ياكى بوشلۇق بىلەن ئايرىلغان ئىجازەت بېرىلگەن قورال ئىسىملىرىنىڭ تىزىملىكى (مەسىلەن، "Bash(git:*) Edit")]:tools:'
     '--allowedTools[پەش ياكى بوشلۇق بىلەن ئايرىلغان ئىجازەت بېرىلگەن قورال ئىسىملىرىنىڭ تىزىملىكى (camelCase فورماتى)]:tools:'
@@ -237,6 +241,8 @@ _claude() {
     '--system-prompt-file[سىستېما چاقىرىقىنى ھۆججەتتىن ئوقۇش]:file:_files'
     '--append-system-prompt[سۈكۈتتىكى سىستېما چاقىرىقىغا سىستېما چاقىرىقىنى قوشۇش]:prompt:'
     '--append-system-prompt-file[سىستېما چاقىرىقىنى ھۆججەتتىن ئوقۇپ سۈكۈتتىكى سىستېما چاقىرىقىغا قوشۇش]:file:_files'
+    '(--append-subagent-system-prompt-file)--append-subagent-system-prompt[ھەر بىر تارماق ۋاكالەتچىنىڭ سىستېما چاقىرىقىغا تېكىست قوشۇش (پەقەت --print)]:prompt:'
+    '(--append-subagent-system-prompt)--append-subagent-system-prompt-file[ھۆججەتتىن تېكىست ئوقۇپ تارماق ۋاكالەتچى سىستېما چاقىرىقلىرىغا قوشۇش (پەقەت --print)]:file:_files'
     '--system-prompt-snapshot[سىستېما چاقىرىقىنى ھەر سۆھبەتتە بىر قېتىم خاتىرىلەپ، ھەر بىر ئىلتىماس ۋە داۋاملاشتۇرۇشتا ئەينەن قايتا ئىشلىتىش (on، سۈكۈتتىكى) ياكى ھەر بىر ئىلتىماستا يېڭىدىن ھاسىل قىلىش (off)]:mode:(on off)'
     '--permission-mode[يىغىن ئۈچۈن ئىجازەت ھالىتى]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)'
     '--permission-prompts[--print بىلەن ئىجازەت سوراشلىرىغا كىم جاۋاب بېرىدۇ: "host" (SDK ساھىبخانىسى ياكى --permission-prompt-tool) ياكى "none" (سوراش كېرەك بولغان ھەممە نەرسە رەت قىلىنىدۇ)]:target:(host none)'
@@ -256,6 +262,8 @@ _claude() {
     '--strict-mcp-config[پەقەت --mcp-config دىن MCP مۇلازىمېتىرلىرىنى ئىشلىتىش ۋە باشقا بارلىق MCP تەڭشەكلىرىنى پەرۋا قىلماسلىق]'
     '--session-id[سۆھبەت ئۈچۈن مەخسۇس يىغىن كىملىكى (ئىناۋەتلىك UUID بولۇشى كېرەك)]:uuid:'
     '--agents[خاسلاشتۇرۇلغان ۋاكالەتچىلەرنى بەلگىلەيدىغان JSON ئوبيېكتى]:json:'
+    '--advisor[بۇ يىغىن ئۈچۈن مۇلازىمېتىر تەرەپتىكى advisor قورالىنى مودېل تەخەللۇسى ياكى تولۇق مودېل ID بىلەن قوزغىتىش]:model:_claude_model_names'
+    '--teammate-mode[agent team ئەزالىرىنىڭ كۆرسىتىلىش ئۇسۇلى]:mode:(in-process auto tmux iterm2)'
     '--setting-sources[يۈكلەش ئۈچۈن پەش بىلەن ئايرىلغان تەڭشەك مەنبەلىرىنىڭ تىزىملىكى (user, project, local)]:sources:'
     '--plugin-dir[پەقەت بۇ يىغىن ئۈچۈن قىستۇرمىلارنى يۈكلەش ئۈچۈن مۇندەرىجە (تەكرارلىنىشچان)]:paths:_directories'
     '--disable-slash-commands[بارلىق يانتۇ سىزىق بۇيرۇقلىرىنى چەكلەش]'
@@ -268,9 +276,11 @@ _claude() {
     '--debug-file[سازلاش خاتىرىلىرىنى مەلۇم ھۆججەت يولىغا يېزىش (سازلاش ھالىتىنى ئۆز-ئۆزىدىن قوزغىتىدۇ)]:path:_files'
     '--from-pr[نومۇر/URL بويىچە PR غا باغلانغان يىغىننى داۋاملاشتۇرۇش، ياكى ئۆز-ئارا تاللىغۇچنى ئېچىش]::value:'
     '--teleport[teleport يىغىنىنى داۋاملاشتۇرۇش، ئىختىيارىي ھالدا يىغىن كىملىكىنى بەلگىلەڭ]::session:'
-    '--cloud[بېرىلگەن چۈشەندۈرۈش بىلەن بۇلۇت يىغىنى قۇرۇش، ياكى يىغىن كىملىكى ياكى claude.ai/code URL ئارقىلىق مەۋجۇت يىغىنغا ئۇلىنىش]::description-or-session:'
+    '(--remote)--cloud[بېرىلگەن چۈشەندۈرۈش بىلەن بۇلۇت يىغىنى قۇرۇش، ياكى يىغىن كىملىكى ياكى claude.ai/code URL ئارقىلىق مەۋجۇت يىغىنغا ئۇلىنىش]::description-or-session:'
+    '(--cloud)--remote[--cloud نىڭ ئەمەلدىن قالغان تەخەللۇسى]::description-or-session:'
     '--environment[بېرىلگەن ئۆزى جايلاشتۇرغان مۇھىتتا ئىجرا بولىدىغان يېڭى بۇلۇت يىغىنى قۇرۇش (ccpool_...)]:environment_id:'
-    '--remote-control[يىراقتىن كونترول قوزغىتىلغان ئۆز-ئارا يىغىننى باشلاش (ئىختىيارىي ھالدا ئىسىم بەلگىلەش)]::name:'
+    '--ref[--environment بىلەن: يېڭى يىغىننىڭ checkout نى يەرلىك HEAD نىڭ ئورنىغا ئىسىملىك ref ئاساسىدا قۇرۇش]:branch:'
+    '(--remote-control --rc)'{--remote-control,--rc}'[يىراقتىن كونترول قوزغىتىلغان ئۆز-ئارا يىغىننى باشلاش (ئىختىيارىي ھالدا ئىسىم بەلگىلەش)]::name:'
     '--remote-control-session-name-prefix[ئاپتوماتىك ھاسىل قىلىنغان يىراقتىن كونترول يىغىن ئىسىملىرى ئۈچۈن ئالدى قوشۇلغۇچى]:prefix:'
     '--chrome[Chrome دىكى Claude بىرلەشتۈرۈشىنى قوزغىتىش]'
     '--no-chrome[Chrome دىكى Claude بىرلەشتۈرۈشىنى چەكلەش]'
@@ -281,6 +291,11 @@ _claude() {
     '--include-hook-events[بارلىق ھۇك ھايات دەۋرى ھادىسىلىرىنى چىقىرىش ئېقىمىغا قوشۇش (stream-json بىلەن)]'
     '--exclude-dynamic-system-prompt-sections[ھەر ماشىنىلىق بۆلەكلەرنى تۇنجى ئىشلەتكۈچى ئۇچۇرىغا يۆتكەپ چاقىرىق غەملەك قايتا ئىشلىتىشنى ياخشىلاش]'
     '--brief[ۋاكالەتچى-ئىشلەتكۈچى ئالاقىسى ئۈچۈن SendUserMessage قورالىنى قوزغىتىش]'
+    '*--channels[(تەتقىقات ئالدىن كۆرۈش) قانال ئۇقتۇرۇشلىرى ئاڭلىنىدىغان MCP مۇلازىمېتىرلىرى (plugin\:<name>@<marketplace>)]:entries:'
+    '*--dangerously-load-development-channels[تەستىقلانغان رۇخسەت تىزىملىكىدە يوق قاناللارنى يەرلىك ئېچىش ئۈچۈن قوزغىتىش (plugin\:<name>@<marketplace> ياكى server\:<name>)]:entries:'
+    '--init[يىغىندىن بۇرۇن Setup ھۇكلىرىنى init matcher بىلەن ئىجرا قىلىش (پەقەت --print)]'
+    '--init-only[Setup ۋە SessionStart ھۇكلىرىنى ئىجرا قىلىپ، سۆھبەت باشلىماي چېكىنىش]'
+    '--maintenance[يىغىندىن بۇرۇن Setup ھۇكلىرىنى maintenance matcher بىلەن ئىجرا قىلىش (پەقەت --print)]'
     '--safe-mode[بارلىق خاسلاشتۇرۇشلار چەكلەنگەن ھالدا باشلاش (بۇزۇلغان سەپلىمىنى تەكشۈرۈشتە پايدىلىق)]'
     '--bare[ئەڭ ئاز ھالەت: ھۇكلار، LSP، قىستۇرما ماسلاشتۇرۇش، مەنسۇپلۇق، ئاپتو-ئەسلەك ۋە CLAUDE.md ئاپتوماتىك بايقاشنى ئاتلاش]'
     '--ax-screen-reader[ئېكران ئوقۇغۇچقا دوستانە چىقىرىش (تەكشى تېكىست، زىننەتلىك گىرۋەك ياكى ھەرىكەت يوق)]'
@@ -304,7 +319,7 @@ _claude() {
         mcp)
           _claude_mcp
           ;;
-        plugin)
+        plugin|plugins)
           _claude_plugin
           ;;
         install)
@@ -324,6 +339,12 @@ _claude() {
         rm)
           _claude_rm
           ;;
+        remote-control|rc|remote|sync|bridge)
+          _claude_remote_control
+          ;;
+        daemon)
+          _claude_daemon
+          ;;
         auth)
           _claude_auth
           ;;
@@ -333,17 +354,24 @@ _claude() {
         gateway)
           _claude_gateway
           ;;
+        self-hosted-runner)
+          _claude_self_hosted_runner
+          ;;
         import)
           _claude_import
           ;;
         project)
           _claude_project
           ;;
+        purge)
+          _claude_purge
+          ;;
         ultrareview)
           _claude_ultrareview
           ;;
-        setup-token|doctor|update)
-          _message "ئارگۇمېنت يوق"
+        setup-token|doctor|update|upgrade)
+          _arguments \
+            '(-h --help)'{-h,--help}'[بۇيرۇق ئۈچۈن ياردەم كۆرسىتىش]'
           ;;
         *)
           # Not a command but the prompt: options may still follow it
@@ -502,6 +530,7 @@ _claude_plugin() {
         validate)
           _arguments \
             '--strict[ئاگاھلاندۇرۇشلارنى خاتالىق دەپ قاراش (چېكىنىش كودى 1)]' \
+            '--profile[بەلگىلەنگەن كاتالوگ بۇ بۇيرۇق ئىجرا قىلىدىغان تەكشۈرۈشتە قىستۇرمىنىڭ يوللىنىشىنى رەت قىلىدىغان بولسا، چېكىنىش كودى 1 بىلەنمۇ چېكىنىش]:name:(directory)' \
             '--json[دەلىللەش دوكلاتىنى JSON سۈپىتىدە چىقىرىش (چېكىنىش كودلىرى ئوخشاش)]' \
             '(-h --help)'{-h,--help}'[ياردەم كۆرسىتىش]' \
             '1:path:_files'
@@ -512,7 +541,10 @@ _claude_plugin() {
         install|i)
           _arguments \
             '(-s --scope)'{-s,--scope}'[ئورنىتىش دائىرىسى]:scope:(user project local)' \
+            '--accept-command[ئالدىنقى --json ئىجراسى shownCommand.sha256 دەپ مەلۇم قىلغان sha256 غا ئىگە، بازار ئېلان قىلغان بۇيرۇقنى قوبۇل قىلىش]:sha256:' \
             '*--config[قىستۇرما خاتىرىسىدە ئېلان قىلىنغان userConfig تاللانمىسىنى بەلگىلەش (تەكرارلىنىشچان)]:key=value:' \
+            '--marketplace[قىستۇرمىنى ساپ ئىسمى بويىچە بۇ مەنبەدىكى بازاردىن ئورنىتىش (owner/repo، git ياكى https URL، ياكى يول)، زۆرۈر بولسا ئالدى بىلەن بازارنى قوشۇپ]:source:' \
+            '--registry[package@npm ئورنىتىش ئۈچۈن: بۇ npm registry دىن ئېنىقلاش ۋە چۈشۈرۈش]:url:' \
             '(-y --yes)'{-y,--yes}'[بازار ئېلان قىلغان كۆرسىتىلگەن بۇيرۇقنى جەزملەشتۈرۈش سوئالىسىز قوبۇل قىلىش]' \
             '--json[ئادەم ئۈچۈن ئۇچۇرنىڭ ئورنىغا ماشىنا ئوقۇيالايدىغان بىر قۇر نەتىجىنى بېسىپ چىقىرىش]' \
             '(-h --help)'{-h,--help}'[ياردەم كۆرسىتىش]' \
@@ -545,6 +577,7 @@ _claude_plugin() {
           ;;
         update)
           _arguments \
+            '--accept-command[ئالدىنقى --json ئىجراسى shownCommand.sha256 دەپ مەلۇم قىلغان sha256 غا ئىگە، بازار ئېلان قىلغان بۇيرۇقنى قوبۇل قىلىش]:sha256:' \
             '(-s --scope)'{-s,--scope}'[ئورنىتىش دائىرىسى]:scope:(user project local managed)' \
             '(-y --yes)'{-y,--yes}'[بازار ئېلان قىلغان كۆرسىتىلگەن بۇيرۇقنى جەزملەشتۈرۈش سوئالىسىز قوبۇل قىلىش]' \
             '--json[ئادەم ئۈچۈن ئۇچۇرنىڭ ئورنىغا ماشىنا ئوقۇيالايدىغان بىر قۇر نەتىجىنى بېسىپ چىقىرىش]' \
@@ -555,6 +588,7 @@ _claude_plugin() {
           _arguments \
             '--json[JSON سۈپىتىدە چىقىرىش]' \
             '--available[بازارلاردىكى بار قىستۇرمىلارنىمۇ ئۆز ئىچىگە ئېلىش (--json زۆرۈر)]' \
+            '--data-size[ھەر بىر ئورنىتىلغان قىستۇرمىنىڭ ساقلانغان سانلىق مەلۇمات مۇندەرىجىسىنى، ياكى پەقەت بەلگىلەنگەن قىستۇرمىنىڭكىنى ئۆلچەش (--json زۆرۈر)]::plugin:_claude_installed_plugins' \
             '(-h --help)'{-h,--help}'[ياردەم كۆرسىتىش]'
           ;;
         prune|autoremove)
@@ -587,6 +621,15 @@ _claude_plugin() {
             '1:name:'
           ;;
         eval)
+          if [[ $words[2] == init ]]; then
+            _arguments \
+              '--bare[سۆھبەتلىشىش ئورنىغا بوش قېلىپ يېزىش]' \
+              '--eval-dir[ئەھۋاللار يېزىلىدىغان، نۆۋەتتىكى مۇندەرىجە ئاستىدىكى مۇندەرىجە]:dir:_directories' \
+              '(-i --interactive)'{-i,--interactive}'[ئەھۋال يېزىش سۆھبىتىنى ئىجرا قىلىش (ئۆز-ئارا تېرمىنال زۆرۈر)]' \
+              '(-h --help)'{-h,--help}'[ياردەم كۆرسىتىش]' \
+              '::name:'
+            return
+          fi
           _arguments \
             '--case[ئەھۋاللارنى ئىسىم glob ئەندىزىسى بويىچە سۈزۈش]:glob:' \
             '*--tag[ئەھۋاللارنى بەلگە بويىچە سۈزۈش (تەكرارلىنىشچان)]:tag:' \
@@ -600,6 +643,7 @@ _claude_plugin() {
             '--json[تولۇق ئىجرا نەتىجىسىنى JSON سۈپىتىدە stdout غا بېسىپ چىقىرىش ياكى بۇ .json ھۆججىتىگە يېزىش]::path:_files' \
             '--threshold[ھەرقانداق ئەھۋالنىڭ نومۇرى بۇ چەكتىن تۆۋەن بولسا چېكىنىش كودى 1 بىلەن چېكىنىش (سۈكۈتتىكى: 1.0)]:threshold:' \
             '*--allow-tools[چەكلەنگەن قوراللار ئۈچۈن مەشغۇلاتچى ئىجازىتى (Bash, Write, Edit, WebFetch, mcp__*)]:tools:' \
+            '*--disallow-tools[ئىجازەت بېرىلگەن بولسىمۇ، ھەرقانداق ئەھۋالدا Claude غا بېرىلمەيدىغان ئىچكى قوراللار]:tools:' \
             '(--no-scaffold)--scaffold[ھەر ئەھۋالنىڭ scaffold_script نى ئىجرا قىلىش (ئاپتور تەمىنلىگەن bash نى سىزنىڭ نامىڭىزدا ئىجرا قىلىدۇ؛ سۈكۈتتە تاقاق)]' \
             '(--scaffold)--no-scaffold[scaffold_script نى ئېنىق ئاتلاش]' \
             '--trust-plugin[بۇ قىستۇرما ۋە ئۇنىڭ باھالاش توپلىمىغا ئىشىنىدىغانلىقىڭىزنى جەزملەپ، تۇنجى ئىجرادىكى ئىشەنچ سوئالىنى ئاتلاش (CI ئۈچۈن)]' \
@@ -612,7 +656,7 @@ _claude_plugin() {
             '(--no-publish)--publish-report[دوكلاتنى claude.ai غا ئېلان قىلىشنىمۇ تەلەپ قىلىش]' \
             '(--publish-report)--no-publish[HTML دوكلاتىنى پەقەت يەرلىكتە ساقلاش؛ claude.ai غا ئېلان قىلىشنى ئاتلاش]' \
             '(-h --help)'{-h,--help}'[ياردەم كۆرسىتىش]' \
-            '::target: _alternative "plugins\:installed plugin\:_claude_installed_plugins" "files\:path\:_files"'
+            '::target: _alternative "commands\:eval command\:(init)" "plugins\:installed plugin\:_claude_installed_plugins" "files\:path\:_files"'
           ;;
         tag)
           _arguments \
@@ -663,6 +707,7 @@ _claude_plugin_marketplace() {
           _arguments \
             '--sparse[git sparse-checkout ئارقىلىق checkout نى مەلۇم مۇندەرىجىلەر بىلەن چەكلەش (monorepo لار ئۈچۈن)]:paths:' \
             '--scope[بازارنى قەيەردە ئېلان قىلىش]:scope:(user project local)' \
+            '--json[stdout تىكى ئاخىرقى قۇر سۈپىتىدە ماشىنا ئوقۇيالايدىغان بىر قۇر نەتىجىنى بېسىپ چىقىرىش]' \
             '--claudeai[claude.ai سىز ئۈچۈن جايلاشتۇرغان بۇ ئىسىمدىكى بازارنى قوشۇش]' \
             '(-h --help)'{-h,--help}'[ياردەم كۆرسىتىش]' \
             '1:source:'
@@ -675,11 +720,13 @@ _claude_plugin_marketplace() {
         remove|rm)
           _arguments \
             '--scope[بازار ئېلانىنى مەلۇم تەڭشەك دائىرىسىدىن ئۆچۈرۈش (بەلگىلەنمىسە بارلىق دائىرىلەردىن ئۆچۈرۈلىدۇ)]:scope:(user project local)' \
+            '--json[stdout تىكى ئاخىرقى قۇر سۈپىتىدە ماشىنا ئوقۇيالايدىغان بىر قۇر نەتىجىنى بېسىپ چىقىرىش]' \
             '(-h --help)'{-h,--help}'[ياردەم كۆرسىتىش]' \
             '1:name:'
           ;;
         update)
           _arguments \
+            '--json[بازار ئىسمى بىلەن: stdout تىكى ئاخىرقى قۇر سۈپىتىدە ماشىنا ئوقۇيالايدىغان بىر قۇر نەتىجىنى بېسىپ چىقىرىش]' \
             '(-h --help)'{-h,--help}'[ياردەم كۆرسىتىش]' \
             '::name:'
           ;;
@@ -851,12 +898,23 @@ _claude_project() {
   esac
 }
 
+_claude_purge() {
+  _arguments \
+    '--dry-run[ھېچنېمىنى ئۆچۈرمەي تۇرۇپ ئۆچۈرۈلىدىغانلارنىڭ تىزىملىكىنى كۆرسىتىش]' \
+    '(-y --yes)'{-y,--yes}'[جەزملەشتۈرۈش سوئالىنى ئاتلاش]' \
+    '(-i --interactive)'{-i,--interactive}'[ئۆچۈرۈشتىن بۇرۇن ھەر بىر تۈر ئۈچۈن سوراش]' \
+    '(1)--all[بارلىق تۈرلەرنىڭ ھالىتىنى تازىلاش (يول بىلەن بىللە ئىشلەتكىلى بولمايدۇ)]' \
+    '(-h --help)'{-h,--help}'[بۇيرۇق ئۈچۈن ياردەم كۆرسىتىش]' \
+    '(--all)::path:_directories'
+}
+
 _claude_ultrareview() {
   _arguments \
     '--json[فورماتلانغان بايقاشلارنىڭ ئورنىغا خام bugs.json يۈكىنى بېسىپ چىقىرىش]' \
     '--timeout[تەكشۈرۈشنىڭ تاماملىنىشىنى كۈتىدىغان ئەڭ كۆپ مىنۇت (سۈكۈتتىكى: 45)]:minutes:' \
     '(--no-post)--post[تاماملانغان تەكشۈرۈش بايقاشلىرىنى سىزنىڭ نامىڭىزدا PR غا يوللاش (پەقەت PR نىشانلىرى؛ تەكشۈرۈش ئەمەس، بىر ئاددىي ئىنكاس)]' \
     '(--post)--no-post[بايقاشلارنى PR غا يوللىماسلىق (سۈكۈتتىكى)]' \
+    '--trust-workspace[نۆۋەتتىكى قىسقۇچقا پەقەت بۇ قېتىملىق ئىجرا ئۈچۈن سورىماي ئىشىنىش (قوليازما ۋە CI ئۈچۈن)]' \
     '(-h --help)'{-h,--help}'[بۇيرۇق ئۈچۈن ياردەم كۆرسىتىش]' \
     '1:target:'
 }
@@ -874,6 +932,117 @@ _claude_rm() {
     '--force-remove-worktree[WorktreeRemove ھۇكى ياكى git ئۆچۈرەلمىگەن بولسىمۇ worktree مۇندەرىجىسىنى ئۆچۈرۈش (ئالدىنقى claude rm مەلۇم قىلغان worktree-id نى بېرىڭ)]:worktree-id:' \
     '(-h --help)'{-h,--help}'[بۇيرۇق ئۈچۈن ياردەم كۆرسىتىش]' \
     '1:session:_claude_background_sessions'
+}
+
+_claude_self_hosted_runner() {
+  _arguments \
+    '--api-url[API ئاساسىي URL (سۈكۈتتىكى: https://api.anthropic.com)]:url:' \
+    '--environment-secret-file[مۇھىت مەخپىي ھۆججىتىنىڭ يولى]:path:_files' \
+    '--lock-to-account[تىزىملىتىش ۋاقتىدا runner نى بىرلا ھېساباتقا باغلاش]:id:' \
+    '--client-label[تىزىملىتىش ۋاقتىدا ئەۋەتىلىدىغان كۆزىتىش بەلگىسى (سۈكۈتتىكى: hostname)]:label:' \
+    '(--proxy-authorization-file --agent-proxy-url)--proxy-authorization-command[stdout ى سىرتقا چىقىش ۋاكالەتچى مۇلازىمېتىرلىرى ئۈچۈن Proxy-Authorization بېشى بولىدىغان بۇيرۇق]:shell command:' \
+    '(--proxy-authorization-command --agent-proxy-url)--proxy-authorization-file[سىرتقا چىقىش ۋاكالەتچى مۇلازىمېتىرلىرى ئۈچۈن Proxy-Authorization بېشىنى ساقلىغان ھۆججەت]:path:_files' \
+    '(--proxy-authorization-command --proxy-authorization-file)--agent-proxy-url[ھەر بىر يىغىننى بۇ URL دىكى agent proxy ئارقىلىق يەتكۈزۈش (پەقەت https)]:url:' \
+    '--capacity[بىرلا ۋاقىتتىكى يىغىنلارنىڭ ئەڭ كۆپ سانى (سۈكۈتتىكى: 1)]:n:' \
+    '--base-dir[repo checkout لىرى ئۈچۈن ئاساسىي مۇندەرىجە (سۈكۈتتىكى: /workspace)]:path:_directories' \
+    '--exec-path[بالا يىغىنلارنى قوزغىتىدىغان ئىككىلىك ھۆججەت (سۈكۈتتىكى: مۇشۇ ئىككىلىك ھۆججەت)]:path:_files' \
+    '--hooks-dir[ھايات دەۋرى ھۇك قوليازمىلىرىنىڭ مۇندەرىجىسى (checkout، command، post-session)]:path:_directories' \
+    '--session-stop-grace-sec[يىغىن ئاخىرلاشقاندىن كېيىن پاكىز چېكىنىشنى قانچىلىك كۈتۈش (سۈكۈتتىكى: 5)]:n:' \
+    '--post-session-hook-timeout-sec[post-session ھۇكى ئۈچۈن SIGTERM ۋاقىت چېكى (سۈكۈتتىكى: 60)]:n:' \
+    '--checkout-hook-timeout-min[checkout ھۇكىنىڭ ھەر قېتىملىق ئىجراسى ئۈچۈن ئەمەلىي ۋاقىت چېكى (سۈكۈتتىكى: 30؛ 0 چەكلەيدۇ)]:n:' \
+    '--drain-wait-sec[SIGTERM/SIGINT كەلگەندە، ئېلىپ بېرىلىۋاتقان خىزمەت ئۈچۈن N سېكۇنتقىچە كۈتۈش (سۈكۈتتىكى: 0)]:n:' \
+    '--drain-marker-file[ساھىبخان يۇمشاق توختىتىشنى ئېلان قىلىدىغان بەلگە ھۆججىتى]:path:_files' \
+    '*--git-ssh-rewrite[https://<host>/... مەنبە URL لىرىنى git@<host>:... غا قايتا يېزىش (تەكرارلىنىشچان)]:host:' \
+    '*--git-host-rewrite[https://<f>/... مەنبە URL لىرىنى https://<t>/... غا قايتا يېزىش (تەكرارلىنىشچان)]:from=to:' \
+    '--use-anthropic-git-proxy[Anthropic باشقۇرىدىغان git نى ئىشلىتىش. ئاگاھلاندۇرۇش: HOME دەرىجىسىدىكى git سەپلىمىسىنى ئۆچۈرۈپ ئالماشتۇرىدۇ، پەقەت مەخسۇس ھېسابات ئاستىدا ئىشلىتىڭ]' \
+    '--configure-git[ئومۇمىي git كىملىكىنى تەڭشەش ۋە Anthropic ئىمزا مۇلازىمىتى ئارقىلىق commit ئىمزالاشنى قوزغىتىش. ~/.gitconfig غا يازىدۇ]' \
+    '--push-outcome-on-release[runner تاماملانمىغان يىغىننى ئۆزى ئاخىرلاشتۇرغاندا، ئىز قوغلانغان نەتىجە تارماقلىرىنى push قىلىش]' \
+    '--trust-workspace[ھەر بىر يىغىننىڭ repo يوللىرى ئۈچۈن مەڭگۈلۈك ئىشەنچنى ئالدىن ئورنىتىش (سۈكۈتتىكى: true)]::bool:(true false)' \
+    '--remove-session-state[يىغىن ئاخىرلاشقاندا يىغىننىڭ ھالىتىنى ئۆچۈرۈش (سۈكۈتتىكى: false)]::bool:(true false)' \
+    '--diff-finds-nested-repository[تارماق قىسقۇچقا كلونلانغان ئامبارنى Changes كۆزنىكىدە كۆرسىتىش؛ --capacity 1 زۆرۈر (سۈكۈتتىكى: false)]::bool:(true false)' \
+    '--confine-repo-settings[repo غا commit قىلىنغان تەڭشەكلەرنى چەكلەش قوغداش ھالىتى (سۈكۈتتىكى: warn)]:mode:(warn enforce off)' \
+    '--server-auto-mode-lists[يىغىن مۇلازىمېتىردىن قايسى ئاپتوماتىك ھالەت تۈرگە ئايرىغۇچ تىزىملىكلىرىنى تاپشۇرۇۋالالايدۇ (سۈكۈتتىكى: no-allow)]:mode:(all no-allow none)' \
+    '--host-config-snapshot[ساھىبخان سەپلىمىسىنىڭ قوزغىلىش ۋاقتىدىكى سۈرىتى ساقلىنىدىغان ئورۇن (سۈكۈتتىكى: disk)]:mode:(disk memory)' \
+    '--health-port[/healthz HTTP ئاڭلىغۇچىسى ئۈچۈن ئېغىز (سۈكۈتتىكى: 8080؛ 0 چەكلەيدۇ)]:port:' \
+    '--log-level[خاتىرە دەرىجىسى (سۈكۈتتىكى: info)]:level:(info debug)' \
+    '--log-file[runner خاتىرىلىرىنى قوشۇش ھالىتىدە ھۆججەتكىمۇ يېزىش]:path:_files' \
+    '--exit-if-unused-min[N مىنۇت ئىچىدە ھېچقانداق خىزمەت تەقسىم قىلىنمىسا runner دىن چېكىنىش]:n:' \
+    '--drain-grace-sec[ئاكتىپ يىغىنلار ئاخىرلاشقاندىن كېيىن خىزمەت سوراشنى داۋاملاشتۇرىدىغان سېكۇنت (سۈكۈتتىكى: 0)]:n:' \
+    '--retire-at[runner نى بۇ مۇتلەق Unix ۋاقتىدا (سېكۇنت بىلەن) پېنسىيەگە چىقىرىش]:epoch-seconds:' \
+    '--defer-shutdown-max-min[بىرىنچى SIGTERM/SIGINT دا خىزمەت قوبۇل قىلىشنى توختىتىپ، M مىنۇتتىن كېيىن تاقاشنى تاماملاش (سۈكۈتتىكى: 0)]:m:' \
+    '--release-idle-session-min[N مىنۇت ئىشلەتكۈچى كىرگۈزۈشى بولمىسا يىغىن ئورنىنى بوشىتىش]:n:' \
+    '--startup-timeout-min[بالا جەريان N مىنۇتتىن كېيىنمۇ قوزغىلىپ بولالمىسا يىغىن ئورنىنى بوشىتىش (سۈكۈتتىكى: 15؛ 0 چەكلەيدۇ)]:n:' \
+    '--kill-session-after-min[بالا يىغىننىڭ ئەمەلىي ياشاش ۋاقتىنى N مىنۇت بىلەن چەكلەش]:n:' \
+    '--debug-token-dir[پەقەت سازلاش ئۈچۈن: ئاكتىپ token لارنى دىسكىغا يازىدۇ. production دا ئىشلەتمەڭ]:path:_directories' \
+    '(-h --help)'{-h,--help}'[بۇ ياردەم ئۇچۇرىنى كۆرسىتىش]'
+}
+
+_claude_remote_control() {
+  _arguments \
+    '--name[يىغىننىڭ ئىسمى (claude.ai/code دا كۆرسىتىلىدۇ)]:name:' \
+    '--remote-control-session-name-prefix[ئاپتوماتىك ھاسىل قىلىنغان يىغىن ئىسىملىرى ئۈچۈن ئالدى قوشۇلغۇچى (سۈكۈتتىكى: hostname)]:prefix:' \
+    '(-c --continue --session-id)'{-c,--continue}'[بۇ مۇندەرىجە ياكى ئۇنىڭ git worktree لىرىنىڭ بىرى ئۈچۈن ئەڭ ئاخىرقى خاتىرىلەنگەن يىغىنغا قايتا ئۇلىنىش]' \
+    '(-c --continue --session-id)--session-id[ID بويىچە مەلۇم يىغىنغا قايتا ئۇلىنىش]:id:' \
+    '--permission-mode[قوزغىتىلغان يىغىنلار ئۈچۈن ئىجازەت ھالىتى]:mode:(acceptEdits auto bypassPermissions default dontAsk plan)' \
+    '(--no-chrome)--chrome[قوزغىتىلغان يىغىنلار ئۈچۈن Claude in Chrome نى قوزغىتىش]' \
+    '(--chrome)--no-chrome[قوزغىتىلغان يىغىنلار ئۈچۈن Claude in Chrome نى چەكلەش]' \
+    '(-d --debug)'{-d,--debug}'[تۈر سۈزگۈچى بىلەن سازلاش ھالىتىنى قوزغىتىش]::filter:' \
+    '--debug-file[سازلاش خاتىرىلىرىنى ھۆججەتكە يېزىش]:path:_files' \
+    '(-v --verbose)'{-v,--verbose}'[تەپسىلىي چىقىرىشنى قوزغىتىش]' \
+    '--spawn[قوزغىتىش ھالىتى (سۈكۈتتىكى: same-dir)]:mode:(same-dir worktree session)' \
+    '--capacity[worktree ياكى same-dir ھالىتىدە بىرلا ۋاقىتتىكى يىغىنلارنىڭ ئەڭ كۆپ سانى (سۈكۈتتىكى: 32)]:n:' \
+    '(--no-create-session-in-dir)--create-session-in-dir[نۆۋەتتىكى مۇندەرىجىدە يىغىننى ئالدىن قۇرۇش (سۈكۈتتىكى)]' \
+    '(--create-session-in-dir)--no-create-session-in-dir[نۆۋەتتىكى مۇندەرىجىدە يىغىننى ئالدىن قۇرماسلىق]' \
+    '(-h --help)'{-h,--help}'[بۇ ياردەمنى كۆرسىتىش]'
+}
+
+_claude_daemon() {
+  local -a daemon_commands common_options
+  daemon_commands=(
+    'run:نازارەتچىنى ئالدى سۇپىدا ئىجرا قىلىش'
+    'status:daemon نىڭ pid، نەشرى، ئىجرا ۋاقتىنى كۆرسىتىش'
+    'logs:daemon خاتىرىسىنى ئىز قوغلاش (توختىتىش ئۈچۈن Ctrl-C)'
+    'uninstall:ئارقا سۇپا مۇلازىمىتىنى ئۆچۈرۈش (launchctl/systemd)'
+    'stop:نازارەتچىنى تاقاش ۋە ئارقا سۇپا يىغىنلىرىنى ئاخىرلاشتۇرۇش'
+  )
+  common_options=(
+    '--json-path[سەپلىمە ھۆججىتى (سۈكۈتتىكى: ~/.claude/daemon.json)]:path:_files'
+    '--log-file[خاتىرە ھۆججىتى (سۈكۈتتىكى: ~/.claude/daemon.log)]:path:_files'
+    '(-h --help)'{-h,--help}'[بۇ ياردەمنى كۆرسىتىش]'
+  )
+
+  local curcontext="$curcontext" state line
+  typeset -A opt_args
+
+  _arguments -C \
+    $common_options \
+    '1: :->command' \
+    '*::arg:->args'
+
+  case $state in
+    command)
+      _describe -t commands 'daemon commands' daemon_commands
+      ;;
+    args)
+      case $words[1] in
+        run)
+          _arguments \
+            $common_options \
+            '::json-path:_files'
+          ;;
+        stop)
+          _arguments \
+            $common_options \
+            '--any[ۋاقىتلىق (مۇلازىمەت بولمىغان) daemon نىمۇ توختىتىش]' \
+            '--keep-workers[ئايرىلغان يىغىنلارنى ئىجرا ھالىتىدە قالدۇرۇش]'
+          ;;
+        status|logs|uninstall)
+          _arguments \
+            $common_options
+          ;;
+      esac
+      ;;
+  esac
 }
 
 _claude_import() {

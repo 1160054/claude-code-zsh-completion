@@ -200,9 +200,12 @@ _claude() {
     'stop:バックグラウンドセッションを停止（会話は保持される）'
     'respawn:バックグラウンドセッションを再起動して現在のClaude Codeバージョンで動かす'
     'rm:バックグラウンドセッションを削除（安全な場合はそのworktreeも）'
+    'remote-control:claude.ai/codeまたはClaudeモバイルアプリからローカルセッションを操作'
+    'daemon:バックグラウンドセッションのスーパーバイザーを管理'
     'auth:認証の管理'
     'auto-mode:自動モード分類器の設定を確認またはリセット'
     'gateway:エンタープライズ認証/テレメトリゲートウェイを実行'
+    'self-hosted-runner:このマシンまたはコンテナでClaude Codeのクラウドセッションをホスト'
     'import:他のAIコーディングエージェントの設定をClaude Codeに取り込む'
     'project:Claude Codeプロジェクトの状態を管理'
     'purge:プロジェクトのすべてのClaude Code状態を削除（トランスクリプト、タスク、ファイル履歴、設定エントリ）'
@@ -222,11 +225,11 @@ _claude() {
     '--json-schema[構造化出力検証用JSONスキーマ]:schema:'
     '--include-partial-messages[到着時に部分的なメッセージチャンクを含める（--printと--output-format=stream-jsonと併用）]'
     '--input-format[入力フォーマット（--printと併用）："text"（デフォルト）、または "stream-json"（リアルタイムストリーミング入力）]:format:(text stream-json)'
-    '--mcp-debug[\[非推奨。代わりに--debugを使用\] MCPデバッグモード有効化（MCPサーバーエラーを表示）]'
     '--dangerously-skip-permissions[すべての権限チェックをバイパス。インターネットアクセスのないサンドボックスのみ推奨]'
     '--allow-dangerously-skip-permissions[デフォルトで有効にせず、権限チェックのバイパスをオプションとして有効化]'
     '--restricted[制限モード：コマンドやコードを実行するツールとWebFetchを外し、user/project/local設定を無視し、ファイルツールを作業ディレクトリに限定]'
     '--max-budget-usd[API呼び出しに費やす最大金額（ドル）（--printのみ）]:amount:'
+    '--max-turns[エージェントのターン数を制限（--printのみ）]:turns:'
     '--replay-user-messages[stdinからのユーザーメッセージをstdoutで確認のため再送信]'
     '--allowed-tools[許可するツール名のカンマまたはスペース区切りリスト（例："Bash(git:*) Edit"）]:tools:'
     '--allowedTools[許可するツール名のカンマまたはスペース区切りリスト（キャメルケース形式）]:tools:'
@@ -238,6 +241,8 @@ _claude() {
     '--system-prompt-file[システムプロンプトをファイルから読み込む]:file:_files'
     '--append-system-prompt[デフォルトのシステムプロンプトにシステムプロンプトを追加]:prompt:'
     '--append-system-prompt-file[システムプロンプトをファイルから読み込み、デフォルトのシステムプロンプトに追加]:file:_files'
+    '(--append-subagent-system-prompt-file)--append-subagent-system-prompt[すべてのサブエージェントのシステムプロンプトにテキストを追加（--printのみ）]:prompt:'
+    '(--append-subagent-system-prompt)--append-subagent-system-prompt-file[ファイルからテキストを読み込み、サブエージェントのシステムプロンプトに追加（--printのみ）]:file:_files'
     '--system-prompt-snapshot[システムプロンプトを会話ごとに1回記録し、以後のリクエストと再開で毎回そのまま再利用する（on、デフォルト）か、毎回生成し直す（off）]:mode:(on off)'
     '--permission-mode[セッションで使用する権限モード]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)'
     '--permission-prompts[--print時に権限プロンプトへ誰が答えるか："host"（SDKホストまたは--permission-prompt-tool）か"none"（プロンプトになるものはすべて拒否）]:target:(host none)'
@@ -257,6 +262,8 @@ _claude() {
     '--strict-mcp-config[--mcp-configのMCPサーバーのみ使用し、他のすべてのMCP設定を無視]'
     '--session-id[会話で使用する特定のセッションID（有効なUUIDである必要あり）]:uuid:'
     '--agents[カスタムエージェントを定義するJSONオブジェクト]:json:'
+    '--advisor[モデルエイリアスまたは完全なモデルIDで、このセッションのサーバー側アドバイザーツールを有効化]:model:_claude_model_names'
+    '--teammate-mode[エージェントチームのチームメイトの表示方法]:mode:(in-process auto tmux iterm2)'
     '--setting-sources[読み込む設定ソースのカンマ区切りリスト（user, project, local）]:sources:'
     '--plugin-dir[このセッションのみプラグインを読み込むディレクトリ（繰り返し可能）]:paths:_directories'
     '--disable-slash-commands[すべてのスラッシュコマンドを無効化]'
@@ -269,9 +276,11 @@ _claude() {
     '--debug-file[デバッグログを特定のファイルパスに書き込む（暗黙的にデバッグモードを有効化）]:path:_files'
     '--from-pr[番号/URLでPRにリンクされたセッションを再開、または対話的なピッカーを開く]::value:'
     '--teleport[テレポートセッションを再開（オプションでセッションIDを指定）]::session:'
-    '--cloud[指定した説明でクラウドセッションを作成、またはセッションIDかclaude.ai/code URLで既存のものにアタッチ]::description-or-session:'
+    '(--remote)--cloud[指定した説明でクラウドセッションを作成、またはセッションIDかclaude.ai/code URLで既存のものにアタッチ]::description-or-session:'
+    '(--cloud)--remote[--cloudの非推奨エイリアス]::description-or-session:'
     '--environment[指定したセルフホスト環境（ccpool_...）で動く新しいクラウドセッションを作成]:environment_id:'
-    '--remote-control[Remote Controlを有効にした対話セッションを開始（オプションで名前指定可能）]::name:'
+    '--ref[--environmentと併用：新しいセッションのチェックアウトをローカルのHEADではなく指定したrefから作成]:branch:'
+    '(--remote-control --rc)'{--remote-control,--rc}'[Remote Controlを有効にした対話セッションを開始（オプションで名前指定可能）]::name:'
     '--remote-control-session-name-prefix[自動生成されるRemote Controlセッション名のプレフィックス]:prefix:'
     '--chrome[Claude in Chrome統合を有効化]'
     '--no-chrome[Claude in Chrome統合を無効化]'
@@ -282,6 +291,11 @@ _claude() {
     '--include-hook-events[すべてのフックライフサイクルイベントを出力ストリームに含める（stream-jsonと併用）]'
     '--exclude-dynamic-system-prompt-sections[マシンごとのセクションを最初のユーザーメッセージに移動し、プロンプトキャッシュの再利用を改善]'
     '--brief[エージェントからユーザーへの通信用SendUserMessageツールを有効化]'
+    '*--channels[（リサーチプレビュー）チャンネル通知を受け取るMCPサーバー（plugin\:<name>@<marketplace>）]:entries:'
+    '*--dangerously-load-development-channels[承認済み許可リストにないチャンネルをローカル開発用に有効化（plugin\:<name>@<marketplace>またはserver\:<name>）]:entries:'
+    '--init[セッション前にinitマッチャーでSetupフックを実行（--printのみ）]'
+    '--init-only[SetupフックとSessionStartフックを実行し、会話を始めずに終了]'
+    '--maintenance[セッション前にmaintenanceマッチャーでSetupフックを実行（--printのみ）]'
     '--safe-mode[すべてのカスタマイズを無効にして開始（壊れた設定のトラブルシューティングに有用）]'
     '--bare[最小モード：フック、LSP、プラグイン同期、属性表示、自動メモリ、CLAUDE.md自動検出をスキップ]'
     '--ax-screen-reader[スクリーンリーダーに適した出力を表示（フラットテキスト、装飾的な枠線やアニメーションなし）]'
@@ -305,7 +319,7 @@ _claude() {
         mcp)
           _claude_mcp
           ;;
-        plugin)
+        plugin|plugins)
           _claude_plugin
           ;;
         install)
@@ -325,6 +339,12 @@ _claude() {
         rm)
           _claude_rm
           ;;
+        remote-control|rc|remote|sync|bridge)
+          _claude_remote_control
+          ;;
+        daemon)
+          _claude_daemon
+          ;;
         auth)
           _claude_auth
           ;;
@@ -333,6 +353,9 @@ _claude() {
           ;;
         gateway)
           _claude_gateway
+          ;;
+        self-hosted-runner)
+          _claude_self_hosted_runner
           ;;
         import)
           _claude_import
@@ -346,8 +369,9 @@ _claude() {
         ultrareview)
           _claude_ultrareview
           ;;
-        setup-token|doctor|update)
-          _message "引数なし"
+        setup-token|doctor|update|upgrade)
+          _arguments \
+            '(-h --help)'{-h,--help}'[コマンドのヘルプを表示]'
           ;;
         *)
           # Not a command but the prompt: options may still follow it
@@ -506,6 +530,7 @@ _claude_plugin() {
         validate)
           _arguments \
             '--strict[警告をエラーとして扱う（終了コード1）]' \
+            '--profile[このコマンドが実行するチェックで、指定したカタログがプラグインの申請を拒否する場合もexit 1で終了]:name:(directory)' \
             '--json[検証レポートをJSONで出力（終了コードは同じ）]' \
             '(-h --help)'{-h,--help}'[ヘルプを表示]' \
             '1:path:_files'
@@ -518,6 +543,7 @@ _claude_plugin() {
             '(-s --scope)'{-s,--scope}'[インストールスコープ]:scope:(user project local)' \
             '--accept-command[直前の--json実行がshownCommand.sha256として報告したsha256のマーケットプレイス宣言コマンドを受け入れる]:sha256:' \
             '*--config[プラグインマニフェストで宣言されたuserConfigオプションを設定（繰り返し可）]:key=value:' \
+            '--marketplace[このソース（owner/repo、gitまたはhttpsのURL、パス）のマーケットプレイスからプラグインを名前だけでインストール（必要なら先にマーケットプレイスを追加）]:source:' \
             '--registry[package@npmのインストール時：このnpmレジストリから解決してダウンロード]:url:' \
             '(-y --yes)'{-y,--yes}'[表示されたマーケットプレイス宣言のコマンドを確認なしで受け入れる]' \
             '--json[人向けのメッセージの代わりに機械可読な結果を1行出力]' \
@@ -617,6 +643,7 @@ _claude_plugin() {
             '--json[実行結果全体をJSONで標準出力に出す、またはこの.jsonファイルに書き出す]::path:_files' \
             '--threshold[いずれかのケースのスコアがこのしきい値未満なら終了コード1（デフォルト：1.0）]:threshold:' \
             '*--allow-tools[制限付きツール（Bash、Write、Edit、WebFetch、mcp__*）の実行者による許可]:tools:' \
+            '*--disallow-tools[許可されていても常にClaudeに使わせない組み込みツール]:tools:' \
             '(--no-scaffold)--scaffold[各ケースのscaffold_scriptを実行（作者提供のbashをあなたの権限で実行。デフォルトはオフ）]' \
             '(--scaffold)--no-scaffold[scaffold_scriptを明示的にスキップ]' \
             '--trust-plugin[このプラグインと評価スイートを信頼すると宣言し、初回の信頼確認をスキップ（CI向け）]' \
@@ -887,6 +914,7 @@ _claude_ultrareview() {
     '--timeout[レビュー完了を待つ最大分数（デフォルト：45）]:minutes:' \
     '(--no-post)--post[完了したレビューの指摘をあなたとしてPRに投稿（PR対象のみ。レビューではなく通常コメント1件）]' \
     '(--post)--no-post[指摘をPRに投稿しない（デフォルト）]' \
+    '--trust-workspace[この実行に限り、確認せずに現在のフォルダを信頼（スクリプトやCI向け）]' \
     '(-h --help)'{-h,--help}'[コマンドのヘルプを表示]' \
     '1:target:'
 }
@@ -904,6 +932,117 @@ _claude_rm() {
     '--force-remove-worktree[WorktreeRemoveフックやgitが削除できなくてもworktreeディレクトリを削除（前回のclaude rmが表示したworktree-idを渡す）]:worktree-id:' \
     '(-h --help)'{-h,--help}'[コマンドのヘルプを表示]' \
     '1:session:_claude_background_sessions'
+}
+
+_claude_self_hosted_runner() {
+  _arguments \
+    '--api-url[APIのベースURL（デフォルト：https://api.anthropic.com）]:url:' \
+    '--environment-secret-file[環境シークレットファイルへのパス]:path:_files' \
+    '--lock-to-account[登録時にランナーを1つのアカウントに固定]:id:' \
+    '--client-label[登録時に送る監視用ラベル（デフォルト：hostname）]:label:' \
+    '(--proxy-authorization-file --agent-proxy-url)--proxy-authorization-command[標準出力がegressプロキシ用のProxy-Authorizationヘッダーになるコマンド]:shell command:' \
+    '(--proxy-authorization-command --agent-proxy-url)--proxy-authorization-file[egressプロキシ用のProxy-Authorizationヘッダーを含むファイル]:path:_files' \
+    '(--proxy-authorization-command --proxy-authorization-file)--agent-proxy-url[すべてのセッションをこのURLのエージェントプロキシ経由にする（httpsのみ）]:url:' \
+    '--capacity[最大同時セッション数（デフォルト：1）]:n:' \
+    '--base-dir[リポジトリのチェックアウト先のベースディレクトリ（デフォルト：/workspace）]:path:_directories' \
+    '--exec-path[子セッションとして起動するバイナリ（デフォルト：このバイナリ）]:path:_files' \
+    '--hooks-dir[ライフサイクルフックのスクリプトのディレクトリ（checkout、command、post-session）]:path:_directories' \
+    '--session-stop-grace-sec[セッション終了後、正常終了を待つ時間（デフォルト：5）]:n:' \
+    '--post-session-hook-timeout-sec[post-sessionフックのSIGTERM猶予時間（デフォルト：60）]:n:' \
+    '--checkout-hook-timeout-min[checkoutフックの1回の実行あたりの実時間の上限（デフォルト：30、0で無効）]:n:' \
+    '--drain-wait-sec[SIGTERM/SIGINT受信時、処理中の作業を最大N秒待つ（デフォルト：0）]:n:' \
+    '--drain-marker-file[ホストが穏やかな停止（ドレイン）を知らせるマーカーファイル]:path:_files' \
+    '*--git-ssh-rewrite[ソースURLのhttps://<host>/...をgit@<host>:...に書き換え（繰り返し可能）]:host:' \
+    '*--git-host-rewrite[ソースURLのhttps://<f>/...をhttps://<t>/...に書き換え（繰り返し可能）]:from=to:' \
+    '--use-anthropic-git-proxy[Anthropic管理のgitを使用。警告：HOMEレベルのgit設定を削除して置き換えるため、専用アカウントでのみ使用]' \
+    '--configure-git[グローバルなgitの名前とメールを設定し、Anthropic署名サービスでのコミット署名を有効化。~/.gitconfigに書き込む]' \
+    '--push-outcome-on-release[ランナー起点のセッションが未完了で終わったとき、追跡中の成果ブランチをプッシュ]' \
+    '--trust-workspace[各セッションのリポジトリパスに対する信頼を事前に保存（デフォルト：true）]::bool:(true false)' \
+    '--remove-session-state[セッション終了時にセッションごとの状態を削除（デフォルト：false）]::bool:(true false)' \
+    '--diff-finds-nested-repository[サブフォルダにクローンしたリポジトリをChangesペインに表示。--capacity 1が必要（デフォルト：false）]::bool:(true false)' \
+    '--confine-repo-settings[リポジトリにコミットされた設定を制限するガードのモード（デフォルト：warn）]:mode:(warn enforce off)' \
+    '--server-auto-mode-lists[セッションがサーバーから受け取れる自動モード分類器のリスト（デフォルト：no-allow）]:mode:(all no-allow none)' \
+    '--host-config-snapshot[ホスト設定の起動時スナップショットの保持場所（デフォルト：disk）]:mode:(disk memory)' \
+    '--health-port[/healthz HTTPリスナーのポート（デフォルト：8080、0で無効）]:port:' \
+    '--log-level[ログレベル（デフォルト：info）]:level:(info debug)' \
+    '--log-file[ランナーのログを追記モードでファイルにも書き出す]:path:_files' \
+    '--exit-if-unused-min[N分間一度も作業が割り当てられなければランナーを終了]:n:' \
+    '--drain-grace-sec[実行中のセッションが終わった後も作業をポーリングし続ける秒数（デフォルト：0）]:n:' \
+    '--retire-at[この絶対Unix時刻（秒）でランナーを退役させる]:epoch-seconds:' \
+    '--defer-shutdown-max-min[最初のSIGTERM/SIGINTで新しい作業の受け付けを止め、M分後に停止を完了（デフォルト：0）]:m:' \
+    '--release-idle-session-min[ユーザー入力がN分間ないとセッション枠を解放]:n:' \
+    '--startup-timeout-min[子プロセスがN分たっても起動を終えないとセッション枠を解放（デフォルト：15、0で無効）]:n:' \
+    '--kill-session-after-min[セッションの子プロセスの実時間の寿命をN分に制限]:n:' \
+    '--debug-token-dir[デバッグ専用：有効なトークンをディスクに書き込む。本番環境では使わない]:path:_directories' \
+    '(-h --help)'{-h,--help}'[このヘルプメッセージを表示]'
+}
+
+_claude_remote_control() {
+  _arguments \
+    '--name[セッション名（claude.ai/codeに表示）]:name:' \
+    '--remote-control-session-name-prefix[自動生成されるセッション名のプレフィックス（デフォルト：hostname）]:prefix:' \
+    '(-c --continue --session-id)'{-c,--continue}'[このディレクトリまたはそのgit worktreeで最後に記録されたセッションに再接続]' \
+    '(-c --continue --session-id)--session-id[IDを指定してセッションに再接続]:id:' \
+    '--permission-mode[起動したセッションの権限モード]:mode:(acceptEdits auto bypassPermissions default dontAsk plan)' \
+    '(--no-chrome)--chrome[起動したセッションでClaude in Chromeを有効化]' \
+    '(--chrome)--no-chrome[起動したセッションでClaude in Chromeを無効化]' \
+    '(-d --debug)'{-d,--debug}'[オプションのカテゴリフィルタリング付きデバッグモード有効化]::filter:' \
+    '--debug-file[デバッグログをファイルに書き込む]:path:_files' \
+    '(-v --verbose)'{-v,--verbose}'[詳細出力を有効化]' \
+    '--spawn[起動モード（デフォルト：same-dir）]:mode:(same-dir worktree session)' \
+    '--capacity[worktreeモードまたはsame-dirモードでの最大同時セッション数（デフォルト：32）]:n:' \
+    '(--no-create-session-in-dir)--create-session-in-dir[現在のディレクトリにセッションを事前作成（デフォルト）]' \
+    '(--create-session-in-dir)--no-create-session-in-dir[現在のディレクトリにセッションを事前作成しない]' \
+    '(-h --help)'{-h,--help}'[このヘルプを表示]'
+}
+
+_claude_daemon() {
+  local -a daemon_commands common_options
+  daemon_commands=(
+    'run:スーパーバイザーをフォアグラウンドで実行'
+    'status:daemonのpid、バージョン、稼働時間を表示'
+    'logs:daemonのログを追跡表示（Ctrl-Cで停止）'
+    'uninstall:バックグラウンドサービスを削除（launchctl/systemd）'
+    'stop:スーパーバイザーを停止し、バックグラウンドセッションを終了'
+  )
+  common_options=(
+    '--json-path[設定ファイル（デフォルト：~/.claude/daemon.json）]:path:_files'
+    '--log-file[ログファイル（デフォルト：~/.claude/daemon.log）]:path:_files'
+    '(-h --help)'{-h,--help}'[このヘルプを表示]'
+  )
+
+  local curcontext="$curcontext" state line
+  typeset -A opt_args
+
+  _arguments -C \
+    $common_options \
+    '1: :->command' \
+    '*::arg:->args'
+
+  case $state in
+    command)
+      _describe -t commands 'daemon コマンド' daemon_commands
+      ;;
+    args)
+      case $words[1] in
+        run)
+          _arguments \
+            $common_options \
+            '::json-path:_files'
+          ;;
+        stop)
+          _arguments \
+            $common_options \
+            '--any[一時的な（サービスでない）daemonも停止]' \
+            '--keep-workers[切り離されたセッションは実行したままにする]'
+          ;;
+        status|logs|uninstall)
+          _arguments \
+            $common_options
+          ;;
+      esac
+      ;;
+  esac
 }
 
 _claude_import() {

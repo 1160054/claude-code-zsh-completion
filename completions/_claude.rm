@@ -200,11 +200,15 @@ _claude() {
     'stop:Fermar ina sessiun en fund (sia conversaziun vegn mantegnida)'
     'respawn:Reaviar ina sessiun en fund, uschia ch'\''ella exequescha la versiun actuala da Claude Code'
     'rm:Stizzar ina sessiun en fund e ses worktree, sche quai è segir'
+    'remote-control:Controllar sessiuns localas da claude.ai/code u da l’app mobila da Claude'
+    'daemon:Administrar il supervisur da las sessiuns en fund'
     'auth:Administrar l'\''autentificaziun'
     'auto-mode:Inspectar u reinizialisar la configuraziun dal classifikatur dal modus automatic'
     'gateway:Exequir il gateway d'\''autentificaziun/telemetria per interpresas'
+    'self-hosted-runner:Ospitar sessiuns cloud da Claude Code sin quest computer u container'
     'import:Importar la configuraziun dad in'\''autra agenta da code IA en Claude Code'
     'project:Administrar il stadi dal project da Claude Code'
+    'purge:Stizzar tut il stadi da Claude Code per in project (transcripziuns, incumbensas, cronologia da files, endataziun da configuraziun)'
     'ultrareview:Exequir ina revisiun da code cun pliras agentas en il cloud e stampar ils resultats'
     'setup-token:Configurar il token d'\''autentificaziun a lunga durada (basegna in abunament Claude)'
     'doctor:Controlla da sanadad per l'\''actualisaziun automatica da Claude Code'
@@ -221,11 +225,11 @@ _claude() {
     '--json-schema[Schema JSON per validaziun da sortida structurada]:schema:'
     '--include-partial-messages[Includer fragments da messadis parzials sco ch'\''els arrivan (cun --print e --output-format=stream-json)]'
     '--input-format[Format d'\''entrada (cun --print): "text" (standard) u "stream-json" (entrada streaming en temp real)]:format:(text stream-json)'
-    '--mcp-debug[\[Antiquà. Duvrar --debug empè\] Activar il modus da debugging MCP (mussa errurs dal server MCP)]'
     '--dangerously-skip-permissions[Sursiglir tut las controllas da permissiuns. Recumandà mo per sandboxes senza access a l'\''internet]'
     '--allow-dangerously-skip-permissions[Activar l'\''opziun da sursiglir controllas da permissiuns senza l'\''activar per standard]'
     '--restricted[Modus restrenschì: allontanar ils utensils che exequeschan cumonds u code sco er WebFetch, ignorar la configuraziun user/project/local e limitar ils utensils da file als directories da lavur]'
     '--max-budget-usd[Import maximal en dollars da spender per clamadas API (mo --print)]:amount:'
+    '--max-turns[Limitar il dumber da turns agentics (mo --print)]:turns:'
     '--replay-user-messages[Trametter danovamain messadis d'\''utilisaders da stdin a stdout per confirmaziun]'
     '--allowed-tools[Glista separada cun commas u spazis dals nums dals utensils permess (p.ex. "Bash(git:*) Edit")]:tools:'
     '--allowedTools[Glista separada cun commas u spazis dals nums dals utensils permess (format camelCase)]:tools:'
@@ -237,6 +241,8 @@ _claude() {
     '--system-prompt-file[Leger il prompt dal sistem dad in file]:file:_files'
     '--append-system-prompt[Agiuntar in prompt dal sistem al prompt dal sistem standard]:prompt:'
     '--append-system-prompt-file[Leger il prompt dal sistem dad in file e l'\''agiuntar al prompt dal sistem standard]:file:_files'
+    '(--append-subagent-system-prompt-file)--append-subagent-system-prompt[Agiuntar text al prompt da sistem da mintga subagenta (mo --print)]:prompt:'
+    '(--append-subagent-system-prompt)--append-subagent-system-prompt-file[Leger text dad in file ed al agiuntar als prompts da sistem da las subagentas (mo --print)]:file:_files'
     '--system-prompt-snapshot[Registrar il prompt dal sistem ina giada per conversaziun e l'\''reutilisar pled per pled tar mintga dumonda e reprisa (on, il standard) u al generar da nov tar mintga dumonda (off)]:mode:(on off)'
     '--permission-mode[Modus da permissiuns per utilisar per la sessiun]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)'
     '--permission-prompts[Tgi che respunda a dumondas da permissiun cun --print: "host" (il host SDK u --permission-prompt-tool) u "none" (tut quai che dumandass permissiun vegn refusà)]:target:(host none)'
@@ -256,6 +262,8 @@ _claude() {
     '--strict-mcp-config[Duvrar mo servers MCP da --mcp-config ed ignorar tut las autras configuraziuns MCP]'
     '--session-id[ID da sessiun specific per utilisar per la conversaziun (sto esser in UUID valid)]:uuid:'
     '--agents[Object JSON che definescha agentas persunalisadas]:json:'
+    '--advisor[Activar l’utensil da cussegliader sin il server per questa sessiun cun in alias da model u cun l’ID cumplet dal model]:model:_claude_model_names'
+    '--teammate-mode[Co ch’ils commembers dal team dad agentas vegnan mussads]:mode:(in-process auto tmux iterm2)'
     '--setting-sources[Glista separada cun commas da funtaunas da configuraziun da chargiar (user, project, local)]:sources:'
     '--plugin-dir[Directory per chargiar plugins mo per questa sessiun (repetibel)]:paths:_directories'
     '--disable-slash-commands[Deactivar tut ils cumonds cun slash]'
@@ -268,9 +276,11 @@ _claude() {
     '--debug-file[Scriver protocols da debugging en ina via da file specifica (activescha implicitamain il modus da debugging)]:path:_files'
     '--from-pr[Reprender ina sessiun colliada cun in PR tras numer/URL, u avrir il tschernider interactiv]::value:'
     '--teleport[Reprender ina sessiun teleport, specificar opziunalmain l'\''ID da sessiun]::session:'
-    '--cloud[Crear ina sessiun en il cloud cun la descripziun indicada, u sa colliar cun ina existenta tras ID da sessiun u URL claude.ai/code]::description-or-session:'
+    '(--remote)--cloud[Crear ina sessiun en il cloud cun la descripziun indicada, u sa colliar cun ina existenta tras ID da sessiun u URL claude.ai/code]::description-or-session:'
+    '(--cloud)--remote[Alias antiquà per --cloud]::description-or-session:'
     '--environment[Crear ina nova sessiun en il cloud che gira en l'\''ambient self-hosted indicà (ccpool_...)]:environment_id:'
-    '--remote-control[Aviar ina sessiun interactiva cun Remote Control activà (opziunalmain cun num)]::name:'
+    '--ref[Cun --environment: basar il checkout da la nova sessiun sin ina ref numnada empè dal HEAD local]:branch:'
+    '(--remote-control --rc)'{--remote-control,--rc}'[Aviar ina sessiun interactiva cun Remote Control activà (opziunalmain cun num)]::name:'
     '--remote-control-session-name-prefix[Prefix per nums da sessiun Remote Control generads automaticamain]:prefix:'
     '--chrome[Activar l'\''integraziun da Claude en Chrome]'
     '--no-chrome[Deactivar l'\''integraziun da Claude en Chrome]'
@@ -281,6 +291,11 @@ _claude() {
     '--include-hook-events[Includer tut ils eveniments dal ciclus da viver dals hooks en il flux da sortida (cun stream-json)]'
     '--exclude-dynamic-system-prompt-sections[Spustar las secziuns per singula maschina en l'\''emprim messadi d'\''utilisader per meglierar la reutilisaziun dal cache da prompt]'
     '--brief[Activar l'\''utensil SendUserMessage per la communicaziun tranter agenta ed utilisader]'
+    '*--channels[(Preview da retschertga) Servers MCP da tals che las notificaziuns da chanal duain vegnir tadladas (plugin\:<name>@<marketplace>)]:entries:'
+    '*--dangerously-load-development-channels[Activar chanals betg sin la glista approvada, per il svilup local (plugin\:<name>@<marketplace> u server\:<name>)]:entries:'
+    '--init[Exequir hooks Setup cun il matcher init avant la sessiun (mo --print)]'
+    '--init-only[Exequir hooks Setup e SessionStart, lura terminar senza cumenzar ina conversaziun]'
+    '--maintenance[Exequir hooks Setup cun il matcher maintenance avant la sessiun (mo --print)]'
     '--safe-mode[Aviar cun tut las persunalisaziuns deactivadas (util per schlariar ina configuraziun rutta)]'
     '--bare[Modus minimal: sursiglir hooks, LSP, sincronisaziun da plugins, attribuziun, auto-memoria ed auto-scuverta da CLAUDE.md]'
     '--ax-screen-reader[Renderisar sortida adattada per liaders da visur (text plan, senza urs decorativs u animaziuns)]'
@@ -304,7 +319,7 @@ _claude() {
         mcp)
           _claude_mcp
           ;;
-        plugin)
+        plugin|plugins)
           _claude_plugin
           ;;
         install)
@@ -324,6 +339,12 @@ _claude() {
         rm)
           _claude_rm
           ;;
+        remote-control|rc|remote|sync|bridge)
+          _claude_remote_control
+          ;;
+        daemon)
+          _claude_daemon
+          ;;
         auth)
           _claude_auth
           ;;
@@ -333,17 +354,24 @@ _claude() {
         gateway)
           _claude_gateway
           ;;
+        self-hosted-runner)
+          _claude_self_hosted_runner
+          ;;
         import)
           _claude_import
           ;;
         project)
           _claude_project
           ;;
+        purge)
+          _claude_purge
+          ;;
         ultrareview)
           _claude_ultrareview
           ;;
-        setup-token|doctor|update)
-          _message "nagins arguments"
+        setup-token|doctor|update|upgrade)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Mussar l'\''agid per il cumond]'
           ;;
         *)
           # Not a command but the prompt: options may still follow it
@@ -502,6 +530,7 @@ _claude_plugin() {
         validate)
           _arguments \
             '--strict[Tractar avertiments sco errurs (code da sortida 1)]' \
+            '--profile[Terminar er cun 1 sch’il catalog numnà refusass ina inoltraziun dal plugin tar in controlla che quest cumond exequescha]:name:(directory)' \
             '--json[Emetter il rapport da validaziun sco JSON (ils medems codes da sortida)]' \
             '(-h --help)'{-h,--help}'[Mussar l'\''agid]' \
             '1:path:_files'
@@ -512,7 +541,10 @@ _claude_plugin() {
         install|i)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Ambit d'\''installaziun]:scope:(user project local)' \
+            '--accept-command[Acceptar il cumond declerà dal martgà, dal qual ina passada --json precedenta ha rapportà il sha256 sco shownCommand.sha256]:sha256:' \
             '*--config[Definir ina opziun userConfig declerada en il manifest dal plugin (repetibel)]:key=value:' \
+            '--marketplace[Installar il plugin tenor ses num simpel dal martgà en questa funtauna (owner/repo, URL git u https, u via), l’agiuntond l’emprim sche necessari]:source:' \
+            '--registry[Per ina installaziun package@npm: resolver e telechargiar da quest register npm]:url:' \
             '(-y --yes)'{-y,--yes}'[Acceptar il cumond mussà, declerà dal martgà, senza la dumonda da confirmaziun]' \
             '--json[Stampar ina lingia da resultat legibla per maschinas empè dal messadi per umans]' \
             '(-h --help)'{-h,--help}'[Mussar l'\''agid]' \
@@ -545,6 +577,7 @@ _claude_plugin() {
           ;;
         update)
           _arguments \
+            '--accept-command[Acceptar il cumond declerà dal martgà, dal qual ina passada --json precedenta ha rapportà il sha256 sco shownCommand.sha256]:sha256:' \
             '(-s --scope)'{-s,--scope}'[Ambit d'\''installaziun]:scope:(user project local managed)' \
             '(-y --yes)'{-y,--yes}'[Acceptar il cumond mussà, declerà dal martgà, senza la dumonda da confirmaziun]' \
             '--json[Stampar ina lingia da resultat legibla per maschinas empè dal messadi per umans]' \
@@ -555,6 +588,7 @@ _claude_plugin() {
           _arguments \
             '--json[Emetter sco JSON]' \
             '--available[Includer plugins disponibels dals martgads (basegna --json)]' \
+            '--data-size[Mesirar la directory da datas memorisadas da mintga plugin installà, u mo dal plugin numnà (basegna --json)]::plugin:_claude_installed_plugins' \
             '(-h --help)'{-h,--help}'[Mussar l'\''agid]'
           ;;
         prune|autoremove)
@@ -587,6 +621,15 @@ _claude_plugin() {
             '1:name:'
           ;;
         eval)
+          if [[ $words[2] == init ]]; then
+            _arguments \
+              '--bare[Scriver ina template vida empè dad exequir l’intervista]' \
+              '--eval-dir[Directory sut la directory actuala, en la quala ils cas vegnan scrits]:dir:_directories' \
+              '(-i --interactive)'{-i,--interactive}'[Exequir l’intervista dad autur (basegna in terminal interactiv)]' \
+              '(-h --help)'{-h,--help}'[Mussar l'\''agid]' \
+              '::name:'
+            return
+          fi
           _arguments \
             '--case[Filtrar cas tenor in glob da num]:glob:' \
             '*--tag[Filtrar cas tenor tag (repetibel)]:tag:' \
@@ -600,6 +643,7 @@ _claude_plugin() {
             '--json[Stampar il resultat cumplet da la passada sco JSON a stdout, u al scriver en quest file .json]::path:_files' \
             '--threshold[Finir cun code da sortida 1 sch'\''ina valitaziun d'\''in cas è sut questa limita (standard: 1.0)]:threshold:' \
             '*--allow-tools[Permissiun da l'\''operatur per utensils restrenschids (Bash, Write, Edit, WebFetch, mcp__*)]:tools:' \
+            '*--disallow-tools[Utensils integrads che Claude na survegn en nagin cas, er sch’els èn permess]:tools:' \
             '(--no-scaffold)--scaffold[Exequir il scaffold_script da mintga cas (exequescha bash furnì da l'\''autur en Voss num; deactivà per standard)]' \
             '(--scaffold)--no-scaffold[Sursiglir explicitamain scaffold_script]' \
             '--trust-plugin[Confermar che Vus avais fiducia en quest plugin ed en sia suita d'\''evaluaziun e sursiglir la dumonda da fiducia da l'\''emprima execuziun (per CI)]' \
@@ -612,7 +656,7 @@ _claude_plugin() {
             '(--no-publish)--publish-report[Pretender er da publitgar il rapport sin claude.ai]' \
             '(--publish-report)--no-publish[Tegnair il rapport HTML mo local; sursiglir la publicaziun sin claude.ai]' \
             '(-h --help)'{-h,--help}'[Mussar l'\''agid]' \
-            '::target: _alternative "plugins\:installed plugin\:_claude_installed_plugins" "files\:path\:_files"'
+            '::target: _alternative "commands\:eval command\:(init)" "plugins\:installed plugin\:_claude_installed_plugins" "files\:path\:_files"'
           ;;
         tag)
           _arguments \
@@ -663,6 +707,7 @@ _claude_plugin_marketplace() {
           _arguments \
             '--sparse[Limitar il checkout a directories specifics via git sparse-checkout (per monorepos)]:paths:' \
             '--scope[Nua declerar il martgà]:scope:(user project local)' \
+            '--json[Stampar ina lingia da resultat legibla per maschinas sco ultima lingia sin stdout]' \
             '--claudeai[Agiuntar il martgà cun quest num che claude.ai ospitescha per Vus]' \
             '(-h --help)'{-h,--help}'[Mussar l'\''agid]' \
             '1:source:'
@@ -675,11 +720,13 @@ _claude_plugin_marketplace() {
         remove|rm)
           _arguments \
             '--scope[Allontanar la decleraziun dal martgà dad in ambit da configuraziun specific (laschar davent per l'\''allontanar da mintga ambit)]:scope:(user project local)' \
+            '--json[Stampar ina lingia da resultat legibla per maschinas sco ultima lingia sin stdout]' \
             '(-h --help)'{-h,--help}'[Mussar l'\''agid]' \
             '1:name:'
           ;;
         update)
           _arguments \
+            '--json[Cun in num da martgà: stampar ina lingia da resultat legibla per maschinas sco ultima lingia sin stdout]' \
             '(-h --help)'{-h,--help}'[Mussar l'\''agid]' \
             '::name:'
           ;;
@@ -851,12 +898,23 @@ _claude_project() {
   esac
 }
 
+_claude_purge() {
+  _arguments \
+    '--dry-run[Elencar quai che vegniss stizzà senza stizzar insatge]' \
+    '(-y --yes)'{-y,--yes}'[Sursiglir la dumonda da confirmaziun]' \
+    '(-i --interactive)'{-i,--interactive}'[Dumandar per mintga element avant che stizzar]' \
+    '(1)--all[Stizzar il stadi per mintga project (betg cumbinabel cun ina via)]' \
+    '(-h --help)'{-h,--help}'[Mussar l'\''agid per il cumond]' \
+    '(--all)::path:_directories'
+}
+
 _claude_ultrareview() {
   _arguments \
     '--json[Stampar il payload brut bugs.json empè dals resultats formatads]' \
     '--timeout[Minutas maximalas da spetgar fin che la revisiun è finida (standard: 45)]:minutes:' \
     '(--no-post)--post[Publitgar ils resultats da la revisiun finida en il PR en Voss num (mo per destinaziuns PR; in simpel commentari, betg ina review)]' \
     '(--post)--no-post[Betg publitgar ils resultats en il PR (il standard)]' \
+    '--trust-workspace[Fidar la directory actuala mo per questa passada, senza dumandar (per scripts e CI)]' \
     '(-h --help)'{-h,--help}'[Mussar l'\''agid per il cumond]' \
     '1:target:'
 }
@@ -874,6 +932,117 @@ _claude_rm() {
     '--force-remove-worktree[Stizzar il directory dal worktree er sch'\''il hook WorktreeRemove u git n'\''ha betg pudì l'\''allontanar (indicar il worktree-id che in claude rm precedent ha rapportà)]:worktree-id:' \
     '(-h --help)'{-h,--help}'[Mussar l'\''agid per il cumond]' \
     '1:session:_claude_background_sessions'
+}
+
+_claude_self_hosted_runner() {
+  _arguments \
+    '--api-url[URL da basa da l’API (standard: https://api.anthropic.com)]:url:' \
+    '--environment-secret-file[Via al file secret da l’ambient]:path:_files' \
+    '--lock-to-account[Bloccar il runner sin in sulet conto tar la registraziun]:id:' \
+    '--client-label[Etichetta dad observabilitad tramessa tar la registraziun (standard: hostname)]:label:' \
+    '(--proxy-authorization-file --agent-proxy-url)--proxy-authorization-command[Cumond dal qual il stdout è il chau Proxy-Authorization per proxies da sortida]:shell command:' \
+    '(--proxy-authorization-command --agent-proxy-url)--proxy-authorization-file[File che cuntegna il chau Proxy-Authorization per proxies da sortida]:path:_files' \
+    '(--proxy-authorization-command --proxy-authorization-file)--agent-proxy-url[Manar mintga sessiun tras il proxy dad agentas sin quest URL (mo https)]:url:' \
+    '--capacity[Dumber maximal da sessiuns simultanas (standard: 1)]:n:' \
+    '--base-dir[Directory da basa per checkouts da repos (standard: /workspace)]:path:_directories' \
+    '--exec-path[Binari da lantschar per sessiuns uffants (standard: quest binari)]:path:_files' \
+    '--hooks-dir[Directory dals scripts hook dal ciclus da viver (checkout, command, post-session)]:path:_directories' \
+    '--session-stop-grace-sec[Quant ditg spetgar ina terminaziun netta suenter la fin dad ina sessiun (standard: 5)]:n:' \
+    '--post-session-hook-timeout-sec[Temp SIGTERM per il hook post-session (standard: 60)]:n:' \
+    '--checkout-hook-timeout-min[Temp real per mintga passada dal hook checkout (standard: 30; 0 deactivescha)]:n:' \
+    '--drain-wait-sec[Tar SIGTERM/SIGINT, spetgar fin N secundas per lavur en curs (standard: 0)]:n:' \
+    '--drain-marker-file[File da marcaziun cun il qual il host annunzia in svidament ordinà]:path:_files' \
+    '*--git-ssh-rewrite[Reformular URLs da funtauna https://<host>/... en git@<host>:... (repetibel)]:host:' \
+    '*--git-host-rewrite[Reformular URLs da funtauna https://<f>/... en https://<t>/... (repetibel)]:from=to:' \
+    '--use-anthropic-git-proxy[Utilisar git administrà dad Anthropic. ATTENZIUN: stizza e remplazza la configuraziun git sin il nivel HOME, utilisar mo sut in conto dedità]' \
+    '--configure-git[Definir l’identitad git globala ed activar la signatura da commits via il servetsch da signatura dad Anthropic. Scriva ~/.gitconfig]' \
+    '--push-outcome-on-release[Far push da las roms da resultat suandadas, cura ch’il runner termina ina sessiun betg cumplettada]' \
+    '--trust-workspace[Preparar la confidenza persistenta per las vias da repo da mintga sessiun (standard: true)]::bool:(true false)' \
+    '--remove-session-state[Allontanar il stadi da mintga sessiun, cura ch’ina sessiun finescha (standard: false)]::bool:(true false)' \
+    '--diff-finds-nested-repository[Mussar in repository clonà en ina sutdirectory en il panel Changes; basegna --capacity 1 (standard: false)]::bool:(true false)' \
+    '--confine-repo-settings[Modus da protecziun per limitar ils parameters commitads en il repo (standard: warn)]:mode:(warn enforce off)' \
+    '--server-auto-mode-lists[Tgeninas glistas dal classifikatur dal modus automatic dal server ina sessiun dastga retschaiver (standard: no-allow)]:mode:(all no-allow none)' \
+    '--host-config-snapshot[Nua che la fotografia da start da la configuraziun dal host vegn tegnida (standard: disk)]:mode:(disk memory)' \
+    '--health-port[Port per il listener HTTP /healthz (standard: 8080; 0 deactivescha)]:port:' \
+    '--log-level[Nivel da protocol (standard: info)]:level:(info debug)' \
+    '--log-file[Copiar ils protocols dal runner er en in file en il modus dad agiuntar]:path:_files' \
+    '--exit-if-unused-min[Terminar il runner, sch’el na survegn naginas lavurs durant N minutas]:n:' \
+    '--drain-grace-sec[Secundas per cuntinuar a dumandar lavur suenter che las sessiuns activas èn finidas (standard: 0)]:n:' \
+    '--retire-at[Retrair il runner a quest temp Unix absolut, en secundas]:epoch-seconds:' \
+    '--defer-shutdown-max-min[Tar l’emprim SIGTERM/SIGINT, chalar da prender lavur e finir da serrar giu M minutas pli tard (standard: 0)]:m:' \
+    '--release-idle-session-min[Liberar ina plazza da sessiun suenter N minutas senza input da l’utilisader]:n:' \
+    '--startup-timeout-min[Liberar ina plazza da sessiun, sch’il process uffant n’ha betg finì da s’aviar suenter N minutas (standard: 15; 0 deactivescha)]:n:' \
+    '--kill-session-after-min[Limitar la durada da vita en temp real dad ina sessiun uffant a N minutas]:n:' \
+    '--debug-token-dir[MO PER DEBUGGING: scriva tokens vivs sin il disc. Betg utilisar en producziun]:path:_directories' \
+    '(-h --help)'{-h,--help}'[Mussar quest messadi d’agid]'
+}
+
+_claude_remote_control() {
+  _arguments \
+    '--name[Num per la sessiun (mussà en claude.ai/code)]:name:' \
+    '--remote-control-session-name-prefix[Prefix per nums da sessiun generads automaticamain (standard: hostname)]:prefix:' \
+    '(-c --continue --session-id)'{-c,--continue}'[Reconnectar a la sessiun registrada l’ultima giada per questa directory u per in da ses worktrees git]' \
+    '(-c --continue --session-id)--session-id[Reconnectar ad ina sessiun specifica tenor ID]:id:' \
+    '--permission-mode[Modus da permissiun per las sessiuns lantschadas]:mode:(acceptEdits auto bypassPermissions default dontAsk plan)' \
+    '(--no-chrome)--chrome[Activar Claude in Chrome per las sessiuns lantschadas]' \
+    '(--chrome)--no-chrome[Deactivar Claude in Chrome per las sessiuns lantschadas]' \
+    '(-d --debug)'{-d,--debug}'[Activar il modus da debugging cun filtraziun opziunala per categoria]::filter:' \
+    '--debug-file[Scriver protocols da debugging en in file]:path:_files' \
+    '(-v --verbose)'{-v,--verbose}'[Activar la sortida detagliada]' \
+    '--spawn[Modus da lantschar (standard: same-dir)]:mode:(same-dir worktree session)' \
+    '--capacity[Dumber maximal da sessiuns simultanas en il modus worktree u same-dir (standard: 32)]:n:' \
+    '(--no-create-session-in-dir)--create-session-in-dir[Crear ordavant ina sessiun en la directory actuala (standard)]' \
+    '(--create-session-in-dir)--no-create-session-in-dir[Betg crear ordavant ina sessiun en la directory actuala]' \
+    '(-h --help)'{-h,--help}'[Mussar quest agid]'
+}
+
+_claude_daemon() {
+  local -a daemon_commands common_options
+  daemon_commands=(
+    'run:Exequir il supervisur en il plaun davant'
+    'status:Mussar pid, versiun e temp da funcziun dal daemon'
+    'logs:Suandar il protocol dal daemon (Ctrl-C per fermar)'
+    'uninstall:Allontanar il servetsch en fund (launchctl/systemd)'
+    'stop:Serrar giu il supervisur e terminar las sessiuns en fund'
+  )
+  common_options=(
+    '--json-path[File da configuraziun (standard: ~/.claude/daemon.json)]:path:_files'
+    '--log-file[File da protocol (standard: ~/.claude/daemon.log)]:path:_files'
+    '(-h --help)'{-h,--help}'[Mussar quest agid]'
+  )
+
+  local curcontext="$curcontext" state line
+  typeset -A opt_args
+
+  _arguments -C \
+    $common_options \
+    '1: :->command' \
+    '*::arg:->args'
+
+  case $state in
+    command)
+      _describe -t commands 'cumonds da daemon' daemon_commands
+      ;;
+    args)
+      case $words[1] in
+        run)
+          _arguments \
+            $common_options \
+            '::json-path:_files'
+          ;;
+        stop)
+          _arguments \
+            $common_options \
+            '--any[Fermar er in daemon temporar (betg sco servetsch)]' \
+            '--keep-workers[Laschar ir vinavant las sessiuns separadas]'
+          ;;
+        status|logs|uninstall)
+          _arguments \
+            $common_options
+          ;;
+      esac
+      ;;
+  esac
 }
 
 _claude_import() {

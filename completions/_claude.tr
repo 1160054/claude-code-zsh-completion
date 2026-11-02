@@ -200,9 +200,12 @@ _claude() {
     'stop:Bir arka plan oturumunu durdur (konuşması korunur)'
     'respawn:Bir arka plan oturumunu mevcut Claude Code sürümüyle çalışacak şekilde yeniden başlat'
     'rm:Bir arka plan oturumunu ve güvenliyse worktree'\''sini sil'
+    'remote-control:Yerel oturumları claude.ai/code veya Claude mobil uygulamasından kontrol et'
+    'daemon:Arka plan oturumu süpervizörünü yönet'
     'auth:Kimlik doğrulamayı yönet'
     'auto-mode:Otomatik mod sınıflandırıcı yapılandırmasını incele veya sıfırla'
     'gateway:Kurumsal kimlik doğrulama/telemetri ağ geçidini çalıştır'
+    'self-hosted-runner:Claude Code bulut oturumlarını bu makinede veya konteynerde barındır'
     'import:Başka bir yapay zekâ kodlama ajanının yapılandırmasını Claude Code'\''a aktar'
     'project:Claude Code proje durumunu yönet'
     'purge:Bir proje için tüm Claude Code durumunu sil (transkriptler, görevler, dosya geçmişi, yapılandırma girişi)'
@@ -222,11 +225,11 @@ _claude() {
     '--json-schema[Yapılandırılmış çıktı doğrulaması için JSON şeması]:schema:'
     '--include-partial-messages[Kısmi mesaj parçalarını geldikçe dahil et (--print ve --output-format=stream-json ile)]'
     '--input-format[Girdi formatı (--print ile): "text" (varsayılan) veya "stream-json" (gerçek zamanlı akış girişi)]:format:(text stream-json)'
-    '--mcp-debug[\[Kullanımdan kaldırıldı. Bunun yerine --debug kullanın\] MCP hata ayıklama modunu etkinleştir (MCP sunucu hatalarını gösterir)]'
     '--dangerously-skip-permissions[Tüm izin kontrollerini atla. Yalnızca internet erişimi olmayan korumalı alanlar için önerilir]'
     '--allow-dangerously-skip-permissions[Varsayılan olarak etkinleştirmeden izin kontrollerini atlama seçeneğini etkinleştir]'
     '--restricted[Kısıtlı mod: komut veya kod çalıştıran araçları ve WebFetch'\''i kaldırır, user/project/local ayarlarını yok sayar ve dosya araçlarını çalışma dizinleriyle sınırlar]'
     '--max-budget-usd[API çağrılarına harcanacak maksimum dolar tutarı (yalnızca --print)]:amount:'
+    '--max-turns[Ajan tur sayısını sınırla (yalnızca --print)]:turns:'
     '--replay-user-messages[Onay için stdin üzerinden kullanıcı mesajlarını stdout üzerine yeniden gönder]'
     '--allowed-tools[İzin verilen araç isimlerinin virgül veya boşlukla ayrılmış listesi (örn. "Bash(git:*) Edit")]:tools:'
     '--allowedTools[İzin verilen araç isimlerinin virgül veya boşlukla ayrılmış listesi (camelCase formatı)]:tools:'
@@ -238,6 +241,8 @@ _claude() {
     '--system-prompt-file[Sistem istemini bir dosyadan oku]:file:_files'
     '--append-system-prompt[Varsayılan sistem istemine sistem istemi ekle]:prompt:'
     '--append-system-prompt-file[Sistem istemini bir dosyadan oku ve varsayılan sistem istemine ekle]:file:_files'
+    '(--append-subagent-system-prompt-file)--append-subagent-system-prompt[Her alt ajanın sistem istemine metin ekle (yalnızca --print)]:prompt:'
+    '(--append-subagent-system-prompt)--append-subagent-system-prompt-file[Bir dosyadan metin oku ve alt ajan sistem istemlerine ekle (yalnızca --print)]:file:_files'
     '--system-prompt-snapshot[Sistem istemini konuşma başına bir kez kaydet ve her istekte ve devam ettirmede aynen yeniden kullan (on, varsayılan) ya da her istekte yeniden oluştur (off)]:mode:(on off)'
     '--permission-mode[Oturum için kullanılacak izin modu]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)'
     '--permission-prompts[--print ile izin istemlerini kimin yanıtlayacağı: "host" (SDK ana bilgisayarı veya --permission-prompt-tool) ya da "none" (istem gerektiren her şey reddedilir)]:target:(host none)'
@@ -257,6 +262,8 @@ _claude() {
     '--strict-mcp-config[Yalnızca --mcp-config üzerinden MCP sunucularını kullan ve diğer tüm MCP ayarlarını yoksay]'
     '--session-id[Konuşma için kullanılacak belirli oturum kimliği (geçerli UUID olmalı)]:uuid:'
     '--agents[Özel ajanları tanımlayan JSON nesnesi]:json:'
+    '--advisor[Bu oturum için sunucu tarafı advisor aracını bir model takma adı veya tam model kimliğiyle etkinleştir]:model:_claude_model_names'
+    '--teammate-mode[Ajan ekibi üyelerinin nasıl görüntüleneceği]:mode:(in-process auto tmux iterm2)'
     '--setting-sources[Yüklenecek ayar kaynaklarının virgülle ayrılmış listesi (user, project, local)]:sources:'
     '--plugin-dir[Yalnızca bu oturum için eklentilerin yükleneceği dizin (tekrarlanabilir)]:paths:_directories'
     '--disable-slash-commands[Tüm eğik çizgi komutlarını devre dışı bırak]'
@@ -269,9 +276,11 @@ _claude() {
     '--debug-file[Hata ayıklama günlüklerini belirli bir dosya yoluna yaz (dolaylı olarak hata ayıklama modunu etkinleştirir)]:path:_files'
     '--from-pr[Bir PR ile bağlantılı oturumu numara/URL ile sürdür veya etkileşimli seçici aç]::value:'
     '--teleport[Bir teleport oturumunu sürdür, isteğe bağlı olarak oturum kimliği belirt]::session:'
-    '--cloud[Verilen açıklamayla bir bulut oturumu oluştur veya oturum kimliği ya da claude.ai/code URL'\''si ile mevcut bir oturuma bağlan]::description-or-session:'
+    '(--remote)--cloud[Verilen açıklamayla bir bulut oturumu oluştur veya oturum kimliği ya da claude.ai/code URL'\''si ile mevcut bir oturuma bağlan]::description-or-session:'
+    '(--cloud)--remote[--cloud için kullanımdan kaldırılmış takma ad]::description-or-session:'
     '--environment[Belirtilen kendi barındırılan ortamda (ccpool_...) çalışan yeni bir bulut oturumu oluştur]:environment_id:'
-    '--remote-control[Uzaktan Kontrol etkinleştirilmiş etkileşimli bir oturum başlat (isteğe bağlı olarak adlandırılmış)]::name:'
+    '--ref[--environment ile: yeni oturumun checkout işlemini yerel HEAD yerine adlandırılmış bir ref üzerine kur]:branch:'
+    '(--remote-control --rc)'{--remote-control,--rc}'[Uzaktan Kontrol etkinleştirilmiş etkileşimli bir oturum başlat (isteğe bağlı olarak adlandırılmış)]::name:'
     '--remote-control-session-name-prefix[Otomatik oluşturulan Uzaktan Kontrol oturum adları için önek]:prefix:'
     '--chrome[Chrome entegrasyonunda Claude'\''u etkinleştir]'
     '--no-chrome[Chrome entegrasyonunda Claude'\''u devre dışı bırak]'
@@ -282,6 +291,11 @@ _claude() {
     '--include-hook-events[Tüm hook yaşam döngüsü olaylarını çıktı akışına dahil et (stream-json ile)]'
     '--exclude-dynamic-system-prompt-sections[İstem önbelleği yeniden kullanımını iyileştirmek için makineye özel bölümleri ilk kullanıcı mesajına taşı]'
     '--brief[Ajandan kullanıcıya iletişim için SendUserMessage aracını etkinleştir]'
+    '*--channels[(Araştırma önizlemesi) Kanal bildirimleri dinlenecek MCP sunucuları (plugin\:<name>@<marketplace>)]:entries:'
+    '*--dangerously-load-development-channels[Onaylı izin listesinde olmayan kanalları yerel geliştirme için etkinleştir (plugin\:<name>@<marketplace> veya server\:<name>)]:entries:'
+    '--init[Oturumdan önce Setup hooklarını init eşleştiricisiyle çalıştır (yalnızca --print)]'
+    '--init-only[Setup ve SessionStart hooklarını çalıştır, ardından konuşma başlatmadan çık]'
+    '--maintenance[Oturumdan önce Setup hooklarını maintenance eşleştiricisiyle çalıştır (yalnızca --print)]'
     '--safe-mode[Tüm özelleştirmeler devre dışı olarak başlat (bozuk bir yapılandırmayı gidermek için kullanışlı)]'
     '--bare[Minimal mod: hookları, LSP'\''yi, eklenti senkronizasyonunu, atıfları, otomatik belleği ve CLAUDE.md otomatik keşfini atla]'
     '--ax-screen-reader[Ekran okuyucu dostu çıktı oluştur (düz metin, dekoratif kenarlıklar veya animasyonlar olmadan)]'
@@ -305,7 +319,7 @@ _claude() {
         mcp)
           _claude_mcp
           ;;
-        plugin)
+        plugin|plugins)
           _claude_plugin
           ;;
         install)
@@ -325,6 +339,12 @@ _claude() {
         rm)
           _claude_rm
           ;;
+        remote-control|rc|remote|sync|bridge)
+          _claude_remote_control
+          ;;
+        daemon)
+          _claude_daemon
+          ;;
         auth)
           _claude_auth
           ;;
@@ -333,6 +353,9 @@ _claude() {
           ;;
         gateway)
           _claude_gateway
+          ;;
+        self-hosted-runner)
+          _claude_self_hosted_runner
           ;;
         import)
           _claude_import
@@ -346,8 +369,9 @@ _claude() {
         ultrareview)
           _claude_ultrareview
           ;;
-        setup-token|doctor|update)
-          _message "argüman yok"
+        setup-token|doctor|update|upgrade)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Komut için yardım göster]'
           ;;
         *)
           # Not a command but the prompt: options may still follow it
@@ -506,6 +530,7 @@ _claude_plugin() {
         validate)
           _arguments \
             '--strict[Uyarıları hata olarak değerlendir (çıkış 1)]' \
+            '--profile[Belirtilen katalog, bu komutun çalıştırdığı bir kontrolde eklentinin gönderimini reddedecekse de çıkış 1 ile çık]:name:(directory)' \
             '--json[Doğrulama raporunu JSON olarak çıktıla (aynı çıkış kodları)]' \
             '(-h --help)'{-h,--help}'[Yardım göster]' \
             '1:path:_files'
@@ -518,6 +543,7 @@ _claude_plugin() {
             '(-s --scope)'{-s,--scope}'[Kurulum kapsamı]:scope:(user project local)' \
             '--accept-command[Sha256 değeri önceki bir --json çalıştırmasında shownCommand.sha256 olarak bildirilen, pazar yerinin bildirdiği komutu kabul et]:sha256:' \
             '*--config[Eklenti bildiriminde tanımlanan bir userConfig seçeneğini ayarla (tekrarlanabilir)]:key=value:' \
+            '--marketplace[Eklentiyi bu kaynaktaki marketplace üzerinden yalın adıyla yükle (owner/repo, git veya https URL ya da yol), gerekirse önce marketplace ekle]:source:' \
             '--registry[package@npm kurulumu için: bu npm kayıt defterinden çöz ve indir]:url:' \
             '(-y --yes)'{-y,--yes}'[Gösterilen pazar yeri tarafından bildirilen komutu onay istemi olmadan kabul et]' \
             '--json[İnsan için mesaj yerine makine tarafından okunabilir tek satırlık sonuç yazdır]' \
@@ -617,6 +643,7 @@ _claude_plugin() {
             '--json[Tam çalıştırma sonucunu JSON olarak stdout'\''a yazdır veya bu .json dosyasına yaz]::path:_files' \
             '--threshold[Herhangi bir vakanın puanı bu eşiğin altındaysa 1 ile çık (varsayılan: 1.0)]:threshold:' \
             '*--allow-tools[Kısıtlı araçlar (Bash, Write, Edit, WebFetch, mcp__*) için operatör izni]:tools:' \
+            '*--disallow-tools[Claude için her durumda engellenecek yerleşik araçlar, izin verilmiş olsalar bile]:tools:' \
             '(--no-scaffold)--scaffold[Her vakanın scaffold_script'\''ini çalıştır (yazarın sağladığı bash'\''i sizin adınıza çalıştırır; varsayılan olarak kapalı)]' \
             '(--scaffold)--no-scaffold[scaffold_script'\''i açıkça atla]' \
             '--trust-plugin[Bu eklentiye ve değerlendirme paketine güvendiğinizi belirterek ilk çalıştırmadaki güven istemini atla (CI için)]' \
@@ -887,6 +914,7 @@ _claude_ultrareview() {
     '--timeout[İncelemenin bitmesini beklemek için maksimum dakika (varsayılan: 45)]:minutes:' \
     '(--no-post)--post[Tamamlanan inceleme bulgularını sizin adınıza PR'\''a gönder (yalnızca PR hedefleri; review değil, tek bir düz yorum)]' \
     '(--post)--no-post[Bulguları PR'\''a gönderme (varsayılan)]' \
+    '--trust-workspace[Mevcut klasöre yalnızca bu çalıştırma için sormadan güven (betikler ve CI için)]' \
     '(-h --help)'{-h,--help}'[Komut için yardım göster]' \
     '1:target:'
 }
@@ -904,6 +932,117 @@ _claude_rm() {
     '--force-remove-worktree[WorktreeRemove kancası veya git kaldıramamış olsa bile worktree dizinini sil (önceki bir claude rm'\''in bildirdiği worktree-id değerini geçirin)]:worktree-id:' \
     '(-h --help)'{-h,--help}'[Komut için yardım göster]' \
     '1:session:_claude_background_sessions'
+}
+
+_claude_self_hosted_runner() {
+  _arguments \
+    '--api-url[API temel URL’si (varsayılan: https://api.anthropic.com)]:url:' \
+    '--environment-secret-file[Ortam gizli anahtar dosyasının yolu]:path:_files' \
+    '--lock-to-account[Runner’ı kayıt sırasında tek bir hesaba kilitle]:id:' \
+    '--client-label[Kayıt sırasında gönderilen gözlemlenebilirlik etiketi (varsayılan: hostname)]:label:' \
+    '(--proxy-authorization-file --agent-proxy-url)--proxy-authorization-command[stdout çıktısı çıkış proxy’leri için Proxy-Authorization başlığı olan komut]:shell command:' \
+    '(--proxy-authorization-command --agent-proxy-url)--proxy-authorization-file[Çıkış proxy’leri için Proxy-Authorization başlığını içeren dosya]:path:_files' \
+    '(--proxy-authorization-command --proxy-authorization-file)--agent-proxy-url[Her oturumu bu URL’deki ajan proxy’si üzerinden yönlendir (yalnızca https)]:url:' \
+    '--capacity[Maksimum eşzamanlı oturum sayısı (varsayılan: 1)]:n:' \
+    '--base-dir[Depo checkout’ları için temel dizin (varsayılan: /workspace)]:path:_directories' \
+    '--exec-path[Alt oturumlar için başlatılacak ikili dosya (varsayılan: bu ikili dosya)]:path:_files' \
+    '--hooks-dir[Yaşam döngüsü hook betiklerinin dizini (checkout, command, post-session)]:path:_directories' \
+    '--session-stop-grace-sec[Bir oturum bittikten sonra temiz çıkış için ne kadar bekleneceği (varsayılan: 5)]:n:' \
+    '--post-session-hook-timeout-sec[post-session hooku için SIGTERM süre bütçesi (varsayılan: 60)]:n:' \
+    '--checkout-hook-timeout-min[checkout hookunun her çalıştırması için gerçek zaman bütçesi (varsayılan: 30; 0 devre dışı bırakır)]:n:' \
+    '--drain-wait-sec[SIGTERM/SIGINT alındığında süren iş için en fazla N saniye bekle (varsayılan: 0)]:n:' \
+    '--drain-marker-file[Ana makinenin düzenli boşaltmayı duyurduğu işaret dosyası]:path:_files' \
+    '*--git-ssh-rewrite[https://<host>/... kaynak URL’lerini git@<host>:... olarak yeniden yaz (tekrarlanabilir)]:host:' \
+    '*--git-host-rewrite[https://<f>/... kaynak URL’lerini https://<t>/... olarak yeniden yaz (tekrarlanabilir)]:from=to:' \
+    '--use-anthropic-git-proxy[Anthropic tarafından yönetilen git kullan. UYARI: HOME düzeyindeki git yapılandırmasını siler ve değiştirir, yalnızca ayrılmış bir hesapta kullanın]' \
+    '--configure-git[Genel git kimliğini ayarla ve Anthropic imzalama hizmetiyle commit imzalamayı etkinleştir. ~/.gitconfig dosyasına yazar]' \
+    '--push-outcome-on-release[Runner tamamlanmamış bir oturumu sonlandırdığında izlenen sonuç dallarını push et]' \
+    '--trust-workspace[Her oturumun depo yolları için kalıcı güveni önceden tanımla (varsayılan: true)]::bool:(true false)' \
+    '--remove-session-state[Oturum bittiğinde oturuma özel durumu kaldır (varsayılan: false)]::bool:(true false)' \
+    '--diff-finds-nested-repository[Alt klasöre klonlanmış bir depoyu Changes panelinde göster; --capacity 1 gerektirir (varsayılan: false)]::bool:(true false)' \
+    '--confine-repo-settings[Depoya commit edilmiş ayarları sınırlayan koruma modu (varsayılan: warn)]:mode:(warn enforce off)' \
+    '--server-auto-mode-lists[Bir oturumun sunucudan alabileceği auto mode sınıflandırıcı listeleri (varsayılan: no-allow)]:mode:(all no-allow none)' \
+    '--host-config-snapshot[Ana makine yapılandırmasının başlangıç anlık görüntüsünün tutulduğu yer (varsayılan: disk)]:mode:(disk memory)' \
+    '--health-port[/healthz HTTP dinleyicisi için port (varsayılan: 8080; 0 devre dışı bırakır)]:port:' \
+    '--log-level[Günlük düzeyi (varsayılan: info)]:level:(info debug)' \
+    '--log-file[Runner günlüklerini ekleme modunda bir dosyaya da yaz]:path:_files' \
+    '--exit-if-unused-min[N dakika boyunca hiç iş atanmazsa runner’dan çık]:n:' \
+    '--drain-grace-sec[Etkin oturumlar bittikten sonra iş için yoklamaya devam edilecek saniye (varsayılan: 0)]:n:' \
+    '--retire-at[Runner’ı saniye cinsinden bu mutlak Unix zamanında emekliye ayır]:epoch-seconds:' \
+    '--defer-shutdown-max-min[İlk SIGTERM/SIGINT alındığında iş almayı bırak ve kapanmayı M dakika sonra tamamla (varsayılan: 0)]:m:' \
+    '--release-idle-session-min[N dakika kullanıcı girdisi olmazsa oturum yuvasını serbest bırak]:n:' \
+    '--startup-timeout-min[Alt süreç N dakika sonra başlatmayı bitirmediyse oturum yuvasını serbest bırak (varsayılan: 15; 0 devre dışı bırakır)]:n:' \
+    '--kill-session-after-min[Bir oturum alt sürecinin gerçek zaman ömrünü N dakikayla sınırla]:n:' \
+    '--debug-token-dir[YALNIZCA HATA AYIKLAMA: canlı tokenları diske yazar. Üretimde kullanmayın]:path:_directories' \
+    '(-h --help)'{-h,--help}'[Bu yardım mesajını göster]'
+}
+
+_claude_remote_control() {
+  _arguments \
+    '--name[Oturum adı (claude.ai/code içinde gösterilir)]:name:' \
+    '--remote-control-session-name-prefix[Otomatik oluşturulan oturum adları için önek (varsayılan: hostname)]:prefix:' \
+    '(-c --continue --session-id)'{-c,--continue}'[Bu dizin veya git worktree’lerinden biri için en son kaydedilen oturuma yeniden bağlan]' \
+    '(-c --continue --session-id)--session-id[Kimliğe göre belirli bir oturuma yeniden bağlan]:id:' \
+    '--permission-mode[Başlatılan oturumlar için izin modu]:mode:(acceptEdits auto bypassPermissions default dontAsk plan)' \
+    '(--no-chrome)--chrome[Başlatılan oturumlar için Claude in Chrome özelliğini etkinleştir]' \
+    '(--chrome)--no-chrome[Başlatılan oturumlar için Claude in Chrome özelliğini devre dışı bırak]' \
+    '(-d --debug)'{-d,--debug}'[Opsiyonel kategori filtreleme ile hata ayıklama modunu etkinleştir]::filter:' \
+    '--debug-file[Hata ayıklama günlüklerini dosyaya yaz]:path:_files' \
+    '(-v --verbose)'{-v,--verbose}'[Ayrıntılı çıktıyı etkinleştir]' \
+    '--spawn[Başlatma modu (varsayılan: same-dir)]:mode:(same-dir worktree session)' \
+    '--capacity[worktree veya same-dir modunda maksimum eşzamanlı oturum sayısı (varsayılan: 32)]:n:' \
+    '(--no-create-session-in-dir)--create-session-in-dir[Mevcut dizinde önceden bir oturum oluştur (varsayılan)]' \
+    '(--create-session-in-dir)--no-create-session-in-dir[Mevcut dizinde önceden oturum oluşturma]' \
+    '(-h --help)'{-h,--help}'[Bu yardımı göster]'
+}
+
+_claude_daemon() {
+  local -a daemon_commands common_options
+  daemon_commands=(
+    'run:Süpervizörü ön planda çalıştır'
+    'status:Daemon pid, sürüm ve çalışma süresini göster'
+    'logs:Daemon günlüğünü takip et (durdurmak için Ctrl-C)'
+    'uninstall:Arka plan hizmetini kaldır (launchctl/systemd)'
+    'stop:Süpervizörü kapat ve arka plan oturumlarını sonlandır'
+  )
+  common_options=(
+    '--json-path[Yapılandırma dosyası (varsayılan: ~/.claude/daemon.json)]:path:_files'
+    '--log-file[Günlük dosyası (varsayılan: ~/.claude/daemon.log)]:path:_files'
+    '(-h --help)'{-h,--help}'[Bu yardımı göster]'
+  )
+
+  local curcontext="$curcontext" state line
+  typeset -A opt_args
+
+  _arguments -C \
+    $common_options \
+    '1: :->command' \
+    '*::arg:->args'
+
+  case $state in
+    command)
+      _describe -t commands 'daemon komutları' daemon_commands
+      ;;
+    args)
+      case $words[1] in
+        run)
+          _arguments \
+            $common_options \
+            '::json-path:_files'
+          ;;
+        stop)
+          _arguments \
+            $common_options \
+            '--any[Geçici (hizmet olmayan) bir daemon’ı da durdur]' \
+            '--keep-workers[Ayrılmış oturumları çalışır durumda bırak]'
+          ;;
+        status|logs|uninstall)
+          _arguments \
+            $common_options
+          ;;
+      esac
+      ;;
+  esac
 }
 
 _claude_import() {

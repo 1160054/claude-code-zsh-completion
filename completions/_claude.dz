@@ -200,11 +200,15 @@ _claude() {
     'stop:རྒྱབ་གཞིའི་ལས་ཐེངས་ཅིག་བཀག (དེ་གི་གྲོས་གླེང་སྲུང་བཞག་འབདཝ་ཨིན)'
     'respawn:རྒྱབ་གཞིའི་ལས་ཐེངས་ཅིག་ད་ལྟོའི་Claude Code ཐོན་རིམ་གཡོག་བཀོལ་ནིའི་དོན་ལུ་སླར་འགོ་བཙུགས'
     'rm:རྒྱབ་གཞིའི་ལས་ཐེངས་ཅིག་བཏོན་གཏང་ཞིནམ་ལས་ཉེན་ཁ་མེད་པ་ཅིན་དེ་གི་worktree ཡང་བཏོན་གཏང'
+    'remote-control:claude.ai/code ཡང་ན་Claude mobile app ནང་ལས་ཉེ་གནས་ལས་ཐེངས་ཚུ་ཚད་འཛིན་འབད'
+    'daemon:རྒྱབ་གཞིའི་ལས་ཐེངས་ཀྱི་supervisor འཛིན་སྐྱོང་འབད'
     'auth:བདེན་དཔྱད་འཛིན་སྐྱོང་འབད'
     'auto-mode:རང་བཞིན་ཐབས་ལམ་དབྱེ་བྱེད་ཀྱི་རིམ་སྒྲིག་ཞིབ་དཔྱད་ཡང་ན་སླར་སྒྲིག་འབད'
     'gateway:ཚོང་ལས་ཀྱི་བདེན་དཔྱད/telemetry gateway གཡོག་བཀོལ'
+    'self-hosted-runner:འཕྲུལ་ཆས་ཡང་ན་container འདི་གུ་Claude Code སྤྲིན་ལས་ཐེངས་ཚུ་host འབད'
     'import:AI ཀོཌ་བྲི་མི་ལས་བྱེད་གཞན་ཅིག་ནང་ལས་Claude Code ནང་ལུ་རིམ་སྒྲིག་ནང་འདྲེན་འབད'
     'project:Claude Code ལས་འགུལ་གྱི་གནས་སྟངས་འཛིན་སྐྱོང་འབད'
+    'purge:ལས་འགུལ་ཅིག་གི་དོན་ལུ་Claude Code གནས་སྟངས་ཆ་མཉམ་བཏོན་གཏང (transcripts, tasks, ཡིག་ཆའི་ལོ་རྒྱུས, config entry)'
     'ultrareview:སྤྲིན་ནང་ལུ་བཞག་པའི་ལས་བྱེད་མང་གི་ཀོཌ་བསྐྱར་ཞིབ་གཡོག་བཀོལ་ཞིནམ་ལས་ཐོབ་གྲུབ་ཚུ་དཔར་བསྐྲུན་འབད'
     'setup-token:ཡུན་རིང་བདེན་དཔྱད་ཀྱི་token སྒྲིག་བཀོད་འབད (Claude མངགས་ཉོ་དགོ)'
     'doctor:Claude Code རང་བཞིན་དུས་མཐུན་བཟོ་མིའི་བདེ་ཐང་ཞིབ་དཔྱད'
@@ -221,11 +225,11 @@ _claude() {
     '--json-schema[གཞི་བཀོད་ཅན་གྱི་ཐོན་སྐྱེད་ར་སྤྲོད་ཀྱི་དོན་ལུ་JSON schema]:schema:'
     '--include-partial-messages[འཕྲིན་དོན་གྱི་ཆ་ཤས་ཚུ་འབྱོར་བའི་སྐབས་ཚུད་བཅུག (--print དང་ --output-format=stream-json དང་གཅིག་ཁར)]'
     '--input-format[ནང་བསྐྱོད་རྣམ་གཞག (--print དང་གཅིག་ཁར): "text" (སྔོན་སྒྲིག) ཡང་ན "stream-json" (དུས་ཐོག་streaming ནང་བསྐྱོད)]:format:(text stream-json)'
-    '--mcp-debug[\[ཕྱིར་བཀོལ། ཚབ་ལུ་ --debug ལག་ལེན་འཐབ\] MCP རྙོག་སེལ་ཐབས་ལམ་ལྕོགས་ཅན་བཟོ (MCP སར་བར་གྱི་འཛོལ་བ་སྟོན)]'
     '--dangerously-skip-permissions[གནང་བའི་ཞིབ་དཔྱད་ཆ་མཉམ་ཟུར་བཤོལ། ཨིན་ཊར་ནེཊ་མེད་པའི་sandbox ཚུ་གི་དོན་ལུ་རྐྱངམ་ཅིག་འོས་སྦྱོར་འབད]'
     '--allow-dangerously-skip-permissions[སྔོན་སྒྲིག་ཐོག་ལས་ལྕོགས་ཅན་མ་བཟོ་བར་གནང་བའི་ཞིབ་དཔྱད་ཟུར་བཤོལ་གྱི་གདམ་ཁ་ལྕོགས་ཅན་བཟོ]'
     '--restricted[ཚད་བཀག་ཐབས་ལམ: བརྡ་བཀོད་ཡང་ན་ཀོཌ་གཡོག་བཀོལ་མི་ལག་ཆས་ཚུ་དང་WebFetch རྩ་བསྐྲད་གཏང, user/project/local སྒྲིག་སྟངས་ཚུ་སྣང་མེད་བཞག, དེ་ལས་ཡིག་ཆའི་ལག་ཆས་ཚུ་ལཱ་གི་ཡིག་སྣོད་ཚུ་ནང་རྐྱངམ་ཅིག་ལུ་ཚད་འཛིན་འབད]'
     '--max-budget-usd[API call ཚུ་གུ་བཏང་ནིའི་ཌོ་ལར་གྱི་བསྡོམས་མང་མཐའ (--print རྐྱངམ་ཅིག)]:amount:'
+    '--max-turns[ལས་བྱེད་ཀྱི་turn གྲངས་ལུ་ཚད་བཀག་བཟོ (--print རྐྱངམ་ཅིག)]:turns:'
     '--replay-user-messages[ངེས་བརྟན་གྱི་དོན་ལུ་stdin ནང་ལས་ལག་ལེན་པའི་འཕྲིན་དོན་ཚུ་stdout གུ་སླར་གཏང]'
     '--allowed-tools[ཆོག་པའི་ལག་ཆས་མིང་གི་ཐོ་ཡིག་comma ཡང་ན་བར་སྟོང་གིས་སོ་སོར་བཀོད (དཔེར་ན, "Bash(git:*) Edit")]:tools:'
     '--allowedTools[ཆོག་པའི་ལག་ཆས་མིང་གི་ཐོ་ཡིག་comma ཡང་ན་བར་སྟོང་གིས་སོ་སོར་བཀོད (camelCase རྣམ་གཞག)]:tools:'
@@ -237,6 +241,8 @@ _claude() {
     '--system-prompt-file[ཡིག་ཆ་ཅིག་ནང་ལས་རིམ་ལུགས་prompt ལྷག]:file:_files'
     '--append-system-prompt[སྔོན་སྒྲིག་རིམ་ལུགས་prompt ལུ་རིམ་ལུགས་prompt ཁ་སྐོང]:prompt:'
     '--append-system-prompt-file[ཡིག་ཆ་ཅིག་ནང་ལས་རིམ་ལུགས་prompt ལྷག་ཞིནམ་ལས་སྔོན་སྒྲིག་རིམ་ལུགས་prompt ལུ་ཁ་སྐོང་འབད]:file:_files'
+    '(--append-subagent-system-prompt-file)--append-subagent-system-prompt[subagent རེ་རེའི་རིམ་ལུགས་prompt ལུ་ཚིག་ཡིག་ཁ་སྐོང་འབད (--print རྐྱངམ་ཅིག)]:prompt:'
+    '(--append-subagent-system-prompt)--append-subagent-system-prompt-file[ཡིག་ཆ་ཅིག་ནང་ལས་ཚིག་ཡིག་ལྷག་ཞིནམ་ལས་subagent གི་རིམ་ལུགས་prompt ཚུ་ལུ་ཁ་སྐོང་འབད (--print རྐྱངམ་ཅིག)]:file:_files'
     '--system-prompt-snapshot[གྲོས་གླེང་རེ་རེ་ལུ་རིམ་ལུགས་prompt ཚར་གཅིག་ཐོ་བཀོད་འབད་ཞིནམ་ལས་ཞུ་བ་དང་སླར་འགོ་བཙུགས་རེ་རེ་ནང་ཚིག་ཚུ་ཇི་བཞིན་སླར་ལག་ལེན་འཐབ (on, སྔོན་སྒྲིག) ཡང་ན་ཞུ་བ་རེ་རེ་ནང་གསརཔ་སྦེ་བཟོ (off)]:mode:(on off)'
     '--permission-mode[ལས་ཐེངས་ཀྱི་དོན་ལུ་ལག་ལེན་འཐབ་ནིའི་གནང་བའི་ཐབས་ལམ]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)'
     '--permission-prompts[--print དང་གཅིག་ཁར་གནང་བའི་prompt ཚུ་ལུ་ལན་སློག་མི་: "host" (SDK host ཡང་ན་ --permission-prompt-tool) ཡང་ན་ "none" (prompt འབད་དགོ་པའི་ཅི་ཡང་ངོས་ལེན་མི་འབད)]:target:(host none)'
@@ -256,6 +262,8 @@ _claude() {
     '--strict-mcp-config[--mcp-config ནང་ལས་MCP སར་བར་རྐྱངམ་ཅིག་ལག་ལེན་འཐབ་ཞིནམ་ལས་MCP སྒྲིག་སྟངས་གཞན་ཆ་མཉམ་སྣང་མེད་བཞག]'
     '--session-id[གྲོས་གླེང་གི་དོན་ལུ་ལག་ལེན་འཐབ་ནིའི་ལས་ཐེངས་ID དམིགས་བསལ (ནུས་ཅན་UUID དགོ)]:uuid:'
     '--agents[སྲོལ་སྒྲིག་ལས་བྱེད་ཚུ་ངེས་འཛིན་འབད་མིའི་JSON object]:json:'
+    '--advisor[དཔེ་གཞི་alias ཡང་ན་དཔེ་གཞི་ID ཆ་ཚང་གིས་ལས་ཐེངས་འདི་གི་དོན་ལུ་སར་བར་ཕྱོགས་ཀྱི་advisor ལག་ཆས་ལྕོགས་ཅན་བཟོ]:model:_claude_model_names'
+    '--teammate-mode[ལས་བྱེད་སྡེ་ཚན་གྱི་འཐུས་མི་ཚུ་བཀྲམ་སྟོན་འབད་ཐངས]:mode:(in-process auto tmux iterm2)'
     '--setting-sources[མངོན་གསལ་འབད་ནིའི་སྒྲིག་སྟངས་འབྱུང་ཁུངས་ཀྱི་ཐོ་ཡིག་comma གིས་སོ་སོར (user, project, local)]:sources:'
     '--plugin-dir[ལས་ཐེངས་འདི་གི་དོན་ལུ་རྐྱངམ་ཅིག་པ་ལག་མངོན་གསལ་འབད་ནིའི་ཡིག་སྣོད (ཡང་བསྐྱར་བཏུབ)]:paths:_directories'
     '--disable-slash-commands[slash བརྡ་བཀོད་ཆ་མཉམ་ལྕོགས་མེད་བཟོ]'
@@ -268,9 +276,11 @@ _claude() {
     '--debug-file[རྙོག་སེལ་log ཚུ་ཡིག་ཆ་འགྲོ་ལམ་དམིགས་བསལ་ཅིག་ལུ་བྲིས (ཤུགས་ཀྱིས་རྙོག་སེལ་ཐབས་ལམ་ལྕོགས་ཅན་བཟོ)]:path:_files'
     '--from-pr[ཨང་གྲངས/URL གྱིས་PR ལུ་འབྲེལ་མཐུད་འབད་མི་ལས་ཐེངས་སླར་འགོ་བཙུགས, ཡང་ན་ཕན་ཚུན་འབྲེལ་ལམ་སེལ་འཐུ་པ་ཁ་ཕྱེ]::value:'
     '--teleport[teleport ལས་ཐེངས་ཅིག་སླར་འགོ་བཙུགས, གདམ་ཁ་ཅན་སྦེ་ལས་ཐེངས་ID གསལ་བཀོད་འབད]::session:'
-    '--cloud[བྱིན་མི་འགྲེལ་བཤད་དང་བཅས་སྤྲིན་གྱི་ལས་ཐེངས་ཅིག་གསར་བསྐྲུན་འབད, ཡང་ན་ལས་ཐེངས་ID ཡང་ན་claude.ai/code URL གིས་ད་ལྟོ་ཡོད་མི་ཅིག་ལུ་མཐུད]::description-or-session:'
+    '(--remote)--cloud[བྱིན་མི་འགྲེལ་བཤད་དང་བཅས་སྤྲིན་གྱི་ལས་ཐེངས་ཅིག་གསར་བསྐྲུན་འབད, ཡང་ན་ལས་ཐེངས་ID ཡང་ན་claude.ai/code URL གིས་ད་ལྟོ་ཡོད་མི་ཅིག་ལུ་མཐུད]::description-or-session:'
+    '(--cloud)--remote[--cloud གི་དོན་ལུ་ད་རིས་ལག་ལེན་མི་འཐབ་པའི་alias རྙིངམ]::description-or-session:'
     '--environment[བྱིན་མི་རང་གིས་host འབད་མི་མཐའ་འཁོར་ (ccpool_...) གུ་གཡོག་བཀོལ་མི་སྤྲིན་གྱི་ལས་ཐེངས་གསརཔ་ཅིག་གསར་བསྐྲུན་འབད]:environment_id:'
-    '--remote-control[Remote Control ལྕོགས་ཅན་བཟོ་སྟེ་ཕན་ཚུན་འབྲེལ་ལམ་ལས་ཐེངས་འགོ་བཙུགས (གདམ་ཁ་ཅན་སྦེ་མིང་བཏགས)]::name:'
+    '--ref[--environment དང་གཅིག་ཁར: ལས་ཐེངས་གསརཔ་གི་checkout འདི་ཉེ་གནས་HEAD གི་ཚབ་ལུ་མིང་བཏགས་ཡོད་པའི་ref གུ་གཞི་བཞག]:branch:'
+    '(--remote-control --rc)'{--remote-control,--rc}'[Remote Control ལྕོགས་ཅན་བཟོ་སྟེ་ཕན་ཚུན་འབྲེལ་ལམ་ལས་ཐེངས་འགོ་བཙུགས (གདམ་ཁ་ཅན་སྦེ་མིང་བཏགས)]::name:'
     '--remote-control-session-name-prefix[རང་བཞིན་བཟོ་མིའི་Remote Control ལས་ཐེངས་མིང་གི་དོན་ལུ་སྔོན་ཚིག]:prefix:'
     '--chrome[Chrome ནང་Claude ཟླ་སྒྲིལ་ལྕོགས་ཅན་བཟོ]'
     '--no-chrome[Chrome ནང་Claude ཟླ་སྒྲིལ་ལྕོགས་མེད་བཟོ]'
@@ -281,6 +291,11 @@ _claude() {
     '--include-hook-events[ཐོན་སྐྱེད་stream ནང་hook ཚེ་སྲོག་གི་བྱུང་ལས་ཆ་མཉམ་ཚུད་བཅུག (stream-json དང་གཅིག་ཁར)]'
     '--exclude-dynamic-system-prompt-sections[prompt-cache སླར་ལག་ལེན་ཡར་དྲག་གཏང་ནིའི་དོན་ལུ་འཕྲུལ་ཆས་རེ་རེའི་དབྱེ་ཚན་ཚུ་ལག་ལེན་པའི་འཕྲིན་དོན་དང་པའི་ནང་སྤོ]'
     '--brief[ལས་བྱེད་ལས་ལག་ལེན་པ་ལུ་བརྒྱུད་འབྲེལ་གྱི་དོན་ལུ་SendUserMessage ལག་ཆས་ལྕོགས་ཅན་བཟོ]'
+    '*--channels[(ཞིབ་འཚོལ་སྔོན་ལྟ) བརྡ་ལམ་བརྡ་བསྐུལ་ཚུ་ཉན་དགོ་པའི་MCP སར་བར་ཚུ (plugin\:<name>@<marketplace>)]:entries:'
+    '*--dangerously-load-development-channels[ཆོག་ཐམ་ཐོ་ཡིག་ནང་མེད་པའི་བརྡ་ལམ་ཚུ་ཉེ་གནས་གོང་འཕེལ་གྱི་དོན་ལུ་ལྕོགས་ཅན་བཟོ (plugin\:<name>@<marketplace> ཡང་ན་server\:<name>)]:entries:'
+    '--init[ལས་ཐེངས་ཀྱི་ཧེ་མ་init matcher དང་གཅིག་ཁར་Setup hook ཚུ་གཡོག་བཀོལ (--print རྐྱངམ་ཅིག)]'
+    '--init-only[Setup དང་SessionStart hook ཚུ་གཡོག་བཀོལ་ཞིནམ་ལས་གྲོས་གླེང་འགོ་མ་བཙུགས་པར་ཕྱིར་ཐོན]'
+    '--maintenance[ལས་ཐེངས་ཀྱི་ཧེ་མ་maintenance matcher དང་གཅིག་ཁར་Setup hook ཚུ་གཡོག་བཀོལ (--print རྐྱངམ་ཅིག)]'
     '--safe-mode[སྲོལ་སྒྲིག་ཆ་མཉམ་ལྕོགས་མེད་བཟོ་སྟེ་འགོ་བཙུགས (རིམ་སྒྲིག་ཆག་པ་ཅིག་གི་དཀའ་ངལ་སེལ་ནིའི་དོན་ལུ་ཕན་ཐོགས)]'
     '--bare[ཉུང་མཐའི་ཐབས་ལམ: hooks, LSP, པ་ལག་sync, attribution, auto-memory, དང་CLAUDE.md རང་བཞིན་འཚོལ་རྙེད་ཚུ་གནས་སྐབས་བཞག]'
     '--ax-screen-reader[screen-reader ལུ་མཐུན་པའི་ཐོན་སྐྱེད་སྟོན (ཚིག་ཡིག་ལེབ་ཏོག་ཏོ, མཛེས་རྒྱན་མཐའ་མཚམས་ཡང་ན་འགུལ་བསྐྱོད་མེད)]'
@@ -304,7 +319,7 @@ _claude() {
         mcp)
           _claude_mcp
           ;;
-        plugin)
+        plugin|plugins)
           _claude_plugin
           ;;
         install)
@@ -324,6 +339,12 @@ _claude() {
         rm)
           _claude_rm
           ;;
+        remote-control|rc|remote|sync|bridge)
+          _claude_remote_control
+          ;;
+        daemon)
+          _claude_daemon
+          ;;
         auth)
           _claude_auth
           ;;
@@ -333,17 +354,24 @@ _claude() {
         gateway)
           _claude_gateway
           ;;
+        self-hosted-runner)
+          _claude_self_hosted_runner
+          ;;
         import)
           _claude_import
           ;;
         project)
           _claude_project
           ;;
+        purge)
+          _claude_purge
+          ;;
         ultrareview)
           _claude_ultrareview
           ;;
-        setup-token|doctor|update)
-          _message "སྒྲུབ་རྟགས་མེད"
+        setup-token|doctor|update|upgrade)
+          _arguments \
+            '(-h --help)'{-h,--help}'[བརྡ་བཀོད་ཀྱི་དོན་ལུ་རོགས་རམ་སྟོན]'
           ;;
         *)
           # Not a command but the prompt: options may still follow it
@@ -502,6 +530,7 @@ _claude_plugin() {
         validate)
           _arguments \
             '--strict[ཉེན་བརྡ་ཚུ་འཛོལ་བ་སྦེ་བརྩི (ཕྱིར་ཐོན་ཨང་རྟགས 1)]' \
+            '--profile[བརྡ་བཀོད་འདི་གིས་གཡོག་བཀོལ་མི་ཞིབ་དཔྱད་ཅིག་གུ་མིང་བཏགས་ཡོད་པའི་catalog གིས་པ་ལག་གི་ཕུལ་མི་འདི་ངོས་ལེན་མི་འབད་བ་ཅིན་ཡང་ཕྱིར་ཐོན་ཨང་རྟགས 1]:name:(directory)' \
             '--json[ར་སྤྲོད་སྙན་ཞུ་JSON སྦེ་ཐོན་སྐྱེད་འབད (ཕྱིར་ཐོན་ཨང་རྟགས་ཚུ་གཅིགཔ་ཨིན)]' \
             '(-h --help)'{-h,--help}'[རོགས་རམ་སྟོན]' \
             '1:path:_files'
@@ -512,7 +541,10 @@ _claude_plugin() {
         install|i)
           _arguments \
             '(-s --scope)'{-s,--scope}'[སྒྲིག་བཞག་ཁྱབ་ཚད]:scope:(user project local)' \
+            '--accept-command[ཧེ་མའི་--json གཡོག་བཀོལ་ཐེངས་ཅིག་གིས་shownCommand.sha256 སྦེ་སྙན་ཞུ་འབད་མི་sha256 ཡོད་པའི་ཚོང་ཁང་གིས་གསལ་བསྒྲགས་འབད་མི་བརྡ་བཀོད་ངོས་ལེན་འབད]:sha256:' \
             '*--config[པ་ལག་manifest ནང་གསལ་བསྒྲགས་འབད་ཡོད་པའི་userConfig གདམ་ཁ་ཅིག་སྒྲིག (ཡང་བསྐྱར་བཏུབ)]:key=value:' \
+            '--marketplace[ཐོན་ཁུངས་འདི (owner/repo, git ཡང་ན་https URL, ཡང་ན་འགྲོ་ལམ) གུ་ཡོད་པའི་ཚོང་ཁང་ནང་ལས་པ་ལག་འདི་མིང་རྐྱངམ་གྱིས་གཞི་བཙུགས་འབད, དགོ་པ་ཅིན་ཧེ་མ་ཚོང་ཁང་ཁ་སྐོང་འབད]:source:' \
+            '--registry[package@npm གཞི་བཙུགས་ཀྱི་དོན་ལུ: npm registry འདི་ནང་ལས་ཐག་གཅོད་འབད་ཞིནམ་ལས་ཕབ་ལེན་འབད]:url:' \
             '(-y --yes)'{-y,--yes}'[ཚོང་ཁང་གིས་གསལ་བསྒྲགས་འབད་དེ་སྟོན་མི་བརྡ་བཀོད་འདི་ངེས་དཔྱད་prompt མེད་པར་ངོས་ལེན་འབད]' \
             '--json[མི་ཚུ་གི་དོན་ལུ་འཕྲིན་དོན་གྱི་ཚབ་ལུ་འཕྲུལ་ཆས་ཀྱིས་ལྷག་ཚུགས་པའི་གྲུབ་འབྲས་ཐིག་ཕྲེང་གཅིག་དཔར་བསྐྲུན་འབད]' \
             '(-h --help)'{-h,--help}'[རོགས་རམ་སྟོན]' \
@@ -545,6 +577,7 @@ _claude_plugin() {
           ;;
         update)
           _arguments \
+            '--accept-command[ཧེ་མའི་--json གཡོག་བཀོལ་ཐེངས་ཅིག་གིས་shownCommand.sha256 སྦེ་སྙན་ཞུ་འབད་མི་sha256 ཡོད་པའི་ཚོང་ཁང་གིས་གསལ་བསྒྲགས་འབད་མི་བརྡ་བཀོད་ངོས་ལེན་འབད]:sha256:' \
             '(-s --scope)'{-s,--scope}'[སྒྲིག་བཞག་ཁྱབ་ཚད]:scope:(user project local managed)' \
             '(-y --yes)'{-y,--yes}'[ཚོང་ཁང་གིས་གསལ་བསྒྲགས་འབད་དེ་སྟོན་མི་བརྡ་བཀོད་འདི་ངེས་དཔྱད་prompt མེད་པར་ངོས་ལེན་འབད]' \
             '--json[མི་ཚུ་གི་དོན་ལུ་འཕྲིན་དོན་གྱི་ཚབ་ལུ་འཕྲུལ་ཆས་ཀྱིས་ལྷག་ཚུགས་པའི་གྲུབ་འབྲས་ཐིག་ཕྲེང་གཅིག་དཔར་བསྐྲུན་འབད]' \
@@ -555,6 +588,7 @@ _claude_plugin() {
           _arguments \
             '--json[JSON སྦེ་ཐོན་སྐྱེད་འབད]' \
             '--available[ཚོང་ཁང་ཚུ་ནང་ལས་འཐོབ་ཚུགས་པའི་པ་ལག་ཚུ་ཚུད་བཅུག (--json དགོ)]' \
+            '--data-size[གཞི་བཙུགས་འབད་ཡོད་པའི་པ་ལག་རེ་རེའི་སྲུང་བཞག་གནད་སྡུད་ཡིག་སྣོད་ཡང་ན་མིང་བཏགས་ཡོད་པའི་པ་ལག་རྐྱངམ་ཅིག་ཚད་འཇལ (--json དགོ)]::plugin:_claude_installed_plugins' \
             '(-h --help)'{-h,--help}'[རོགས་རམ་སྟོན]'
           ;;
         prune|autoremove)
@@ -587,6 +621,15 @@ _claude_plugin() {
             '1:name:'
           ;;
         eval)
+          if [[ $words[2] == init ]]; then
+            _arguments \
+              '--bare[འདྲི་དཔྱད་གཡོག་བཀོལ་ནིའི་ཚབ་ལུ་template སྟོངམ་ཅིག་བྲིས]' \
+              '--eval-dir[case ཚུ་བྲི་ནིའི་ད་ལྟོའི་ཡིག་སྣོད་ཀྱི་འོག་གི་ཡིག་སྣོད]:dir:_directories' \
+              '(-i --interactive)'{-i,--interactive}'[རྩོམ་སྒྲིག་འདྲི་དཔྱད་གཡོག་བཀོལ (ཕན་ཚུན་འབྲེལ་ལམ་terminal དགོ)]' \
+              '(-h --help)'{-h,--help}'[རོགས་རམ་སྟོན]' \
+              '::name:'
+            return
+          fi
           _arguments \
             '--case[མིང་གི་glob གིས་case ཚུ་ཚགས]:glob:' \
             '*--tag[tag གིས་case ཚུ་ཚགས (ཡང་བསྐྱར་བཏུབ)]:tag:' \
@@ -600,6 +643,7 @@ _claude_plugin() {
             '--json[གཡོག་བཀོལ་གྲུབ་འབྲས་ཧྲིལ་བུ་JSON སྦེ་stdout ལུ་དཔར་བསྐྲུན་འབད, ཡང་ན་.json ཡིག་ཆ་འདི་ནང་བྲིས]::path:_files' \
             '--threshold[case གང་རུང་གི་སྐུགས་ཐོབ་ཚད་གཞི་འདི་ལས་དམའ་བ་ཅིན་ཕྱིར་ཐོན་ཨང་རྟགས 1 (སྔོན་སྒྲིག: 1.0)]:threshold:' \
             '*--allow-tools[ཚད་བཀག་ཡོད་པའི་ལག་ཆས་ཚུ་གི་དོན་ལུ་བཀོལ་སྤྱོད་པའི་གནང་བ (Bash, Write, Edit, WebFetch, mcp__*)]:tools:' \
+            '*--disallow-tools[ཆོག་ཐམ་སྤྲོད་རུང་case ག་ར་ནང་Claude ལས་བཀག་དགོ་པའི་ནང་འཁོད་ལག་ཆས་ཚུ]:tools:' \
             '(--no-scaffold)--scaffold[case རེ་རེའི་scaffold_script གཡོག་བཀོལ (རྩོམ་པ་པོས་བྱིན་མི་bash ཁྱོད་ཀྱི་མིང་ཐོག་ལས་གཡོག་བཀོལཝ་ཨིན; སྔོན་སྒྲིག་ཐོག་ལས་off)]' \
             '(--scaffold)--no-scaffold[scaffold_script གསལ་ཏོག་ཏོ་སྦེ་ཟུར་བཤོལ]' \
             '--trust-plugin[པ་ལག་འདི་དང་དེ་གི་eval suite ལུ་ཡིད་ཆེས་ཡོདཔ་ཁས་ལེན་འབད་དེ་གཡོག་བཀོལ་དང་པའི་ཡིད་ཆེས་prompt ཟུར་བཤོལ (CI གི་དོན་ལུ)]' \
@@ -612,7 +656,7 @@ _claude_plugin() {
             '(--no-publish)--publish-report[སྙན་ཞུ་claude.ai ལུ་འགྲེམ་སྤེལ་འབད་ནི་ཡང་དགོཔ་བཟོ]' \
             '(--publish-report)--no-publish[HTML སྙན་ཞུ་ས་གནས་ནང་རྐྱངམ་ཅིག་བཞག; claude.ai ལུ་འགྲེམ་སྤེལ་ཟུར་བཤོལ]' \
             '(-h --help)'{-h,--help}'[རོགས་རམ་སྟོན]' \
-            '::target: _alternative "plugins\:installed plugin\:_claude_installed_plugins" "files\:path\:_files"'
+            '::target: _alternative "commands\:eval command\:(init)" "plugins\:installed plugin\:_claude_installed_plugins" "files\:path\:_files"'
           ;;
         tag)
           _arguments \
@@ -663,6 +707,7 @@ _claude_plugin_marketplace() {
           _arguments \
             '--sparse[git sparse-checkout བརྒྱུད་དེ་checkout ཡིག་སྣོད་དམིགས་བསལ་ཚུ་ལུ་ཚད་འཛིན་འབད (monorepo ཚུ་གི་དོན་ལུ)]:paths:' \
             '--scope[ཚོང་ཁང་གསལ་བསྒྲགས་འབད་ས]:scope:(user project local)' \
+            '--json[stdout གུ་མཇུག་གི་གྲལ་ཐིག་སྦེ་འཕྲུལ་ཆས་ཀྱིས་ལྷག་ཚུགས་པའི་གྲུབ་འབྲས་གྲལ་ཐིག་གཅིག་དཔར་བསྐྲུན་འབད]' \
             '--claudeai[claude.ai གིས་ཁྱོད་ཀྱི་དོན་ལུ་host འབད་མི་མིང་འདི་གི་ཚོང་ཁང་ཁ་སྐོང]' \
             '(-h --help)'{-h,--help}'[རོགས་རམ་སྟོན]' \
             '1:source:'
@@ -675,11 +720,13 @@ _claude_plugin_marketplace() {
         remove|rm)
           _arguments \
             '--scope[སྒྲིག་སྟངས་ཁྱབ་ཚད་དམིགས་བསལ་ཅིག་ནང་ལས་ཚོང་ཁང་གི་གསལ་བསྒྲགས་རྩ་བསྐྲད་གཏང (བཀོད་མེད་པ་ཅིན་ཁྱབ་ཚད་ཆ་མཉམ་ནང་ལས་རྩ་བསྐྲད་གཏང)]:scope:(user project local)' \
+            '--json[stdout གུ་མཇུག་གི་གྲལ་ཐིག་སྦེ་འཕྲུལ་ཆས་ཀྱིས་ལྷག་ཚུགས་པའི་གྲུབ་འབྲས་གྲལ་ཐིག་གཅིག་དཔར་བསྐྲུན་འབད]' \
             '(-h --help)'{-h,--help}'[རོགས་རམ་སྟོན]' \
             '1:name:'
           ;;
         update)
           _arguments \
+            '--json[ཚོང་ཁང་མིང་དང་གཅིག་ཁར: stdout གུ་མཇུག་གི་གྲལ་ཐིག་སྦེ་འཕྲུལ་ཆས་ཀྱིས་ལྷག་ཚུགས་པའི་གྲུབ་འབྲས་གྲལ་ཐིག་གཅིག་དཔར་བསྐྲུན་འབད]' \
             '(-h --help)'{-h,--help}'[རོགས་རམ་སྟོན]' \
             '::name:'
           ;;
@@ -851,12 +898,23 @@ _claude_project() {
   esac
 }
 
+_claude_purge() {
+  _arguments \
+    '--dry-run[ག་ནི་ཡང་མ་བཏོན་བར་བཏོན་གཏང་ནི་ཡོད་མི་ཚུ་ཐོ་བཀོད]' \
+    '(-y --yes)'{-y,--yes}'[ངེས་དཔྱད་prompt ཟུར་བཤོལ]' \
+    '(-i --interactive)'{-i,--interactive}'[བཏོན་གཏང་མ་ཚུགས་པའི་ཧེ་མ་རྣམ་གྲངས་རེ་རེ་གི་དོན་ལུ་འདྲི]' \
+    '(1)--all[ལས་འགུལ་ཆ་མཉམ་གྱི་གནས་སྟངས་བཏོན་གཏང (འགྲོ་ལམ་དང་གཅིག་ཁར་ལག་ལེན་འཐབ་མི་ཚུགས)]' \
+    '(-h --help)'{-h,--help}'[བརྡ་བཀོད་ཀྱི་དོན་ལུ་རོགས་རམ་སྟོན]' \
+    '(--all)::path:_directories'
+}
+
 _claude_ultrareview() {
   _arguments \
     '--json[རྣམ་གཞག་བཟོ་མི་ཐོབ་གྲུབ་ཚུ་གི་ཚབ་ལུ་bugs.json payload རགས་པ་དཔར་བསྐྲུན་འབད]' \
     '--timeout[བསྐྱར་ཞིབ་མཇུག་བསྡུ་ནི་ལུ་བསྒུག་ནིའི་སྐར་མ་མང་མཐའ (སྔོན་སྒྲིག: 45)]:minutes:' \
     '(--no-post)--post[མཇུག་བསྡུ་བའི་བསྐྱར་ཞིབ་ཐོབ་གྲུབ་ཚུ་ཁྱོད་ཀྱི་མིང་ཐོག་ལས་PR ལུ་བཙུགས (PR དམིགས་ཚད་རྐྱངམ་ཅིག; བསྐྱར་ཞིབ་མེན་པར་མཆན་འགྲེལ་སྤྱིར་བཏང་གཅིག)]' \
     '(--post)--no-post[ཐོབ་གྲུབ་ཚུ་PR ལུ་མ་བཙུགས (སྔོན་སྒྲིག)]' \
+    '--trust-workspace[མ་འདྲི་བར་གཡོག་བཀོལ་ཐེངས་འདི་རྐྱངམ་ཅིག་གི་དོན་ལུ་ད་ལྟོའི་ཡིག་སྣོད་ལུ་ཡིད་ཆེས་འབད (script དང་CI གི་དོན་ལུ)]' \
     '(-h --help)'{-h,--help}'[བརྡ་བཀོད་ཀྱི་དོན་ལུ་རོགས་རམ་སྟོན]' \
     '1:target:'
 }
@@ -874,6 +932,117 @@ _claude_rm() {
     '--force-remove-worktree[WorktreeRemove hook ཡང་ན་git གིས་རྩ་བསྐྲད་གཏང་མ་ཚུགས་རུང་worktree ཡིག་སྣོད་བཏོན་གཏང (ཧེ་མའི་claude rm གིས་སྙན་ཞུ་འབད་མི་worktree-id སྤྲོད)]:worktree-id:' \
     '(-h --help)'{-h,--help}'[བརྡ་བཀོད་ཀྱི་དོན་ལུ་རོགས་རམ་སྟོན]' \
     '1:session:_claude_background_sessions'
+}
+
+_claude_self_hosted_runner() {
+  _arguments \
+    '--api-url[API གཞི་རྟེན་URL (སྔོན་སྒྲིག: https://api.anthropic.com)]:url:' \
+    '--environment-secret-file[མཐའ་འཁོར་གྱི་གསང་བའི་ཡིག་ཆའི་འགྲོ་ལམ]:path:_files' \
+    '--lock-to-account[ཐོ་བཀོད་སྐབས་runner འདི་རྩིས་ཐོ་གཅིག་རྐྱངམ་ལུ་ཚད་འཛིན་འབད]:id:' \
+    '--client-label[ཐོ་བཀོད་སྐབས་གཏང་མི་ལྟ་རྟོག་ཁ་ཡིག (སྔོན་སྒྲིག: hostname)]:label:' \
+    '(--proxy-authorization-file --agent-proxy-url)--proxy-authorization-command[stdout འདི་egress proxy ཚུ་གི་དོན་ལུ་Proxy-Authorization header ཨིན་པའི་བརྡ་བཀོད]:shell command:' \
+    '(--proxy-authorization-command --agent-proxy-url)--proxy-authorization-file[egress proxy ཚུ་གི་དོན་ལུ་Proxy-Authorization header ཡོད་པའི་ཡིག་ཆ]:path:_files' \
+    '(--proxy-authorization-command --proxy-authorization-file)--agent-proxy-url[ལས་ཐེངས་ག་ར་URL འདི་གུ་ཡོད་པའི་ལས་བྱེད་proxy བརྒྱུད་དེ་བཏང (https རྐྱངམ་ཅིག)]:url:' \
+    '--capacity[མཉམ་དུས་ལས་ཐེངས་མང་མཐའ (སྔོན་སྒྲིག: 1)]:n:' \
+    '--base-dir[repo checkout ཚུ་གི་དོན་ལུ་གཞི་རྟེན་ཡིག་སྣོད (སྔོན་སྒྲིག: /workspace)]:path:_directories' \
+    '--exec-path[ཆ་ལག་ལས་ཐེངས་ཚུ་གི་དོན་ལུ་འགོ་བཙུགས་ནིའི་binary (སྔོན་སྒྲིག: binary འདི)]:path:_files' \
+    '--hooks-dir[ཚེ་སྲོག་hook script ཚུ་གི་ཡིག་སྣོད (checkout, command, post-session)]:path:_directories' \
+    '--session-stop-grace-sec[ལས་ཐེངས་མཇུག་བསྡུ་བའི་ཤུལ་ལས་གཙང་མ་སྦེ་ཕྱིར་ཐོན་ནི་ལུ་བསྒུག་ནིའི་ཡུན་ཚད (སྔོན་སྒྲིག: 5)]:n:' \
+    '--post-session-hook-timeout-sec[post-session hook གི་དོན་ལུ་SIGTERM དུས་ཚོད་ཚད (སྔོན་སྒྲིག: 60)]:n:' \
+    '--checkout-hook-timeout-min[checkout hook གཡོག་བཀོལ་ཐེངས་རེ་རེའི་དོན་ལུ་ཆུ་ཚོད་དངོས་ཀྱི་དུས་ཚོད་ཚད (སྔོན་སྒྲིག: 30; 0 གིས་ལྕོགས་མེད་བཟོ)]:n:' \
+    '--drain-wait-sec[SIGTERM/SIGINT གུ་འཕྲོ་མཐུད་ཡོད་པའི་ལཱ་གི་དོན་ལུ་སྐར་ཆ N ཚུན་བསྒུག (སྔོན་སྒྲིག: 0)]:n:' \
+    '--drain-marker-file[host གིས་ལེགས་ཤོམ་སྦེ་ལཱ་མཇུག་བསྡུ་ནི (graceful drain) གསལ་བསྒྲགས་འབད་མི་རྟགས་ཡིག་ཆ]:path:_files' \
+    '*--git-ssh-rewrite[https://<host>/... ཐོན་ཁུངས་URL ཚུ་git@<host>:... ལུ་བསྐྱར་བྲི (ཡང་བསྐྱར་བཏུབ)]:host:' \
+    '*--git-host-rewrite[https://<f>/... ཐོན་ཁུངས་URL ཚུ་https://<t>/... ལུ་བསྐྱར་བྲི (ཡང་བསྐྱར་བཏུབ)]:from=to:' \
+    '--use-anthropic-git-proxy[Anthropic གིས་འཛིན་སྐྱོང་འཐབ་མི་git ལག་ལེན་འཐབ། ཉེན་བརྡ: HOME རིམ་པའི་git རིམ་སྒྲིག་བཏོན་གཏང་སྟེ་ཚབ་བཙུགས་འབདཝ་ཨིན, དམིགས་བསལ་རྩིས་ཐོ་ཅིག་གི་འོག་ལུ་རྐྱངམ་ཅིག་ལག་ལེན་འཐབ]' \
+    '--configure-git[ཡོངས་ཁྱབ་git ངོ་རྟགས་སྒྲིག་ཞིནམ་ལས་Anthropic མིང་རྟགས་ཞབས་ཏོག་བརྒྱུད་དེ་commit མིང་རྟགས་ལྕོགས་ཅན་བཟོ། ~/.gitconfig བྲིཝ་ཨིན]' \
+    '--push-outcome-on-release[runner གིས་འགོ་བཙུགས་པའི་མཇུག་མ་བསྡུ་བའི་ལས་ཐེངས་མཇུག་སྐབས་རྗེས་འདེད་འབད་མི་གྲུབ་འབྲས་branch ཚུ་push འབད]' \
+    '--trust-workspace[ལས་ཐེངས་རེ་རེའི་repo འགྲོ་ལམ་ཚུ་གི་དོན་ལུ་སྲུང་བཞག་ཡིད་ཆེས་སྔོན་ལས་བཙུགས (སྔོན་སྒྲིག: true)]::bool:(true false)' \
+    '--remove-session-state[ལས་ཐེངས་མཇུག་བསྡུ་བའི་སྐབས་ལས་ཐེངས་རེ་རེའི་གནས་སྟངས་རྩ་བསྐྲད་གཏང (སྔོན་སྒྲིག: false)]::bool:(true false)' \
+    '--diff-finds-nested-repository[ཡིག་སྣོད་ཆ་ལག་ནང་clone འབད་མི་repository འདི་Changes pane ནང་སྟོན; --capacity 1 དགོ (སྔོན་སྒྲིག: false)]::bool:(true false)' \
+    '--confine-repo-settings[repo ནང་commit འབད་མི་སྒྲིག་སྟངས་ཀྱི་ཚད་འཛིན་སྲུང་སྐྱོབ་ཐབས་ལམ (སྔོན་སྒྲིག: warn)]:mode:(warn enforce off)' \
+    '--server-auto-mode-lists[ལས་ཐེངས་ཅིག་གིས་སར་བར་ནང་ལས་ཐོབ་ཆོག་པའི་རང་བཞིན་ཐབས་ལམ་དབྱེ་བྱེད་ཐོ་ཡིག (སྔོན་སྒྲིག: no-allow)]:mode:(all no-allow none)' \
+    '--host-config-snapshot[host རིམ་སྒྲིག་གི་འགོ་བཙུགས་snapshot བཞག་སའི་ས་གནས (སྔོན་སྒྲིག: disk)]:mode:(disk memory)' \
+    '--health-port[/healthz HTTP listener གི་དོན་ལུ་port (སྔོན་སྒྲིག: 8080; 0 གིས་ལྕོགས་མེད་བཟོ)]:port:' \
+    '--log-level[log རིམ་པ (སྔོན་སྒྲིག: info)]:level:(info debug)' \
+    '--log-file[runner log ཚུ་ཁ་སྐོང་ཐབས་ལམ་ནང་ཡིག་ཆ་ཅིག་ལུ་ཡང་འདྲ་བཤུས་བརྐྱབ (tee བཟུམ)]:path:_files' \
+    '--exit-if-unused-min[སྐར་མ N གི་རིང་ལཱ་གཏན་ནས་མ་སྤྲོད་པ་ཅིན་runner ལས་ཕྱིར་ཐོན]:n:' \
+    '--drain-grace-sec[ལས་ཐེངས་ཤུགས་ལྡན་ཚུ་མཇུག་བསྡུ་བའི་ཤུལ་ལས་ལཱ་གི་དོན་ལུ་ཡང་བསྐྱར་འདྲི་ནིའི་སྐར་ཆ (སྔོན་སྒྲིག: 0)]:n:' \
+    '--retire-at[Unix དུས་ཚོད་ངེས་པ་འདི་ལུ (སྐར་ཆ) runner ལཱ་ལས་ཕྱིར་བཏོན]:epoch-seconds:' \
+    '--defer-shutdown-max-min[SIGTERM/SIGINT དང་པ་གུ་ལཱ་ལེན་ནི་བཀག་སྟེ་སྐར་མ M གི་ཤུལ་ལས་ཁ་བསྡམ་ནི་མཇུག་བསྡུ (སྔོན་སྒྲིག: 0)]:m:' \
+    '--release-idle-session-min[ལག་ལེན་པའི་ནང་བསྐྱོད་མེད་པར་སྐར་མ N ཤུལ་ལས་ལས་ཐེངས་ས་སྟོང་གློད]:n:' \
+    '--startup-timeout-min[ཆ་ལག་འདི་སྐར་མ N ཤུལ་ལས་ཡང་འགོ་བཙུགས་མ་ཚར་བ་ཅིན་ལས་ཐེངས་ས་སྟོང་གློད (སྔོན་སྒྲིག: 15; 0 གིས་ལྕོགས་མེད་བཟོ)]:n:' \
+    '--kill-session-after-min[ལས་ཐེངས་ཆ་ལག་གི་ཆུ་ཚོད་དངོས་ཀྱི་ཚེ་ཚད་སྐར་མ N ལུ་ཚད་བཀག]:n:' \
+    '--debug-token-dir[རྙོག་སེལ་རྐྱངམ་ཅིག: token ཤུགས་ལྡན་ཚུ་disk ལུ་བྲིཝ་ཨིན། ཐོན་སྐྱེད་ནང་ལག་ལེན་མ་འཐབ]:path:_directories' \
+    '(-h --help)'{-h,--help}'[རོགས་རམ་འཕྲིན་དོན་འདི་སྟོན]'
+}
+
+_claude_remote_control() {
+  _arguments \
+    '--name[ལས་ཐེངས་ཀྱི་མིང (claude.ai/code ནང་སྟོན)]:name:' \
+    '--remote-control-session-name-prefix[རང་བཞིན་བཟོ་མིའི་ལས་ཐེངས་མིང་གི་དོན་ལུ་སྔོན་ཚིག (སྔོན་སྒྲིག: hostname)]:prefix:' \
+    '(-c --continue --session-id)'{-c,--continue}'[ཡིག་སྣོད་འདི་ཡང་ན་དེ་གི་git worktree གཅིག་གི་དོན་ལུ་མཇུག་ལུ་ཐོ་བཀོད་འབད་མི་ལས་ཐེངས་ལུ་སླར་མཐུད]' \
+    '(-c --continue --session-id)--session-id[ID གིས་ལས་ཐེངས་དམིགས་བསལ་ཅིག་ལུ་སླར་མཐུད]:id:' \
+    '--permission-mode[འགོ་བཙུགས་མི་ལས་ཐེངས་ཚུ་གི་གནང་བའི་ཐབས་ལམ]:mode:(acceptEdits auto bypassPermissions default dontAsk plan)' \
+    '(--no-chrome)--chrome[འགོ་བཙུགས་མི་ལས་ཐེངས་ཚུ་གི་དོན་ལུ་Claude in Chrome ལྕོགས་ཅན་བཟོ]' \
+    '(--chrome)--no-chrome[འགོ་བཙུགས་མི་ལས་ཐེངས་ཚུ་གི་དོན་ལུ་Claude in Chrome ལྕོགས་མེད་བཟོ]' \
+    '(-d --debug)'{-d,--debug}'[དབྱེ་རིགས་ཚགས་མའི་གདམ་ཁ་དང་བཅས་རྙོག་སེལ་ཐབས་ལམ་ལྕོགས་ཅན་བཟོ]::filter:' \
+    '--debug-file[རྙོག་སེལ་log ཚུ་ཡིག་ཆ་ལུ་བྲིས]:path:_files' \
+    '(-v --verbose)'{-v,--verbose}'[ཞིབ་ཕྲའི་ཐོན་སྐྱེད་ལྕོགས་ཅན་བཟོ]' \
+    '--spawn[འགོ་བཙུགས་ཐབས་ལམ (སྔོན་སྒྲིག: same-dir)]:mode:(same-dir worktree session)' \
+    '--capacity[worktree ཡང་ན་same-dir ཐབས་ལམ་ནང་མཉམ་དུས་ལས་ཐེངས་མང་མཐའ (སྔོན་སྒྲིག: 32)]:n:' \
+    '(--no-create-session-in-dir)--create-session-in-dir[ད་ལྟོའི་ཡིག་སྣོད་ནང་ལས་ཐེངས་ཅིག་སྔོན་ལས་གསར་བསྐྲུན་འབད (སྔོན་སྒྲིག)]' \
+    '(--create-session-in-dir)--no-create-session-in-dir[ད་ལྟོའི་ཡིག་སྣོད་ནང་ལས་ཐེངས་སྔོན་ལས་གསར་བསྐྲུན་མ་འབད]' \
+    '(-h --help)'{-h,--help}'[རོགས་རམ་འདི་སྟོན]'
+}
+
+_claude_daemon() {
+  local -a daemon_commands common_options
+  daemon_commands=(
+    'run:supervisor གདོང་གཞི་ནང་གཡོག་བཀོལ'
+    'status:daemon གི་pid, ཐོན་རིམ, ལཱ་འབད་ཡུན་ཚད་སྟོན'
+    'logs:daemon log གི་མཇུག་བལྟ (བཀག་ནི་ལུ་Ctrl-C)'
+    'uninstall:རྒྱབ་གཞིའི་ཞབས་ཏོག་རྩ་བསྐྲད་གཏང (launchctl/systemd)'
+    'stop:supervisor ཁ་བསྡམ་ཞིནམ་ལས་རྒྱབ་གཞིའི་ལས་ཐེངས་ཚུ་མཇུག་བསྡུ'
+  )
+  common_options=(
+    '--json-path[རིམ་སྒྲིག་ཡིག་ཆ (སྔོན་སྒྲིག: ~/.claude/daemon.json)]:path:_files'
+    '--log-file[log ཡིག་ཆ (སྔོན་སྒྲིག: ~/.claude/daemon.log)]:path:_files'
+    '(-h --help)'{-h,--help}'[རོགས་རམ་འདི་སྟོན]'
+  )
+
+  local curcontext="$curcontext" state line
+  typeset -A opt_args
+
+  _arguments -C \
+    $common_options \
+    '1: :->command' \
+    '*::arg:->args'
+
+  case $state in
+    command)
+      _describe -t commands 'daemon བརྡ་བཀོད' daemon_commands
+      ;;
+    args)
+      case $words[1] in
+        run)
+          _arguments \
+            $common_options \
+            '::json-path:_files'
+          ;;
+        stop)
+          _arguments \
+            $common_options \
+            '--any[གནས་སྐབས་ཀྱི (ཞབས་ཏོག་མེན་པའི) daemon ཡང་བཀག]' \
+            '--keep-workers[འབྲེལ་མཐུད་བཏོག་ཡོད་པའི་ལས་ཐེངས་ཚུ་གཡོག་བཀོལ་ཏེ་བཞག]'
+          ;;
+        status|logs|uninstall)
+          _arguments \
+            $common_options
+          ;;
+      esac
+      ;;
+  esac
 }
 
 _claude_import() {

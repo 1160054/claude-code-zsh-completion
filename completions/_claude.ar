@@ -200,11 +200,15 @@ _claude() {
     'stop:إيقاف جلسة خلفية (يتم الاحتفاظ بمحادثتها)'
     'respawn:إعادة تشغيل جلسة خلفية لتعمل بالإصدار الحالي من Claude Code'
     'rm:حذف جلسة خلفية، وحذف worktree الخاص بها عندما يكون ذلك آمناً'
+    'remote-control:التحكم في الجلسات المحلية من claude.ai/code أو تطبيق Claude للجوال'
+    'daemon:إدارة مشرف الجلسات الخلفية'
     'auth:إدارة المصادقة'
     'auto-mode:فحص أو إعادة تعيين تكوين مصنف الوضع التلقائي'
     'gateway:تشغيل بوابة المصادقة/القياس عن بُعد للمؤسسات'
+    'self-hosted-runner:استضافة جلسات Claude Code السحابية على هذا الجهاز أو الحاوية'
     'import:استيراد التكوين من وكيل برمجة آخر يعمل بالذكاء الاصطناعي إلى Claude Code'
     'project:إدارة حالة مشروع Claude Code'
+    'purge:حذف جميع حالات Claude Code لمشروع (النصوص والمهام وسجل الملفات وإدخال التكوين)'
     'ultrareview:تشغيل مراجعة كود متعددة الوكلاء مستضافة سحابياً وطباعة النتائج'
     'setup-token:إعداد رمز المصادقة طويل الأمد (يتطلب اشتراك Claude)'
     'doctor:فحص صحة أداة التحديث التلقائي لـ Claude Code'
@@ -221,11 +225,11 @@ _claude() {
     '--json-schema[مخطط JSON للتحقق من صحة الإخراج المنظم]:schema:'
     '--include-partial-messages[تضمين أجزاء الرسائل الجزئية عند وصولها (مع --print و --output-format=stream-json)]'
     '--input-format[تنسيق الإدخال (مع --print): "text" (افتراضي) أو "stream-json" (إدخال بث فوري)]:format:(text stream-json)'
-    '--mcp-debug[\[مهمل. استخدم --debug بدلاً منه\] تمكين وضع تصحيح MCP (يعرض أخطاء خادم MCP)]'
     '--dangerously-skip-permissions[تجاوز جميع فحوصات الأذونات. يوصى به فقط لصناديق العزل بدون اتصال بالإنترنت]'
     '--allow-dangerously-skip-permissions[تمكين خيار تجاوز فحوصات الأذونات دون التمكين افتراضياً]'
     '--restricted[الوضع المقيد: إزالة الأدوات التي تشغّل الأوامر أو الكود وأداة WebFetch، وتجاهل إعدادات user/project/local، وحصر أدوات الملفات في دلائل العمل]'
     '--max-budget-usd[المبلغ الأقصى بالدولار للإنفاق على استدعاءات API (--print فقط)]:amount:'
+    '--max-turns[تحديد عدد الأدوار الوكيلية (--print فقط)]:turns:'
     '--replay-user-messages[إعادة إرسال رسائل المستخدم من stdin على stdout للتأكيد]'
     '--allowed-tools[قائمة مفصولة بفواصل أو مسافات لأسماء الأدوات المسموحة (مثل "Bash(git:*) Edit")]:tools:'
     '--allowedTools[قائمة مفصولة بفواصل أو مسافات لأسماء الأدوات المسموحة (تنسيق camelCase)]:tools:'
@@ -237,6 +241,8 @@ _claude() {
     '--system-prompt-file[قراءة موجه النظام من ملف]:file:_files'
     '--append-system-prompt[إلحاق موجه النظام بموجه النظام الافتراضي]:prompt:'
     '--append-system-prompt-file[قراءة موجه النظام من ملف وإلحاقه بموجه النظام الافتراضي]:file:_files'
+    '(--append-subagent-system-prompt-file)--append-subagent-system-prompt[إلحاق نص بموجه النظام لكل وكيل فرعي (--print فقط)]:prompt:'
+    '(--append-subagent-system-prompt)--append-subagent-system-prompt-file[قراءة نص من ملف وإلحاقه بموجهات النظام للوكلاء الفرعيين (--print فقط)]:file:_files'
     '--system-prompt-snapshot[تسجيل موجه النظام مرة واحدة لكل محادثة وإعادة استخدامه حرفياً في كل طلب وعند الاستئناف (on، الافتراضي) أو إنشاؤه من جديد في كل طلب (off)]:mode:(on off)'
     '--permission-mode[وضع الأذونات المستخدم للجلسة]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)'
     '--permission-prompts[من يجيب على مطالبات الأذونات مع --print: "host" (مضيف SDK أو --permission-prompt-tool) أو "none" (يُرفض كل ما قد يتطلب مطالبة)]:target:(host none)'
@@ -256,6 +262,8 @@ _claude() {
     '--strict-mcp-config[استخدام خوادم MCP من --mcp-config فقط وتجاهل جميع إعدادات MCP الأخرى]'
     '--session-id[معرف جلسة محدد للاستخدام في المحادثة (يجب أن يكون UUID صالحاً)]:uuid:'
     '--agents[كائن JSON يحدد وكلاء مخصصين]:json:'
+    '--advisor[تمكين أداة المستشار من جانب الخادم لهذه الجلسة باسم مستعار للنموذج أو معرف نموذج كامل]:model:_claude_model_names'
+    '--teammate-mode[طريقة عرض زملاء فريق الوكلاء]:mode:(in-process auto tmux iterm2)'
     '--setting-sources[قائمة مفصولة بفواصل لمصادر الإعدادات المراد تحميلها (user, project, local)]:sources:'
     '--plugin-dir[دليل لتحميل الإضافات منه لهذه الجلسة فقط (قابل للتكرار)]:paths:_directories'
     '--disable-slash-commands[تعطيل جميع أوامر الشرطة المائلة]'
@@ -268,9 +276,11 @@ _claude() {
     '--debug-file[كتابة سجلات التصحيح إلى مسار ملف محدد (يمكّن وضع التصحيح ضمنياً)]:path:_files'
     '--from-pr[استئناف جلسة مرتبطة بـ PR بالرقم/URL، أو فتح المنتقي التفاعلي]::value:'
     '--teleport[استئناف جلسة teleport، مع إمكانية تحديد معرف الجلسة اختيارياً]::session:'
-    '--cloud[إنشاء جلسة سحابية بالوصف المحدد، أو الارتباط بجلسة موجودة عبر معرف الجلسة أو عنوان URL من claude.ai/code]::description-or-session:'
+    '(--remote)--cloud[إنشاء جلسة سحابية بالوصف المحدد، أو الارتباط بجلسة موجودة عبر معرف الجلسة أو عنوان URL من claude.ai/code]::description-or-session:'
+    '(--cloud)--remote[اسم مستعار قديم لـ --cloud]::description-or-session:'
     '--environment[إنشاء جلسة سحابية جديدة تعمل على البيئة المستضافة ذاتياً المحددة (ccpool_...)]:environment_id:'
-    '--remote-control[بدء جلسة تفاعلية مع تمكين التحكم عن بُعد (يمكن تسميتها اختيارياً)]::name:'
+    '--ref[مع --environment: إسناد checkout الجلسة الجديدة إلى مرجع مسمى بدلاً من HEAD المحلي]:branch:'
+    '(--remote-control --rc)'{--remote-control,--rc}'[بدء جلسة تفاعلية مع تمكين التحكم عن بُعد (يمكن تسميتها اختيارياً)]::name:'
     '--remote-control-session-name-prefix[بادئة لأسماء جلسات التحكم عن بُعد المولدة تلقائياً]:prefix:'
     '--chrome[تمكين تكامل Claude في Chrome]'
     '--no-chrome[تعطيل تكامل Claude في Chrome]'
@@ -281,6 +291,11 @@ _claude() {
     '--include-hook-events[تضمين جميع أحداث دورة حياة الخطافات في تدفق الإخراج (مع stream-json)]'
     '--exclude-dynamic-system-prompt-sections[نقل الأقسام الخاصة بكل جهاز إلى أول رسالة مستخدم لتحسين إعادة استخدام ذاكرة التخزين المؤقت للموجه]'
     '--brief[تمكين أداة SendUserMessage للتواصل من الوكيل إلى المستخدم]'
+    '*--channels[(معاينة بحثية) خوادم MCP المراد الاستماع إلى إشعارات قنواتها (plugin\:<name>@<marketplace>)]:entries:'
+    '*--dangerously-load-development-channels[تمكين القنوات غير الموجودة في قائمة السماح المعتمدة، للتطوير المحلي (plugin\:<name>@<marketplace> أو server\:<name>)]:entries:'
+    '--init[تشغيل خطافات Setup بالمطابق init قبل الجلسة (--print فقط)]'
+    '--init-only[تشغيل خطافات Setup وSessionStart، ثم الخروج دون بدء محادثة]'
+    '--maintenance[تشغيل خطافات Setup بالمطابق maintenance قبل الجلسة (--print فقط)]'
     '--safe-mode[البدء مع تعطيل جميع التخصيصات (مفيد لاستكشاف أخطاء تكوين معطل)]'
     '--bare[الوضع الأدنى: تخطي الخطافات وLSP ومزامنة الإضافات والإسناد والذاكرة التلقائية واكتشاف CLAUDE.md التلقائي]'
     '--ax-screen-reader[عرض إخراج ملائم لقارئ الشاشة (نص مسطح، بدون حدود زخرفية أو رسوم متحركة)]'
@@ -304,7 +319,7 @@ _claude() {
         mcp)
           _claude_mcp
           ;;
-        plugin)
+        plugin|plugins)
           _claude_plugin
           ;;
         install)
@@ -324,6 +339,12 @@ _claude() {
         rm)
           _claude_rm
           ;;
+        remote-control|rc|remote|sync|bridge)
+          _claude_remote_control
+          ;;
+        daemon)
+          _claude_daemon
+          ;;
         auth)
           _claude_auth
           ;;
@@ -333,17 +354,24 @@ _claude() {
         gateway)
           _claude_gateway
           ;;
+        self-hosted-runner)
+          _claude_self_hosted_runner
+          ;;
         import)
           _claude_import
           ;;
         project)
           _claude_project
           ;;
+        purge)
+          _claude_purge
+          ;;
         ultrareview)
           _claude_ultrareview
           ;;
-        setup-token|doctor|update)
-          _message "لا توجد وسائط"
+        setup-token|doctor|update|upgrade)
+          _arguments \
+            '(-h --help)'{-h,--help}'[عرض المساعدة للأمر]'
           ;;
         *)
           # Not a command but the prompt: options may still follow it
@@ -502,6 +530,7 @@ _claude_plugin() {
         validate)
           _arguments \
             '--strict[معاملة التحذيرات كأخطاء (رمز الخروج 1)]' \
+            '--profile[الخروج أيضاً برمز 1 عندما يرفض الكتالوج المسمى تقديم الإضافة بسبب فحص يجريه هذا الأمر]:name:(directory)' \
             '--json[إخراج تقرير التحقق بصيغة JSON (بنفس رموز الخروج)]' \
             '(-h --help)'{-h,--help}'[عرض المساعدة]' \
             '1:path:_files'
@@ -512,7 +541,10 @@ _claude_plugin() {
         install|i)
           _arguments \
             '(-s --scope)'{-s,--scope}'[نطاق التثبيت]:scope:(user project local)' \
+            '--accept-command[قبول الأمر المعلن من السوق الذي أبلغ تشغيل سابق بـ --json عن sha256 الخاص به كـ shownCommand.sha256]:sha256:' \
             '*--config[تعيين خيار userConfig المعلن في بيان الإضافة (قابل للتكرار)]:key=value:' \
+            '--marketplace[تثبيت الإضافة باسمها المجرد من السوق الموجود في هذا المصدر (owner/repo، أو عنوان URL لـ git أو https، أو مسار)، مع إضافة السوق أولاً عند الحاجة]:source:' \
+            '--registry[لتثبيت package@npm: الحل والتنزيل من سجل npm هذا]:url:' \
             '(-y --yes)'{-y,--yes}'[قبول الأمر المعروض المعلن من السوق دون مطالبة التأكيد]' \
             '--json[طباعة سطر نتيجة واحد قابل للقراءة آلياً بدلاً من الرسالة الموجهة للمستخدم]' \
             '(-h --help)'{-h,--help}'[عرض المساعدة]' \
@@ -545,6 +577,7 @@ _claude_plugin() {
           ;;
         update)
           _arguments \
+            '--accept-command[قبول الأمر المعلن من السوق الذي أبلغ تشغيل سابق بـ --json عن sha256 الخاص به كـ shownCommand.sha256]:sha256:' \
             '(-s --scope)'{-s,--scope}'[نطاق التثبيت]:scope:(user project local managed)' \
             '(-y --yes)'{-y,--yes}'[قبول الأمر المعروض المعلن من السوق دون مطالبة التأكيد]' \
             '--json[طباعة سطر نتيجة واحد قابل للقراءة آلياً بدلاً من الرسالة الموجهة للمستخدم]' \
@@ -555,6 +588,7 @@ _claude_plugin() {
           _arguments \
             '--json[الإخراج بصيغة JSON]' \
             '--available[تضمين الإضافات المتاحة من الأسواق (يتطلب --json)]' \
+            '--data-size[قياس دليل البيانات المحفوظة لكل إضافة مثبتة، أو للإضافة المسماة فقط (يتطلب --json)]::plugin:_claude_installed_plugins' \
             '(-h --help)'{-h,--help}'[عرض المساعدة]'
           ;;
         prune|autoremove)
@@ -587,6 +621,15 @@ _claude_plugin() {
             '1:name:'
           ;;
         eval)
+          if [[ $words[2] == init ]]; then
+            _arguments \
+              '--bare[كتابة قالب فارغ بدلاً من إجراء المقابلة]' \
+              '--eval-dir[دليل أسفل الدليل الحالي لكتابة الحالات فيه]:dir:_directories' \
+              '(-i --interactive)'{-i,--interactive}'[إجراء مقابلة التأليف (يتطلب طرفية تفاعلية)]' \
+              '(-h --help)'{-h,--help}'[عرض المساعدة]' \
+              '::name:'
+            return
+          fi
           _arguments \
             '--case[تصفية الحالات حسب نمط glob للاسم]:glob:' \
             '*--tag[تصفية الحالات حسب الوسم (قابل للتكرار)]:tag:' \
@@ -600,6 +643,7 @@ _claude_plugin() {
             '--json[طباعة نتيجة التشغيل الكاملة بصيغة JSON إلى stdout، أو كتابتها إلى ملف .json هذا]::path:_files' \
             '--threshold[الخروج برمز الخروج 1 إذا كانت درجة أي حالة أقل من هذا الحد (الافتراضي: 1.0)]:threshold:' \
             '*--allow-tools[منح من المشغّل للأدوات المقيدة (Bash, Write, Edit, WebFetch, mcp__*)]:tools:' \
+            '*--disallow-tools[أدوات مدمجة تُحجب عن Claude في كل حالة، حتى لو مُنحت]:tools:' \
             '(--no-scaffold)--scaffold[تشغيل scaffold_script لكل حالة (يشغّل bash المقدم من المؤلف باسمك وبصلاحياتك؛ معطل افتراضياً)]' \
             '(--scaffold)--no-scaffold[تخطي scaffold_script صراحةً]' \
             '--trust-plugin[التأكيد على أنك تثق بهذه الإضافة ومجموعة تقييمها، مع تخطي مطالبة الثقة عند التشغيل الأول (لـ CI)]' \
@@ -612,7 +656,7 @@ _claude_plugin() {
             '(--no-publish)--publish-report[اشتراط نشر التقرير على claude.ai أيضاً]' \
             '(--publish-report)--no-publish[إبقاء تقرير HTML محلياً فقط؛ تخطي نشره على claude.ai]' \
             '(-h --help)'{-h,--help}'[عرض المساعدة]' \
-            '::target: _alternative "plugins\:installed plugin\:_claude_installed_plugins" "files\:path\:_files"'
+            '::target: _alternative "commands\:eval command\:(init)" "plugins\:installed plugin\:_claude_installed_plugins" "files\:path\:_files"'
           ;;
         tag)
           _arguments \
@@ -663,6 +707,7 @@ _claude_plugin_marketplace() {
           _arguments \
             '--sparse[قصر السحب على دلائل محددة عبر git sparse-checkout (للمستودعات الأحادية)]:paths:' \
             '--scope[مكان الإعلان عن السوق]:scope:(user project local)' \
+            '--json[طباعة سطر نتيجة واحد قابل للقراءة آلياً كآخر سطر في stdout]' \
             '--claudeai[إضافة السوق بهذا الاسم الذي يستضيفه claude.ai لك]' \
             '(-h --help)'{-h,--help}'[عرض المساعدة]' \
             '1:source:'
@@ -675,11 +720,13 @@ _claude_plugin_marketplace() {
         remove|rm)
           _arguments \
             '--scope[إزالة إعلان السوق من نطاق إعدادات محدد (عند عدم تحديده تتم الإزالة من كل النطاقات)]:scope:(user project local)' \
+            '--json[طباعة سطر نتيجة واحد قابل للقراءة آلياً كآخر سطر في stdout]' \
             '(-h --help)'{-h,--help}'[عرض المساعدة]' \
             '1:name:'
           ;;
         update)
           _arguments \
+            '--json[مع اسم سوق: طباعة سطر نتيجة واحد قابل للقراءة آلياً كآخر سطر في stdout]' \
             '(-h --help)'{-h,--help}'[عرض المساعدة]' \
             '::name:'
           ;;
@@ -851,12 +898,23 @@ _claude_project() {
   esac
 }
 
+_claude_purge() {
+  _arguments \
+    '--dry-run[عرض قائمة ما سيتم حذفه دون حذف أي شيء]' \
+    '(-y --yes)'{-y,--yes}'[تخطي مطالبة التأكيد]' \
+    '(-i --interactive)'{-i,--interactive}'[المطالبة بالتأكيد لكل عنصر قبل الحذف]' \
+    '(1)--all[حذف الحالة لكل المشاريع (لا يجتمع مع تحديد مسار)]' \
+    '(-h --help)'{-h,--help}'[عرض المساعدة للأمر]' \
+    '(--all)::path:_directories'
+}
+
 _claude_ultrareview() {
   _arguments \
     '--json[طباعة حمولة bugs.json الخام بدلاً من النتائج المنسقة]' \
     '--timeout[الحد الأقصى للدقائق للانتظار حتى انتهاء المراجعة (الافتراضي: 45)]:minutes:' \
     '(--no-post)--post[نشر نتائج المراجعة المكتملة على PR باسمك (لأهداف PR فقط؛ تعليق عادي واحد، وليس مراجعة)]' \
     '(--post)--no-post[عدم نشر النتائج على PR (الافتراضي)]' \
+    '--trust-workspace[الوثوق بالمجلد الحالي لهذا التشغيل فقط، دون سؤال (للسكربتات وCI)]' \
     '(-h --help)'{-h,--help}'[عرض المساعدة للأمر]' \
     '1:target:'
 }
@@ -874,6 +932,117 @@ _claude_rm() {
     '--force-remove-worktree[حذف دليل worktree حتى لو تعذر على خطاف WorktreeRemove أو git إزالته (مرر worktree-id الذي أبلغ عنه أمر claude rm سابق)]:worktree-id:' \
     '(-h --help)'{-h,--help}'[عرض المساعدة للأمر]' \
     '1:session:_claude_background_sessions'
+}
+
+_claude_self_hosted_runner() {
+  _arguments \
+    '--api-url[عنوان URL الأساسي لـ API (الافتراضي: https://api.anthropic.com)]:url:' \
+    '--environment-secret-file[مسار ملف سر البيئة]:path:_files' \
+    '--lock-to-account[قفل المشغّل على حساب واحد عند التسجيل]:id:' \
+    '--client-label[تسمية مراقبة تُرسل عند التسجيل (الافتراضي: hostname)]:label:' \
+    '(--proxy-authorization-file --agent-proxy-url)--proxy-authorization-command[أمر يكون stdout الخاص به ترويسة Proxy-Authorization لبروكسيات الخروج]:shell command:' \
+    '(--proxy-authorization-command --agent-proxy-url)--proxy-authorization-file[ملف يحتوي ترويسة Proxy-Authorization لبروكسيات الخروج]:path:_files' \
+    '(--proxy-authorization-command --proxy-authorization-file)--agent-proxy-url[توجيه كل جلسة عبر بروكسي الوكيل على هذا العنوان (https فقط)]:url:' \
+    '--capacity[الحد الأقصى للجلسات المتزامنة (الافتراضي: 1)]:n:' \
+    '--base-dir[الدليل الأساسي لنسخ المستودعات (الافتراضي: /workspace)]:path:_directories' \
+    '--exec-path[الملف التنفيذي المراد تشغيله للجلسات الفرعية (الافتراضي: هذا الملف التنفيذي)]:path:_files' \
+    '--hooks-dir[دليل سكربتات خطافات دورة الحياة (checkout، command، post-session)]:path:_directories' \
+    '--session-stop-grace-sec[مدة انتظار الخروج النظيف بعد انتهاء الجلسة (الافتراضي: 5)]:n:' \
+    '--post-session-hook-timeout-sec[مهلة SIGTERM لخطاف post-session (الافتراضي: 60)]:n:' \
+    '--checkout-hook-timeout-min[المهلة الزمنية الفعلية لكل تشغيل لخطاف checkout (الافتراضي: 30؛ 0 يعطّل)]:n:' \
+    '--drain-wait-sec[عند SIGTERM/SIGINT، الانتظار حتى N ثانية للعمل الجاري (الافتراضي: 0)]:n:' \
+    '--drain-marker-file[ملف علامة يعلن به المضيف عن تصريف سلس]:path:_files' \
+    '*--git-ssh-rewrite[إعادة كتابة عناوين المصدر https://<host>/... إلى git@<host>:... (قابل للتكرار)]:host:' \
+    '*--git-host-rewrite[إعادة كتابة عناوين المصدر https://<f>/... إلى https://<t>/... (قابل للتكرار)]:from=to:' \
+    '--use-anthropic-git-proxy[استخدام git المُدار من Anthropic. تحذير: يحذف إعدادات git على مستوى HOME ويستبدلها، استخدمه فقط ضمن حساب مخصص]' \
+    '--configure-git[تعيين هوية git العامة وتمكين توقيع الإيداعات عبر خدمة التوقيع من Anthropic. يكتب ~/.gitconfig]' \
+    '--push-outcome-on-release[دفع فروع النتائج المتتبعة عند انتهاء جلسة غير مكتملة بمبادرة من المشغّل]' \
+    '--trust-workspace[تهيئة ثقة دائمة لمسارات المستودع لكل جلسة (الافتراضي: true)]::bool:(true false)' \
+    '--remove-session-state[إزالة حالة كل جلسة عند انتهائها (الافتراضي: false)]::bool:(true false)' \
+    '--diff-finds-nested-repository[عرض مستودع مستنسخ في مجلد فرعي في لوحة Changes؛ يتطلب --capacity 1 (الافتراضي: false)]::bool:(true false)' \
+    '--confine-repo-settings[وضع حارس تقييد الإعدادات المودعة في المستودع (الافتراضي: warn)]:mode:(warn enforce off)' \
+    '--server-auto-mode-lists[قوائم مصنّف الوضع التلقائي من الخادم التي يجوز للجلسة تلقيها (الافتراضي: no-allow)]:mode:(all no-allow none)' \
+    '--host-config-snapshot[مكان الاحتفاظ بلقطة بدء التشغيل لإعدادات المضيف (الافتراضي: disk)]:mode:(disk memory)' \
+    '--health-port[منفذ مستمع HTTP لـ /healthz (الافتراضي: 8080؛ 0 يعطّل)]:port:' \
+    '--log-level[مستوى السجل (الافتراضي: info)]:level:(info debug)' \
+    '--log-file[نسخ سجلات المشغّل أيضاً إلى ملف في وضع الإلحاق (مثل tee)]:path:_files' \
+    '--exit-if-unused-min[إنهاء المشغّل إذا لم يُسند إليه أي عمل طوال N دقيقة]:n:' \
+    '--drain-grace-sec[عدد الثواني لمواصلة الاستطلاع عن عمل بعد انتهاء الجلسات النشطة (الافتراضي: 0)]:n:' \
+    '--retire-at[إيقاف المشغّل نهائياً في وقت Unix المطلق هذا، بالثواني]:epoch-seconds:' \
+    '--defer-shutdown-max-min[عند أول SIGTERM/SIGINT، التوقف عن تلقي العمل وإكمال الإيقاف بعد M دقيقة (الافتراضي: 0)]:m:' \
+    '--release-idle-session-min[تحرير خانة جلسة بعد N دقيقة دون إدخال من المستخدم]:n:' \
+    '--startup-timeout-min[تحرير خانة جلسة إذا لم تُكمل العملية الفرعية بدء التشغيل بعد N دقيقة (الافتراضي: 15؛ 0 يعطّل)]:n:' \
+    '--kill-session-after-min[تحديد العمر الزمني الفعلي لعملية الجلسة الفرعية بـ N دقيقة]:n:' \
+    '--debug-token-dir[للتصحيح فقط: يكتب الرموز الحية على القرص. لا تستخدمه في الإنتاج]:path:_directories' \
+    '(-h --help)'{-h,--help}'[عرض رسالة المساعدة هذه]'
+}
+
+_claude_remote_control() {
+  _arguments \
+    '--name[اسم الجلسة (يظهر في claude.ai/code)]:name:' \
+    '--remote-control-session-name-prefix[بادئة لأسماء الجلسات المولدة تلقائياً (الافتراضي: hostname)]:prefix:' \
+    '(-c --continue --session-id)'{-c,--continue}'[إعادة الارتباط بآخر جلسة مسجلة لهذا الدليل أو لأحد worktree الخاصة به في git]' \
+    '(-c --continue --session-id)--session-id[إعادة الارتباط بجلسة محددة عبر المعرف]:id:' \
+    '--permission-mode[وضع الأذونات للجلسات المُنشأة]:mode:(acceptEdits auto bypassPermissions default dontAsk plan)' \
+    '(--no-chrome)--chrome[تمكين Claude in Chrome للجلسات المُنشأة]' \
+    '(--chrome)--no-chrome[تعطيل Claude in Chrome للجلسات المُنشأة]' \
+    '(-d --debug)'{-d,--debug}'[تمكين وضع التصحيح مع إمكانية تصفية الفئات]::filter:' \
+    '--debug-file[كتابة سجلات التصحيح إلى ملف]:path:_files' \
+    '(-v --verbose)'{-v,--verbose}'[تمكين الإخراج المفصل]' \
+    '--spawn[وضع الإنشاء (الافتراضي: same-dir)]:mode:(same-dir worktree session)' \
+    '--capacity[الحد الأقصى للجلسات المتزامنة في وضع worktree أو same-dir (الافتراضي: 32)]:n:' \
+    '(--no-create-session-in-dir)--create-session-in-dir[إنشاء جلسة مسبقاً في الدليل الحالي (افتراضي)]' \
+    '(--create-session-in-dir)--no-create-session-in-dir[عدم إنشاء جلسة مسبقاً في الدليل الحالي]' \
+    '(-h --help)'{-h,--help}'[عرض هذه المساعدة]'
+}
+
+_claude_daemon() {
+  local -a daemon_commands common_options
+  daemon_commands=(
+    'run:تشغيل المشرف في المقدمة'
+    'status:عرض pid الخاص بـ daemon والإصدار ومدة التشغيل'
+    'logs:متابعة سجل daemon (Ctrl-C للإيقاف)'
+    'uninstall:إزالة خدمة الخلفية (launchctl/systemd)'
+    'stop:إيقاف المشرف وإنهاء الجلسات الخلفية'
+  )
+  common_options=(
+    '--json-path[ملف الإعدادات (الافتراضي: ~/.claude/daemon.json)]:path:_files'
+    '--log-file[ملف السجل (الافتراضي: ~/.claude/daemon.log)]:path:_files'
+    '(-h --help)'{-h,--help}'[عرض هذه المساعدة]'
+  )
+
+  local curcontext="$curcontext" state line
+  typeset -A opt_args
+
+  _arguments -C \
+    $common_options \
+    '1: :->command' \
+    '*::arg:->args'
+
+  case $state in
+    command)
+      _describe -t commands 'daemon commands' daemon_commands
+      ;;
+    args)
+      case $words[1] in
+        run)
+          _arguments \
+            $common_options \
+            '::json-path:_files'
+          ;;
+        stop)
+          _arguments \
+            $common_options \
+            '--any[إيقاف daemon مؤقت (ليس خدمة) أيضاً]' \
+            '--keep-workers[ترك الجلسات المنفصلة قيد التشغيل]'
+          ;;
+        status|logs|uninstall)
+          _arguments \
+            $common_options
+          ;;
+      esac
+      ;;
+  esac
 }
 
 _claude_import() {
