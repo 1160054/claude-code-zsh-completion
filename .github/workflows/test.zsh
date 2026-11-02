@@ -317,9 +317,6 @@ test_cli_options_coverage() {
 
   # Check each CLI option exists in completion file
   for opt in ${(f)cli_options}; do
-    # Skip deprecated options
-    [[ "$opt" == "--mcp-debug" ]] && continue
-
     # Match on a word boundary: a plain substring search reports --foo as
     # present when the file only declares --foo-bar.
     if ! grep -qE -- "$opt([^a-zA-Z0-9-]|\$)" "$file"; then
