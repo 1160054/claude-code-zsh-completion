@@ -218,45 +218,45 @@ _claude() {
 
   local -a main_options
   main_options=(
-    '(-d --debug)'{-d,--debug}'[Cuir an comas modh dì-bhugachaidh le sìoladh roinn-seòrsa roghainneil (m.e., "api,hooks" no "!statsig,!file")]:filter:'
+    '(-d --debug)'{-d,--debug}'[Cuir an comas modh dì-bhugachaidh le sìoladh roinn-seòrsa roghainneil (m.e., "api,hooks" no "!statsig,!file")]:sìoltachan:'
     '--verbose[Tar-àithn suidheachadh modh briathrach bhon fhaidhle rèiteachaidh]'
     '(-p --print)'{-p,--print}'[Clò-bhuail freagairt agus fàg (airson cleachdadh le pìoban). Nòta: cleachd a-mhàin ann an eòlaireann earbsach]'
-    '--output-format[Cruth toraidh (le --print): "text" (roghainn bhunaiteach), "json" (toradh singilte), no "stream-json" (sruthadh fìor-ùine)]:format:(text json stream-json)'
-    '--json-schema[Sgeama JSON airson dearbhadh toraidh structarail]:schema:'
+    '--output-format[Cruth toraidh (le --print): "text" (roghainn bhunaiteach), "json" (toradh singilte), no "stream-json" (sruthadh fìor-ùine)]:cruth:(text json stream-json)'
+    '--json-schema[Sgeama JSON airson dearbhadh toraidh structarail]:sgeama:'
     '--include-partial-messages[Gabh a-steach mìrean teachdaireachd pàirteach mar a ruigeas iad (le --print agus --output-format=stream-json)]'
-    '--input-format[Cruth ion-chuir (le --print): "text" (roghainn bhunaiteach) no "stream-json" (ion-chur sruthadh fìor-ùine)]:format:(text stream-json)'
+    '--input-format[Cruth ion-chuir (le --print): "text" (roghainn bhunaiteach) no "stream-json" (ion-chur sruthadh fìor-ùine)]:cruth:(text stream-json)'
     '--dangerously-skip-permissions[Seachain gach sgrùdadh cead. A-mhàin air a mholadh airson bogsaichean-gainmhich gun inntrigeadh eadar-lìn]'
     '--allow-dangerously-skip-permissions[Ceadaich roghainn gus sgrùdaidhean cead a sheachnadh gun a chur an comas mar roghainn bhunaiteach]'
     '--restricted[Modh cuingichte: thoir air falbh na h-innealan a ruitheas àitheantan no còd agus WebFetch, leig seachad roghainnean user/project/local, agus cuingich innealan faidhle ris na h-eòlairean obrach]'
-    '--max-budget-usd[An t-suim dolar as motha ri chosg air gairmean API (--print a-mhàin)]:amount:'
+    '--max-budget-usd[An t-suim dolar as motha ri chosg air gairmean API (--print a-mhàin)]:suim:'
     '--max-turns[Cuingich àireamh nan cuairtean àidseantach (--print a-mhàin)]:turns:'
     '--replay-user-messages[Ath-chuir teachdaireachdan cleachdaiche bho stdin air stdout airson dearbhadh]'
-    '--allowed-tools[Liosta air a sgaradh le cromag no àite de dh'\''ainmean innealan a tha ceadaichte (m.e., "Bash(git:*) Edit")]:tools:'
-    '--allowedTools[Liosta air a sgaradh le cromag no àite de dh'\''ainmean innealan a tha ceadaichte (cruth camelCase)]:tools:'
-    '--tools[Sònraich liosta de dh'\''innealan ri fhaighinn bhon t-seata togail a-steach. Modh clò-bhualaidh a-mhàin]:tools:'
-    '--disallowed-tools[Liosta air a sgaradh le cromag no àite de dh'\''ainmean innealan nach eil ceadaichte (m.e., "Bash(git:*) Edit")]:tools:'
-    '--disallowedTools[Liosta air a sgaradh le cromag no àite de dh'\''ainmean innealan nach eil ceadaichte (cruth camelCase)]:tools:'
-    '--mcp-config[Luchdaich frithealaichean MCP bho fhaidhle JSON no sreang JSON (air a sgaradh le àite)]:configs:'
-    '--system-prompt[Brosnachadh siostam airson a chleachdadh airson an t-seisein]:prompt:'
+    '--allowed-tools[Liosta air a sgaradh le cromag no àite de dh'\''ainmean innealan a tha ceadaichte (m.e., "Bash(git:*) Edit")]:innealan:'
+    '--allowedTools[Liosta air a sgaradh le cromag no àite de dh'\''ainmean innealan a tha ceadaichte (cruth camelCase)]:innealan:'
+    '--tools[Sònraich liosta de dh'\''innealan ri fhaighinn bhon t-seata togail a-steach. Modh clò-bhualaidh a-mhàin]:innealan:'
+    '--disallowed-tools[Liosta air a sgaradh le cromag no àite de dh'\''ainmean innealan nach eil ceadaichte (m.e., "Bash(git:*) Edit")]:innealan:'
+    '--disallowedTools[Liosta air a sgaradh le cromag no àite de dh'\''ainmean innealan nach eil ceadaichte (cruth camelCase)]:innealan:'
+    '--mcp-config[Luchdaich frithealaichean MCP bho fhaidhle JSON no sreang JSON (air a sgaradh le àite)]:rèiteachaidhean:'
+    '--system-prompt[Brosnachadh siostam airson a chleachdadh airson an t-seisein]:brosnachadh:'
     '--system-prompt-file[Leugh brosnachadh siostam bho fhaidhle]:file:_files'
-    '--append-system-prompt[Cuir brosnachadh siostam ris a'\'' bhrosnachadh siostam bhunaiteach]:prompt:'
+    '--append-system-prompt[Cuir brosnachadh siostam ris a'\'' bhrosnachadh siostam bhunaiteach]:brosnachadh:'
     '--append-system-prompt-file[Leugh brosnachadh siostam bho fhaidhle agus cuir ris a'\'' bhrosnachadh siostam bhunaiteach e]:file:_files'
     '(--append-subagent-system-prompt-file)--append-subagent-system-prompt[Cuir teacsa ri brosnachadh siostam gach fo-àidseant (--print a-mhàin)]:prompt:'
     '(--append-subagent-system-prompt)--append-subagent-system-prompt-file[Leugh teacsa bho fhaidhle agus cuir ri brosnachaidhean siostam nam fo-àidseantan e (--print a-mhàin)]:file:_files'
     '--system-prompt-snapshot[Clàraich am brosnachadh siostam aon turas gach còmhradh agus ath-chleachd e facal air an fhacal air gach iarrtas agus ath-thòiseachadh (on, an roghainn bhunaiteach) no cruthaich às ùr e air gach iarrtas (off)]:mode:(on off)'
-    '--permission-mode[Modh cead airson a chleachdadh airson an t-seisein]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)'
+    '--permission-mode[Modh cead airson a chleachdadh airson an t-seisein]:modh:(acceptEdits auto bypassPermissions manual dontAsk plan)'
     '--permission-prompts[Cò a fhreagras brosnachaidhean cead le --print: "host" (an t-òstair SDK no --permission-prompt-tool) no "none" (thèid rud sam bith a dh'\''iarradh cead a dhiùltadh)]:target:(host none)'
     '--permission-prompt-tool[Inneal MCP ri chleachdadh airson brosnachaidhean cead (--print a-mhàin)]:tool:'
     '(-c --continue)'{-c,--continue}'[Lean air adhart leis a'\'' chòmhradh as ùire]'
-    '(-r --resume)'{-r,--resume}'[Ath-thòisich còmhradh - sònraich ID seisein no tagh gu h-eadar-ghnìomhach]:sessionId:_claude_sessions'
+    '(-r --resume)'{-r,--resume}'[Ath-thòisich còmhradh - sònraich ID seisein no tagh gu h-eadar-ghnìomhach]:IDseisein:_claude_sessions'
     '--fork-session[Cruthaich ID seisein ùr an àite ID seisein tùsail ath-chleachdadh nuair a thòisicheas tu a-rithist (le --resume no --continue)]'
     '--no-session-persistence[Cuir à comas maireannachd seisein - cha tèid seiseanan a shàbhaladh (--print a-mhàin)]'
-    '--model[Modail airson an t-seisein làithreach. Sònraich alias airson a'\'' mhodail as ùire (m.e., '\''sonnet'\'' no '\''opus'\'')]:model:_claude_model_names'
-    '--agent[Àidseant airson an t-seisein làithreach. Tar-àithnidh e an suidheachadh '\''agent'\'']:agent:_claude_agent_names'
+    '--model[Modail airson an t-seisein làithreach. Sònraich alias airson a'\'' mhodail as ùire (m.e., '\''sonnet'\'' no '\''opus'\'')]:modail:_claude_model_names'
+    '--agent[Àidseant airson an t-seisein làithreach. Tar-àithnidh e an suidheachadh '\''agent'\'']:àidseant:_claude_agent_names'
     '--betas[Bannan-cinn beta ri ghabhail a-steach ann an iarrtasan API (luchd-cleachdaidh iuchair API a-mhàin)]:betas:'
-    '--fallback-model[Cuir an comas tuiteam fèin-ghluasadach chun mhodail a chaidh a shònrachadh nuair a tha am modail bunaiteach air a luchdachadh thar a chomais (--print a-mhàin)]:model:_claude_model_names'
-    '--settings[Slighe gu faidhle JSON roghainnean no sreang JSON gus roghainnean a bharrachd a luchdachadh]:file-or-json:_files'
-    '--add-dir[Eòlaireann a bharrachd gus cead inntrigidh innealan]:directories:_directories'
+    '--fallback-model[Cuir an comas tuiteam fèin-ghluasadach chun mhodail a chaidh a shònrachadh nuair a tha am modail bunaiteach air a luchdachadh thar a chomais (--print a-mhàin)]:modail:_claude_model_names'
+    '--settings[Slighe gu faidhle JSON roghainnean no sreang JSON gus roghainnean a bharrachd a luchdachadh]:faidhle-no-json:_files'
+    '--add-dir[Eòlaireann a bharrachd gus cead inntrigidh innealan]:eòlaireann:_directories'
     '--ide[Fèin-cheangail ri IDE aig toiseach tòiseachaidh ma tha dìreach aon IDE dligheach ri fhaighinn]'
     '--desktop[Fosgail san aplacaid Claude Desktop an àite an tèirmineil (le --continue no --resume <id> gus an seisean a thaghadh)]'
     '--strict-mcp-config[Cleachd dìreach frithealaichean MCP bho --mcp-config agus leig seachad gach roghainn MCP eile]'
@@ -264,29 +264,29 @@ _claude() {
     '--agents[Nì JSON a mhìnicheas àidseantan gnàthaichte]:json:'
     '--advisor[Cuir an comas inneal comhairleachaidh taobh an fhrithealaiche airson an t-seisein seo le alias modail no ID modail slàn]:model:_claude_model_names'
     '--teammate-mode[Mar a thèid buill sgioba nan àidseantan a shealltainn]:mode:(in-process auto tmux iterm2)'
-    '--setting-sources[Liosta air a sgaradh le cromag de thùsan roghainnean ri luchdachadh (user, project, local)]:sources:'
-    '--plugin-dir[Eòlaire gus plugain a luchdachadh às airson an t-seisein seo a-mhàin (ath-dhèante)]:paths:_directories'
+    '--setting-sources[Liosta air a sgaradh le cromag de thùsan roghainnean ri luchdachadh (user, project, local)]:tùsan:'
+    '--plugin-dir[Eòlaire gus plugain a luchdachadh às airson an t-seisein seo a-mhàin (ath-dhèante)]:slighean:_directories'
     '--disable-slash-commands[Cuir à comas gach àithne slais]'
     '(--bg --background)'{--bg,--background}'[Tòisich an seisean mar àidseant cùil agus till sa bhad]'
-    '(-w --worktree)'{-w,--worktree}'[Cruthaich craobh-obrach git ùr airson an t-seisein seo (sònraich ainm gu roghainneil)]::name:'
+    '(-w --worktree)'{-w,--worktree}'[Cruthaich craobh-obrach git ùr airson an t-seisein seo (sònraich ainm gu roghainneil)]::ainm:'
     '--tmux=-[Cruthaich seisean tmux airson na craoibh-obrach (feumaidh --worktree). Cleachdaidh e leòsain dhùthchasach iTerm2 nuair a bhios iad ri fhaighinn; --tmux=classic airson tmux traidiseanta]::mode:(classic)'
-    '(-n --name)'{-n,--name}'[Suidhich ainm-taisbeanaidh airson an t-seisein seo]:name:'
-    '--effort[Ìre oidhirp airson an t-seisein làithreach]:level:(low medium high xhigh max)'
+    '(-n --name)'{-n,--name}'[Suidhich ainm-taisbeanaidh airson an t-seisein seo]:ainm:'
+    '--effort[Ìre oidhirp airson an t-seisein làithreach]:ìre:(low medium high xhigh max)'
     '--autocompact[Meud uinneag an fhèin-dhùmhlachaidh (auto, no 100k-1M tòcan)]:size:(auto)'
-    '--debug-file[Sgrìobh logaichean dì-bhugachaidh gu slighe faidhle sònraichte (cuiridh e an comas modh dì-bhugachaidh gu fillte)]:path:_files'
-    '--from-pr[Ath-thòisich seisean ceangailte ri PR a rèir àireamh/URL, no fosgail roghnaichear eadar-ghnìomhach]::value:'
+    '--debug-file[Sgrìobh logaichean dì-bhugachaidh gu slighe faidhle sònraichte (cuiridh e an comas modh dì-bhugachaidh gu fillte)]:slighe:_files'
+    '--from-pr[Ath-thòisich seisean ceangailte ri PR a rèir àireamh/URL, no fosgail roghnaichear eadar-ghnìomhach]::luach:'
     '--teleport[Ath-thòisich seisean teleport, sònraich ID seisein gu roghainneil]::session:'
     '(--remote)--cloud[Cruthaich seisean neòil leis an tuairisgeul a chaidh a thoirt, no ceangail ri seisean a tha ann mu thràth a rèir ID seisein no URL claude.ai/code]::description-or-session:'
     '(--cloud)--remote[Alias seann-fhasanta airson --cloud]::description-or-session:'
     '--environment[Cruthaich seisean neòil ùr a ruitheas air an àrainneachd fèin-òstaichte a chaidh a thoirt (ccpool_...)]:environment_id:'
     '--ref[Le --environment: stèidhich checkout an t-seisein ùir air ref ainmichte an àite HEAD ionadail]:branch:'
     '(--remote-control --rc)'{--remote-control,--rc}'[Tòisich seisean eadar-ghnìomhach le Remote Control an comas (ainmichte gu roghainneil)]::name:'
-    '--remote-control-session-name-prefix[Ro-leasachan airson ainmean seisein Smachd Cèin fèin-ghinte]:prefix:'
+    '--remote-control-session-name-prefix[Ro-leasachan airson ainmean seisein Smachd Cèin fèin-ghinte]:ro-leasachan:'
     '--chrome[Cuir an comas amalachadh Claude ann an Chrome]'
     '--no-chrome[Cuir à comas amalachadh Claude ann an Chrome]'
     '--plugin-url[Faigh .zip plugan bho URL airson an t-seisein seo a-mhàin (ath-dhèante)]:url:'
-    '--file[Goireasan faidhle ri luchdachadh a-nuas aig toiseach tòiseachaidh (cruth: file_id:relative_path)]:specs:'
-    '--prompt-suggestions[Cuir an comas molaidhean brosnachaidh (leigidh e a-mach ath-bhrosnachadh ro-innsichte ann am modh print/SDK)]::value:(true false 1 0 yes no on off)'
+    '--file[Goireasan faidhle ri luchdachadh a-nuas aig toiseach tòiseachaidh (cruth: file_id:relative_path)]:sonrachaidhean:'
+    '--prompt-suggestions[Cuir an comas molaidhean brosnachaidh (leigidh e a-mach ath-bhrosnachadh ro-innsichte ann am modh print/SDK)]::luach:(true false 1 0 yes no on off)'
     '--forward-subagent-text[Cuir air adhart teacsa fo-àidseant agus blocaichean smaoineachaidh mar theachdaireachdan (le --print agus stream-json)]'
     '--include-hook-events[Gabh a-steach gach tachartas cuairt-beatha dubhain san t-sruth toraidh (le stream-json)]'
     '--exclude-dynamic-system-prompt-sections[Gluais earrannan gach-inneal a-steach don chiad teachdaireachd cleachdaiche gus ath-chleachdadh tasgadan-brosnachaidh a leasachadh]'
@@ -428,21 +428,21 @@ _claude_mcp() {
           ;;
         add)
           _arguments \
-            '(-s --scope)'{-s,--scope}'[Sgòp rèiteachaidh (local, user, project)]:scope:(local user project)' \
-            '(-t --transport)'{-t,--transport}'[Seòrsa còmhdhail (stdio, sse, http)]:transport:(stdio sse http)' \
+            '(-s --scope)'{-s,--scope}'[Sgòp rèiteachaidh (local, user, project)]:sgòp:(local user project)' \
+            '(-t --transport)'{-t,--transport}'[Seòrsa còmhdhail (stdio, sse, http)]:còmhdhail:(stdio sse http)' \
             '(-e --env)'{-e,--env}'[Suidhich caochladair àrainneachd (m.e., -e KEY=value)]:env:' \
-            '(-H --header)'{-H,--header}'[Suidhich bann-cinn WebSocket]:header:' \
+            '(-H --header)'{-H,--header}'[Suidhich bann-cinn WebSocket]:bann-cinn:' \
             '--client-id[ID cliant OAuth airson frithealaichean HTTP/SSE]:clientId:' \
             '--client-secret[Iarr rùn cliant OAuth (no suidhich an caochladair àrainneachd MCP_CLIENT_SECRET)]' \
             '--callback-port[Port suidhichte airson ais-ghairm OAuth (airson frithealaichean a dh'\''fheumas URIan ath-stiùiridh ro-chlàraichte)]:port:' \
             '(-h --help)'{-h,--help}'[Seall cobhair]' \
-            '1:name:' \
-            '2:commandOrUrl:' \
-            '*:args:'
+            '1:ainm:' \
+            '2:àithneNoUrl:' \
+            '*:argamaidean:'
           ;;
         remove)
           _arguments \
-            '(-s --scope)'{-s,--scope}'[Sgòp rèiteachaidh (local, user, project) - thoir air falbh bho sgòp làithreach mura h-eilear a'\'' sònrachadh]:scope:(local user project)' \
+            '(-s --scope)'{-s,--scope}'[Sgòp rèiteachaidh (local, user, project) - thoir air falbh bho sgòp làithreach mura h-eilear a'\'' sònrachadh]:sgòp:(local user project)' \
             '(-h --help)'{-h,--help}'[Seall cobhair]' \
             '1:ainm:_claude_mcp_servers'
           ;;
@@ -457,15 +457,15 @@ _claude_mcp() {
           ;;
         add-json)
           _arguments \
-            '(-s --scope)'{-s,--scope}'[Sgòp rèiteachaidh (local, user, project)]:scope:(local user project)' \
+            '(-s --scope)'{-s,--scope}'[Sgòp rèiteachaidh (local, user, project)]:sgòp:(local user project)' \
             '--client-secret[Iarr rùn cliant OAuth (no suidhich an caochladair àrainneachd MCP_CLIENT_SECRET)]' \
             '(-h --help)'{-h,--help}'[Seall cobhair]' \
-            '1:name:' \
+            '1:ainm:' \
             '2:json:'
           ;;
         add-from-claude-desktop)
           _arguments \
-            '(-s --scope)'{-s,--scope}'[Sgòp rèiteachaidh (local, user, project)]:scope:(local user project)' \
+            '(-s --scope)'{-s,--scope}'[Sgòp rèiteachaidh (local, user, project)]:sgòp:(local user project)' \
             '(-h --help)'{-h,--help}'[Seall cobhair]'
           ;;
         reset-project-choices)
@@ -540,7 +540,7 @@ _claude_plugin() {
           ;;
         install|i)
           _arguments \
-            '(-s --scope)'{-s,--scope}'[Sgòp stàlaidh]:scope:(user project local)' \
+            '(-s --scope)'{-s,--scope}'[Sgòp stàlaidh]:sgòp:(user project local)' \
             '--accept-command[Gabh ris an àithne a dh’ainmich am margadh agus aig an do dh’aithris ruith --json roimhe a sha256 mar shownCommand.sha256]:sha256:' \
             '*--config[Suidhich roghainn userConfig a chaidh a ghairm ann am manifest a'\'' phlugain (ath-dhèante)]:key=value:' \
             '--marketplace[Stàlaich am plugan a rèir ainm lom bhon mhargadh aig an tùs seo (owner/repo, URL git no https, no slighe), ga chur ris an toiseach ma bhios feum]:source:' \
@@ -552,7 +552,7 @@ _claude_plugin() {
           ;;
         uninstall|remove)
           _arguments \
-            '(-s --scope)'{-s,--scope}'[Sgòp stàlaidh]:scope:(user project local)' \
+            '(-s --scope)'{-s,--scope}'[Sgòp stàlaidh]:sgòp:(user project local)' \
             '--keep-data[Glèidh eòlaire dàta maireannach a'\'' phlugain]' \
             '--prune[Thoir air falbh cuideachd eisimeileachdan fèin-stàlaichte nach eil a dhìth tuilleadh]' \
             '(-y --yes)'{-y,--yes}'[Leum thairis air brosnachadh dearbhaidh --prune]' \
@@ -562,7 +562,7 @@ _claude_plugin() {
           ;;
         enable)
           _arguments \
-            '(-s --scope)'{-s,--scope}'[Sgòp stàlaidh]:scope:(user project local)' \
+            '(-s --scope)'{-s,--scope}'[Sgòp stàlaidh]:sgòp:(user project local)' \
             '--json[Clò-bhuail aon loidhne toraidh a ghabhas leughadh le inneal an àite na teachdaireachd daonna]' \
             '(-h --help)'{-h,--help}'[Seall cobhair]' \
             '1:plugan:_claude_installed_plugins'
@@ -578,7 +578,7 @@ _claude_plugin() {
         update)
           _arguments \
             '--accept-command[Gabh ris an àithne a dh’ainmich am margadh agus aig an do dh’aithris ruith --json roimhe a sha256 mar shownCommand.sha256]:sha256:' \
-            '(-s --scope)'{-s,--scope}'[Sgòp stàlaidh]:scope:(user project local managed)' \
+            '(-s --scope)'{-s,--scope}'[Sgòp stàlaidh]:sgòp:(user project local managed)' \
             '(-y --yes)'{-y,--yes}'[Gabh ris an àithne a chaidh a ghairm leis a'\'' mhargadh '\''s a tha ga sealltainn gun bhrosnachadh dearbhaidh]' \
             '--json[Clò-bhuail aon loidhne toraidh a ghabhas leughadh le inneal an àite na teachdaireachd daonna]' \
             '(-h --help)'{-h,--help}'[Seall cobhair]' \
@@ -728,7 +728,7 @@ _claude_plugin_marketplace() {
           _arguments \
             '--json[Le ainm margaidh: clò-bhuail aon loidhne toraidh a ghabhas leughadh le inneal mar an loidhne mu dheireadh air stdout]' \
             '(-h --help)'{-h,--help}'[Seall cobhair]' \
-            '::name:'
+            '::ainm:'
           ;;
       esac
       ;;
@@ -739,25 +739,25 @@ _claude_install() {
   _arguments \
     '--force[Sparr stàladh eadhon ma tha e air a stàladh mu thràth]' \
     '(-h --help)'{-h,--help}'[Seall cobhair]' \
-    '::target:(stable latest)'
+    '::targaid:(stable latest)'
 }
 
 _claude_agents() {
   _arguments \
-    '*--add-dir[Eòlaire a bharrachd gus cead inntrigidh innealan ann an seiseanan air an cur a-mach]:directory:_directories' \
-    '--agent[Àidseant bunaiteach airson seiseanan air an cur a-mach bho shealladh àidseant]:agent:_claude_agent_names' \
+    '*--add-dir[Eòlaire a bharrachd gus cead inntrigidh innealan ann an seiseanan air an cur a-mach]:eòlaire:_directories' \
+    '--agent[Àidseant bunaiteach airson seiseanan air an cur a-mach bho shealladh àidseant]:àidseant:_claude_agent_names' \
     '--all[Le --json: gabh a-steach cuideachd seiseanan cùil crìochnaichte]' \
     '--allow-dangerously-skip-permissions[Dèan modh seachnadh-cheadan ri fhaighinn do sheiseanan air an cur a-mach]' \
-    '--cwd[Seall a-mhàin seiseanan cùil a thòisich fon t-slighe]:path:_directories' \
+    '--cwd[Seall a-mhàin seiseanan cùil a thòisich fon t-slighe]:slighe:_directories' \
     '--dangerously-skip-permissions[Alias airson --permission-mode bypassPermissions]' \
-    '--effort[Ìre oidhirp bhunaiteach airson seiseanan air an cur a-mach]:level:(low medium high xhigh max)' \
+    '--effort[Ìre oidhirp bhunaiteach airson seiseanan air an cur a-mach]:ìre:(low medium high xhigh max)' \
     '--json[Clò-bhuail seiseanan gnìomhach mar sreath JSON agus fàg]' \
-    '*--mcp-config[Rèiteachadh frithealaiche MCP ri chur an sàs air seiseanan air an cur a-mach]:config:' \
-    '--model[Modail bunaiteach airson seiseanan air an cur a-mach bho shealladh àidseant]:model:_claude_model_names' \
-    '--permission-mode[Modh cead bunaiteach airson seiseanan air an cur a-mach]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)' \
-    '*--plugin-dir[Luchdaich plugain bho eòlaire airson an t-seallaidh àidseant agus seiseanan air an cur a-mach]:path:_directories' \
-    '--setting-sources[Liosta air a sgaradh le cromag de thùsan roghainnean ri luchdachadh (user, project, local)]:sources:' \
-    '--settings[Faidhle roghainnean no sreang JSON ri chur an sàs]:file-or-json:_files' \
+    '*--mcp-config[Rèiteachadh frithealaiche MCP ri chur an sàs air seiseanan air an cur a-mach]:rèiteachadh:' \
+    '--model[Modail bunaiteach airson seiseanan air an cur a-mach bho shealladh àidseant]:modail:_claude_model_names' \
+    '--permission-mode[Modh cead bunaiteach airson seiseanan air an cur a-mach]:modh:(acceptEdits auto bypassPermissions manual dontAsk plan)' \
+    '*--plugin-dir[Luchdaich plugain bho eòlaire airson an t-seallaidh àidseant agus seiseanan air an cur a-mach]:slighe:_directories' \
+    '--setting-sources[Liosta air a sgaradh le cromag de thùsan roghainnean ri luchdachadh (user, project, local)]:tùsan:' \
+    '--settings[Faidhle roghainnean no sreang JSON ri chur an sàs]:faidhle-no-json:_files' \
     '--strict-mcp-config[Cleachd a-mhàin frithealaichean MCP bho --mcp-config ann an seiseanan air an cur a-mach]' \
     '--restricted[Tòisich seiseanan air an cur a-mach ann am modh cuingichte]' \
     '(-h --help)'{-h,--help}'[Seall cobhair airson àithne]'
@@ -859,7 +859,7 @@ _claude_auto_mode() {
 
 _claude_gateway() {
   _arguments \
-    '--config[Slighe gu rèiteachadh YAML geata]:path:_files' \
+    '--config[Slighe gu rèiteachadh YAML geata]:slighe:_files' \
     '(-h --help)'{-h,--help}'[Seall cobhair airson àithne]'
 }
 

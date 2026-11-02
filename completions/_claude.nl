@@ -312,7 +312,7 @@ _claude() {
 
   case $state in
     command)
-      _describe -t commands 'claude commando’s' main_commands
+      _describe -t commands 'claude commando'\''s' main_commands
       ;;
     args)
       case $words[1] in
@@ -416,7 +416,7 @@ _claude_mcp() {
 
   case $state in
     command)
-      _describe -t commands 'mcp commando’s' mcp_commands
+      _describe -t commands 'mcp commando'\''s' mcp_commands
       ;;
     args)
       case $words[1] in
@@ -523,7 +523,7 @@ _claude_plugin() {
 
   case $state in
     command)
-      _describe -t commands 'plugin commando’s' plugin_commands
+      _describe -t commands 'plugin commando'\''s' plugin_commands
       ;;
     args)
       case $words[1] in
@@ -699,7 +699,7 @@ _claude_plugin_marketplace() {
 
   case $state in
     command)
-      _describe -t commands 'marketplace commando’s' marketplace_commands
+      _describe -t commands 'marketplace commando'\''s' marketplace_commands
       ;;
     args)
       case $words[1] in
@@ -782,7 +782,7 @@ _claude_auth() {
 
   case $state in
     command)
-      _describe -t commands 'auth commando’s' auth_commands
+      _describe -t commands 'auth commando'\''s' auth_commands
       ;;
     args)
       case $words[1] in
@@ -829,7 +829,7 @@ _claude_auto_mode() {
 
   case $state in
     command)
-      _describe -t commands 'auto-mode commando’s' auto_mode_commands
+      _describe -t commands 'auto-mode commando'\''s' auto_mode_commands
       ;;
     args)
       case $words[1] in
@@ -880,7 +880,7 @@ _claude_project() {
 
   case $state in
     command)
-      _describe -t commands 'project commando’s' project_commands
+      _describe -t commands 'project commando'\''s' project_commands
       ;;
     args)
       case $words[1] in

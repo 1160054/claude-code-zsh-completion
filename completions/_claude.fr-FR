@@ -523,7 +523,7 @@ _claude_plugin() {
 
   case $state in
     command)
-      _describe -t commands 'commandes d’extension' plugin_commands
+      _describe -t commands 'commandes d'\''extension' plugin_commands
       ;;
     args)
       case $words[1] in
