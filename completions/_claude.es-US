@@ -218,25 +218,25 @@ _claude() {
 
   local -a main_options
   main_options=(
-    '(-d --debug)'{-d,--debug}'[Habilitar modo de depuración con filtrado opcional de categoría (ej., "api,hooks" o "!statsig,!file")]:filter:'
+    '(-d --debug)'{-d,--debug}'[Habilitar modo de depuración con filtrado opcional de categoría (ej., "api,hooks" o "!statsig,!file")]:filtro:'
     '--verbose[Sobrescribir configuración de modo verboso desde archivo de configuración]'
     '(-p --print)'{-p,--print}'[Imprimir respuesta y salir (para usar con pipes). Nota: usar solo en directorios confiables]'
-    '--output-format[Formato de salida (con --print): "text" (predeterminado), "json" (resultado único), o "stream-json" (transmisión en tiempo real)]:format:(text json stream-json)'
-    '--json-schema[Esquema JSON para validación de salida estructurada]:schema:'
+    '--output-format[Formato de salida (con --print): "text" (predeterminado), "json" (resultado único), o "stream-json" (transmisión en tiempo real)]:formato:(text json stream-json)'
+    '--json-schema[Esquema JSON para validación de salida estructurada]:esquema:'
     '--include-partial-messages[Incluir fragmentos parciales de mensajes a medida que llegan (con --print y --output-format=stream-json)]'
-    '--input-format[Formato de entrada (con --print): "text" (predeterminado) o "stream-json" (entrada en transmisión en tiempo real)]:format:(text stream-json)'
+    '--input-format[Formato de entrada (con --print): "text" (predeterminado) o "stream-json" (entrada en transmisión en tiempo real)]:formato:(text stream-json)'
     '--dangerously-skip-permissions[Omitir todas las verificaciones de permisos. Recomendado solo para sandboxes sin acceso a internet]'
     '--allow-dangerously-skip-permissions[Habilitar opción para omitir verificaciones de permisos sin habilitar por defecto]'
     '--restricted[Modo restringido: quitar las herramientas que ejecutan comandos o código y WebFetch, ignorar la configuración user/project/local y limitar las herramientas de archivos a los directorios de trabajo]'
     '--max-budget-usd[Cantidad máxima en dólares a gastar en llamadas a la API (solo --print)]:amount:'
     '--max-turns[Limitar el número de turnos agénticos (solo --print)]:turns:'
     '--replay-user-messages[Re-enviar mensajes de usuario desde stdin en stdout para confirmación]'
-    '--allowed-tools[Lista separada por comas o espacios de nombres de herramientas permitidas (ej., "Bash(git:*) Edit")]:tools:'
-    '--allowedTools[Lista separada por comas o espacios de nombres de herramientas permitidas (formato camelCase)]:tools:'
-    '--tools[Especificar lista de herramientas disponibles del conjunto integrado. Solo modo de impresión]:tools:'
-    '--disallowed-tools[Lista separada por comas o espacios de nombres de herramientas no permitidas (ej., "Bash(git:*) Edit")]:tools:'
-    '--disallowedTools[Lista separada por comas o espacios de nombres de herramientas no permitidas (formato camelCase)]:tools:'
-    '--mcp-config[Cargar servidores MCP desde archivo JSON o cadena (separado por espacios)]:configs:'
+    '--allowed-tools[Lista separada por comas o espacios de nombres de herramientas permitidas (ej., "Bash(git:*) Edit")]:herramientas:'
+    '--allowedTools[Lista separada por comas o espacios de nombres de herramientas permitidas (formato camelCase)]:herramientas:'
+    '--tools[Especificar lista de herramientas disponibles del conjunto integrado. Solo modo de impresión]:herramientas:'
+    '--disallowed-tools[Lista separada por comas o espacios de nombres de herramientas no permitidas (ej., "Bash(git:*) Edit")]:herramientas:'
+    '--disallowedTools[Lista separada por comas o espacios de nombres de herramientas no permitidas (formato camelCase)]:herramientas:'
+    '--mcp-config[Cargar servidores MCP desde archivo JSON o cadena (separado por espacios)]:configuraciones:'
     '--system-prompt[Prompt del sistema a usar para la sesión]:prompt:'
     '--system-prompt-file[Leer el prompt del sistema desde un archivo]:file:_files'
     '--append-system-prompt[Anexar prompt del sistema al prompt del sistema predeterminado]:prompt:'
@@ -244,19 +244,19 @@ _claude() {
     '(--append-subagent-system-prompt-file)--append-subagent-system-prompt[Anexar texto al prompt del sistema de cada subagente (solo --print)]:prompt:'
     '(--append-subagent-system-prompt)--append-subagent-system-prompt-file[Leer texto de un archivo y anexarlo a los prompts del sistema de los subagentes (solo --print)]:file:_files'
     '--system-prompt-snapshot[Registrar el prompt del sistema una vez por conversación y reutilizarlo tal cual en cada solicitud y reanudación (on, predeterminado) o generarlo de nuevo en cada solicitud (off)]:mode:(on off)'
-    '--permission-mode[Modo de permisos a usar para la sesión]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)'
+    '--permission-mode[Modo de permisos a usar para la sesión]:modo:(acceptEdits auto bypassPermissions manual dontAsk plan)'
     '--permission-prompts[Quién responde las solicitudes de permiso con --print: "host" (el host del SDK o --permission-prompt-tool) o "none" (todo lo que pediría permiso se deniega)]:target:(host none)'
     '--permission-prompt-tool[Herramienta MCP para las solicitudes de permiso (solo --print)]:tool:'
     '(-c --continue)'{-c,--continue}'[Continuar la conversación más reciente]'
-    '(-r --resume)'{-r,--resume}'[Reanudar una conversación - especificar ID de sesión o seleccionar interactivamente]:sessionId:_claude_sessions'
+    '(-r --resume)'{-r,--resume}'[Reanudar una conversación - especificar ID de sesión o seleccionar interactivamente]:idSesión:_claude_sessions'
     '--fork-session[Crear nuevo ID de sesión en lugar de reutilizar ID de sesión original al reanudar (con --resume o --continue)]'
     '--no-session-persistence[Deshabilitar la persistencia de sesión - las sesiones no se guardarán (solo --print)]'
-    '--model[Modelo para la sesión actual. Especificar alias para el último modelo (ej., '\''sonnet'\'' o '\''opus'\'')]:model:_claude_model_names'
+    '--model[Modelo para la sesión actual. Especificar alias para el último modelo (ej., '\''sonnet'\'' o '\''opus'\'')]:modelo:_claude_model_names'
     '--agent[Agente para la sesión actual. Anula la configuración '\''agent'\'']:agent:_claude_agent_names'
     '--betas[Encabezados beta a incluir en las solicitudes de la API (solo usuarios con clave de API)]:betas:'
-    '--fallback-model[Habilitar alternativa automática al modelo especificado cuando el modelo predeterminado está sobrecargado (solo --print)]:model:_claude_model_names'
-    '--settings[Ruta a archivo JSON de configuración o cadena JSON para cargar configuraciones adicionales]:file-or-json:_files'
-    '--add-dir[Directorios adicionales para permitir acceso de herramientas]:directories:_directories'
+    '--fallback-model[Habilitar alternativa automática al modelo especificado cuando el modelo predeterminado está sobrecargado (solo --print)]:modelo:_claude_model_names'
+    '--settings[Ruta a archivo JSON de configuración o cadena JSON para cargar configuraciones adicionales]:archivo-o-json:_files'
+    '--add-dir[Directorios adicionales para permitir acceso de herramientas]:directorios:_directories'
     '--ide[Conectar automáticamente a IDE al iniciar si hay exactamente un IDE válido disponible]'
     '--desktop[Abrir en la aplicación Claude Desktop en lugar de la terminal (con --continue o --resume <id> para elegir la sesión)]'
     '--strict-mcp-config[Usar solo servidores MCP de --mcp-config e ignorar todas las demás configuraciones MCP]'
@@ -264,8 +264,8 @@ _claude() {
     '--agents[Objeto JSON definiendo agentes personalizados]:json:'
     '--advisor[Habilitar la herramienta advisor del lado del servidor para esta sesión con un alias de modelo o un ID de modelo completo]:model:_claude_model_names'
     '--teammate-mode[Cómo se muestran los compañeros de un equipo de agentes]:mode:(in-process auto tmux iterm2)'
-    '--setting-sources[Lista separada por comas de fuentes de configuración a cargar (user, project, local)]:sources:'
-    '--plugin-dir[Directorio para cargar plugins solo para esta sesión (repetible)]:paths:_directories'
+    '--setting-sources[Lista separada por comas de fuentes de configuración a cargar (user, project, local)]:fuentes:'
+    '--plugin-dir[Directorio para cargar plugins solo para esta sesión (repetible)]:rutas:_directories'
     '--disable-slash-commands[Deshabilitar todos los comandos de barra]'
     '(--bg --background)'{--bg,--background}'[Iniciar la sesión como agente en segundo plano y regresar de inmediato]'
     '(-w --worktree)'{-w,--worktree}'[Crear un nuevo worktree de git para esta sesión (opcionalmente especificar un nombre)]::name:'
@@ -428,21 +428,21 @@ _claude_mcp() {
           ;;
         add)
           _arguments \
-            '(-s --scope)'{-s,--scope}'[Ámbito de configuración (local, user, project)]:scope:(local user project)' \
-            '(-t --transport)'{-t,--transport}'[Tipo de transporte (stdio, sse, http)]:transport:(stdio sse http)' \
+            '(-s --scope)'{-s,--scope}'[Ámbito de configuración (local, user, project)]:ámbito:(local user project)' \
+            '(-t --transport)'{-t,--transport}'[Tipo de transporte (stdio, sse, http)]:transporte:(stdio sse http)' \
             '(-e --env)'{-e,--env}'[Establecer variable de entorno (ej., -e KEY=value)]:env:' \
-            '(-H --header)'{-H,--header}'[Establecer encabezado WebSocket]:header:' \
+            '(-H --header)'{-H,--header}'[Establecer encabezado WebSocket]:encabezado:' \
             '--client-id[ID de cliente OAuth para servidores HTTP/SSE]:clientId:' \
             '--client-secret[Pedir el secreto de cliente OAuth (o definir la variable de entorno MCP_CLIENT_SECRET)]' \
             '--callback-port[Puerto fijo para el callback de OAuth (para servidores que requieren URIs de redirección preregistradas)]:port:' \
             '(-h --help)'{-h,--help}'[Mostrar ayuda]' \
-            '1:name:' \
-            '2:commandOrUrl:' \
+            '1:nombre:' \
+            '2:comandoOUrl:' \
             '*:args:'
           ;;
         remove)
           _arguments \
-            '(-s --scope)'{-s,--scope}'[Ámbito de configuración (local, user, project) - eliminar del ámbito existente si no se especifica]:scope:(local user project)' \
+            '(-s --scope)'{-s,--scope}'[Ámbito de configuración (local, user, project) - eliminar del ámbito existente si no se especifica]:ámbito:(local user project)' \
             '(-h --help)'{-h,--help}'[Mostrar ayuda]' \
             '1:nombre:_claude_mcp_servers'
           ;;
@@ -457,15 +457,15 @@ _claude_mcp() {
           ;;
         add-json)
           _arguments \
-            '(-s --scope)'{-s,--scope}'[Ámbito de configuración (local, user, project)]:scope:(local user project)' \
+            '(-s --scope)'{-s,--scope}'[Ámbito de configuración (local, user, project)]:ámbito:(local user project)' \
             '--client-secret[Pedir el secreto de cliente OAuth (o definir la variable de entorno MCP_CLIENT_SECRET)]' \
             '(-h --help)'{-h,--help}'[Mostrar ayuda]' \
-            '1:name:' \
+            '1:nombre:' \
             '2:json:'
           ;;
         add-from-claude-desktop)
           _arguments \
-            '(-s --scope)'{-s,--scope}'[Ámbito de configuración (local, user, project)]:scope:(local user project)' \
+            '(-s --scope)'{-s,--scope}'[Ámbito de configuración (local, user, project)]:ámbito:(local user project)' \
             '(-h --help)'{-h,--help}'[Mostrar ayuda]'
           ;;
         reset-project-choices)
@@ -728,7 +728,7 @@ _claude_plugin_marketplace() {
           _arguments \
             '--json[Con un nombre de marketplace: imprimir una línea de resultado legible por máquina como última línea en stdout]' \
             '(-h --help)'{-h,--help}'[Mostrar ayuda]' \
-            '::name:'
+            '::nombre:'
           ;;
       esac
       ;;
@@ -739,7 +739,7 @@ _claude_install() {
   _arguments \
     '--force[Forzar instalación incluso si ya está instalado]' \
     '(-h --help)'{-h,--help}'[Mostrar ayuda]' \
-    '::target:(stable latest)'
+    '::objetivo:(stable latest)'
 }
 
 _claude_agents() {
