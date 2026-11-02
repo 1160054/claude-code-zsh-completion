@@ -197,6 +197,19 @@ test_compdef_registration() {
   grep -q "compdef _claude claude" "$file"
 }
 
+# Test 9b: The first call of the autoloaded function completes, not just loads.
+# An autoloaded file with several definitions becomes the function's body.
+test_first_call_completes() {
+  local file="$1"
+  local out=$(zsh -fc '
+    functions[_claude]=$(<"$1")
+    compdef() { : }
+    _arguments() { print completed }
+    _claude
+  ' zsh "$file" 2>/dev/null)
+  [[ $out == *completed* ]]
+}
+
 # Test 10: Source file without error
 test_source_file() {
   local file="$1"
@@ -511,6 +524,14 @@ run_tests_for_file() {
     log_pass "compdef registration"
   else
     log_fail "compdef registration"
+    file_passed=false
+  fi
+
+  # Test 9b: First call completes
+  if test_first_call_completes "$file"; then
+    log_pass "First call of the autoloaded function completes"
+  else
+    log_fail "First call of the autoloaded function completes"
     file_passed=false
   fi
 

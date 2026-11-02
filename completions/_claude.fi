@@ -870,4 +870,11 @@ _claude_import() {
     '::source:(codex gemini cursor)'
 }
 
-(( $+_comps[claude] )) || compdef _claude claude
+# compinit autoloads this file, and that first call only defines the functions
+# above: complete right away so the first TAB already works. Sourced directly,
+# there is nothing to complete yet, only the registration.
+if [[ $funcstack[1] == _claude ]]; then
+  _claude "$@"
+else
+  (( $+_comps[claude] )) || compdef _claude claude
+fi
