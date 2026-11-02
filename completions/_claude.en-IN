@@ -300,7 +300,9 @@ _claude() {
     '(-h --help)'{-h,--help}'[Display help for command]'
   )
 
-  _arguments -C \
+  # Stop at the first non-option word, so that the options after a command reach
+  # that command's own specs instead of being consumed here
+  _arguments -C -A '-*' \
     $main_options \
     '1: :->command' \
     '*::arg:->args'
@@ -314,7 +316,7 @@ _claude() {
         mcp)
           _claude_mcp
           ;;
-        plugin)
+        plugin|plugins)
           _claude_plugin
           ;;
         install)
@@ -355,12 +357,25 @@ _claude() {
         ultrareview)
           _claude_ultrareview
           ;;
-        setup-token|doctor|update)
-          _message "no arguments"
+        setup-token|doctor|update|upgrade)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Display help for command]'
+          ;;
+        *)
+          # Not a command but the prompt: options may still follow it
+          _arguments \
+            $main_options \
+            '*: :'
           ;;
       esac
       ;;
   esac
+  local ret=$?
+
+  # The last step, such as listing commands for --r, can fail although options
+  # were added before it. Report success then: on failure zsh moves on to the
+  # next completers, and _correct or _approximate pile on corrections
+  (( compstate[nmatches] > 0 )) || return $ret
 }
 
 _claude_mcp() {
@@ -503,6 +518,7 @@ _claude_plugin() {
         validate)
           _arguments \
             '--strict[Treat warnings as errors (exit 1)]' \
+            '--profile[Also exit 1 when the named catalog would refuse a submission of the plugin on a check this command runs]:name:(directory)' \
             '--json[Output the validation report as JSON (same exit codes)]' \
             '(-h --help)'{-h,--help}'[Display help]' \
             '1:path:_files'
@@ -515,6 +531,7 @@ _claude_plugin() {
             '(-s --scope)'{-s,--scope}'[Installation scope]:scope:(user project local)' \
             '--accept-command[Accept the marketplace-declared command whose sha256 a previous --json run reported as shownCommand.sha256]:sha256:' \
             '*--config[Set a userConfig option declared in the plugin manifest (repeatable)]:key=value:' \
+            '--marketplace[Install the plugin by its bare name from the marketplace at this source (owner/repo, git or https URL, or path), adding it first if needed]:source:' \
             '--registry[For a package@npm install: resolve and download from this npm registry]:url:' \
             '(-y --yes)'{-y,--yes}'[Accept the displayed marketplace-declared command without the confirmation prompt]' \
             '--json[Print one machine-readable result line instead of the human message]' \
@@ -614,6 +631,7 @@ _claude_plugin() {
             '--json[Print the full run result as JSON to stdout, or write it to this .json file]::path:_files' \
             '--threshold[Exit 1 if any case score is below this threshold (default: 1.0)]:threshold:' \
             '*--allow-tools[Operator grant for gated tools (Bash, Write, Edit, WebFetch, mcp__*)]:tools:' \
+            '*--disallow-tools[Built-in tools to keep from Claude in every case, even if granted]:tools:' \
             '(--no-scaffold)--scaffold[Run each case scaffold_script (runs author-supplied bash as you; off by default)]' \
             '(--scaffold)--no-scaffold[Explicitly skip scaffold_script]' \
             '--trust-plugin[Assert that you trust this plugin and its eval suite, skipping the first-run trust prompt (for CI)]' \
@@ -884,6 +902,7 @@ _claude_ultrareview() {
     '--timeout[Maximum minutes to wait for the review to finish (default: 45)]:minutes:' \
     '(--no-post)--post[Post the finished review findings to the PR as you (PR targets only; one plain comment, not a review)]' \
     '(--post)--no-post[Do not post the findings to the PR (the default)]' \
+    '--trust-workspace[Trust the current folder for this run only, without asking (for scripts and CI)]' \
     '(-h --help)'{-h,--help}'[Display help for command]' \
     '1:target:'
 }
@@ -911,4 +930,11 @@ _claude_import() {
     '::source:(codex gemini cursor)'
 }
 
-(( $+_comps[claude] )) || compdef _claude claude
+# compinit autoloads this file, and that first call only defines the functions
+# above: complete right away so the first TAB already works. Sourced directly,
+# there is nothing to complete yet, only the registration.
+if [[ $funcstack[1] == _claude ]]; then
+  _claude "$@"
+else
+  (( $+_comps[claude] )) || compdef _claude claude
+fi
