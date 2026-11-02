@@ -210,6 +210,24 @@ test_first_call_completes() {
   [[ $out == *completed* ]]
 }
 
+# Test 9c: Options after a command or prompt are left to what follows. Stubbing
+# _arguments records each call: the first has to stop at the first non-option
+# word, and a prompt has to get the main options back.
+test_options_after_first_word() {
+  local file="$1"
+  local out=$(zsh -fc '
+    functions[_claude]=$(<"$1")
+    compdef() { : }
+    words=(some-prompt --mod)
+    _arguments() {
+      print -r -- "call$(( ++calls )): $*"
+      state=args
+    }
+    _claude
+  ' zsh "$file" 2>/dev/null)
+  [[ $out == *"call1: -C -A -* "* && $out == *"call2: "*--model* ]]
+}
+
 # Test 9d: Added matches count as success even if the last step fails, and
 # without any match the status of that step stands
 test_status_follows_matches() {
@@ -550,6 +568,14 @@ run_tests_for_file() {
     log_pass "First call of the autoloaded function completes"
   else
     log_fail "First call of the autoloaded function completes"
+    file_passed=false
+  fi
+
+  # Test 9c: Options after the first word
+  if test_options_after_first_word "$file"; then
+    log_pass "Options after a command or prompt are left to what follows"
+  else
+    log_fail "Options after a command or prompt are left to what follows"
     file_passed=false
   fi
 

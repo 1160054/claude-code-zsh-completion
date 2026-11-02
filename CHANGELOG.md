@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - Frisian (`fy`): an unescaped apostrophe left the whole completion unusable
 - The first TAB in a fresh shell only loaded the completion and offered nothing; it now completes right away, in all 120 files
+- Options right after a command were parsed by the top-level completion, so `claude rm --model <TAB>` offered model names although `rm` has no such option, and exclusions between the options of a command did not apply. Fixed in all 120 files
 - `claude --r<TAB>` reported failure although it had found options, so with `_correct` or `_approximate` configured zsh added hundreds of corrections and inserted the first match. Fixed in all 120 files
 
 ## [2.8.0] - 2026-10-03
