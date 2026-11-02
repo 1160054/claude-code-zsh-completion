@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.9.0] - 2026-11-02
+
 ### Added
 - A Japanese demo (`demo.ja.gif`) under "Other languages" in the README, recorded with `_claude.ja` and Japanese session and job names by `demo/make-ja.sh`
 - `self-hosted-runner`, which `claude --help` does not list, in all 120 files
