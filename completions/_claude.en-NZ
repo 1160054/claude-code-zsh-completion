@@ -224,11 +224,11 @@ _claude() {
     '--json-schema[JSON schema for structured output validation]:schema:'
     '--include-partial-messages[Include partial message chunks as they arrive (with --print and --output-format=stream-json)]'
     '--input-format[Input format (with --print): "text" (default) or "stream-json" (real-time streaming input)]:format:(text stream-json)'
-    '--mcp-debug[\[Deprecated. Use --debug instead\] Enable MCP debug mode (shows MCP server errors)]'
     '--dangerously-skip-permissions[Bypass all permission checks. Recommended only for sandboxes without internet access]'
     '--allow-dangerously-skip-permissions[Enable option to bypass permission checks without enabling by default]'
     '--restricted[Restricted mode: remove the tools that run commands or code and WebFetch, ignore user/project/local settings, and confine file tools to the working directories]'
     '--max-budget-usd[Maximum dollar amount to spend on API calls (--print only)]:amount:'
+    '--max-turns[Limit the number of agentic turns (--print only)]:turns:'
     '--replay-user-messages[Re-send user messages from stdin on stdout for confirmation]'
     '--allowed-tools[Comma or space-separated list of allowed tool names (e.g., "Bash(git:*) Edit")]:tools:'
     '--allowedTools[Comma or space-separated list of allowed tool names (camelCase format)]:tools:'
@@ -240,6 +240,8 @@ _claude() {
     '--system-prompt-file[Read system prompt from a file]:file:_files'
     '--append-system-prompt[Append system prompt to default system prompt]:prompt:'
     '--append-system-prompt-file[Read system prompt from a file and append to the default system prompt]:file:_files'
+    '(--append-subagent-system-prompt-file)--append-subagent-system-prompt[Append text to the system prompt of every subagent (--print only)]:prompt:'
+    '(--append-subagent-system-prompt)--append-subagent-system-prompt-file[Read text from a file and append it to subagent system prompts (--print only)]:file:_files'
     '--system-prompt-snapshot[Record the system prompt once per conversation and reuse it verbatim on every request and resume (on, the default) or render it fresh every request (off)]:mode:(on off)'
     '--permission-mode[Permission mode to use for session]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)'
     '--permission-prompts[Who answers permission prompts with --print: "host" (the SDK host or --permission-prompt-tool) or "none" (anything that would prompt is denied)]:target:(host none)'
@@ -259,6 +261,8 @@ _claude() {
     '--strict-mcp-config[Use only MCP servers from --mcp-config and ignore all other MCP settings]'
     '--session-id[Specific session ID to use for conversation (must be valid UUID)]:uuid:'
     '--agents[JSON object defining custom agents]:json:'
+    '--advisor[Enable the server-side advisor tool for this session with a model alias or full model ID]:model:_claude_model_names'
+    '--teammate-mode[How agent team teammates display]:mode:(in-process auto tmux iterm2)'
     '--setting-sources[Comma-separated list of setting sources to load (user, project, local)]:sources:'
     '--plugin-dir[Directory to load plugins from for this session only (repeatable)]:paths:_directories'
     '--disable-slash-commands[Disable all slash commands]'
@@ -271,9 +275,11 @@ _claude() {
     '--debug-file[Write debug logs to a specific file path (implicitly enables debug mode)]:path:_files'
     '--from-pr[Resume a session linked to a PR by number/URL, or open interactive picker]::value:'
     '--teleport[Resume a teleport session, optionally specify session ID]::session:'
-    '--cloud[Create a cloud session with the given description, or attach to an existing one by session ID or claude.ai/code URL]::description-or-session:'
+    '(--remote)--cloud[Create a cloud session with the given description, or attach to an existing one by session ID or claude.ai/code URL]::description-or-session:'
+    '(--cloud)--remote[Deprecated alias for --cloud]::description-or-session:'
     '--environment[Create a new cloud session that runs on the given self-hosted environment (ccpool_...)]:environment_id:'
-    '--remote-control[Start an interactive session with Remote Control enabled (optionally named)]::name:'
+    '--ref[With --environment: base the checkout of the new session on a named ref instead of local HEAD]:branch:'
+    '(--remote-control --rc)'{--remote-control,--rc}'[Start an interactive session with Remote Control enabled (optionally named)]::name:'
     '--remote-control-session-name-prefix[Prefix for auto-generated Remote Control session names]:prefix:'
     '--chrome[Enable Claude in Chrome integration]'
     '--no-chrome[Disable Claude in Chrome integration]'
@@ -284,6 +290,11 @@ _claude() {
     '--include-hook-events[Include all hook lifecycle events in the output stream (with stream-json)]'
     '--exclude-dynamic-system-prompt-sections[Move per-machine sections into the first user message to improve prompt-cache reuse]'
     '--brief[Enable SendUserMessage tool for agent-to-user communication]'
+    '*--channels[(Research preview) MCP servers whose channel notifications to listen for (plugin\:<name>@<marketplace>)]:entries:'
+    '*--dangerously-load-development-channels[Enable channels not on the approved allowlist, for local development (plugin\:<name>@<marketplace> or server\:<name>)]:entries:'
+    '--init[Run Setup hooks with the init matcher before the session (--print only)]'
+    '--init-only[Run Setup and SessionStart hooks, then exit without starting a conversation]'
+    '--maintenance[Run Setup hooks with the maintenance matcher before the session (--print only)]'
     '--safe-mode[Start with all customizations disabled (useful for troubleshooting a broken configuration)]'
     '--bare[Minimal mode: skip hooks, LSP, plugin sync, attribution, auto-memory, and CLAUDE.md auto-discovery]'
     '--ax-screen-reader[Render screen-reader friendly output (flat text, no decorative borders or animations)]'
@@ -291,7 +302,9 @@ _claude() {
     '(-h --help)'{-h,--help}'[Display help for command]'
   )
 
-  _arguments -C \
+  # Stop at the first non-option word, so that the options after a command reach
+  # that command's own specs instead of being consumed here
+  _arguments -C -A '-*' \
     $main_options \
     '1: :->command' \
     '*::arg:->args'
@@ -305,7 +318,7 @@ _claude() {
         mcp)
           _claude_mcp
           ;;
-        plugin)
+        plugin|plugins)
           _claude_plugin
           ;;
         install)
@@ -352,12 +365,25 @@ _claude() {
         ultrareview)
           _claude_ultrareview
           ;;
-        setup-token|doctor|update)
-          _message "no arguments"
+        setup-token|doctor|update|upgrade)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Display help for command]'
+          ;;
+        *)
+          # Not a command but the prompt: options may still follow it
+          _arguments \
+            $main_options \
+            '*: :'
           ;;
       esac
       ;;
   esac
+  local ret=$?
+
+  # The last step, such as listing commands for --r, can fail although options
+  # were added before it. Report success then: on failure zsh moves on to the
+  # next completers, and _correct or _approximate pile on corrections
+  (( compstate[nmatches] > 0 )) || return $ret
 }
 
 _claude_mcp() {
@@ -500,6 +526,7 @@ _claude_plugin() {
         validate)
           _arguments \
             '--strict[Treat warnings as errors (exit 1)]' \
+            '--profile[Also exit 1 when the named catalog would refuse a submission of the plugin on a check this command runs]:name:(directory)' \
             '--json[Output the validation report as JSON (same exit codes)]' \
             '(-h --help)'{-h,--help}'[Display help]' \
             '1:path:_files'
@@ -512,6 +539,7 @@ _claude_plugin() {
             '(-s --scope)'{-s,--scope}'[Installation scope]:scope:(user project local)' \
             '--accept-command[Accept the marketplace-declared command whose sha256 a previous --json run reported as shownCommand.sha256]:sha256:' \
             '*--config[Set a userConfig option declared in the plugin manifest (repeatable)]:key=value:' \
+            '--marketplace[Install the plugin by its bare name from the marketplace at this source (owner/repo, git or https URL, or path), adding it first if needed]:source:' \
             '--registry[For a package@npm install: resolve and download from this npm registry]:url:' \
             '(-y --yes)'{-y,--yes}'[Accept the displayed marketplace-declared command without the confirmation prompt]' \
             '--json[Print one machine-readable result line instead of the human message]' \
@@ -611,6 +639,7 @@ _claude_plugin() {
             '--json[Print the full run result as JSON to stdout, or write it to this .json file]::path:_files' \
             '--threshold[Exit 1 if any case score is below this threshold (default: 1.0)]:threshold:' \
             '*--allow-tools[Operator grant for gated tools (Bash, Write, Edit, WebFetch, mcp__*)]:tools:' \
+            '*--disallow-tools[Built-in tools to keep from Claude in every case, even if granted]:tools:' \
             '(--no-scaffold)--scaffold[Run each case scaffold_script (runs author-supplied bash as you; off by default)]' \
             '(--scaffold)--no-scaffold[Explicitly skip scaffold_script]' \
             '--trust-plugin[Assert that you trust this plugin and its eval suite, skipping the first-run trust prompt (for CI)]' \
@@ -881,6 +910,7 @@ _claude_ultrareview() {
     '--timeout[Maximum minutes to wait for the review to finish (default: 45)]:minutes:' \
     '(--no-post)--post[Post the finished review findings to the PR as you (PR targets only; one plain comment, not a review)]' \
     '(--post)--no-post[Do not post the findings to the PR (the default)]' \
+    '--trust-workspace[Trust the current folder for this run only, without asking (for scripts and CI)]' \
     '(-h --help)'{-h,--help}'[Display help for command]' \
     '1:target:'
 }
@@ -976,4 +1006,11 @@ _claude_import() {
     '::source:(codex gemini cursor)'
 }
 
-(( $+_comps[claude] )) || compdef _claude claude
+# compinit autoloads this file, and that first call only defines the functions
+# above: complete right away so the first TAB already works. Sourced directly,
+# there is nothing to complete yet, only the registration.
+if [[ $funcstack[1] == _claude ]]; then
+  _claude "$@"
+else
+  (( $+_comps[claude] )) || compdef _claude claude
+fi

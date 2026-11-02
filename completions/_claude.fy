@@ -219,7 +219,7 @@ _claude() {
     '(-p --print)'{-p,--print}'[Antwurd printsje en ôfslute (foar gebrûk mei pipes). Noat: allinne yn fertroude mappen brûke]'
     '--output-format[Útfierformaat (mei --print): "text" (standert), "json" (inkeld resultaat), of "stream-json" (realtime streaming)]:format:(text json stream-json)'
     '--json-schema[JSON-skema foar strukturearre útfierfalidaasje]:schema:'
-    '--include-partial-messages[Partiële berjochtstikken opnimme sadree't se oankomme (mei --print en --output-format=stream-json)]'
+    '--include-partial-messages[Partiële berjochtstikken opnimme sadree'\''t se oankomme (mei --print en --output-format=stream-json)]'
     '--input-format[Ynfierformaat (mei --print): "text" (standert) of "stream-json" (realtime streaming-ynfier)]:format:(text stream-json)'
     '--mcp-debug[\[Ôfrieden. Brûk ynstee --debug\] MCP-debugmodus ynskeakelje (toant MCP-serverflaters)]'
     '--dangerously-skip-permissions[Alle tastimmingskontrôles omsile. Allinne oanret foar sandboxes sûnder ynternettagong]'
@@ -288,7 +288,9 @@ _claude() {
     '(-h --help)'{-h,--help}'[Help foar kommando sjen litte]'
   )
 
-  _arguments -C \
+  # Stop at the first non-option word, so that the options after a command reach
+  # that command's own specs instead of being consumed here
+  _arguments -C -A '-*' \
     $main_options \
     '1: :->command' \
     '*::arg:->args'
@@ -343,9 +345,21 @@ _claude() {
         setup-token|doctor|update)
           _message "gjin arguminten"
           ;;
+        *)
+          # Not a command but the prompt: options may still follow it
+          _arguments \
+            $main_options \
+            '*: :'
+          ;;
       esac
       ;;
   esac
+  local ret=$?
+
+  # The last step, such as listing commands for --r, can fail although options
+  # were added before it. Report success then: on failure zsh moves on to the
+  # next completers, and _correct or _approximate pile on corrections
+  (( compstate[nmatches] > 0 )) || return $ret
 }
 
 _claude_mcp() {
@@ -870,4 +884,11 @@ _claude_import() {
     '::source:(codex gemini cursor)'
 }
 
-(( $+_comps[claude] )) || compdef _claude claude
+# compinit autoloads this file, and that first call only defines the functions
+# above: complete right away so the first TAB already works. Sourced directly,
+# there is nothing to complete yet, only the registration.
+if [[ $funcstack[1] == _claude ]]; then
+  _claude "$@"
+else
+  (( $+_comps[claude] )) || compdef _claude claude
+fi

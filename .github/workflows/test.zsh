@@ -197,6 +197,55 @@ test_compdef_registration() {
   grep -q "compdef _claude claude" "$file"
 }
 
+# Test 9b: The first call of the autoloaded function completes, not just loads.
+# An autoloaded file with several definitions becomes the function's body.
+test_first_call_completes() {
+  local file="$1"
+  local out=$(zsh -fc '
+    functions[_claude]=$(<"$1")
+    compdef() { : }
+    _arguments() { print completed }
+    _claude
+  ' zsh "$file" 2>/dev/null)
+  [[ $out == *completed* ]]
+}
+
+# Test 9c: Options after a command or prompt are left to what follows. Stubbing
+# _arguments records each call: the first has to stop at the first non-option
+# word, and a prompt has to get the main options back.
+test_options_after_first_word() {
+  local file="$1"
+  local out=$(zsh -fc '
+    functions[_claude]=$(<"$1")
+    compdef() { : }
+    words=(some-prompt --mod)
+    _arguments() {
+      print -r -- "call$(( ++calls )): $*"
+      state=args
+    }
+    _claude
+  ' zsh "$file" 2>/dev/null)
+  [[ $out == *"call1: -C -A -* "* && $out == *"call2: "*--model* ]]
+}
+
+# Test 9d: Added matches count as success even if the last step fails, and
+# without any match the status of that step stands
+test_status_follows_matches() {
+  local file="$1"
+  local out=$(zsh -fc '
+    functions[_claude]=$(<"$1")
+    compdef() { : }
+    typeset -A compstate
+    _arguments() { state=command }
+    _describe() { return 1 }
+    compstate[nmatches]=7
+    _claude && print added-ok
+    compstate[nmatches]=0
+    _claude || print empty-fails
+  ' zsh "$file" 2>/dev/null)
+  [[ $out == *added-ok* && $out == *empty-fails* ]]
+}
+
 # Test 10: Source file without error
 test_source_file() {
   local file="$1"
@@ -268,9 +317,6 @@ test_cli_options_coverage() {
 
   # Check each CLI option exists in completion file
   for opt in ${(f)cli_options}; do
-    # Skip deprecated options
-    [[ "$opt" == "--mcp-debug" ]] && continue
-
     # Match on a word boundary: a plain substring search reports --foo as
     # present when the file only declares --foo-bar.
     if ! grep -qE -- "$opt([^a-zA-Z0-9-]|\$)" "$file"; then
@@ -511,6 +557,30 @@ run_tests_for_file() {
     log_pass "compdef registration"
   else
     log_fail "compdef registration"
+    file_passed=false
+  fi
+
+  # Test 9b: First call completes
+  if test_first_call_completes "$file"; then
+    log_pass "First call of the autoloaded function completes"
+  else
+    log_fail "First call of the autoloaded function completes"
+    file_passed=false
+  fi
+
+  # Test 9c: Options after the first word
+  if test_options_after_first_word "$file"; then
+    log_pass "Options after a command or prompt are left to what follows"
+  else
+    log_fail "Options after a command or prompt are left to what follows"
+    file_passed=false
+  fi
+
+  # Test 9d: Return status
+  if test_status_follows_matches "$file"; then
+    log_pass "Added matches count as success"
+  else
+    log_fail "Added matches count as success"
     file_passed=false
   fi
 
