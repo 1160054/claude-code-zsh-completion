@@ -200,11 +200,15 @@ _claude() {
     'stop:ਇੱਕ ਬੈਕਗ੍ਰਾਊਂਡ ਸੈਸ਼ਨ ਰੋਕੋ (ਇਸਦੀ ਗੱਲਬਾਤ ਰੱਖੀ ਜਾਂਦੀ ਹੈ)'
     'respawn:ਇੱਕ ਬੈਕਗ੍ਰਾਊਂਡ ਸੈਸ਼ਨ ਨੂੰ ਮੁੜ ਸ਼ੁਰੂ ਕਰੋ ਤਾਂ ਜੋ ਇਹ ਮੌਜੂਦਾ Claude Code ਸੰਸਕਰਣ ਤੇ ਚੱਲੇ'
     'rm:ਇੱਕ ਬੈਕਗ੍ਰਾਊਂਡ ਸੈਸ਼ਨ ਮਿਟਾਓ, ਅਤੇ ਜਦੋਂ ਸੁਰੱਖਿਅਤ ਹੋਵੇ ਤਾਂ ਇਸਦਾ worktree ਵੀ'
+    'remote-control:claude.ai/code ਜਾਂ Claude ਮੋਬਾਈਲ ਐਪ ਤੋਂ ਸਥਾਨਕ ਸੈਸ਼ਨਾਂ ਨੂੰ ਕੰਟਰੋਲ ਕਰੋ'
+    'daemon:ਬੈਕਗ੍ਰਾਊਂਡ-ਸੈਸ਼ਨ ਸੁਪਰਵਾਈਜ਼ਰ ਦਾ ਪ੍ਰਬੰਧਨ ਕਰੋ'
     'auth:ਪ੍ਰਮਾਣਿਕਤਾ ਦਾ ਪ੍ਰਬੰਧਨ ਕਰੋ'
     'auto-mode:ਆਟੋ ਮੋਡ ਵਰਗੀਕਰਤਾ ਸੰਰਚਨਾ ਦਾ ਨਿਰੀਖਣ ਜਾਂ ਰੀਸੈੱਟ ਕਰੋ'
     'gateway:ਐਂਟਰਪ੍ਰਾਈਜ਼ ਪ੍ਰਮਾਣਿਕਤਾ/ਟੈਲੀਮੈਟਰੀ ਗੇਟਵੇ ਚਲਾਓ'
+    'self-hosted-runner:ਇਸ ਮਸ਼ੀਨ ਜਾਂ ਕੰਟੇਨਰ ਤੇ Claude Code ਕਲਾਉਡ ਸੈਸ਼ਨ ਹੋਸਟ ਕਰੋ'
     'import:ਕਿਸੇ ਹੋਰ AI ਕੋਡਿੰਗ ਏਜੰਟ ਤੋਂ Claude Code ਵਿੱਚ ਸੰਰਚਨਾ ਆਯਾਤ ਕਰੋ'
     'project:Claude Code ਪ੍ਰੋਜੈਕਟ ਸਥਿਤੀ ਦਾ ਪ੍ਰਬੰਧਨ ਕਰੋ'
+    'purge:ਇੱਕ ਪ੍ਰੋਜੈਕਟ ਲਈ ਸਾਰੀ Claude Code ਸਥਿਤੀ ਮਿਟਾਓ (ਟ੍ਰਾਂਸਕ੍ਰਿਪਟ, ਟਾਸਕ, ਫਾਈਲ ਇਤਿਹਾਸ, ਸੰਰਚਨਾ ਇੰਦਰਾਜ)'
     'ultrareview:ਕਲਾਊਡ-ਹੋਸਟ ਕੀਤੀ ਮਲਟੀ-ਏਜੰਟ ਕੋਡ ਸਮੀਖਿਆ ਚਲਾਓ ਅਤੇ ਨਤੀਜੇ ਪ੍ਰਿੰਟ ਕਰੋ'
     'setup-token:ਲੰਬੇ ਸਮੇਂ ਲਈ ਪ੍ਰਮਾਣਿਕਤਾ ਟੋਕਨ ਸੈੱਟ ਕਰੋ (Claude ਸਬਸਕ੍ਰਿਪਸ਼ਨ ਲੋੜੀਂਦੀ ਹੈ)'
     'doctor:Claude Code ਆਟੋ-ਅੱਪਡੇਟਰ ਲਈ ਸਿਹਤ ਜਾਂਚ'
@@ -221,11 +225,11 @@ _claude() {
     '--json-schema[ਸੰਰਚਿਤ ਆਉਟਪੁੱਟ ਪ੍ਰਮਾਣਿਕਤਾ ਲਈ JSON ਸਕੀਮਾ]:schema:'
     '--include-partial-messages[ਅੰਸ਼ਕ ਸੰਦੇਸ਼ ਟੁਕੜਿਆਂ ਨੂੰ ਸ਼ਾਮਲ ਕਰੋ ਜਿਵੇਂ ਉਹ ਆਉਂਦੇ ਹਨ (--print ਅਤੇ --output-format=stream-json ਨਾਲ)]'
     '--input-format[ਇਨਪੁੱਟ ਫਾਰਮੈਟ (--print ਨਾਲ): "text" (ਡਿਫਾਲਟ) ਜਾਂ "stream-json" (ਰੀਅਲ-ਟਾਈਮ ਸਟ੍ਰੀਮਿੰਗ ਇਨਪੁੱਟ)]:format:(text stream-json)'
-    '--mcp-debug[\[ਪੁਰਾਣਾ। ਇਸ ਦੀ ਬਜਾਏ --debug ਵਰਤੋਂ ਕਰੋ\] MCP ਡੀਬੱਗ ਮੋਡ ਸਮਰੱਥ ਕਰੋ (MCP ਸਰਵਰ ਗਲਤੀਆਂ ਦਿਖਾਉਂਦਾ ਹੈ)]'
     '--dangerously-skip-permissions[ਸਾਰੀਆਂ ਇਜਾਜ਼ਤ ਜਾਂਚਾਂ ਨੂੰ ਬਾਈਪਾਸ ਕਰੋ। ਇੰਟਰਨੈੱਟ ਐਕਸੈਸ ਤੋਂ ਬਿਨਾਂ ਸੈਂਡਬਾਕਸਾਂ ਲਈ ਸਿਫਾਰਿਸ਼ ਕੀਤੀ ਜਾਂਦੀ ਹੈ]'
     '--allow-dangerously-skip-permissions[ਡਿਫਾਲਟ ਰੂਪ ਵਿੱਚ ਸਮਰੱਥ ਕੀਤੇ ਬਿਨਾਂ ਇਜਾਜ਼ਤ ਜਾਂਚਾਂ ਨੂੰ ਬਾਈਪਾਸ ਕਰਨ ਦੇ ਵਿਕਲਪ ਨੂੰ ਸਮਰੱਥ ਕਰੋ]'
     '--restricted[ਪਾਬੰਦੀਸ਼ੁਦਾ ਮੋਡ: ਕਮਾਂਡਾਂ ਜਾਂ ਕੋਡ ਚਲਾਉਣ ਵਾਲੇ ਟੂਲ ਅਤੇ WebFetch ਹਟਾਓ, user/project/local ਸੈਟਿੰਗਜ਼ ਨੂੰ ਅਣਡਿੱਠ ਕਰੋ, ਅਤੇ ਫਾਈਲ ਟੂਲਾਂ ਨੂੰ ਕਾਰਜਕਾਰੀ ਡਾਇਰੈਕਟਰੀਆਂ ਤੱਕ ਸੀਮਤ ਕਰੋ]'
     '--max-budget-usd[API ਕਾਲਾਂ ਤੇ ਖਰਚ ਕਰਨ ਲਈ ਵੱਧ ਤੋਂ ਵੱਧ ਡਾਲਰ ਰਕਮ (ਸਿਰਫ਼ --print)]:amount:'
+    '--max-turns[ਏਜੰਟਿਕ ਵਾਰੀਆਂ ਦੀ ਗਿਣਤੀ ਸੀਮਤ ਕਰੋ (ਸਿਰਫ਼ --print)]:turns:'
     '--replay-user-messages[ਪੁਸ਼ਟੀ ਲਈ stdin ਤੋਂ stdout ਤੇ ਉਪਭੋਗਤਾ ਸੰਦੇਸ਼ਾਂ ਨੂੰ ਦੁਬਾਰਾ ਭੇਜੋ]'
     '--allowed-tools[ਇਜਾਜ਼ਤ ਦਿੱਤੇ ਟੂਲ ਨਾਵਾਂ ਦੀ ਕੰਮਾ ਜਾਂ ਸਪੇਸ-ਵਿਭਾਜਿਤ ਸੂਚੀ (ਜਿਵੇਂ, "Bash(git:*) Edit")]:tools:'
     '--allowedTools[ਇਜਾਜ਼ਤ ਦਿੱਤੇ ਟੂਲ ਨਾਵਾਂ ਦੀ ਕੰਮਾ ਜਾਂ ਸਪੇਸ-ਵਿਭਾਜਿਤ ਸੂਚੀ (camelCase ਫਾਰਮੈਟ)]:tools:'
@@ -237,6 +241,8 @@ _claude() {
     '--system-prompt-file[ਇੱਕ ਫਾਈਲ ਤੋਂ ਸਿਸਟਮ ਪ੍ਰੌਂਪਟ ਪੜ੍ਹੋ]:file:_files'
     '--append-system-prompt[ਡਿਫਾਲਟ ਸਿਸਟਮ ਪ੍ਰੌਂਪਟ ਵਿੱਚ ਸਿਸਟਮ ਪ੍ਰੌਂਪਟ ਜੋੜੋ]:prompt:'
     '--append-system-prompt-file[ਇੱਕ ਫਾਈਲ ਤੋਂ ਸਿਸਟਮ ਪ੍ਰੌਂਪਟ ਪੜ੍ਹੋ ਅਤੇ ਡਿਫਾਲਟ ਸਿਸਟਮ ਪ੍ਰੌਂਪਟ ਵਿੱਚ ਜੋੜੋ]:file:_files'
+    '(--append-subagent-system-prompt-file)--append-subagent-system-prompt[ਹਰ ਸਬਏਜੰਟ ਦੇ ਸਿਸਟਮ ਪ੍ਰੋਂਪਟ ਵਿੱਚ ਟੈਕਸਟ ਜੋੜੋ (ਸਿਰਫ਼ --print)]:prompt:'
+    '(--append-subagent-system-prompt)--append-subagent-system-prompt-file[ਫਾਈਲ ਤੋਂ ਟੈਕਸਟ ਪੜ੍ਹੋ ਅਤੇ ਇਸਨੂੰ ਸਬਏਜੰਟ ਸਿਸਟਮ ਪ੍ਰੋਂਪਟਾਂ ਵਿੱਚ ਜੋੜੋ (ਸਿਰਫ਼ --print)]:file:_files'
     '--system-prompt-snapshot[ਸਿਸਟਮ ਪ੍ਰੌਂਪਟ ਨੂੰ ਪ੍ਰਤੀ ਗੱਲਬਾਤ ਇੱਕ ਵਾਰ ਰਿਕਾਰਡ ਕਰੋ ਅਤੇ ਹਰ ਬੇਨਤੀ ਅਤੇ ਮੁੜ ਸ਼ੁਰੂ ਕਰਨ ਤੇ ਇਸਨੂੰ ਹੂ-ਬ-ਹੂ ਮੁੜ ਵਰਤੋ (on, ਡਿਫਾਲਟ) ਜਾਂ ਹਰ ਬੇਨਤੀ ਤੇ ਇਸਨੂੰ ਨਵੇਂ ਸਿਰੇ ਤੋਂ ਬਣਾਓ (off)]:mode:(on off)'
     '--permission-mode[ਸੈਸ਼ਨ ਲਈ ਵਰਤਣ ਲਈ ਇਜਾਜ਼ਤ ਮੋਡ]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)'
     '--permission-prompts[--print ਨਾਲ ਇਜਾਜ਼ਤ ਪ੍ਰੌਂਪਟਾਂ ਦਾ ਜਵਾਬ ਕੌਣ ਦਿੰਦਾ ਹੈ: "host" (SDK ਹੋਸਟ ਜਾਂ --permission-prompt-tool) ਜਾਂ "none" (ਜੋ ਵੀ ਪ੍ਰੌਂਪਟ ਕਰੇਗਾ ਉਸਨੂੰ ਇਨਕਾਰ ਕੀਤਾ ਜਾਂਦਾ ਹੈ)]:target:(host none)'
@@ -256,6 +262,8 @@ _claude() {
     '--strict-mcp-config[ਸਿਰਫ਼ --mcp-config ਤੋਂ MCP ਸਰਵਰ ਵਰਤੋਂ ਕਰੋ ਅਤੇ ਹੋਰ ਸਾਰੀਆਂ MCP ਸੈਟਿੰਗਜ਼ ਨੂੰ ਅਣਡਿੱਠ ਕਰੋ]'
     '--session-id[ਗੱਲਬਾਤ ਲਈ ਵਰਤਣ ਲਈ ਖਾਸ ਸੈਸ਼ਨ ID (ਵੈਧ UUID ਹੋਣਾ ਚਾਹੀਦਾ ਹੈ)]:uuid:'
     '--agents[ਕਸਟਮ ਏਜੰਟਾਂ ਨੂੰ ਪਰਿਭਾਸ਼ਿਤ ਕਰਨ ਵਾਲਾ JSON ਆਬਜੈਕਟ]:json:'
+    '--advisor[ਮਾਡਲ ਉਪਨਾਮ ਜਾਂ ਪੂਰੀ ਮਾਡਲ ID ਨਾਲ ਇਸ ਸੈਸ਼ਨ ਲਈ ਸਰਵਰ-ਸਾਈਡ ਸਲਾਹਕਾਰ ਟੂਲ ਸਮਰੱਥ ਕਰੋ]:model:_claude_model_names'
+    '--teammate-mode[ਏਜੰਟ ਟੀਮ ਦੇ ਸਾਥੀ ਕਿਵੇਂ ਦਿਖਾਈ ਦਿੰਦੇ ਹਨ]:mode:(in-process auto tmux iterm2)'
     '--setting-sources[ਲੋਡ ਕਰਨ ਲਈ ਸੈਟਿੰਗ ਸਰੋਤਾਂ ਦੀ ਕੰਮਾ-ਵਿਭਾਜਿਤ ਸੂਚੀ (user, project, local)]:sources:'
     '--plugin-dir[ਸਿਰਫ਼ ਇਸ ਸੈਸ਼ਨ ਲਈ ਪਲੱਗਇਨਾਂ ਲੋਡ ਕਰਨ ਲਈ ਡਾਇਰੈਕਟਰੀ (ਦੁਹਰਾਉਣਯੋਗ)]:paths:_directories'
     '--disable-slash-commands[ਸਾਰੀਆਂ ਸਲੈਸ਼ ਕਮਾਂਡਾਂ ਅਸਮਰੱਥ ਕਰੋ]'
@@ -268,9 +276,11 @@ _claude() {
     '--debug-file[ਖਾਸ ਫਾਈਲ ਮਾਰਗ ਤੇ ਡੀਬੱਗ ਲੌਗ ਲਿਖੋ (ਸੰਕੇਤਕ ਤੌਰ ਤੇ ਡੀਬੱਗ ਮੋਡ ਸਮਰੱਥ ਕਰਦਾ ਹੈ)]:path:_files'
     '--from-pr[ਨੰਬਰ/URL ਦੁਆਰਾ ਇੱਕ PR ਨਾਲ ਜੁੜੇ ਸੈਸ਼ਨ ਨੂੰ ਮੁੜ ਸ਼ੁਰੂ ਕਰੋ, ਜਾਂ ਇੰਟਰਐਕਟਿਵ ਚੋਣਕਾਰ ਖੋਲ੍ਹੋ]::value:'
     '--teleport[ਇੱਕ ਟੈਲੀਪੋਰਟ ਸੈਸ਼ਨ ਮੁੜ ਸ਼ੁਰੂ ਕਰੋ, ਵਿਕਲਪਿਕ ਤੌਰ ਤੇ ਸੈਸ਼ਨ ID ਦਰਸਾਓ]::session:'
-    '--cloud[ਦਿੱਤੇ ਵੇਰਵੇ ਨਾਲ ਇੱਕ ਕਲਾਊਡ ਸੈਸ਼ਨ ਬਣਾਓ, ਜਾਂ ਸੈਸ਼ਨ ID ਜਾਂ claude.ai/code URL ਦੁਆਰਾ ਇੱਕ ਮੌਜੂਦਾ ਸੈਸ਼ਨ ਨਾਲ ਜੁੜੋ]::description-or-session:'
+    '(--remote)--cloud[ਦਿੱਤੇ ਵੇਰਵੇ ਨਾਲ ਇੱਕ ਕਲਾਊਡ ਸੈਸ਼ਨ ਬਣਾਓ, ਜਾਂ ਸੈਸ਼ਨ ID ਜਾਂ claude.ai/code URL ਦੁਆਰਾ ਇੱਕ ਮੌਜੂਦਾ ਸੈਸ਼ਨ ਨਾਲ ਜੁੜੋ]::description-or-session:'
+    '(--cloud)--remote[--cloud ਲਈ ਪੁਰਾਣਾ ਉਪਨਾਮ]::description-or-session:'
     '--environment[ਇੱਕ ਨਵਾਂ ਕਲਾਊਡ ਸੈਸ਼ਨ ਬਣਾਓ ਜੋ ਦਿੱਤੇ ਸਵੈ-ਹੋਸਟ ਕੀਤੇ ਵਾਤਾਵਰਣ (ccpool_...) ਤੇ ਚੱਲਦਾ ਹੈ]:environment_id:'
-    '--remote-control[ਰਿਮੋਟ ਕੰਟਰੋਲ ਸਮਰੱਥ ਨਾਲ ਇੱਕ ਇੰਟਰਐਕਟਿਵ ਸੈਸ਼ਨ ਸ਼ੁਰੂ ਕਰੋ (ਵਿਕਲਪਿਕ ਤੌਰ ਤੇ ਨਾਮ ਦਿੱਤਾ)]::name:'
+    '--ref[--environment ਨਾਲ: ਨਵੇਂ ਸੈਸ਼ਨ ਦੇ checkout ਨੂੰ ਸਥਾਨਕ HEAD ਦੀ ਬਜਾਏ ਨਾਮ ਵਾਲੇ ref ਤੇ ਅਧਾਰਤ ਕਰੋ]:branch:'
+    '(--remote-control --rc)'{--remote-control,--rc}'[ਰਿਮੋਟ ਕੰਟਰੋਲ ਸਮਰੱਥ ਨਾਲ ਇੱਕ ਇੰਟਰਐਕਟਿਵ ਸੈਸ਼ਨ ਸ਼ੁਰੂ ਕਰੋ (ਵਿਕਲਪਿਕ ਤੌਰ ਤੇ ਨਾਮ ਦਿੱਤਾ)]::name:'
     '--remote-control-session-name-prefix[ਸਵੈ-ਉਤਪੰਨ ਰਿਮੋਟ ਕੰਟਰੋਲ ਸੈਸ਼ਨ ਨਾਵਾਂ ਲਈ ਅਗੇਤਰ]:prefix:'
     '--chrome[Chrome ਏਕੀਕਰਨ ਵਿੱਚ Claude ਸਮਰੱਥ ਕਰੋ]'
     '--no-chrome[Chrome ਏਕੀਕਰਨ ਵਿੱਚ Claude ਅਸਮਰੱਥ ਕਰੋ]'
@@ -281,6 +291,11 @@ _claude() {
     '--include-hook-events[ਆਉਟਪੁੱਟ ਸਟ੍ਰੀਮ ਵਿੱਚ ਸਾਰੇ ਹੁੱਕ ਜੀਵਨ-ਚੱਕਰ ਘਟਨਾਵਾਂ ਸ਼ਾਮਲ ਕਰੋ (stream-json ਨਾਲ)]'
     '--exclude-dynamic-system-prompt-sections[ਪ੍ਰੌਂਪਟ-ਕੈਸ਼ ਮੁੜ ਵਰਤੋਂ ਸੁਧਾਰਨ ਲਈ ਪ੍ਰਤੀ-ਮਸ਼ੀਨ ਭਾਗਾਂ ਨੂੰ ਪਹਿਲੇ ਉਪਭੋਗਤਾ ਸੰਦੇਸ਼ ਵਿੱਚ ਭੇਜੋ]'
     '--brief[ਏਜੰਟ-ਤੋਂ-ਉਪਭੋਗਤਾ ਸੰਚਾਰ ਲਈ SendUserMessage ਟੂਲ ਸਮਰੱਥ ਕਰੋ]'
+    '*--channels[(ਖੋਜ ਪ੍ਰੀਵਿਊ) MCP ਸਰਵਰ ਜਿਨ੍ਹਾਂ ਦੀਆਂ ਚੈਨਲ ਸੂਚਨਾਵਾਂ ਸੁਣਨੀਆਂ ਹਨ (plugin\:<name>@<marketplace>)]:entries:'
+    '*--dangerously-load-development-channels[ਸਥਾਨਕ ਵਿਕਾਸ ਲਈ, ਮਨਜ਼ੂਰਸ਼ੁਦਾ allowlist ਵਿੱਚ ਨਾ ਹੋਣ ਵਾਲੇ ਚੈਨਲ ਸਮਰੱਥ ਕਰੋ (plugin\:<name>@<marketplace> ਜਾਂ server\:<name>)]:entries:'
+    '--init[ਸੈਸ਼ਨ ਤੋਂ ਪਹਿਲਾਂ init matcher ਨਾਲ Setup hooks ਚਲਾਓ (ਸਿਰਫ਼ --print)]'
+    '--init-only[Setup ਅਤੇ SessionStart hooks ਚਲਾਓ, ਫਿਰ ਗੱਲਬਾਤ ਸ਼ੁਰੂ ਕੀਤੇ ਬਿਨਾਂ ਬਾਹਰ ਨਿਕਲੋ]'
+    '--maintenance[ਸੈਸ਼ਨ ਤੋਂ ਪਹਿਲਾਂ maintenance matcher ਨਾਲ Setup hooks ਚਲਾਓ (ਸਿਰਫ਼ --print)]'
     '--safe-mode[ਸਾਰੇ ਕਸਟਮਾਈਜ਼ੇਸ਼ਨ ਅਸਮਰੱਥ ਨਾਲ ਸ਼ੁਰੂ ਕਰੋ (ਟੁੱਟੀ ਸੰਰਚਨਾ ਦੇ ਨਿਪਟਾਰੇ ਲਈ ਲਾਭਦਾਇਕ)]'
     '--bare[ਨਿਊਨਤਮ ਮੋਡ: ਹੁੱਕ, LSP, ਪਲੱਗਇਨ ਸਿੰਕ, ਵਿਸ਼ੇਸ਼ਤਾ, ਆਟੋ-ਮੈਮੋਰੀ, ਅਤੇ CLAUDE.md ਆਟੋ-ਖੋਜ ਛੱਡੋ]'
     '--ax-screen-reader[ਸਕ੍ਰੀਨ-ਰੀਡਰ ਅਨੁਕੂਲ ਆਉਟਪੁੱਟ ਪੇਸ਼ ਕਰੋ (ਸਮਤਲ ਟੈਕਸਟ, ਕੋਈ ਸਜਾਵਟੀ ਬਾਰਡਰ ਜਾਂ ਐਨੀਮੇਸ਼ਨ ਨਹੀਂ)]'
@@ -304,7 +319,7 @@ _claude() {
         mcp)
           _claude_mcp
           ;;
-        plugin)
+        plugin|plugins)
           _claude_plugin
           ;;
         install)
@@ -324,6 +339,12 @@ _claude() {
         rm)
           _claude_rm
           ;;
+        remote-control|rc|remote|sync|bridge)
+          _claude_remote_control
+          ;;
+        daemon)
+          _claude_daemon
+          ;;
         auth)
           _claude_auth
           ;;
@@ -333,17 +354,24 @@ _claude() {
         gateway)
           _claude_gateway
           ;;
+        self-hosted-runner)
+          _claude_self_hosted_runner
+          ;;
         import)
           _claude_import
           ;;
         project)
           _claude_project
           ;;
+        purge)
+          _claude_purge
+          ;;
         ultrareview)
           _claude_ultrareview
           ;;
-        setup-token|doctor|update)
-          _message "ਕੋਈ ਆਰਗੂਮੈਂਟ ਨਹੀਂ"
+        setup-token|doctor|update|upgrade)
+          _arguments \
+            '(-h --help)'{-h,--help}'[ਕਮਾਂਡ ਲਈ ਮਦਦ ਪ੍ਰਦਰਸ਼ਿਤ ਕਰੋ]'
           ;;
         *)
           # Not a command but the prompt: options may still follow it
@@ -502,6 +530,7 @@ _claude_plugin() {
         validate)
           _arguments \
             '--strict[ਚੇਤਾਵਨੀਆਂ ਨੂੰ ਗਲਤੀਆਂ ਵਜੋਂ ਮੰਨੋ (ਐਗਜ਼ਿਟ ਕੋਡ 1)]' \
+            '--profile[ਜਦੋਂ ਨਾਮ ਵਾਲਾ ਕੈਟਾਲਾਗ ਇਸ ਕਮਾਂਡ ਵੱਲੋਂ ਚਲਾਈ ਜਾਂਦੀ ਜਾਂਚ ਤੇ ਪਲੱਗਇਨ ਦੀ ਸਬਮਿਸ਼ਨ ਰੱਦ ਕਰੇਗਾ ਤਾਂ ਵੀ exit 1 ਨਾਲ ਬਾਹਰ ਨਿਕਲੋ]:name:(directory)' \
             '--json[ਪ੍ਰਮਾਣਿਕਤਾ ਰਿਪੋਰਟ ਨੂੰ JSON ਵਜੋਂ ਆਉਟਪੁੱਟ ਕਰੋ (ਉਹੀ ਐਗਜ਼ਿਟ ਕੋਡ)]' \
             '(-h --help)'{-h,--help}'[ਮਦਦ ਪ੍ਰਦਰਸ਼ਿਤ ਕਰੋ]' \
             '1:path:_files'
@@ -512,7 +541,10 @@ _claude_plugin() {
         install|i)
           _arguments \
             '(-s --scope)'{-s,--scope}'[ਇੰਸਟਾਲੇਸ਼ਨ ਸਕੋਪ]:scope:(user project local)' \
+            '--accept-command[ਮਾਰਕੀਟਪਲੇਸ ਵੱਲੋਂ ਘੋਸ਼ਿਤ ਉਹ ਕਮਾਂਡ ਸਵੀਕਾਰ ਕਰੋ ਜਿਸਦਾ sha256 ਪਿਛਲੀ --json ਰਨ ਨੇ shownCommand.sha256 ਵਜੋਂ ਦੱਸਿਆ ਸੀ]:sha256:' \
             '*--config[ਪਲੱਗਇਨ ਮੈਨੀਫੈਸਟ ਵਿੱਚ ਘੋਸ਼ਿਤ ਇੱਕ userConfig ਵਿਕਲਪ ਸੈੱਟ ਕਰੋ (ਦੁਹਰਾਉਣਯੋਗ)]:key=value:' \
+            '--marketplace[ਇਸ ਸਰੋਤ (owner/repo, git ਜਾਂ https URL, ਜਾਂ ਮਾਰਗ) ਵਾਲੇ ਮਾਰਕੀਟਪਲੇਸ ਤੋਂ ਪਲੱਗਇਨ ਨੂੰ ਉਸਦੇ ਸਾਦੇ ਨਾਮ ਨਾਲ ਇੰਸਟਾਲ ਕਰੋ, ਲੋੜ ਹੋਵੇ ਤਾਂ ਪਹਿਲਾਂ ਮਾਰਕੀਟਪਲੇਸ ਜੋੜੋ]:source:' \
+            '--registry[package@npm ਇੰਸਟਾਲ ਲਈ: ਇਸ npm registry ਤੋਂ resolve ਅਤੇ ਡਾਊਨਲੋਡ ਕਰੋ]:url:' \
             '(-y --yes)'{-y,--yes}'[ਮਾਰਕੀਟਪਲੇਸ ਦੁਆਰਾ ਘੋਸ਼ਿਤ ਪ੍ਰਦਰਸ਼ਿਤ ਕਮਾਂਡ ਨੂੰ ਪੁਸ਼ਟੀ ਪ੍ਰੌਂਪਟ ਤੋਂ ਬਿਨਾਂ ਸਵੀਕਾਰ ਕਰੋ]' \
             '--json[ਮਨੁੱਖੀ ਸੰਦੇਸ਼ ਦੀ ਬਜਾਏ ਇੱਕ ਮਸ਼ੀਨ-ਪੜ੍ਹਨਯੋਗ ਨਤੀਜਾ ਲਾਈਨ ਪ੍ਰਿੰਟ ਕਰੋ]' \
             '(-h --help)'{-h,--help}'[ਮਦਦ ਪ੍ਰਦਰਸ਼ਿਤ ਕਰੋ]' \
@@ -545,6 +577,7 @@ _claude_plugin() {
           ;;
         update)
           _arguments \
+            '--accept-command[ਮਾਰਕੀਟਪਲੇਸ ਵੱਲੋਂ ਘੋਸ਼ਿਤ ਉਹ ਕਮਾਂਡ ਸਵੀਕਾਰ ਕਰੋ ਜਿਸਦਾ sha256 ਪਿਛਲੀ --json ਰਨ ਨੇ shownCommand.sha256 ਵਜੋਂ ਦੱਸਿਆ ਸੀ]:sha256:' \
             '(-s --scope)'{-s,--scope}'[ਇੰਸਟਾਲੇਸ਼ਨ ਸਕੋਪ]:scope:(user project local managed)' \
             '(-y --yes)'{-y,--yes}'[ਮਾਰਕੀਟਪਲੇਸ ਦੁਆਰਾ ਘੋਸ਼ਿਤ ਪ੍ਰਦਰਸ਼ਿਤ ਕਮਾਂਡ ਨੂੰ ਪੁਸ਼ਟੀ ਪ੍ਰੌਂਪਟ ਤੋਂ ਬਿਨਾਂ ਸਵੀਕਾਰ ਕਰੋ]' \
             '--json[ਮਨੁੱਖੀ ਸੰਦੇਸ਼ ਦੀ ਬਜਾਏ ਇੱਕ ਮਸ਼ੀਨ-ਪੜ੍ਹਨਯੋਗ ਨਤੀਜਾ ਲਾਈਨ ਪ੍ਰਿੰਟ ਕਰੋ]' \
@@ -555,6 +588,7 @@ _claude_plugin() {
           _arguments \
             '--json[JSON ਵਜੋਂ ਆਉਟਪੁੱਟ ਕਰੋ]' \
             '--available[ਮਾਰਕੀਟਪਲੇਸਾਂ ਤੋਂ ਉਪਲਬਧ ਪਲੱਗਇਨਾਂ ਸ਼ਾਮਲ ਕਰੋ (--json ਲੋੜੀਂਦਾ ਹੈ)]' \
+            '--data-size[ਹਰ ਇੰਸਟਾਲ ਕੀਤੀ ਪਲੱਗਇਨ ਦੀ ਸੁਰੱਖਿਅਤ ਡਾਟਾ ਡਾਇਰੈਕਟਰੀ, ਜਾਂ ਸਿਰਫ਼ ਨਾਮ ਵਾਲੀ ਪਲੱਗਇਨ ਮਾਪੋ (--json ਲੋੜੀਂਦਾ ਹੈ)]::plugin:_claude_installed_plugins' \
             '(-h --help)'{-h,--help}'[ਮਦਦ ਪ੍ਰਦਰਸ਼ਿਤ ਕਰੋ]'
           ;;
         prune|autoremove)
@@ -587,6 +621,15 @@ _claude_plugin() {
             '1:name:'
           ;;
         eval)
+          if [[ $words[2] == init ]]; then
+            _arguments \
+              '--bare[ਇੰਟਰਵਿਊ ਚਲਾਉਣ ਦੀ ਬਜਾਏ ਖਾਲੀ ਟੈਂਪਲੇਟ ਲਿਖੋ]' \
+              '--eval-dir[ਕੇਸ ਲਿਖਣ ਲਈ ਮੌਜੂਦਾ ਡਾਇਰੈਕਟਰੀ ਦੇ ਹੇਠਾਂ ਡਾਇਰੈਕਟਰੀ]:dir:_directories' \
+              '(-i --interactive)'{-i,--interactive}'[ਲੇਖਨ ਇੰਟਰਵਿਊ ਚਲਾਓ (ਇੰਟਰਐਕਟਿਵ ਟਰਮੀਨਲ ਲੋੜੀਂਦਾ ਹੈ)]' \
+              '(-h --help)'{-h,--help}'[ਮਦਦ ਪ੍ਰਦਰਸ਼ਿਤ ਕਰੋ]' \
+              '::name:'
+            return
+          fi
           _arguments \
             '--case[ਨਾਮ glob ਦੁਆਰਾ ਕੇਸ ਫਿਲਟਰ ਕਰੋ]:glob:' \
             '*--tag[ਟੈਗ ਦੁਆਰਾ ਕੇਸ ਫਿਲਟਰ ਕਰੋ (ਦੁਹਰਾਉਣਯੋਗ)]:tag:' \
@@ -600,6 +643,7 @@ _claude_plugin() {
             '--json[ਪੂਰਾ ਰਨ ਨਤੀਜਾ JSON ਵਜੋਂ stdout ਤੇ ਪ੍ਰਿੰਟ ਕਰੋ, ਜਾਂ ਇਸਨੂੰ ਇਸ .json ਫਾਈਲ ਵਿੱਚ ਲਿਖੋ]::path:_files' \
             '--threshold[ਜੇਕਰ ਕਿਸੇ ਕੇਸ ਦਾ ਸਕੋਰ ਇਸ ਸੀਮਾ ਤੋਂ ਘੱਟ ਹੈ ਤਾਂ ਐਗਜ਼ਿਟ ਕੋਡ 1 ਨਾਲ ਬਾਹਰ ਨਿਕਲੋ (ਡਿਫਾਲਟ: 1.0)]:threshold:' \
             '*--allow-tools[ਗੇਟ ਕੀਤੇ ਟੂਲਾਂ ਲਈ ਓਪਰੇਟਰ ਇਜਾਜ਼ਤ (Bash, Write, Edit, WebFetch, mcp__*)]:tools:' \
+            '*--disallow-tools[ਬਿਲਟ-ਇਨ ਟੂਲ ਜੋ ਹਰ ਹਾਲਤ ਵਿੱਚ Claude ਤੋਂ ਦੂਰ ਰੱਖਣੇ ਹਨ, ਭਾਵੇਂ ਇਜਾਜ਼ਤ ਦਿੱਤੀ ਹੋਵੇ]:tools:' \
             '(--no-scaffold)--scaffold[ਹਰੇਕ ਕੇਸ ਦੀ scaffold_script ਚਲਾਓ (ਲੇਖਕ ਦੁਆਰਾ ਦਿੱਤੀ bash ਤੁਹਾਡੇ ਖਾਤੇ ਹੇਠ ਚਲਾਉਂਦਾ ਹੈ; ਡਿਫਾਲਟ ਰੂਪ ਵਿੱਚ ਬੰਦ)]' \
             '(--scaffold)--no-scaffold[scaffold_script ਨੂੰ ਸਪੱਸ਼ਟ ਤੌਰ ਤੇ ਛੱਡੋ]' \
             '--trust-plugin[ਪੁਸ਼ਟੀ ਕਰੋ ਕਿ ਤੁਸੀਂ ਇਸ ਪਲੱਗਇਨ ਅਤੇ ਇਸਦੇ eval ਸੂਟ ਤੇ ਭਰੋਸਾ ਕਰਦੇ ਹੋ, ਪਹਿਲੀ-ਰਨ ਭਰੋਸਾ ਪ੍ਰੌਂਪਟ ਛੱਡਦੇ ਹੋਏ (CI ਲਈ)]' \
@@ -612,7 +656,7 @@ _claude_plugin() {
             '(--no-publish)--publish-report[ਰਿਪੋਰਟ ਨੂੰ claude.ai ਤੇ ਪ੍ਰਕਾਸ਼ਿਤ ਕਰਨਾ ਵੀ ਲਾਜ਼ਮੀ ਕਰੋ]' \
             '(--publish-report)--no-publish[HTML ਰਿਪੋਰਟ ਨੂੰ ਸਿਰਫ਼ ਸਥਾਨਕ ਰੱਖੋ; ਇਸਨੂੰ claude.ai ਤੇ ਪ੍ਰਕਾਸ਼ਿਤ ਕਰਨਾ ਛੱਡੋ]' \
             '(-h --help)'{-h,--help}'[ਮਦਦ ਪ੍ਰਦਰਸ਼ਿਤ ਕਰੋ]' \
-            '::target: _alternative "plugins\:installed plugin\:_claude_installed_plugins" "files\:path\:_files"'
+            '::target: _alternative "commands\:eval command\:(init)" "plugins\:installed plugin\:_claude_installed_plugins" "files\:path\:_files"'
           ;;
         tag)
           _arguments \
@@ -663,6 +707,7 @@ _claude_plugin_marketplace() {
           _arguments \
             '--sparse[git sparse-checkout ਰਾਹੀਂ ਚੈੱਕਆਉਟ ਨੂੰ ਖਾਸ ਡਾਇਰੈਕਟਰੀਆਂ ਤੱਕ ਸੀਮਤ ਕਰੋ (ਮੋਨੋਰੇਪੋ ਲਈ)]:paths:' \
             '--scope[ਮਾਰਕੀਟਪਲੇਸ ਨੂੰ ਕਿੱਥੇ ਘੋਸ਼ਿਤ ਕਰਨਾ ਹੈ]:scope:(user project local)' \
+            '--json[stdout ਤੇ ਆਖਰੀ ਲਾਈਨ ਵਜੋਂ ਇੱਕ ਮਸ਼ੀਨ-ਪੜ੍ਹਨਯੋਗ ਨਤੀਜਾ ਲਾਈਨ ਪ੍ਰਿੰਟ ਕਰੋ]' \
             '--claudeai[ਇਸ ਨਾਮ ਦਾ ਮਾਰਕੀਟਪਲੇਸ ਜੋੜੋ ਜੋ claude.ai ਤੁਹਾਡੇ ਲਈ ਹੋਸਟ ਕਰਦਾ ਹੈ]' \
             '(-h --help)'{-h,--help}'[ਮਦਦ ਪ੍ਰਦਰਸ਼ਿਤ ਕਰੋ]' \
             '1:source:'
@@ -675,11 +720,13 @@ _claude_plugin_marketplace() {
         remove|rm)
           _arguments \
             '--scope[ਇੱਕ ਖਾਸ ਸੈਟਿੰਗਜ਼ ਸਕੋਪ ਤੋਂ ਮਾਰਕੀਟਪਲੇਸ ਘੋਸ਼ਣਾ ਹਟਾਓ (ਹਰ ਸਕੋਪ ਤੋਂ ਹਟਾਉਣ ਲਈ ਛੱਡ ਦਿਓ)]:scope:(user project local)' \
+            '--json[stdout ਤੇ ਆਖਰੀ ਲਾਈਨ ਵਜੋਂ ਇੱਕ ਮਸ਼ੀਨ-ਪੜ੍ਹਨਯੋਗ ਨਤੀਜਾ ਲਾਈਨ ਪ੍ਰਿੰਟ ਕਰੋ]' \
             '(-h --help)'{-h,--help}'[ਮਦਦ ਪ੍ਰਦਰਸ਼ਿਤ ਕਰੋ]' \
             '1:name:'
           ;;
         update)
           _arguments \
+            '--json[ਮਾਰਕੀਟਪਲੇਸ ਨਾਮ ਨਾਲ: stdout ਤੇ ਆਖਰੀ ਲਾਈਨ ਵਜੋਂ ਇੱਕ ਮਸ਼ੀਨ-ਪੜ੍ਹਨਯੋਗ ਨਤੀਜਾ ਲਾਈਨ ਪ੍ਰਿੰਟ ਕਰੋ]' \
             '(-h --help)'{-h,--help}'[ਮਦਦ ਪ੍ਰਦਰਸ਼ਿਤ ਕਰੋ]' \
             '::name:'
           ;;
@@ -851,12 +898,23 @@ _claude_project() {
   esac
 }
 
+_claude_purge() {
+  _arguments \
+    '--dry-run[ਕੁਝ ਵੀ ਮਿਟਾਏ ਬਿਨਾਂ ਸੂਚੀ ਦਿਖਾਓ ਕਿ ਕੀ ਮਿਟਾਇਆ ਜਾਵੇਗਾ]' \
+    '(-y --yes)'{-y,--yes}'[ਪੁਸ਼ਟੀ ਪ੍ਰੌਂਪਟ ਛੱਡੋ]' \
+    '(-i --interactive)'{-i,--interactive}'[ਮਿਟਾਉਣ ਤੋਂ ਪਹਿਲਾਂ ਹਰੇਕ ਆਈਟਮ ਲਈ ਪ੍ਰੌਂਪਟ ਕਰੋ]' \
+    '(1)--all[ਹਰ ਪ੍ਰੋਜੈਕਟ ਲਈ ਸਥਿਤੀ ਸਾਫ਼ ਕਰੋ (ਮਾਰਗ ਨਾਲ ਪਰਸਪਰ ਨਿਵੇਕਲਾ)]' \
+    '(-h --help)'{-h,--help}'[ਕਮਾਂਡ ਲਈ ਮਦਦ ਪ੍ਰਦਰਸ਼ਿਤ ਕਰੋ]' \
+    '(--all)::path:_directories'
+}
+
 _claude_ultrareview() {
   _arguments \
     '--json[ਫਾਰਮੈਟ ਕੀਤੇ ਨਤੀਜਿਆਂ ਦੀ ਬਜਾਏ ਕੱਚਾ bugs.json ਪੇਲੋਡ ਪ੍ਰਿੰਟ ਕਰੋ]' \
     '--timeout[ਸਮੀਖਿਆ ਪੂਰੀ ਹੋਣ ਦੀ ਉਡੀਕ ਲਈ ਵੱਧ ਤੋਂ ਵੱਧ ਮਿੰਟ (ਡਿਫਾਲਟ: 45)]:minutes:' \
     '(--no-post)--post[ਪੂਰੀ ਹੋਈ ਸਮੀਖਿਆ ਦੀਆਂ ਖੋਜਾਂ ਨੂੰ ਤੁਹਾਡੇ ਨਾਮ ਹੇਠ PR ਤੇ ਪੋਸਟ ਕਰੋ (ਸਿਰਫ਼ PR ਟੀਚੇ; ਇੱਕ ਸਾਦੀ ਟਿੱਪਣੀ, ਸਮੀਖਿਆ ਨਹੀਂ)]' \
     '(--post)--no-post[ਖੋਜਾਂ ਨੂੰ PR ਤੇ ਪੋਸਟ ਨਾ ਕਰੋ (ਡਿਫਾਲਟ)]' \
+    '--trust-workspace[ਪੁੱਛੇ ਬਿਨਾਂ ਸਿਰਫ਼ ਇਸ ਰਨ ਲਈ ਮੌਜੂਦਾ ਫੋਲਡਰ ਤੇ ਭਰੋਸਾ ਕਰੋ (ਸਕ੍ਰਿਪਟਾਂ ਅਤੇ CI ਲਈ)]' \
     '(-h --help)'{-h,--help}'[ਕਮਾਂਡ ਲਈ ਮਦਦ ਪ੍ਰਦਰਸ਼ਿਤ ਕਰੋ]' \
     '1:target:'
 }
@@ -874,6 +932,117 @@ _claude_rm() {
     '--force-remove-worktree[worktree ਡਾਇਰੈਕਟਰੀ ਮਿਟਾਓ ਭਾਵੇਂ WorktreeRemove ਹੁੱਕ ਜਾਂ git ਇਸਨੂੰ ਹਟਾ ਨਹੀਂ ਸਕੇ (ਪਿਛਲੇ claude rm ਦੁਆਰਾ ਰਿਪੋਰਟ ਕੀਤਾ worktree-id ਦਿਓ)]:worktree-id:' \
     '(-h --help)'{-h,--help}'[ਕਮਾਂਡ ਲਈ ਮਦਦ ਪ੍ਰਦਰਸ਼ਿਤ ਕਰੋ]' \
     '1:session:_claude_background_sessions'
+}
+
+_claude_self_hosted_runner() {
+  _arguments \
+    '--api-url[API ਬੇਸ URL (ਡਿਫਾਲਟ: https://api.anthropic.com)]:url:' \
+    '--environment-secret-file[ਵਾਤਾਵਰਣ ਸੀਕ੍ਰੇਟ ਫਾਈਲ ਦਾ ਮਾਰਗ]:path:_files' \
+    '--lock-to-account[ਰਜਿਸਟ੍ਰੇਸ਼ਨ ਵੇਲੇ runner ਨੂੰ ਇੱਕ ਹੀ ਖਾਤੇ ਤੇ ਲਾਕ ਕਰੋ]:id:' \
+    '--client-label[ਰਜਿਸਟ੍ਰੇਸ਼ਨ ਵੇਲੇ ਭੇਜਿਆ ਜਾਂਦਾ ਨਿਗਰਾਨੀ ਲੇਬਲ (ਡਿਫਾਲਟ: hostname)]:label:' \
+    '(--proxy-authorization-file --agent-proxy-url)--proxy-authorization-command[ਕਮਾਂਡ ਜਿਸਦਾ stdout egress ਪ੍ਰੌਕਸੀਆਂ ਲਈ Proxy-Authorization ਹੈਡਰ ਹੈ]:shell command:' \
+    '(--proxy-authorization-command --agent-proxy-url)--proxy-authorization-file[egress ਪ੍ਰੌਕਸੀਆਂ ਲਈ Proxy-Authorization ਹੈਡਰ ਵਾਲੀ ਫਾਈਲ]:path:_files' \
+    '(--proxy-authorization-command --proxy-authorization-file)--agent-proxy-url[ਹਰ ਸੈਸ਼ਨ ਨੂੰ ਇਸ URL ਤੇ ਏਜੰਟ ਪ੍ਰੌਕਸੀ ਰਾਹੀਂ ਭੇਜੋ (ਸਿਰਫ਼ https)]:url:' \
+    '--capacity[ਵੱਧ ਤੋਂ ਵੱਧ ਸਮਕਾਲੀ ਸੈਸ਼ਨ (ਡਿਫਾਲਟ: 1)]:n:' \
+    '--base-dir[repo checkouts ਲਈ ਬੇਸ ਡਾਇਰੈਕਟਰੀ (ਡਿਫਾਲਟ: /workspace)]:path:_directories' \
+    '--exec-path[ਚਾਈਲਡ ਸੈਸ਼ਨਾਂ ਲਈ ਚਲਾਈ ਜਾਣ ਵਾਲੀ ਬਾਈਨਰੀ (ਡਿਫਾਲਟ: ਇਹ ਬਾਈਨਰੀ)]:path:_files' \
+    '--hooks-dir[ਜੀਵਨ-ਚੱਕਰ hook ਸਕ੍ਰਿਪਟਾਂ ਦੀ ਡਾਇਰੈਕਟਰੀ (checkout, command, post-session)]:path:_directories' \
+    '--session-stop-grace-sec[ਸੈਸ਼ਨ ਖਤਮ ਹੋਣ ਤੋਂ ਬਾਅਦ ਸਾਫ਼ exit ਲਈ ਕਿੰਨੀ ਦੇਰ ਉਡੀਕ ਕਰਨੀ ਹੈ (ਡਿਫਾਲਟ: 5)]:n:' \
+    '--post-session-hook-timeout-sec[post-session hook ਲਈ SIGTERM ਸਮਾਂ ਸੀਮਾ (ਡਿਫਾਲਟ: 60)]:n:' \
+    '--checkout-hook-timeout-min[checkout hook ਦੀ ਹਰ ਰਨ ਲਈ ਅਸਲ ਸਮੇਂ ਦੀ ਸੀਮਾ (ਡਿਫਾਲਟ: 30; 0 ਅਸਮਰੱਥ ਕਰਦਾ ਹੈ)]:n:' \
+    '--drain-wait-sec[SIGTERM/SIGINT ਤੇ, ਚੱਲ ਰਹੇ ਕੰਮ ਲਈ N ਸਕਿੰਟਾਂ ਤੱਕ ਉਡੀਕ ਕਰੋ (ਡਿਫਾਲਟ: 0)]:n:' \
+    '--drain-marker-file[ਮਾਰਕਰ ਫਾਈਲ ਜਿਸ ਨਾਲ ਹੋਸਟ graceful drain ਦਾ ਐਲਾਨ ਕਰਦਾ ਹੈ]:path:_files' \
+    '*--git-ssh-rewrite[https://<host>/... ਸਰੋਤ URL ਨੂੰ git@<host>:... ਵਿੱਚ ਦੁਬਾਰਾ ਲਿਖੋ (ਦੁਹਰਾਉਣਯੋਗ)]:host:' \
+    '*--git-host-rewrite[https://<f>/... ਸਰੋਤ URL ਨੂੰ https://<t>/... ਵਿੱਚ ਦੁਬਾਰਾ ਲਿਖੋ (ਦੁਹਰਾਉਣਯੋਗ)]:from=to:' \
+    '--use-anthropic-git-proxy[Anthropic-ਪ੍ਰਬੰਧਿਤ git ਵਰਤੋ। ਚੇਤਾਵਨੀ: HOME-ਪੱਧਰ ਦੀ git ਕੌਂਫਿਗ ਮਿਟਾ ਕੇ ਬਦਲ ਦਿੰਦਾ ਹੈ, ਸਿਰਫ਼ ਸਮਰਪਿਤ ਖਾਤੇ ਹੇਠ ਵਰਤੋ]' \
+    '--configure-git[ਗਲੋਬਲ git ਪਛਾਣ ਸੈੱਟ ਕਰੋ ਅਤੇ Anthropic ਸਾਈਨਿੰਗ ਸੇਵਾ ਰਾਹੀਂ commit ਸਾਈਨਿੰਗ ਸਮਰੱਥ ਕਰੋ। ~/.gitconfig ਲਿਖਦਾ ਹੈ]' \
+    '--push-outcome-on-release[runner ਵੱਲੋਂ ਸ਼ੁਰੂ ਕੀਤੇ ਅਧੂਰੇ ਸੈਸ਼ਨ ਅੰਤ ਤੇ ਟ੍ਰੈਕ ਕੀਤੀਆਂ ਨਤੀਜਾ ਬ੍ਰਾਂਚਾਂ push ਕਰੋ]' \
+    '--trust-workspace[ਹਰ ਸੈਸ਼ਨ ਦੇ repo ਮਾਰਗਾਂ ਲਈ ਸਥਾਈ ਭਰੋਸਾ ਪਹਿਲਾਂ ਤੋਂ ਸੈੱਟ ਕਰੋ (ਡਿਫਾਲਟ: true)]::bool:(true false)' \
+    '--remove-session-state[ਸੈਸ਼ਨ ਖਤਮ ਹੋਣ ਤੇ ਪ੍ਰਤੀ-ਸੈਸ਼ਨ ਸਥਿਤੀ ਹਟਾਓ (ਡਿਫਾਲਟ: false)]::bool:(true false)' \
+    '--diff-finds-nested-repository[ਉਪ-ਫੋਲਡਰ ਵਿੱਚ clone ਕੀਤੀ ਰਿਪੋਜ਼ਿਟਰੀ ਨੂੰ Changes ਪੇਨ ਵਿੱਚ ਦਿਖਾਓ; --capacity 1 ਲੋੜੀਂਦਾ ਹੈ (ਡਿਫਾਲਟ: false)]::bool:(true false)' \
+    '--confine-repo-settings[repo ਵਿੱਚ commit ਕੀਤੀਆਂ ਸੈਟਿੰਗਾਂ ਨੂੰ ਸੀਮਤ ਕਰਨ ਵਾਲਾ ਗਾਰਡ ਮੋਡ (ਡਿਫਾਲਟ: warn)]:mode:(warn enforce off)' \
+    '--server-auto-mode-lists[ਸੈਸ਼ਨ ਸਰਵਰ ਤੋਂ ਕਿਹੜੀਆਂ ਆਟੋ ਮੋਡ ਵਰਗੀਕਰਤਾ ਸੂਚੀਆਂ ਪ੍ਰਾਪਤ ਕਰ ਸਕਦਾ ਹੈ (ਡਿਫਾਲਟ: no-allow)]:mode:(all no-allow none)' \
+    '--host-config-snapshot[ਹੋਸਟ ਕੌਂਫਿਗ ਦਾ ਸਟਾਰਟਅੱਪ ਸਨੈਪਸ਼ਾਟ ਕਿੱਥੇ ਰੱਖਿਆ ਜਾਂਦਾ ਹੈ (ਡਿਫਾਲਟ: disk)]:mode:(disk memory)' \
+    '--health-port[/healthz HTTP listener ਲਈ ਪੋਰਟ (ਡਿਫਾਲਟ: 8080; 0 ਅਸਮਰੱਥ ਕਰਦਾ ਹੈ)]:port:' \
+    '--log-level[ਲੌਗ ਪੱਧਰ (ਡਿਫਾਲਟ: info)]:level:(info debug)' \
+    '--log-file[runner ਲੌਗਾਂ ਨੂੰ append ਮੋਡ ਵਿੱਚ ਫਾਈਲ ਵਿੱਚ ਵੀ ਲਿਖੋ (tee)]:path:_files' \
+    '--exit-if-unused-min[ਜੇ N ਮਿੰਟਾਂ ਤੱਕ ਕਦੇ ਕੰਮ ਨਹੀਂ ਸੌਂਪਿਆ ਗਿਆ ਤਾਂ runner ਤੋਂ ਬਾਹਰ ਨਿਕਲੋ]:n:' \
+    '--drain-grace-sec[ਸਰਗਰਮ ਸੈਸ਼ਨ ਖਤਮ ਹੋਣ ਤੋਂ ਬਾਅਦ ਕੰਮ ਲਈ ਮੁੜ-ਪੋਲ ਕਰਦੇ ਰਹਿਣ ਦੇ ਸਕਿੰਟ (ਡਿਫਾਲਟ: 0)]:n:' \
+    '--retire-at[ਇਸ ਨਿਰਪੇਖ Unix ਸਮੇਂ (ਸਕਿੰਟਾਂ ਵਿੱਚ) ਤੇ runner ਨੂੰ ਰਿਟਾਇਰ ਕਰੋ]:epoch-seconds:' \
+    '--defer-shutdown-max-min[ਪਹਿਲੇ SIGTERM/SIGINT ਤੇ, ਕੰਮ ਲੈਣਾ ਬੰਦ ਕਰੋ ਅਤੇ M ਮਿੰਟਾਂ ਬਾਅਦ ਬੰਦ ਕਰਨਾ ਪੂਰਾ ਕਰੋ (ਡਿਫਾਲਟ: 0)]:m:' \
+    '--release-idle-session-min[N ਮਿੰਟਾਂ ਤੱਕ ਕੋਈ ਯੂਜ਼ਰ ਇਨਪੁੱਟ ਨਾ ਹੋਣ ਤੇ ਸੈਸ਼ਨ ਸਲਾਟ ਖਾਲੀ ਕਰੋ]:n:' \
+    '--startup-timeout-min[ਜੇ N ਮਿੰਟਾਂ ਬਾਅਦ ਵੀ ਚਾਈਲਡ ਦਾ ਸ਼ੁਰੂ ਹੋਣਾ ਪੂਰਾ ਨਹੀਂ ਹੋਇਆ ਤਾਂ ਸੈਸ਼ਨ ਸਲਾਟ ਖਾਲੀ ਕਰੋ (ਡਿਫਾਲਟ: 15; 0 ਅਸਮਰੱਥ ਕਰਦਾ ਹੈ)]:n:' \
+    '--kill-session-after-min[ਸੈਸ਼ਨ ਚਾਈਲਡ ਦੀ ਅਸਲ ਸਮੇਂ ਦੀ ਉਮਰ N ਮਿੰਟਾਂ ਤੱਕ ਸੀਮਤ ਕਰੋ]:n:' \
+    '--debug-token-dir[ਸਿਰਫ਼ ਡੀਬੱਗ ਲਈ: ਲਾਈਵ ਟੋਕਨ ਡਿਸਕ ਤੇ ਲਿਖਦਾ ਹੈ। ਪ੍ਰੋਡਕਸ਼ਨ ਵਿੱਚ ਨਾ ਵਰਤੋ]:path:_directories' \
+    '(-h --help)'{-h,--help}'[ਇਹ ਮਦਦ ਸੁਨੇਹਾ ਦਿਖਾਓ]'
+}
+
+_claude_remote_control() {
+  _arguments \
+    '--name[ਸੈਸ਼ਨ ਲਈ ਨਾਮ (claude.ai/code ਵਿੱਚ ਦਿਖਾਇਆ ਜਾਂਦਾ ਹੈ)]:name:' \
+    '--remote-control-session-name-prefix[ਆਟੋ-ਜਨਰੇਟ ਕੀਤੇ ਸੈਸ਼ਨ ਨਾਵਾਂ ਲਈ ਅਗੇਤਰ (ਡਿਫਾਲਟ: hostname)]:prefix:' \
+    '(-c --continue --session-id)'{-c,--continue}'[ਇਸ ਡਾਇਰੈਕਟਰੀ ਜਾਂ ਇਸਦੇ ਕਿਸੇ git worktree ਲਈ ਆਖਰੀ ਵਾਰ ਦਰਜ ਕੀਤੇ ਸੈਸ਼ਨ ਨਾਲ ਮੁੜ ਜੁੜੋ]' \
+    '(-c --continue --session-id)--session-id[ID ਦੁਆਰਾ ਕਿਸੇ ਖਾਸ ਸੈਸ਼ਨ ਨਾਲ ਮੁੜ ਜੁੜੋ]:id:' \
+    '--permission-mode[ਸ਼ੁਰੂ ਕੀਤੇ ਸੈਸ਼ਨਾਂ ਲਈ ਇਜਾਜ਼ਤ ਮੋਡ]:mode:(acceptEdits auto bypassPermissions default dontAsk plan)' \
+    '(--no-chrome)--chrome[ਸ਼ੁਰੂ ਕੀਤੇ ਸੈਸ਼ਨਾਂ ਲਈ Claude in Chrome ਸਮਰੱਥ ਕਰੋ]' \
+    '(--chrome)--no-chrome[ਸ਼ੁਰੂ ਕੀਤੇ ਸੈਸ਼ਨਾਂ ਲਈ Claude in Chrome ਅਸਮਰੱਥ ਕਰੋ]' \
+    '(-d --debug)'{-d,--debug}'[ਵਿਕਲਪਿਕ ਸ਼੍ਰੇਣੀ ਫਿਲਟਰਿੰਗ ਨਾਲ ਡੀਬੱਗ ਮੋਡ ਸਮਰੱਥ ਕਰੋ]::filter:' \
+    '--debug-file[ਡੀਬੱਗ ਲੌਗ ਫਾਈਲ ਵਿੱਚ ਲਿਖੋ]:path:_files' \
+    '(-v --verbose)'{-v,--verbose}'[ਵਿਸਤ੍ਰਿਤ ਆਉਟਪੁੱਟ ਸਮਰੱਥ ਕਰੋ]' \
+    '--spawn[spawn ਮੋਡ (ਡਿਫਾਲਟ: same-dir)]:mode:(same-dir worktree session)' \
+    '--capacity[worktree ਜਾਂ same-dir ਮੋਡ ਵਿੱਚ ਵੱਧ ਤੋਂ ਵੱਧ ਸਮਕਾਲੀ ਸੈਸ਼ਨ (ਡਿਫਾਲਟ: 32)]:n:' \
+    '(--no-create-session-in-dir)--create-session-in-dir[ਮੌਜੂਦਾ ਡਾਇਰੈਕਟਰੀ ਵਿੱਚ ਪਹਿਲਾਂ ਤੋਂ ਇੱਕ ਸੈਸ਼ਨ ਬਣਾਓ (ਡਿਫਾਲਟ)]' \
+    '(--create-session-in-dir)--no-create-session-in-dir[ਮੌਜੂਦਾ ਡਾਇਰੈਕਟਰੀ ਵਿੱਚ ਪਹਿਲਾਂ ਤੋਂ ਸੈਸ਼ਨ ਨਾ ਬਣਾਓ]' \
+    '(-h --help)'{-h,--help}'[ਇਹ ਮਦਦ ਦਿਖਾਓ]'
+}
+
+_claude_daemon() {
+  local -a daemon_commands common_options
+  daemon_commands=(
+    'run:ਸੁਪਰਵਾਈਜ਼ਰ ਨੂੰ ਫੋਰਗ੍ਰਾਊਂਡ ਵਿੱਚ ਚਲਾਓ'
+    'status:daemon ਦਾ pid, ਵਰਜਨ, ਅਪਟਾਈਮ ਦਿਖਾਓ'
+    'logs:daemon ਲੌਗ ਨੂੰ ਫਾਲੋ ਕਰੋ (ਰੋਕਣ ਲਈ Ctrl-C)'
+    'uninstall:ਬੈਕਗ੍ਰਾਊਂਡ ਸੇਵਾ ਹਟਾਓ (launchctl/systemd)'
+    'stop:ਸੁਪਰਵਾਈਜ਼ਰ ਬੰਦ ਕਰੋ ਅਤੇ ਬੈਕਗ੍ਰਾਊਂਡ ਸੈਸ਼ਨ ਸਮਾਪਤ ਕਰੋ'
+  )
+  common_options=(
+    '--json-path[ਕੌਂਫਿਗ ਫਾਈਲ (ਡਿਫਾਲਟ: ~/.claude/daemon.json)]:path:_files'
+    '--log-file[ਲੌਗ ਫਾਈਲ (ਡਿਫਾਲਟ: ~/.claude/daemon.log)]:path:_files'
+    '(-h --help)'{-h,--help}'[ਇਹ ਮਦਦ ਦਿਖਾਓ]'
+  )
+
+  local curcontext="$curcontext" state line
+  typeset -A opt_args
+
+  _arguments -C \
+    $common_options \
+    '1: :->command' \
+    '*::arg:->args'
+
+  case $state in
+    command)
+      _describe -t commands 'daemon commands' daemon_commands
+      ;;
+    args)
+      case $words[1] in
+        run)
+          _arguments \
+            $common_options \
+            '::json-path:_files'
+          ;;
+        stop)
+          _arguments \
+            $common_options \
+            '--any[ਇੱਕ ਅਸਥਾਈ (ਗੈਰ-ਸੇਵਾ) daemon ਨੂੰ ਵੀ ਰੋਕੋ]' \
+            '--keep-workers[ਵੱਖ ਕੀਤੇ ਸੈਸ਼ਨਾਂ ਨੂੰ ਚੱਲਦੇ ਰਹਿਣ ਦਿਓ]'
+          ;;
+        status|logs|uninstall)
+          _arguments \
+            $common_options
+          ;;
+      esac
+      ;;
+  esac
 }
 
 _claude_import() {

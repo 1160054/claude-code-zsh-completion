@@ -9,17 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - A Japanese demo (`demo.ja.gif`) under "Other languages" in the README, recorded with `_claude.ja` and Japanese session and job names by `demo/make-ja.sh`
-- `self-hosted-runner`, which `claude --help` does not list. In `_claude` and the `en-*` variants; the translated locales do not carry them yet
-- `remote-control` (its `rc`, `remote`, `sync` and `bridge` aliases work when typed but are not offered) and `daemon`, which `claude --help` does not list. In `_claude` and the `en-*` variants; the translated locales do not carry them yet
-- Top-level options that `claude --help` does not list: `--max-turns`, `--advisor`, `--append-subagent-system-prompt` and its `-file` variant, `--teammate-mode`, `--channels`, `--dangerously-load-development-channels`, `--ref`, `--init`, `--init-only`, `--maintenance`, and the `--rc` and `--remote` aliases. In `_claude` and the `en-*` variants; the translated locales do not carry them yet
-- Subcommand options the drift check cannot see: `plugin install --marketplace`, `plugin validate --profile`, `plugin eval --disallow-tools`, `ultrareview --trust-workspace`, and `-h`/`--help` for `doctor`, `setup-token` and `update`. In `_claude` and the `en-*` variants; the translated locales do not carry them yet
+- `self-hosted-runner`, which `claude --help` does not list, in all 120 files
+- `remote-control` (its `rc`, `remote`, `sync` and `bridge` aliases work when typed but are not offered) and `daemon`, which `claude --help` does not list, in all 120 files
+- Top-level options that `claude --help` does not list: `--max-turns`, `--advisor`, `--append-subagent-system-prompt` and its `-file` variant, `--teammate-mode`, `--channels`, `--dangerously-load-development-channels`, `--ref`, `--init`, `--init-only`, `--maintenance`, and the `--rc` and `--remote` aliases, in all 120 files
+- Subcommand options the drift check cannot see: `plugin install --marketplace`, `plugin validate --profile`, `plugin eval --disallow-tools`, `ultrareview --trust-workspace`, and `-h`/`--help` for `doctor`, `setup-token` and `update`, in all 120 files
 
 ### Changed
 - Demo: `<TAB>` now flashes in plain text where the cursor is, instead of as a green badge at the right edge
 - Demo sessions and background jobs are everyday Claude Code work now: the job started in the demo reviews a PR through the GitHub MCP server just added, and `--resume` lists a CI failure, a pasted `TypeError`, a README pass and login-flow tests
+- The 97 translated locales outside the twelve main ones now also carry the 2.8.0 additions (`purge`, the new `plugin` options, session names in `--resume`)
 
 ### Removed
-- `--mcp-debug`, which the CLI now rejects as an unknown option, from `_claude` and the `en-*` variants
+- `--mcp-debug`, which the CLI now rejects as an unknown option, from all 120 files
+
 ### Fixed
 - Typing the `plugins` or `upgrade` alias now completes like `plugin` and `update`
 - Frisian (`fy`): an unescaped apostrophe left the whole completion unusable

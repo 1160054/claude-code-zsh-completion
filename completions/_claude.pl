@@ -200,9 +200,12 @@ _claude() {
     'stop:Zatrzymaj sesję w tle (jej rozmowa zostaje zachowana)'
     'respawn:Uruchom ponownie sesję w tle, aby działała na bieżącej wersji Claude Code'
     'rm:Usuń sesję w tle, a także jej worktree, gdy jest to bezpieczne'
+    'remote-control:Steruj lokalnymi sesjami z claude.ai/code lub aplikacji mobilnej Claude'
+    'daemon:Zarządzaj nadzorcą sesji w tle'
     'auth:Zarządzaj uwierzytelnianiem'
     'auto-mode:Sprawdź lub zresetuj konfigurację klasyfikatora trybu automatycznego'
     'gateway:Uruchom firmową bramę uwierzytelniania/telemetrii'
+    'self-hosted-runner:Hostuj sesje chmurowe Claude Code na tej maszynie lub w kontenerze'
     'import:Zaimportuj konfigurację innego agenta AI do programowania do Claude Code'
     'project:Zarządzaj stanem projektu Claude Code'
     'purge:Usuń cały stan Claude Code dla projektu (transkrypcje, zadania, historia plików, wpis konfiguracji)'
@@ -222,11 +225,11 @@ _claude() {
     '--json-schema[Schemat JSON do walidacji ustrukturyzowanego wyjścia]:schema:'
     '--include-partial-messages[Dołącz fragmenty częściowych wiadomości w miarę ich napływania (z --print i --output-format=stream-json)]'
     '--input-format[Format wejściowy (z --print): "text" (domyślny) lub "stream-json" (streaming wejściowy w czasie rzeczywistym)]:format:(text stream-json)'
-    '--mcp-debug[\[Przestarzałe. Użyj zamiast tego --debug\] Włącz tryb debugowania MCP (wyświetla błędy serwera MCP)]'
     '--dangerously-skip-permissions[Pomiń wszystkie sprawdzenia uprawnień. Zalecane tylko dla piaskownicy bez dostępu do internetu]'
     '--allow-dangerously-skip-permissions[Włącz opcję pomijania sprawdzania uprawnień bez domyślnego włączania]'
     '--restricted[Tryb ograniczony: usuwa narzędzia uruchamiające polecenia lub kod oraz WebFetch, ignoruje ustawienia user/project/local i ogranicza narzędzia plikowe do katalogów roboczych]'
     '--max-budget-usd[Maksymalna kwota w dolarach do wydania na wywołania API (tylko --print)]:amount:'
+    '--max-turns[Ogranicz liczbę tur agentowych (tylko --print)]:turns:'
     '--replay-user-messages[Ponownie wyślij wiadomości użytkownika z stdin na stdout w celu potwierdzenia]'
     '--allowed-tools[Lista dozwolonych nazw narzędzi oddzielona przecinkami lub spacjami (np. "Bash(git:*) Edit")]:tools:'
     '--allowedTools[Lista dozwolonych nazw narzędzi oddzielona przecinkami lub spacjami (format camelCase)]:tools:'
@@ -238,6 +241,8 @@ _claude() {
     '--system-prompt-file[Wczytaj prompt systemowy z pliku]:file:_files'
     '--append-system-prompt[Dołącz prompt systemowy do domyślnego promptu systemowego]:prompt:'
     '--append-system-prompt-file[Wczytaj prompt systemowy z pliku i dołącz go do domyślnego promptu systemowego]:file:_files'
+    '(--append-subagent-system-prompt-file)--append-subagent-system-prompt[Dołącz tekst do promptu systemowego każdego podagenta (tylko --print)]:prompt:'
+    '(--append-subagent-system-prompt)--append-subagent-system-prompt-file[Odczytaj tekst z pliku i dołącz go do promptów systemowych podagentów (tylko --print)]:file:_files'
     '--system-prompt-snapshot[Zapisz prompt systemowy raz na rozmowę i używaj go bez zmian przy każdym żądaniu i wznowieniu (on, domyślnie) albo generuj go na nowo przy każdym żądaniu (off)]:mode:(on off)'
     '--permission-mode[Tryb uprawnień do użycia w sesji]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)'
     '--permission-prompts[Kto odpowiada na pytania o uprawnienia przy --print: "host" (host SDK lub --permission-prompt-tool) albo "none" (wszystko, co wymagałoby pytania, jest odrzucane)]:target:(host none)'
@@ -257,6 +262,8 @@ _claude() {
     '--strict-mcp-config[Używaj tylko serwerów MCP z --mcp-config i ignoruj wszystkie inne ustawienia MCP]'
     '--session-id[Określony identyfikator sesji do użycia w konwersacji (musi być prawidłowym UUID)]:uuid:'
     '--agents[Obiekt JSON definiujący niestandardowych agentów]:json:'
+    '--advisor[Włącz serwerowe narzędzie advisor dla tej sesji z aliasem modelu lub pełnym identyfikatorem modelu]:model:_claude_model_names'
+    '--teammate-mode[Sposób wyświetlania członków zespołu agentów]:mode:(in-process auto tmux iterm2)'
     '--setting-sources[Lista źródeł ustawień oddzielona przecinkami do załadowania (user, project, local)]:sources:'
     '--plugin-dir[Katalog do załadowania wtyczek tylko dla tej sesji (powtarzalne)]:paths:_directories'
     '--disable-slash-commands[Wyłącz wszystkie polecenia ukośnika]'
@@ -269,9 +276,11 @@ _claude() {
     '--debug-file[Zapisuj logi debugowania do określonej ścieżki pliku (niejawnie włącza tryb debugowania)]:path:_files'
     '--from-pr[Wznów sesję powiązaną z PR przez numer/URL lub otwórz interaktywny wybór]::value:'
     '--teleport[Wznów sesję teleport, opcjonalnie podając ID sesji]::session:'
-    '--cloud[Utwórz sesję w chmurze z podanym opisem albo podłącz się do istniejącej po ID sesji lub URL claude.ai/code]::description-or-session:'
+    '(--remote)--cloud[Utwórz sesję w chmurze z podanym opisem albo podłącz się do istniejącej po ID sesji lub URL claude.ai/code]::description-or-session:'
+    '(--cloud)--remote[Przestarzały alias dla --cloud]::description-or-session:'
     '--environment[Utwórz nową sesję w chmurze działającą we wskazanym środowisku self-hosted (ccpool_...)]:environment_id:'
-    '--remote-control[Uruchom interaktywną sesję z włączonym Remote Control (opcjonalnie nazwaną)]::name:'
+    '--ref[Z --environment: oprzyj checkout nowej sesji na nazwanej referencji zamiast na lokalnym HEAD]:branch:'
+    '(--remote-control --rc)'{--remote-control,--rc}'[Uruchom interaktywną sesję z włączonym Remote Control (opcjonalnie nazwaną)]::name:'
     '--remote-control-session-name-prefix[Prefiks dla automatycznie generowanych nazw sesji Remote Control]:prefix:'
     '--chrome[Włącz integrację Claude w Chrome]'
     '--no-chrome[Wyłącz integrację Claude w Chrome]'
@@ -282,6 +291,11 @@ _claude() {
     '--include-hook-events[Dołącz wszystkie zdarzenia cyklu życia hooków w strumieniu wyjściowym (z stream-json)]'
     '--exclude-dynamic-system-prompt-sections[Przenieś sekcje specyficzne dla maszyny do pierwszej wiadomości użytkownika, aby poprawić ponowne wykorzystanie pamięci podręcznej promptów]'
     '--brief[Włącz narzędzie SendUserMessage do komunikacji agent-użytkownik]'
+    '*--channels[(Wersja zapoznawcza) Serwery MCP, których powiadomień kanału nasłuchiwać (plugin\:<name>@<marketplace>)]:entries:'
+    '*--dangerously-load-development-channels[Włącz kanały spoza zatwierdzonej listy dozwolonych do lokalnego programowania (plugin\:<name>@<marketplace> lub server\:<name>)]:entries:'
+    '--init[Uruchom hooki Setup z matcherem init przed sesją (tylko --print)]'
+    '--init-only[Uruchom hooki Setup i SessionStart, a następnie zakończ bez rozpoczynania konwersacji]'
+    '--maintenance[Uruchom hooki Setup z matcherem maintenance przed sesją (tylko --print)]'
     '--safe-mode[Uruchom z wyłączonymi wszystkimi dostosowaniami (przydatne do rozwiązywania problemów z uszkodzoną konfiguracją)]'
     '--bare[Tryb minimalny: pomiń hooki, LSP, synchronizację wtyczek, atrybucję, auto-pamięć i automatyczne wykrywanie CLAUDE.md]'
     '--ax-screen-reader[Renderuj wyjście przyjazne dla czytników ekranu (płaski tekst, bez dekoracyjnych obramowań ani animacji)]'
@@ -305,7 +319,7 @@ _claude() {
         mcp)
           _claude_mcp
           ;;
-        plugin)
+        plugin|plugins)
           _claude_plugin
           ;;
         install)
@@ -325,6 +339,12 @@ _claude() {
         rm)
           _claude_rm
           ;;
+        remote-control|rc|remote|sync|bridge)
+          _claude_remote_control
+          ;;
+        daemon)
+          _claude_daemon
+          ;;
         auth)
           _claude_auth
           ;;
@@ -333,6 +353,9 @@ _claude() {
           ;;
         gateway)
           _claude_gateway
+          ;;
+        self-hosted-runner)
+          _claude_self_hosted_runner
           ;;
         import)
           _claude_import
@@ -346,8 +369,9 @@ _claude() {
         ultrareview)
           _claude_ultrareview
           ;;
-        setup-token|doctor|update)
-          _message "brak argumentów"
+        setup-token|doctor|update|upgrade)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Wyświetl pomoc dla polecenia]'
           ;;
         *)
           # Not a command but the prompt: options may still follow it
@@ -506,6 +530,7 @@ _claude_plugin() {
         validate)
           _arguments \
             '--strict[Traktuj ostrzeżenia jako błędy (kod wyjścia 1)]' \
+            '--profile[Zakończ także z kodem wyjścia 1, gdy wskazany katalog odrzuciłby zgłoszenie wtyczki w sprawdzeniu wykonywanym przez to polecenie]:name:(directory)' \
             '--json[Wypisz raport walidacji jako JSON (te same kody wyjścia)]' \
             '(-h --help)'{-h,--help}'[Wyświetl pomoc]' \
             '1:path:_files'
@@ -518,6 +543,7 @@ _claude_plugin() {
             '(-s --scope)'{-s,--scope}'[Zakres instalacji]:scope:(user project local)' \
             '--accept-command[Zaakceptuj polecenie zadeklarowane przez marketplace, którego sha256 poprzednie uruchomienie z --json zgłosiło jako shownCommand.sha256]:sha256:' \
             '*--config[Ustaw opcję userConfig zadeklarowaną w manifeście wtyczki (można powtarzać)]:key=value:' \
+            '--marketplace[Zainstaluj wtyczkę po samej nazwie z marketplace pod tym źródłem (owner/repo, URL git lub https albo ścieżka), w razie potrzeby najpierw go dodając]:source:' \
             '--registry[Dla instalacji package@npm: rozwiąż i pobierz z tego rejestru npm]:url:' \
             '(-y --yes)'{-y,--yes}'[Zaakceptuj wyświetlone polecenie zadeklarowane przez marketplace bez pytania o potwierdzenie]' \
             '--json[Wypisz jedną linię wyniku czytelną maszynowo zamiast komunikatu dla człowieka]' \
@@ -617,6 +643,7 @@ _claude_plugin() {
             '--json[Wypisz pełny wynik uruchomienia jako JSON na stdout lub zapisz go do tego pliku .json]::path:_files' \
             '--threshold[Zakończ z kodem 1, jeśli wynik któregokolwiek przypadku jest poniżej tego progu (domyślnie: 1.0)]:threshold:' \
             '*--allow-tools[Zgoda operatora na narzędzia objęte kontrolą (Bash, Write, Edit, WebFetch, mcp__*)]:tools:' \
+            '*--disallow-tools[Wbudowane narzędzia, które zawsze są niedostępne dla Claude, nawet jeśli przyznane]:tools:' \
             '(--no-scaffold)--scaffold[Uruchamiaj scaffold_script każdego przypadku (wykonuje bash dostarczony przez autora na Twoim koncie; domyślnie wyłączone)]' \
             '(--scaffold)--no-scaffold[Jawnie pomiń scaffold_script]' \
             '--trust-plugin[Zadeklaruj zaufanie do tej wtyczki i jej zestawu ewaluacji, pomijając pytanie o zaufanie przy pierwszym uruchomieniu (dla CI)]' \
@@ -887,6 +914,7 @@ _claude_ultrareview() {
     '--timeout[Maksymalna liczba minut oczekiwania na zakończenie przeglądu (domyślnie: 45)]:minutes:' \
     '(--no-post)--post[Opublikuj wyniki zakończonego przeglądu w PR w Twoim imieniu (tylko cele PR; jeden zwykły komentarz, nie review)]' \
     '(--post)--no-post[Nie publikuj wyników w PR (domyślnie)]' \
+    '--trust-workspace[Zaufaj bieżącemu folderowi tylko na to uruchomienie, bez pytania (dla skryptów i CI)]' \
     '(-h --help)'{-h,--help}'[Wyświetl pomoc dla polecenia]' \
     '1:target:'
 }
@@ -904,6 +932,117 @@ _claude_rm() {
     '--force-remove-worktree[Usuń katalog worktree, nawet jeśli hook WorktreeRemove lub git nie mogły go usunąć (podaj worktree-id zgłoszone przez poprzednie claude rm)]:worktree-id:' \
     '(-h --help)'{-h,--help}'[Wyświetl pomoc dla polecenia]' \
     '1:session:_claude_background_sessions'
+}
+
+_claude_self_hosted_runner() {
+  _arguments \
+    '--api-url[Bazowy URL API (domyślnie: https://api.anthropic.com)]:url:' \
+    '--environment-secret-file[Ścieżka do pliku sekretów środowiska]:path:_files' \
+    '--lock-to-account[Przypisz runner do jednego konta przy rejestracji]:id:' \
+    '--client-label[Etykieta obserwowalności wysyłana przy rejestracji (domyślnie: hostname)]:label:' \
+    '(--proxy-authorization-file --agent-proxy-url)--proxy-authorization-command[Polecenie, którego stdout jest nagłówkiem Proxy-Authorization dla proxy wychodzących]:shell command:' \
+    '(--proxy-authorization-command --agent-proxy-url)--proxy-authorization-file[Plik z nagłówkiem Proxy-Authorization dla proxy wychodzących]:path:_files' \
+    '(--proxy-authorization-command --proxy-authorization-file)--agent-proxy-url[Kieruj każdą sesję przez proxy agenta pod tym URL (tylko https)]:url:' \
+    '--capacity[Maksymalna liczba równoczesnych sesji (domyślnie: 1)]:n:' \
+    '--base-dir[Katalog bazowy dla checkoutów repozytoriów (domyślnie: /workspace)]:path:_directories' \
+    '--exec-path[Plik binarny uruchamiany dla sesji potomnych (domyślnie: ten plik binarny)]:path:_files' \
+    '--hooks-dir[Katalog skryptów hooków cyklu życia (checkout, command, post-session)]:path:_directories' \
+    '--session-stop-grace-sec[Jak długo czekać na czyste zakończenie po końcu sesji (domyślnie: 5)]:n:' \
+    '--post-session-hook-timeout-sec[Limit czasu SIGTERM dla hooka post-session (domyślnie: 60)]:n:' \
+    '--checkout-hook-timeout-min[Limit czasu rzeczywistego dla każdego uruchomienia hooka checkout (domyślnie: 30; 0 wyłącza)]:n:' \
+    '--drain-wait-sec[Przy SIGTERM/SIGINT czekaj do N sekund na trwającą pracę (domyślnie: 0)]:n:' \
+    '--drain-marker-file[Plik znacznika, którym host ogłasza łagodne wygaszanie]:path:_files' \
+    '*--git-ssh-rewrite[Przepisuj źródłowe URL-e https://<host>/... na git@<host>:... (powtarzalne)]:host:' \
+    '*--git-host-rewrite[Przepisuj źródłowe URL-e https://<f>/... na https://<t>/... (powtarzalne)]:from=to:' \
+    '--use-anthropic-git-proxy[Używaj git zarządzanego przez Anthropic. OSTRZEŻENIE: usuwa i zastępuje konfigurację git na poziomie HOME, używaj tylko na dedykowanym koncie]' \
+    '--configure-git[Ustaw globalną tożsamość git i włącz podpisywanie commitów przez usługę podpisywania Anthropic. Zapisuje ~/.gitconfig]' \
+    '--push-outcome-on-release[Wypchnij śledzone gałęzie wyników, gdy runner kończy niedokończoną sesję]' \
+    '--trust-workspace[Wstępnie ustaw trwałe zaufanie dla ścieżek repozytoriów każdej sesji (domyślnie: true)]::bool:(true false)' \
+    '--remove-session-state[Usuń stan sesji po jej zakończeniu (domyślnie: false)]::bool:(true false)' \
+    '--diff-finds-nested-repository[Pokaż repozytorium sklonowane do podfolderu w panelu Changes; wymaga --capacity 1 (domyślnie: false)]::bool:(true false)' \
+    '--confine-repo-settings[Tryb ochrony ograniczający ustawienia zatwierdzone w repozytorium (domyślnie: warn)]:mode:(warn enforce off)' \
+    '--server-auto-mode-lists[Które listy klasyfikatora auto mode z serwera może otrzymać sesja (domyślnie: no-allow)]:mode:(all no-allow none)' \
+    '--host-config-snapshot[Gdzie przechowywany jest startowy snapshot konfiguracji hosta (domyślnie: disk)]:mode:(disk memory)' \
+    '--health-port[Port dla nasłuchu HTTP /healthz (domyślnie: 8080; 0 wyłącza)]:port:' \
+    '--log-level[Poziom logowania (domyślnie: info)]:level:(info debug)' \
+    '--log-file[Kopiuj także logi runnera do pliku w trybie dopisywania]:path:_files' \
+    '--exit-if-unused-min[Zakończ runner, jeśli przez N minut nie przydzielono mu pracy]:n:' \
+    '--drain-grace-sec[Liczba sekund dalszego odpytywania o pracę po zakończeniu aktywnych sesji (domyślnie: 0)]:n:' \
+    '--retire-at[Wycofaj runner o tym bezwzględnym czasie Unix, w sekundach]:epoch-seconds:' \
+    '--defer-shutdown-max-min[Przy pierwszym SIGTERM/SIGINT przestań przyjmować pracę i dokończ zamykanie M minut później (domyślnie: 0)]:m:' \
+    '--release-idle-session-min[Zwolnij slot sesji po N minutach bez danych od użytkownika]:n:' \
+    '--startup-timeout-min[Zwolnij slot sesji, jeśli proces potomny nie zakończył uruchamiania po N minutach (domyślnie: 15; 0 wyłącza)]:n:' \
+    '--kill-session-after-min[Ogranicz czas życia procesu potomnego sesji do N minut czasu rzeczywistego]:n:' \
+    '--debug-token-dir[TYLKO DO DEBUGOWANIA: zapisuje aktywne tokeny na dysku. Nie używaj w produkcji]:path:_directories' \
+    '(-h --help)'{-h,--help}'[Wyświetl ten komunikat pomocy]'
+}
+
+_claude_remote_control() {
+  _arguments \
+    '--name[Nazwa sesji (wyświetlana w claude.ai/code)]:name:' \
+    '--remote-control-session-name-prefix[Prefiks dla automatycznie generowanych nazw sesji (domyślnie: hostname)]:prefix:' \
+    '(-c --continue --session-id)'{-c,--continue}'[Połącz ponownie z sesją ostatnio zapisaną dla tego katalogu lub jednego z jego git worktree]' \
+    '(-c --continue --session-id)--session-id[Połącz ponownie z określoną sesją według identyfikatora]:id:' \
+    '--permission-mode[Tryb uprawnień dla uruchamianych sesji]:mode:(acceptEdits auto bypassPermissions default dontAsk plan)' \
+    '(--no-chrome)--chrome[Włącz Claude in Chrome dla uruchamianych sesji]' \
+    '(--chrome)--no-chrome[Wyłącz Claude in Chrome dla uruchamianych sesji]' \
+    '(-d --debug)'{-d,--debug}'[Włącz tryb debugowania z opcjonalnym filtrowaniem kategorii]::filter:' \
+    '--debug-file[Zapisuj logi debugowania do pliku]:path:_files' \
+    '(-v --verbose)'{-v,--verbose}'[Włącz szczegółowe wyjście]' \
+    '--spawn[Tryb uruchamiania (domyślnie: same-dir)]:mode:(same-dir worktree session)' \
+    '--capacity[Maksymalna liczba równoczesnych sesji w trybie worktree lub same-dir (domyślnie: 32)]:n:' \
+    '(--no-create-session-in-dir)--create-session-in-dir[Utwórz wstępnie sesję w bieżącym katalogu (domyślnie)]' \
+    '(--create-session-in-dir)--no-create-session-in-dir[Nie twórz wstępnie sesji w bieżącym katalogu]' \
+    '(-h --help)'{-h,--help}'[Wyświetl tę pomoc]'
+}
+
+_claude_daemon() {
+  local -a daemon_commands common_options
+  daemon_commands=(
+    'run:Uruchom nadzorcę na pierwszym planie'
+    'status:Pokaż pid, wersję i czas działania daemona'
+    'logs:Śledź log daemona (Ctrl-C, aby zatrzymać)'
+    'uninstall:Usuń usługę w tle (launchctl/systemd)'
+    'stop:Zamknij nadzorcę i zakończ sesje w tle'
+  )
+  common_options=(
+    '--json-path[Plik konfiguracyjny (domyślnie: ~/.claude/daemon.json)]:path:_files'
+    '--log-file[Plik logu (domyślnie: ~/.claude/daemon.log)]:path:_files'
+    '(-h --help)'{-h,--help}'[Wyświetl tę pomoc]'
+  )
+
+  local curcontext="$curcontext" state line
+  typeset -A opt_args
+
+  _arguments -C \
+    $common_options \
+    '1: :->command' \
+    '*::arg:->args'
+
+  case $state in
+    command)
+      _describe -t commands 'polecenia daemon' daemon_commands
+      ;;
+    args)
+      case $words[1] in
+        run)
+          _arguments \
+            $common_options \
+            '::json-path:_files'
+          ;;
+        stop)
+          _arguments \
+            $common_options \
+            '--any[Zatrzymaj także tymczasowy daemon (niebędący usługą)]' \
+            '--keep-workers[Pozostaw odłączone sesje uruchomione]'
+          ;;
+        status|logs|uninstall)
+          _arguments \
+            $common_options
+          ;;
+      esac
+      ;;
+  esac
 }
 
 _claude_import() {

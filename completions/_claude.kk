@@ -200,11 +200,15 @@ _claude() {
     'stop:Фондық сессияны тоқтату (оның әңгімесі сақталады)'
     'respawn:Фондық сессия Claude Code-тың ағымдағы нұсқасында жұмыс істеуі үшін оны қайта іске қосу'
     'rm:Фондық сессияны және қауіпсіз болса, оның worktree-ін жою'
+    'remote-control:claude.ai/code немесе Claude мобильді қолданбасынан жергілікті сессияларды басқару'
+    'daemon:Фондық сессиялар супервизорын басқару'
     'auth:Аутентификацияны басқару'
     'auto-mode:Авто режим классификаторының конфигурациясын тексеру немесе қалпына келтіру'
     'gateway:Кәсіпорын аутентификация/телеметрия шлюзін іске қосу'
+    'self-hosted-runner:Claude Code бұлттық сессияларын осы машинада немесе контейнерде хосттау'
     'import:Басқа AI кодтау агентінен конфигурацияны Claude Code-қа импорттау'
     'project:Claude Code жоба күйін басқару'
+    'purge:Жоба үшін барлық Claude Code күйін жою (транскрипттер, тапсырмалар, файл тарихы, конфигурация жазбасы)'
     'ultrareview:Бұлтта орналастырылған көп агентті код шолуын іске қосу және нәтижелерін басып шығару'
     'setup-token:Ұзақ мерзімді аутентификация токенін орнату (Claude жазылымы қажет)'
     'doctor:Claude Code автоматты жаңартқышы үшін денсаулық тексеруі'
@@ -221,11 +225,11 @@ _claude() {
     '--json-schema[Құрылымдық шығысты тексеру үшін JSON схемасы]:schema:'
     '--include-partial-messages[Келген кезде ішінара хабарлама бөліктерін қосу (--print және --output-format=stream-json-мен)]'
     '--input-format[Кіріс форматы (--print-пен): "text" (әдепкі) немесе "stream-json" (нақты уақыттағы ағын кірісі)]:format:(text stream-json)'
-    '--mcp-debug[\[Ескірген. Оның орнына --debug пайдаланыңыз\] MCP жөндеу режімін қосу (MCP сервер қателерін көрсетеді)]'
     '--dangerously-skip-permissions[Барлық рұқсат тексерулерінен өту. Тек интернетке қол жетімсіз sandbox ортасы үшін ұсынылады]'
     '--allow-dangerously-skip-permissions[Әдепкі бойынша қоспай-ақ рұқсат тексерулерінен өту опциясын қосу]'
     '--restricted[Шектеулі режим: командаларды немесе кодты іске қосатын құралдарды және WebFetch-ті алып тастау, user/project/local параметрлерін елемеу және файл құралдарын жұмыс каталогтарымен шектеу]'
     '--max-budget-usd[API шақыруларына жұмсалатын максималды доллар сомасы (тек --print)]:amount:'
+    '--max-turns[Агенттік қадамдар санын шектеу (тек --print)]:turns:'
     '--replay-user-messages[Растау үшін stdin-ден stdout-қа пайдаланушы хабарламаларын қайта жіберу]'
     '--allowed-tools[Үтірмен немесе бос орынмен бөлінген рұқсат етілген құрал атауларының тізімі (мысалы, "Bash(git:*) Edit")]:tools:'
     '--allowedTools[Үтірмен немесе бос орынмен бөлінген рұқсат етілген құрал атауларының тізімі (camelCase форматы)]:tools:'
@@ -237,6 +241,8 @@ _claude() {
     '--system-prompt-file[Жүйелік ескертуді файлдан оқу]:file:_files'
     '--append-system-prompt[Әдепкі жүйелік ескертуге жүйелік ескертуді қосу]:prompt:'
     '--append-system-prompt-file[Жүйелік ескертуді файлдан оқу және әдепкі жүйелік ескертуге қосу]:file:_files'
+    '(--append-subagent-system-prompt-file)--append-subagent-system-prompt[Әр ішкі агенттің жүйелік ескертуіне мәтін қосу (тек --print)]:prompt:'
+    '(--append-subagent-system-prompt)--append-subagent-system-prompt-file[Мәтінді файлдан оқып, ішкі агенттердің жүйелік ескертулеріне қосу (тек --print)]:file:_files'
     '--system-prompt-snapshot[Жүйелік ескертуді әр әңгімеге бір рет жазып алып, оны әр сұрауда және жалғастыруда сөзбе-сөз қайта пайдалану (on, әдепкі) немесе әр сұрауда жаңадан құрастыру (off)]:mode:(on off)'
     '--permission-mode[Сессия үшін рұқсат режімі]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)'
     '--permission-prompts[--print кезінде рұқсат сұрауларына кім жауап береді: "host" (SDK хосты немесе --permission-prompt-tool) немесе "none" (сұрау тудыратын кез келген әрекет қабылданбайды)]:target:(host none)'
@@ -256,6 +262,8 @@ _claude() {
     '--strict-mcp-config[Тек --mcp-config-тен MCP серверлерін пайдалану және басқа барлық MCP параметрлерін елемеу]'
     '--session-id[Әңгіме үшін арнайы сессия идентификаторы (жарамды UUID болуы керек)]:uuid:'
     '--agents[Арнайы агенттерді анықтайтын JSON нысаны]:json:'
+    '--advisor[Осы сессия үшін сервер жағындағы advisor құралын модель лақап атымен немесе толық модель идентификаторымен қосу]:model:_claude_model_names'
+    '--teammate-mode[Агенттер командасының мүшелері қалай көрсетіледі]:mode:(in-process auto tmux iterm2)'
     '--setting-sources[Жүктеу үшін үтірмен бөлінген параметр көздерінің тізімі (user, project, local)]:sources:'
     '--plugin-dir[Тек осы сессия үшін плагиндерді жүктеу үшін каталог (қайталанатын)]:paths:_directories'
     '--disable-slash-commands[Барлық қиғаш сызық командаларын өшіру]'
@@ -268,9 +276,11 @@ _claude() {
     '--debug-file[Жөндеу журналдарын белгілі бір файл жолына жазу (жасырын түрде жөндеу режімін қосады)]:path:_files'
     '--from-pr[Нөмір/URL бойынша PR-ге байланысты сессияны жалғастыру немесе интерактивті таңдаушыны ашу]::value:'
     '--teleport[Teleport сессиясын жалғастыру, қосымша сессия идентификаторын көрсетуге болады]::session:'
-    '--cloud[Берілген сипаттамамен бұлттық сессия жасау немесе сессия идентификаторы не claude.ai/code URL бойынша бар сессияға қосылу]::description-or-session:'
+    '(--remote)--cloud[Берілген сипаттамамен бұлттық сессия жасау немесе сессия идентификаторы не claude.ai/code URL бойынша бар сессияға қосылу]::description-or-session:'
+    '(--cloud)--remote[--cloud үшін ескірген лақап ат]::description-or-session:'
     '--environment[Берілген өзіндік хостталған ортада (ccpool_...) жұмыс істейтін жаңа бұлттық сессия жасау]:environment_id:'
-    '--remote-control[Қашықтан басқару қосылған интерактивті сессияны іске қосу (қосымша атаумен)]::name:'
+    '--ref[--environment-пен: жаңа сессияның checkout-ын жергілікті HEAD орнына аталған ref негізінде жасау]:branch:'
+    '(--remote-control --rc)'{--remote-control,--rc}'[Қашықтан басқару қосылған интерактивті сессияны іске қосу (қосымша атаумен)]::name:'
     '--remote-control-session-name-prefix[Автоматты жасалатын Қашықтан басқару сессия атауларының префиксі]:prefix:'
     '--chrome[Chrome-дағы Claude интеграциясын қосу]'
     '--no-chrome[Chrome-дағы Claude интеграциясын өшіру]'
@@ -281,6 +291,11 @@ _claude() {
     '--include-hook-events[Барлық hook өмірлік цикл оқиғаларын шығыс ағынына қосу (stream-json-мен)]'
     '--exclude-dynamic-system-prompt-sections[Ескерту кэшін қайта пайдалануды жақсарту үшін әр машинаға қатысты бөлімдерді бірінші пайдаланушы хабарламасына жылжыту]'
     '--brief[Агент-пайдаланушы байланысы үшін SendUserMessage құралын қосу]'
+    '*--channels[(Зерттеу алдын ала қарауы) Арна хабарландырулары тыңдалатын MCP серверлері (plugin\:<name>@<marketplace>)]:entries:'
+    '*--dangerously-load-development-channels[Мақұлданған рұқсат тізімінде жоқ арналарды жергілікті әзірлеу үшін қосу (plugin\:<name>@<marketplace> немесе server\:<name>)]:entries:'
+    '--init[Сессия алдында Setup hook-тарын init matcher-імен іске қосу (тек --print)]'
+    '--init-only[Setup және SessionStart hook-тарын іске қосып, әңгіме бастамай шығу]'
+    '--maintenance[Сессия алдында Setup hook-тарын maintenance matcher-імен іске қосу (тек --print)]'
     '--safe-mode[Барлық баптаулар өшірілген күйде іске қосу (бұзылған конфигурацияны жөндеуге пайдалы)]'
     '--bare[Минималды режім: hook-тарды, LSP, плагин синхрондауын, атрибуцияны, авто-жадты және CLAUDE.md автоматты табуды өткізіп жіберу]'
     '--ax-screen-reader[Экран оқығышқа ыңғайлы шығысты көрсету (тегіс мәтін, әшекейлі жиектер немесе анимациялар жоқ)]'
@@ -304,7 +319,7 @@ _claude() {
         mcp)
           _claude_mcp
           ;;
-        plugin)
+        plugin|plugins)
           _claude_plugin
           ;;
         install)
@@ -324,6 +339,12 @@ _claude() {
         rm)
           _claude_rm
           ;;
+        remote-control|rc|remote|sync|bridge)
+          _claude_remote_control
+          ;;
+        daemon)
+          _claude_daemon
+          ;;
         auth)
           _claude_auth
           ;;
@@ -333,17 +354,24 @@ _claude() {
         gateway)
           _claude_gateway
           ;;
+        self-hosted-runner)
+          _claude_self_hosted_runner
+          ;;
         import)
           _claude_import
           ;;
         project)
           _claude_project
           ;;
+        purge)
+          _claude_purge
+          ;;
         ultrareview)
           _claude_ultrareview
           ;;
-        setup-token|doctor|update)
-          _message "аргументтер жоқ"
+        setup-token|doctor|update|upgrade)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Команда үшін анықтаманы көрсету]'
           ;;
         *)
           # Not a command but the prompt: options may still follow it
@@ -502,6 +530,7 @@ _claude_plugin() {
         validate)
           _arguments \
             '--strict[Ескертулерді қате ретінде қарастыру (шығу коды 1)]' \
+            '--profile[Аталған каталог осы команда орындайтын тексеру бойынша плагин жіберілімінен бас тартатын болса, сондай-ақ 1 кодымен шығу]:name:(directory)' \
             '--json[Тексеру есебін JSON ретінде шығару (шығу кодтары бірдей)]' \
             '(-h --help)'{-h,--help}'[Анықтаманы көрсету]' \
             '1:path:_files'
@@ -512,7 +541,10 @@ _claude_plugin() {
         install|i)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Орнату аясы]:scope:(user project local)' \
+            '--accept-command[Алдыңғы --json іске қосуы sha256 мәнін shownCommand.sha256 ретінде хабарлаған, нарық жариялаған команданы қабылдау]:sha256:' \
             '*--config[Плагин манифестінде жарияланған userConfig опциясын орнату (қайталанатын)]:key=value:' \
+            '--marketplace[Плагинді осы көздегі нарықтан жалаң атауы бойынша орнату (owner/repo, git немесе https URL, не жол), қажет болса алдымен нарықты қосу]:source:' \
+            '--registry[package@npm орнатуы үшін: осы npm тізілімінен шешу және жүктеп алу]:url:' \
             '(-y --yes)'{-y,--yes}'[Нарық жариялаған көрсетілген команданы растау сұрауынсыз қабылдау]' \
             '--json[Адамға арналған хабарламаның орнына машина оқитын бір нәтиже жолын басып шығару]' \
             '(-h --help)'{-h,--help}'[Анықтаманы көрсету]' \
@@ -545,6 +577,7 @@ _claude_plugin() {
           ;;
         update)
           _arguments \
+            '--accept-command[Алдыңғы --json іске қосуы sha256 мәнін shownCommand.sha256 ретінде хабарлаған, нарық жариялаған команданы қабылдау]:sha256:' \
             '(-s --scope)'{-s,--scope}'[Орнату аясы]:scope:(user project local managed)' \
             '(-y --yes)'{-y,--yes}'[Нарық жариялаған көрсетілген команданы растау сұрауынсыз қабылдау]' \
             '--json[Адамға арналған хабарламаның орнына машина оқитын бір нәтиже жолын басып шығару]' \
@@ -555,6 +588,7 @@ _claude_plugin() {
           _arguments \
             '--json[JSON ретінде шығару]' \
             '--available[Нарықтардағы қолжетімді плагиндерді қосу (--json қажет)]' \
+            '--data-size[Әр орнатылған плагиннің сақталған деректер каталогын немесе тек аталған плагиндікін өлшеу (--json қажет)]::plugin:_claude_installed_plugins' \
             '(-h --help)'{-h,--help}'[Анықтаманы көрсету]'
           ;;
         prune|autoremove)
@@ -587,6 +621,15 @@ _claude_plugin() {
             '1:name:'
           ;;
         eval)
+          if [[ $words[2] == init ]]; then
+            _arguments \
+              '--bare[Сұхбатты іске қосудың орнына бос үлгі жазу]' \
+              '--eval-dir[Жағдайлар жазылатын ағымдағы каталог астындағы каталог]:dir:_directories' \
+              '(-i --interactive)'{-i,--interactive}'[Авторлық сұхбатты іске қосу (интерактивті терминал қажет)]' \
+              '(-h --help)'{-h,--help}'[Анықтаманы көрсету]' \
+              '::name:'
+            return
+          fi
           _arguments \
             '--case[Жағдайларды атау glob үлгісі бойынша сүзу]:glob:' \
             '*--tag[Жағдайларды тег бойынша сүзу (қайталанатын)]:tag:' \
@@ -600,6 +643,7 @@ _claude_plugin() {
             '--json[Толық іске қосу нәтижесін JSON ретінде stdout-қа басып шығару немесе оны осы .json файлына жазу]::path:_files' \
             '--threshold[Кез келген жағдайдың ұпайы осы шектен төмен болса, 1 шығу кодымен шығу (әдепкі: 1.0)]:threshold:' \
             '*--allow-tools[Шектелген құралдарға оператор рұқсаты (Bash, Write, Edit, WebFetch, mcp__*)]:tools:' \
+            '*--disallow-tools[Рұқсат берілсе де, барлық жағдайда Claude-тан алып тасталатын кірістірілген құралдар]:tools:' \
             '(--no-scaffold)--scaffold[Әр жағдайдың scaffold_script-ін іске қосу (автор берген bash-ты сіздің атыңыздан іске қосады; әдепкі бойынша өшірулі)]' \
             '(--scaffold)--no-scaffold[scaffold_script-ті анық түрде өткізіп жіберу]' \
             '--trust-plugin[Осы плагинге және оның бағалау жиынтығына сенетініңізді растап, алғашқы іске қосудағы сенім сұрауын өткізіп жіберу (CI үшін)]' \
@@ -612,7 +656,7 @@ _claude_plugin() {
             '(--no-publish)--publish-report[Сондай-ақ есепті claude.ai-ге жариялауды талап ету]' \
             '(--publish-report)--no-publish[HTML есебін тек жергілікті сақтау; оны claude.ai-ге жариялауды өткізіп жіберу]' \
             '(-h --help)'{-h,--help}'[Анықтаманы көрсету]' \
-            '::target: _alternative "plugins\:installed plugin\:_claude_installed_plugins" "files\:path\:_files"'
+            '::target: _alternative "commands\:eval command\:(init)" "plugins\:installed plugin\:_claude_installed_plugins" "files\:path\:_files"'
           ;;
         tag)
           _arguments \
@@ -663,6 +707,7 @@ _claude_plugin_marketplace() {
           _arguments \
             '--sparse[git sparse-checkout арқылы checkout-ты белгілі бір каталогтармен шектеу (монорепозиторийлер үшін)]:paths:' \
             '--scope[Нарықты қай жерде жариялау]:scope:(user project local)' \
+            '--json[stdout-тағы соңғы жол ретінде машина оқитын бір нәтиже жолын басып шығару]' \
             '--claudeai[claude.ai сіз үшін хосттайтын осы атаулы нарықты қосу]' \
             '(-h --help)'{-h,--help}'[Анықтаманы көрсету]' \
             '1:source:'
@@ -675,11 +720,13 @@ _claude_plugin_marketplace() {
         remove|rm)
           _arguments \
             '--scope[Нарық жариялауын белгілі бір параметрлер аясынан жою (барлық аядан жою үшін көрсетпеңіз)]:scope:(user project local)' \
+            '--json[stdout-тағы соңғы жол ретінде машина оқитын бір нәтиже жолын басып шығару]' \
             '(-h --help)'{-h,--help}'[Анықтаманы көрсету]' \
             '1:name:'
           ;;
         update)
           _arguments \
+            '--json[Нарық атауымен: stdout-тағы соңғы жол ретінде машина оқитын бір нәтиже жолын басып шығару]' \
             '(-h --help)'{-h,--help}'[Анықтаманы көрсету]' \
             '::name:'
           ;;
@@ -851,12 +898,23 @@ _claude_project() {
   esac
 }
 
+_claude_purge() {
+  _arguments \
+    '--dry-run[Ештеңені жоймай-ақ, не жойылатынын тізімдеу]' \
+    '(-y --yes)'{-y,--yes}'[Растау сұрауын өткізіп жіберу]' \
+    '(-i --interactive)'{-i,--interactive}'[Жою алдында әр элемент үшін сұрау]' \
+    '(1)--all[Барлық жобалар үшін күйді тазалау (жолмен бірге қолданылмайды)]' \
+    '(-h --help)'{-h,--help}'[Команда үшін анықтаманы көрсету]' \
+    '(--all)::path:_directories'
+}
+
 _claude_ultrareview() {
   _arguments \
     '--json[Пішімделген нәтижелердің орнына шикі bugs.json пайдалы жүктемесін басып шығару]' \
     '--timeout[Шолудың аяқталуын күтудің максималды минуттары (әдепкі: 45)]:minutes:' \
     '(--no-post)--post[Аяқталған шолу нәтижелерін PR-ге сіздің атыңыздан жариялау (тек PR мақсаттары үшін; шолу емес, бір қарапайым түсініктеме)]' \
     '(--post)--no-post[Нәтижелерді PR-ге жарияламау (әдепкі)]' \
+    '--trust-workspace[Ағымдағы қалтаға тек осы іске қосу үшін сұрамай сену (скрипттер мен CI үшін)]' \
     '(-h --help)'{-h,--help}'[Команда үшін анықтаманы көрсету]' \
     '1:target:'
 }
@@ -874,6 +932,117 @@ _claude_rm() {
     '--force-remove-worktree[WorktreeRemove hook-ы немесе git жоя алмаса да, worktree каталогын жою (алдыңғы claude rm хабарлаған worktree-id мәнін беріңіз)]:worktree-id:' \
     '(-h --help)'{-h,--help}'[Команда үшін анықтаманы көрсету]' \
     '1:session:_claude_background_sessions'
+}
+
+_claude_self_hosted_runner() {
+  _arguments \
+    '--api-url[API негізгі URL-і (әдепкі: https://api.anthropic.com)]:url:' \
+    '--environment-secret-file[Орта құпиялары файлының жолы]:path:_files' \
+    '--lock-to-account[Тіркеу кезінде runner-ді бір тіркелгіге бекіту]:id:' \
+    '--client-label[Тіркеу кезінде жіберілетін бақылау белгісі (әдепкі: hostname)]:label:' \
+    '(--proxy-authorization-file --agent-proxy-url)--proxy-authorization-command[stdout-ы шығыс прокси үшін Proxy-Authorization тақырыбы болатын команда]:shell command:' \
+    '(--proxy-authorization-command --agent-proxy-url)--proxy-authorization-file[Шығыс прокси үшін Proxy-Authorization тақырыбын сақтайтын файл]:path:_files' \
+    '(--proxy-authorization-command --proxy-authorization-file)--agent-proxy-url[Әр сессияны осы URL-дегі агент прокси арқылы бағыттау (тек https)]:url:' \
+    '--capacity[Бір уақыттағы сессиялардың ең көп саны (әдепкі: 1)]:n:' \
+    '--base-dir[Репозиторий checkout-тары үшін негізгі каталог (әдепкі: /workspace)]:path:_directories' \
+    '--exec-path[Еншілес сессиялар үшін іске қосылатын бинарлық файл (әдепкі: осы бинарлық файл)]:path:_files' \
+    '--hooks-dir[Өмірлік цикл hook скрипттерінің каталогы (checkout, command, post-session)]:path:_directories' \
+    '--session-stop-grace-sec[Сессия аяқталғаннан кейін таза шығуды қанша күту (әдепкі: 5)]:n:' \
+    '--post-session-hook-timeout-sec[SIGTERM-нен кейін post-session hook-ына берілетін уақыт (әдепкі: 60)]:n:' \
+    '--checkout-hook-timeout-min[checkout hook-ының әр іске қосылуына нақты уақыт шегі (әдепкі: 30; 0 өшіреді)]:n:' \
+    '--drain-wait-sec[SIGTERM/SIGINT кезінде орындалып жатқан жұмысты N секундқа дейін күту (әдепкі: 0)]:n:' \
+    '--drain-marker-file[Хост реттелген босатуды жариялайтын белгі файлы]:path:_files' \
+    '*--git-ssh-rewrite[https://<host>/... көз URL-дерін git@<host>:... түріне қайта жазу (қайталанатын)]:host:' \
+    '*--git-host-rewrite[https://<f>/... көз URL-дерін https://<t>/... түріне қайта жазу (қайталанатын)]:from=to:' \
+    '--use-anthropic-git-proxy[Anthropic басқаратын git пайдалану. ЕСКЕРТУ: HOME деңгейіндегі git конфигурациясын жойып, ауыстырады, тек арнайы тіркелгіде пайдаланыңыз]' \
+    '--configure-git[Ғаламдық git идентификациясын орнату және Anthropic қолтаңба қызметі арқылы commit қолтаңбасын қосу. ~/.gitconfig файлына жазады]' \
+    '--push-outcome-on-release[Сессия runner бастамасымен аяқталмай тоқтағанда бақыланатын нәтиже тармақтарын push жасау]' \
+    '--trust-workspace[Әр сессияның репозиторий жолдары үшін тұрақты сенімді алдын ала орнату (әдепкі: true)]::bool:(true false)' \
+    '--remove-session-state[Сессия аяқталғанда сессия күйін жою (әдепкі: false)]::bool:(true false)' \
+    '--diff-finds-nested-repository[Ішкі қалтаға клондалған репозиторийді Changes тақтасында көрсету; --capacity 1 қажет (әдепкі: false)]::bool:(true false)' \
+    '--confine-repo-settings[Репозиторийге commit жасалған параметрлерді шектейтін қорғау режимі (әдепкі: warn)]:mode:(warn enforce off)' \
+    '--server-auto-mode-lists[Сессия серверден auto mode жіктеуішінің қай тізімдерін ала алады (әдепкі: no-allow)]:mode:(all no-allow none)' \
+    '--host-config-snapshot[Хост конфигурациясының іске қосу кезіндегі суреті қай жерде сақталады (әдепкі: disk)]:mode:(disk memory)' \
+    '--health-port[/healthz HTTP тыңдаушысы үшін порт (әдепкі: 8080; 0 өшіреді)]:port:' \
+    '--log-level[Журнал деңгейі (әдепкі: info)]:level:(info debug)' \
+    '--log-file[runner журналдарын файлға да қосымша режимде жазу]:path:_files' \
+    '--exit-if-unused-min[N минут бойы ешқандай жұмыс тағайындалмаса, runner-ден шығу]:n:' \
+    '--drain-grace-sec[Белсенді сессиялар аяқталғаннан кейін жұмысты қайта сұрауды жалғастыру секундтары (әдепкі: 0)]:n:' \
+    '--retire-at[runner-ді осы абсолютті Unix уақытында, секундпен, біржола тоқтату]:epoch-seconds:' \
+    '--defer-shutdown-max-min[Бірінші SIGTERM/SIGINT кезінде жұмыс қабылдауды тоқтатып, M минуттан кейін өшіруді аяқтау (әдепкі: 0)]:m:' \
+    '--release-idle-session-min[Пайдаланушы енгізуі N минут болмаса, сессия слотын босату]:n:' \
+    '--startup-timeout-min[Еншілес процесс N минуттан кейін де іске қосылуды аяқтамаса, сессия слотын босату (әдепкі: 15; 0 өшіреді)]:n:' \
+    '--kill-session-after-min[Сессияның еншілес процесінің нақты өмір сүру уақытын N минутпен шектеу]:n:' \
+    '--debug-token-dir[ТЕК ЖӨНДЕУ ҮШІН: белсенді токендерді дискіге жазады. Өндірісте пайдаланбаңыз]:path:_directories' \
+    '(-h --help)'{-h,--help}'[Осы анықтама хабарламасын көрсету]'
+}
+
+_claude_remote_control() {
+  _arguments \
+    '--name[Сессия атауы (claude.ai/code ішінде көрсетіледі)]:name:' \
+    '--remote-control-session-name-prefix[Автоматты жасалатын сессия атауларының префиксі (әдепкі: hostname)]:prefix:' \
+    '(-c --continue --session-id)'{-c,--continue}'[Осы каталог немесе оның git worktree-лерінің бірі үшін соңғы жазылған сессияға қайта қосылу]' \
+    '(-c --continue --session-id)--session-id[Белгілі бір сессияға идентификатор бойынша қайта қосылу]:id:' \
+    '--permission-mode[Іске қосылған сессиялар үшін рұқсат режімі]:mode:(acceptEdits auto bypassPermissions default dontAsk plan)' \
+    '(--no-chrome)--chrome[Іске қосылған сессиялар үшін Claude in Chrome қосу]' \
+    '(--chrome)--no-chrome[Іске қосылған сессиялар үшін Claude in Chrome өшіру]' \
+    '(-d --debug)'{-d,--debug}'[Санат бойынша қосымша сүзгілеумен жөндеу режімін қосу]::filter:' \
+    '--debug-file[Жөндеу журналдарын файлға жазу]:path:_files' \
+    '(-v --verbose)'{-v,--verbose}'[Толық шығысты қосу]' \
+    '--spawn[Іске қосу режімі (әдепкі: same-dir)]:mode:(same-dir worktree session)' \
+    '--capacity[worktree немесе same-dir режиміндегі бір уақыттағы сессиялардың ең көп саны (әдепкі: 32)]:n:' \
+    '(--no-create-session-in-dir)--create-session-in-dir[Ағымдағы каталогта сессияны алдын ала жасау (әдепкі)]' \
+    '(--create-session-in-dir)--no-create-session-in-dir[Ағымдағы каталогта сессияны алдын ала жасамау]' \
+    '(-h --help)'{-h,--help}'[Осы анықтаманы көрсету]'
+}
+
+_claude_daemon() {
+  local -a daemon_commands common_options
+  daemon_commands=(
+    'run:Супервизорды алдыңғы планда іске қосу'
+    'status:daemon pid-ін, нұсқасын, жұмыс уақытын көрсету'
+    'logs:daemon журналын бақылау (тоқтату үшін Ctrl-C)'
+    'uninstall:Фондық қызметті жою (launchctl/systemd)'
+    'stop:Супервизорды өшіріп, фондық сессияларды тоқтату'
+  )
+  common_options=(
+    '--json-path[Конфигурация файлы (әдепкі: ~/.claude/daemon.json)]:path:_files'
+    '--log-file[Журнал файлы (әдепкі: ~/.claude/daemon.log)]:path:_files'
+    '(-h --help)'{-h,--help}'[Осы анықтаманы көрсету]'
+  )
+
+  local curcontext="$curcontext" state line
+  typeset -A opt_args
+
+  _arguments -C \
+    $common_options \
+    '1: :->command' \
+    '*::arg:->args'
+
+  case $state in
+    command)
+      _describe -t commands 'daemon commands' daemon_commands
+      ;;
+    args)
+      case $words[1] in
+        run)
+          _arguments \
+            $common_options \
+            '::json-path:_files'
+          ;;
+        stop)
+          _arguments \
+            $common_options \
+            '--any[Уақытша (қызмет емес) daemon-ды да тоқтату]' \
+            '--keep-workers[Ажыратылған сессияларды жұмыс күйінде қалдыру]'
+          ;;
+        status|logs|uninstall)
+          _arguments \
+            $common_options
+          ;;
+      esac
+      ;;
+  esac
 }
 
 _claude_import() {

@@ -200,9 +200,12 @@ _claude() {
     'stop:停止后台会话（对话会被保留）'
     'respawn:重启后台会话，使其运行当前的Claude Code版本'
     'rm:删除后台会话，并在安全时一并删除其工作树'
+    'remote-control:从claude.ai/code或Claude移动应用控制本地会话'
+    'daemon:管理后台会话监管进程'
     'auth:管理身份验证'
     'auto-mode:检查或重置自动模式分类器配置'
     'gateway:运行企业身份验证/遥测网关'
+    'self-hosted-runner:在此机器或容器上托管Claude Code云会话'
     'import:将其他AI编码代理的配置导入Claude Code'
     'project:管理Claude Code项目状态'
     'purge:删除项目的所有Claude Code状态（记录、任务、文件历史、配置条目）'
@@ -222,11 +225,11 @@ _claude() {
     '--json-schema[用于结构化输出验证的JSON模式]:schema:'
     '--include-partial-messages[在消息到达时包含部分消息块（与--print和--output-format=stream-json一起使用）]'
     '--input-format[输入格式（与--print一起使用）："text"（默认）或"stream-json"（实时流式输入）]:format:(text stream-json)'
-    '--mcp-debug[\[已弃用。请改用--debug\] 启用MCP调试模式（显示MCP服务器错误）]'
     '--dangerously-skip-permissions[绕过所有权限检查。仅建议在没有互联网访问的沙箱中使用]'
     '--allow-dangerously-skip-permissions[启用绕过权限检查的选项，但默认不启用]'
     '--restricted[受限模式：移除运行命令或代码的工具和WebFetch，忽略user/project/local设置，并将文件工具限制在工作目录内]'
     '--max-budget-usd[API调用花费的最大美元金额（仅--print）]:amount:'
+    '--max-turns[限制代理轮次数（仅--print）]:turns:'
     '--replay-user-messages[在stdout上重新发送来自stdin的用户消息以进行确认]'
     '--allowed-tools[允许的工具名称的逗号或空格分隔列表（例如："Bash(git:*) Edit"）]:tools:'
     '--allowedTools[允许的工具名称的逗号或空格分隔列表（驼峰命名格式）]:tools:'
@@ -238,6 +241,8 @@ _claude() {
     '--system-prompt-file[从文件读取系统提示]:file:_files'
     '--append-system-prompt[将系统提示附加到默认系统提示]:prompt:'
     '--append-system-prompt-file[从文件读取系统提示并追加到默认系统提示]:file:_files'
+    '(--append-subagent-system-prompt-file)--append-subagent-system-prompt[向每个子代理的系统提示追加文本（仅--print）]:prompt:'
+    '(--append-subagent-system-prompt)--append-subagent-system-prompt-file[从文件读取文本并追加到子代理系统提示（仅--print）]:file:_files'
     '--system-prompt-snapshot[每个对话记录一次系统提示，并在之后的每次请求和恢复中原样复用（on，默认），或每次请求重新生成（off）]:mode:(on off)'
     '--permission-mode[会话使用的权限模式]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)'
     '--permission-prompts[使用--print时由谁回答权限提示："host"（SDK宿主或--permission-prompt-tool）或"none"（任何需要提示的操作都被拒绝）]:target:(host none)'
@@ -257,6 +262,8 @@ _claude() {
     '--strict-mcp-config[仅使用--mcp-config中的MCP服务器并忽略所有其他MCP设置]'
     '--session-id[用于对话的特定会话ID（必须是有效的UUID）]:uuid:'
     '--agents[定义自定义代理的JSON对象]:json:'
+    '--advisor[使用模型别名或完整模型ID为此会话启用服务端顾问工具]:model:_claude_model_names'
+    '--teammate-mode[代理团队成员的显示方式]:mode:(in-process auto tmux iterm2)'
     '--setting-sources[要加载的设置源的逗号分隔列表（user, project, local）]:sources:'
     '--plugin-dir[仅为此会话加载插件的目录（可重复）]:paths:_directories'
     '--disable-slash-commands[禁用所有斜杠命令]'
@@ -269,9 +276,11 @@ _claude() {
     '--debug-file[将调试日志写入特定文件路径（隐式启用调试模式）]:path:_files'
     '--from-pr[恢复通过编号/URL链接到PR的会话，或打开交互式选择器]::value:'
     '--teleport[恢复传送会话，可选指定会话ID]::session:'
-    '--cloud[使用给定描述创建云会话，或通过会话ID或claude.ai/code URL附加到现有会话]::description-or-session:'
+    '(--remote)--cloud[使用给定描述创建云会话，或通过会话ID或claude.ai/code URL附加到现有会话]::description-or-session:'
+    '(--cloud)--remote[--cloud的已弃用别名]::description-or-session:'
     '--environment[创建在指定自托管环境（ccpool_...）上运行的新云会话]:environment_id:'
-    '--remote-control[启动启用远程控制的交互式会话（可选命名）]::name:'
+    '--ref[与--environment一起使用：新会话的检出基于指定的ref而非本地HEAD]:branch:'
+    '(--remote-control --rc)'{--remote-control,--rc}'[启动启用远程控制的交互式会话（可选命名）]::name:'
     '--remote-control-session-name-prefix[自动生成的远程控制会话名称的前缀]:prefix:'
     '--chrome[启用Chrome中的Claude集成]'
     '--no-chrome[禁用Chrome中的Claude集成]'
@@ -282,6 +291,11 @@ _claude() {
     '--include-hook-events[在输出流中包含所有钩子生命周期事件（与stream-json一起使用）]'
     '--exclude-dynamic-system-prompt-sections[将每台机器的部分移到第一条用户消息中以提高提示缓存重用率]'
     '--brief[启用SendUserMessage工具用于代理到用户的通信]'
+    '*--channels[（研究预览）要监听其频道通知的MCP服务器（plugin\:<name>@<marketplace>）]:entries:'
+    '*--dangerously-load-development-channels[为本地开发启用不在已批准允许列表中的频道（plugin\:<name>@<marketplace>或server\:<name>）]:entries:'
+    '--init[在会话前使用init匹配器运行Setup钩子（仅--print）]'
+    '--init-only[运行Setup和SessionStart钩子，然后不开始对话直接退出]'
+    '--maintenance[在会话前使用maintenance匹配器运行Setup钩子（仅--print）]'
     '--safe-mode[在禁用所有自定义设置的情况下启动（用于排查损坏的配置）]'
     '--bare[最小模式：跳过钩子、LSP、插件同步、归因、自动记忆和CLAUDE.md自动发现]'
     '--ax-screen-reader[渲染屏幕阅读器友好的输出（纯文本，无装饰边框或动画）]'
@@ -305,7 +319,7 @@ _claude() {
         mcp)
           _claude_mcp
           ;;
-        plugin)
+        plugin|plugins)
           _claude_plugin
           ;;
         install)
@@ -325,6 +339,12 @@ _claude() {
         rm)
           _claude_rm
           ;;
+        remote-control|rc|remote|sync|bridge)
+          _claude_remote_control
+          ;;
+        daemon)
+          _claude_daemon
+          ;;
         auth)
           _claude_auth
           ;;
@@ -333,6 +353,9 @@ _claude() {
           ;;
         gateway)
           _claude_gateway
+          ;;
+        self-hosted-runner)
+          _claude_self_hosted_runner
           ;;
         import)
           _claude_import
@@ -346,8 +369,9 @@ _claude() {
         ultrareview)
           _claude_ultrareview
           ;;
-        setup-token|doctor|update)
-          _message "无参数"
+        setup-token|doctor|update|upgrade)
+          _arguments \
+            '(-h --help)'{-h,--help}'[显示命令帮助]'
           ;;
         *)
           # Not a command but the prompt: options may still follow it
@@ -506,6 +530,7 @@ _claude_plugin() {
         validate)
           _arguments \
             '--strict[将警告视为错误（退出码1）]' \
+            '--profile[当指定的目录（catalog）会因本命令运行的某项检查拒绝提交该插件时，也以exit 1退出]:name:(directory)' \
             '--json[以JSON输出验证报告（退出码相同）]' \
             '(-h --help)'{-h,--help}'[显示帮助]' \
             '1:path:_files'
@@ -518,6 +543,7 @@ _claude_plugin() {
             '(-s --scope)'{-s,--scope}'[安装范围]:scope:(user project local)' \
             '--accept-command[接受市场声明的命令，其 sha256 为上一次 --json 运行以 shownCommand.sha256 报告的值]:sha256:' \
             '*--config[设置插件清单中声明的userConfig选项（可重复）]:key=value:' \
+            '--marketplace[按插件名从此来源（owner/repo、git或https URL、或路径）的市场安装插件，必要时先添加该市场]:source:' \
             '--registry[用于 package@npm 安装：从此 npm 注册表解析并下载]:url:' \
             '(-y --yes)'{-y,--yes}'[无需确认提示即接受显示的市场声明命令]' \
             '--json[打印一行机器可读的结果而非人类可读的消息]' \
@@ -617,6 +643,7 @@ _claude_plugin() {
             '--json[将完整运行结果以JSON打印到标准输出，或写入此.json文件]::path:_files' \
             '--threshold[任一用例得分低于此阈值时以退出码1退出（默认：1.0）]:threshold:' \
             '*--allow-tools[操作者对受限工具（Bash、Write、Edit、WebFetch、mcp__*）的授权]:tools:' \
+            '*--disallow-tools[无论如何都不让Claude使用的内置工具，即使已授权]:tools:' \
             '(--no-scaffold)--scaffold[运行每个用例的scaffold_script（以你的身份运行作者提供的bash；默认关闭）]' \
             '(--scaffold)--no-scaffold[明确跳过scaffold_script]' \
             '--trust-plugin[声明你信任此插件及其评估套件，跳过首次运行的信任提示（用于CI）]' \
@@ -887,6 +914,7 @@ _claude_ultrareview() {
     '--timeout[等待审查完成的最长分钟数（默认：45）]:minutes:' \
     '(--no-post)--post[以你的身份将完成的审查结果发布到PR（仅限PR目标；一条普通评论，而非review）]' \
     '(--post)--no-post[不将结果发布到PR（默认）]' \
+    '--trust-workspace[仅在本次运行中信任当前文件夹，不询问（用于脚本和CI）]' \
     '(-h --help)'{-h,--help}'[显示命令帮助]' \
     '1:target:'
 }
@@ -904,6 +932,117 @@ _claude_rm() {
     '--force-remove-worktree[即使WorktreeRemove钩子或git无法移除，也删除工作树目录（传入之前claude rm报告的worktree-id）]:worktree-id:' \
     '(-h --help)'{-h,--help}'[显示命令帮助]' \
     '1:session:_claude_background_sessions'
+}
+
+_claude_self_hosted_runner() {
+  _arguments \
+    '--api-url[API基础URL（默认：https://api.anthropic.com）]:url:' \
+    '--environment-secret-file[环境密钥文件的路径]:path:_files' \
+    '--lock-to-account[注册时将运行器锁定到单个账户]:id:' \
+    '--client-label[注册时发送的可观测性标签（默认：hostname）]:label:' \
+    '(--proxy-authorization-file --agent-proxy-url)--proxy-authorization-command[其stdout作为出站代理Proxy-Authorization标头的命令]:shell command:' \
+    '(--proxy-authorization-command --agent-proxy-url)--proxy-authorization-file[保存出站代理Proxy-Authorization标头的文件]:path:_files' \
+    '(--proxy-authorization-command --proxy-authorization-file)--agent-proxy-url[让所有会话经由此URL的代理专用代理服务器（仅https）]:url:' \
+    '--capacity[最大并发会话数（默认：1）]:n:' \
+    '--base-dir[仓库检出的基础目录（默认：/workspace）]:path:_directories' \
+    '--exec-path[用于启动子会话的二进制文件（默认：此二进制文件）]:path:_files' \
+    '--hooks-dir[生命周期钩子脚本目录（checkout、command、post-session）]:path:_directories' \
+    '--session-stop-grace-sec[会话结束后等待干净退出的时间（默认：5）]:n:' \
+    '--post-session-hook-timeout-sec[post-session钩子的SIGTERM时限（默认：60）]:n:' \
+    '--checkout-hook-timeout-min[checkout钩子每次运行的挂钟时间上限（默认：30；0表示禁用）]:n:' \
+    '--drain-wait-sec[收到SIGTERM/SIGINT时，最多等待N秒完成进行中的工作（默认：0）]:n:' \
+    '--drain-marker-file[主机用于通告优雅排空的标记文件]:path:_files' \
+    '*--git-ssh-rewrite[将https://<host>/...来源URL重写为git@<host>:...（可重复）]:host:' \
+    '*--git-host-rewrite[将https://<f>/...来源URL重写为https://<t>/...（可重复）]:from=to:' \
+    '--use-anthropic-git-proxy[使用Anthropic托管的git。警告：会删除并替换HOME级别的git配置，仅在专用账户下使用]' \
+    '--configure-git[设置全局git身份并通过Anthropic签名服务启用提交签名。会写入~/.gitconfig]' \
+    '--push-outcome-on-release[运行器发起的会话未完成即结束时，推送跟踪的成果分支]' \
+    '--trust-workspace[为每个会话的仓库路径预置持久信任（默认：true）]::bool:(true false)' \
+    '--remove-session-state[会话结束时移除该会话的状态（默认：false）]::bool:(true false)' \
+    '--diff-finds-nested-repository[在Changes窗格中显示克隆到子文件夹中的仓库；需要--capacity 1（默认：false）]::bool:(true false)' \
+    '--confine-repo-settings[限制仓库内已提交设置的守卫模式（默认：warn）]:mode:(warn enforce off)' \
+    '--server-auto-mode-lists[会话可从服务器接收哪些自动模式分类器列表（默认：no-allow）]:mode:(all no-allow none)' \
+    '--host-config-snapshot[主机配置启动快照的保存位置（默认：disk）]:mode:(disk memory)' \
+    '--health-port[/healthz HTTP监听器的端口（默认：8080；0表示禁用）]:port:' \
+    '--log-level[日志级别（默认：info）]:level:(info debug)' \
+    '--log-file[以追加模式将运行器日志同时写入文件]:path:_files' \
+    '--exit-if-unused-min[如果N分钟内从未分配工作则退出运行器]:n:' \
+    '--drain-grace-sec[活动会话结束后继续轮询工作的秒数（默认：0）]:n:' \
+    '--retire-at[在此绝对Unix时间（秒）停用运行器]:epoch-seconds:' \
+    '--defer-shutdown-max-min[首次收到SIGTERM/SIGINT时停止接收工作，并在M分钟后完成关闭（默认：0）]:m:' \
+    '--release-idle-session-min[N分钟无用户输入后释放会话槽位]:n:' \
+    '--startup-timeout-min[子进程N分钟后仍未完成启动则释放会话槽位（默认：15；0表示禁用）]:n:' \
+    '--kill-session-after-min[将会话子进程的挂钟寿命限制为N分钟]:n:' \
+    '--debug-token-dir[仅限调试：将有效令牌写入磁盘。请勿在生产环境中使用]:path:_directories' \
+    '(-h --help)'{-h,--help}'[显示此帮助信息]'
+}
+
+_claude_remote_control() {
+  _arguments \
+    '--name[会话名称（显示在claude.ai/code中）]:name:' \
+    '--remote-control-session-name-prefix[自动生成的会话名称的前缀（默认：hostname）]:prefix:' \
+    '(-c --continue --session-id)'{-c,--continue}'[重新连接到此目录或其某个git工作树最后记录的会话]' \
+    '(-c --continue --session-id)--session-id[按ID重新连接到指定会话]:id:' \
+    '--permission-mode[所启动会话的权限模式]:mode:(acceptEdits auto bypassPermissions default dontAsk plan)' \
+    '(--no-chrome)--chrome[为所启动的会话启用Claude in Chrome]' \
+    '(--chrome)--no-chrome[为所启动的会话禁用Claude in Chrome]' \
+    '(-d --debug)'{-d,--debug}'[启用调试模式，可选类别过滤]::filter:' \
+    '--debug-file[将调试日志写入文件]:path:_files' \
+    '(-v --verbose)'{-v,--verbose}'[启用详细输出]' \
+    '--spawn[启动模式（默认：same-dir）]:mode:(same-dir worktree session)' \
+    '--capacity[worktree或same-dir模式下的最大并发会话数（默认：32）]:n:' \
+    '(--no-create-session-in-dir)--create-session-in-dir[在当前目录中预先创建会话（默认）]' \
+    '(--create-session-in-dir)--no-create-session-in-dir[不在当前目录中预先创建会话]' \
+    '(-h --help)'{-h,--help}'[显示此帮助]'
+}
+
+_claude_daemon() {
+  local -a daemon_commands common_options
+  daemon_commands=(
+    'run:在前台运行监管进程'
+    'status:显示daemon的pid、版本、运行时长'
+    'logs:跟踪daemon日志（Ctrl-C停止）'
+    'uninstall:移除后台服务（launchctl/systemd）'
+    'stop:关闭监管进程并终止后台会话'
+  )
+  common_options=(
+    '--json-path[配置文件（默认：~/.claude/daemon.json）]:path:_files'
+    '--log-file[日志文件（默认：~/.claude/daemon.log）]:path:_files'
+    '(-h --help)'{-h,--help}'[显示此帮助]'
+  )
+
+  local curcontext="$curcontext" state line
+  typeset -A opt_args
+
+  _arguments -C \
+    $common_options \
+    '1: :->command' \
+    '*::arg:->args'
+
+  case $state in
+    command)
+      _describe -t commands 'daemon命令' daemon_commands
+      ;;
+    args)
+      case $words[1] in
+        run)
+          _arguments \
+            $common_options \
+            '::json-path:_files'
+          ;;
+        stop)
+          _arguments \
+            $common_options \
+            '--any[同时停止临时（非服务）daemon]' \
+            '--keep-workers[让已分离的会话继续运行]'
+          ;;
+        status|logs|uninstall)
+          _arguments \
+            $common_options
+          ;;
+      esac
+      ;;
+  esac
 }
 
 _claude_import() {

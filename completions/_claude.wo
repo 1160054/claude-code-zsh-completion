@@ -200,11 +200,15 @@ _claude() {
     'stop:Taxawal ab session background (dañuy denc waxtaan bi)'
     'respawn:Tàmbaliwaat ab session background ngir mu doxal version Claude Code bi nekk'
     'rm:Far ab session background, ak worktree bi bu loolu amul benn loraange'
+    'remote-control:Yor ay session bu local ci claude.ai/code walla app mobile bu Claude'
+    'daemon:Yor superviseur bu session background yi'
     'auth:Yor autentifikasion'
     'auto-mode:Seet walla reset konfigurasion classifier bu auto mode'
     'gateway:Doxal gateway auth/telemetry bu entreprise'
+    'self-hosted-runner:Dalal ay session cloud bu Claude Code ci masin walla container bii'
     'import:Import config bu jóge ci beneen ajaŋ AI bu kode ci Claude Code'
     'project:Yor état projet bu Claude Code'
+    'purge:Far état Claude Code yépp ngir ab projet (transcripts, tasks, historique fiise, entrée config)'
     'ultrareview:Doxal ab review kode multi-agent ci cloud te wone li ñu gis'
     'setup-token:Defar token autentifikasion bu yàgg (soxla na abonnement Claude)'
     'doctor:Saytu wér-gu-yaram bu auto-updater bu Claude Code'
@@ -221,11 +225,11 @@ _claude() {
     '--json-schema[Schema JSON ngir validasion output bu structuré]:schema:'
     '--include-partial-messages[Boole ay chunk bataaxal bu partiel ci saa yu ñuy ñów (ak --print ak --output-format=stream-json)]'
     '--input-format[Format bu input (ak --print): "text" (default) walla "stream-json" (input streaming ci waxtu wu jaadu)]:format:(text stream-json)'
-    '--mcp-debug[\[Bàyyeeku. Jëfandikoo --debug\] Tàggat mode debug MCP (dafay wone ay erreur serwëer MCP)]'
     '--dangerously-skip-permissions[Weesu ëpp saytu permission yépp. Ñu koy digal rekk ngir sandbox yu amul access internet]'
     '--allow-dangerously-skip-permissions[Tàggat opsion bu weesu saytu permission te taggatul ko par défaut]'
     '--restricted[Mode restreint: dindi outil yiy doxal ay komond walla kode ak WebFetch, bàyyi réglaas user/project/local, te tëj outil fiise yi ci répertoire yu ñuy liggéeye]'
     '--max-budget-usd[Xaalis dollar bu gëna kawe ngir jëfandikoo ci ay appel API (--print rekk)]:amount:'
+    '--max-turns[Yamale limu tour agentic yi (--print rekk)]:turns:'
     '--replay-user-messages[Yónnee ci at ay bataaxal utilisateur bu jóge stdin ci stdout ngir konfirmasion]'
     '--allowed-tools[Limu tur bu outil bu ñu may, ratax ak virgule walla espaas (misaal, "Bash(git:*) Edit")]:tools:'
     '--allowedTools[Limu tur bu outil bu ñu may, ratax ak virgule walla espaas (format camelCase)]:tools:'
@@ -237,6 +241,8 @@ _claude() {
     '--system-prompt-file[Jàng prompt système bu jóge ci ab fiise]:file:_files'
     '--append-system-prompt[Yokk prompt système ci prompt système bu default]:prompt:'
     '--append-system-prompt-file[Jàng prompt système bu jóge ci ab fiise te yokk ko ci prompt système bu default]:file:_files'
+    '(--append-subagent-system-prompt-file)--append-subagent-system-prompt[Yokk text ci prompt système bu subagent bu nekk (--print rekk)]:prompt:'
+    '(--append-subagent-system-prompt)--append-subagent-system-prompt-file[Jàng text bu jóge ci ab fiise te yokk ko ci prompt système yu subagent yi (--print rekk)]:file:_files'
     '--system-prompt-snapshot[Bind prompt système benn yoon ci waxtaan bu nekk te jëfandikoowaat ko ni mu mel ci requête bu nekk ak resume bu nekk (on, default) walla defarwaat ko ci requête bu nekk (off)]:mode:(on off)'
     '--permission-mode[Mode permission bu ñuy jëfandikoo ngir session]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)'
     '--permission-prompts[Kan mooy tontu prompt permission yi ak --print: "host" (host SDK bi walla --permission-prompt-tool) walla "none" (lépp lu waroon a laaj dañu koy tere)]:target:(host none)'
@@ -256,6 +262,8 @@ _claude() {
     '--strict-mcp-config[Jëfandikoo rekk ay serwëer MCP bu jóge --mcp-config te bàyyi réglaas MCP yépp yu ci des]'
     '--session-id[Session ID bu wóor ngir jëfandikoo ci waxtaan (fàww mu doon UUID bu baax)]:uuid:'
     '--agents[Objet JSON bu wone ay ajaŋ bu custom]:json:'
+    '--advisor[Tàggat outil advisor bu serwëer bi ngir session bii ak alias modèle walla ID modèle bu mat]:model:_claude_model_names'
+    '--teammate-mode[Naka lañuy wone mbokk yu agent team]:mode:(in-process auto tmux iterm2)'
     '--setting-sources[Limu source réglaas bu ñuy yeb, ratax ak virgule (user, project, local)]:sources:'
     '--plugin-dir[Répertoire bu ñuy yeb ay plugin ngir session bii rekk (mën na ñu ko baamtu)]:paths:_directories'
     '--disable-slash-commands[Tere komond slash yépp]'
@@ -268,9 +276,11 @@ _claude() {
     '--debug-file[Bind ay log debug ci ab yoon fiise bu wóor (dafay tàggat mode debug ci lu wóoral)]:path:_files'
     '--from-pr[Dellu ci ab session bu ñu boole ak ab PR ci nimero/URL, walla ubbi picker anteraktif]::value:'
     '--teleport[Dellu ci ab session teleport, mën nga wone session ID bu optionel]::session:'
-    '--cloud[Sos ab session cloud ak description bi ñu wone, walla jokkoo ak benn bu am ci session ID walla URL claude.ai/code]::description-or-session:'
+    '(--remote)--cloud[Sos ab session cloud ak description bi ñu wone, walla jokkoo ak benn bu am ci session ID walla URL claude.ai/code]::description-or-session:'
+    '(--cloud)--remote[Alias bu bàyyeeku ngir --cloud]::description-or-session:'
     '--environment[Sos ab session cloud bu bees buy dox ci environnement self-hosted bi ñu wone (ccpool_...)]:environment_id:'
-    '--remote-control[Tàmbali session anteraktif ak Remote Control bu ñu tàggat (mën na am tur bu optionel)]::name:'
+    '--ref[Ak --environment: sukkandiku checkout bu session bu bees bi ci ab ref bu am tur te du HEAD bu local]:branch:'
+    '(--remote-control --rc)'{--remote-control,--rc}'[Tàmbali session anteraktif ak Remote Control bu ñu tàggat (mën na am tur bu optionel)]::name:'
     '--remote-control-session-name-prefix[Prefix ngir tur session Remote Control bu ñu génère otomatik]:prefix:'
     '--chrome[Tàggat integrasion Claude ci Chrome]'
     '--no-chrome[Tere integrasion Claude ci Chrome]'
@@ -281,6 +291,11 @@ _claude() {
     '--include-hook-events[Boole event lifecycle hook yépp ci stream output (ak stream-json)]'
     '--exclude-dynamic-system-prompt-sections[Yóbbu section per-machine ci bataaxal utilisateur bu njëkk ngir gëna baax reuse bu prompt-cache]'
     '--brief[Tàggat outil SendUserMessage ngir jokkoo ajaŋ-ci-utilisateur]'
+    '*--channels[(Research preview) Serwëer MCP yi ñuy déglu seen notification canal (plugin\:<name>@<marketplace>)]:entries:'
+    '*--dangerously-load-development-channels[Tàggat canal yu nekkul ci allowlist bi ñu nangu, ngir développement local (plugin\:<name>@<marketplace> walla server\:<name>)]:entries:'
+    '--init[Doxal hook Setup yi ak matcher init balaa session bi (--print rekk)]'
+    '--init-only[Doxal hook Setup ak SessionStart yi, te génn te tàmbaliwul waxtaan]'
+    '--maintenance[Doxal hook Setup yi ak matcher maintenance balaa session bi (--print rekk)]'
     '--safe-mode[Tàmbali ak customisation yépp yu ñu tere (baax na ngir saytu ab konfigurasion bu yàqu)]'
     '--bare[Mode minimal: dee hooks, LSP, sync plugin, attribution, auto-memory, ak auto-discovery CLAUDE.md]'
     '--ax-screen-reader[Wone output bu jaadu ak screen-reader (text bu flat, amul border walla animasion decoratif)]'
@@ -304,7 +319,7 @@ _claude() {
         mcp)
           _claude_mcp
           ;;
-        plugin)
+        plugin|plugins)
           _claude_plugin
           ;;
         install)
@@ -324,6 +339,12 @@ _claude() {
         rm)
           _claude_rm
           ;;
+        remote-control|rc|remote|sync|bridge)
+          _claude_remote_control
+          ;;
+        daemon)
+          _claude_daemon
+          ;;
         auth)
           _claude_auth
           ;;
@@ -333,17 +354,24 @@ _claude() {
         gateway)
           _claude_gateway
           ;;
+        self-hosted-runner)
+          _claude_self_hosted_runner
+          ;;
         import)
           _claude_import
           ;;
         project)
           _claude_project
           ;;
+        purge)
+          _claude_purge
+          ;;
         ultrareview)
           _claude_ultrareview
           ;;
-        setup-token|doctor|update)
-          _message "amul argument"
+        setup-token|doctor|update|upgrade)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Wone ndimbal ci komond bi]'
           ;;
         *)
           # Not a command but the prompt: options may still follow it
@@ -502,6 +530,7 @@ _claude_plugin() {
         validate)
           _arguments \
             '--strict[Jàppe avertissement yi ni ay erreur (exit code 1)]' \
+            '--profile[Génn itam ak exit code 1 bu catalogue bi ñu tudd di bañ soumission plugin bi ci ab saytu bu komond bii doxal]:name:(directory)' \
             '--json[Wone rapport validasion bi ni JSON (exit code yu bokk)]' \
             '(-h --help)'{-h,--help}'[Wone ndimbal]' \
             '1:path:_files'
@@ -512,7 +541,10 @@ _claude_plugin() {
         install|i)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Waññ instalasion]:scope:(user project local)' \
+            '--accept-command[Nangu komond bi marché bi yégle te sha256 am bi doxalin --json bu weesu wone ko ni shownCommand.sha256]:sha256:' \
             '*--config[Def ab opsion userConfig bu ñu yégle ci manifest plugin bi (mën na ñu ko baamtu)]:key=value:' \
+            '--marketplace[Instale plugin bi ak turam rekk bu jóge ci marché bi nekk ci source bii (owner/repo, URL git walla https, walla yoon), te yokk marché bi bu soxlaa]:source:' \
+            '--registry[Ngir instalasion package@npm: seet te yebal ci npm registry bii]:url:' \
             '(-y --yes)'{-y,--yes}'[Nangu komond bi ñu wone te marché bi yégle ko, te laajul konfirmasion]' \
             '--json[Wone benn rëdd résultat bu masin mën a jàng ci lu dul bataaxal bu nit]' \
             '(-h --help)'{-h,--help}'[Wone ndimbal]' \
@@ -545,6 +577,7 @@ _claude_plugin() {
           ;;
         update)
           _arguments \
+            '--accept-command[Nangu komond bi marché bi yégle te sha256 am bi doxalin --json bu weesu wone ko ni shownCommand.sha256]:sha256:' \
             '(-s --scope)'{-s,--scope}'[Waññ instalasion]:scope:(user project local managed)' \
             '(-y --yes)'{-y,--yes}'[Nangu komond bi ñu wone te marché bi yégle ko, te laajul konfirmasion]' \
             '--json[Wone benn rëdd résultat bu masin mën a jàng ci lu dul bataaxal bu nit]' \
@@ -555,6 +588,7 @@ _claude_plugin() {
           _arguments \
             '--json[Wone ni JSON]' \
             '--available[Boole plugin yu am ci marché yi (soxla na --json)]' \
+            '--data-size[Natt répertoire done yu ñu denc bu plugin bu nekk bu ñu instale, walla plugin bi ñu tudd rekk (soxla na --json)]::plugin:_claude_installed_plugins' \
             '(-h --help)'{-h,--help}'[Wone ndimbal]'
           ;;
         prune|autoremove)
@@ -587,6 +621,15 @@ _claude_plugin() {
             '1:name:'
           ;;
         eval)
+          if [[ $words[2] == init ]]; then
+            _arguments \
+              '--bare[Bind ab template bu amul dara te doxalul interview bi]' \
+              '--eval-dir[Répertoire bu nekk ci biir répertoire bi nekk fi ngir bind cas yi]:dir:_directories' \
+              '(-i --interactive)'{-i,--interactive}'[Doxal interview bu bind cas yi (soxla na terminal anteraktif)]' \
+              '(-h --help)'{-h,--help}'[Wone ndimbal]' \
+              '::name:'
+            return
+          fi
           _arguments \
             '--case[Filtre cas yi ci glob bu tur]:glob:' \
             '*--tag[Filtre cas yi ci tag (mën na ñu ko baamtu)]:tag:' \
@@ -600,6 +643,7 @@ _claude_plugin() {
             '--json[Wone résultat doxal bi bépp ni JSON ci stdout, walla bind ko ci fiise .json bii]::path:_files' \
             '--threshold[Génn ak exit code 1 bu score bu benn cas suufee seuil bii (default: 1.0)]:threshold:' \
             '*--allow-tools[Permission operateur ngir outil yu ñu tëj (Bash, Write, Edit, WebFetch, mcp__*)]:tools:' \
+            '*--disallow-tools[Outil built-in yi Claude du jëfandikoo ci benn cas, doonte sax ñu may ko]:tools:' \
             '(--no-scaffold)--scaffold[Doxal scaffold_script bu cas bu nekk (dafay doxal bash bu auteur bi joxe ci sa tur; off par défaut)]' \
             '(--scaffold)--no-scaffold[Weesu scaffold_script ci lu leer]' \
             '--trust-plugin[Wax ne wóolu nga plugin bii ak suite eval bi, te weesu prompt wóolu bu doxal bu njëkk (ngir CI)]' \
@@ -612,7 +656,7 @@ _claude_plugin() {
             '(--no-publish)--publish-report[Laaj itam ñu publier rapport bi ci claude.ai]' \
             '(--publish-report)--no-publish[Denc rapport HTML bi ci local rekk; weesu publier ko ci claude.ai]' \
             '(-h --help)'{-h,--help}'[Wone ndimbal]' \
-            '::target: _alternative "plugins\:installed plugin\:_claude_installed_plugins" "files\:path\:_files"'
+            '::target: _alternative "commands\:eval command\:(init)" "plugins\:installed plugin\:_claude_installed_plugins" "files\:path\:_files"'
           ;;
         tag)
           _arguments \
@@ -663,6 +707,7 @@ _claude_plugin_marketplace() {
           _arguments \
             '--sparse[Yamale checkout ci ay répertoire yu wóor ak git sparse-checkout (ngir monorepo)]:paths:' \
             '--scope[Fan lañuy yégle marché bi]:scope:(user project local)' \
+            '--json[Wone benn rëdd résultat bu masin mën a jàng ni rëdd bu mujj ci stdout]' \
             '--claudeai[Yokk marché bu tur bii bi claude.ai di host ngir yaw]' \
             '(-h --help)'{-h,--help}'[Wone ndimbal]' \
             '1:source:'
@@ -675,11 +720,13 @@ _claude_plugin_marketplace() {
         remove|rm)
           _arguments \
             '--scope[Dindi yégle marché bi ci ab waññ réglaas bu wóor (bul ko wone ngir dindi ko ci waññ yépp)]:scope:(user project local)' \
+            '--json[Wone benn rëdd résultat bu masin mën a jàng ni rëdd bu mujj ci stdout]' \
             '(-h --help)'{-h,--help}'[Wone ndimbal]' \
             '1:name:'
           ;;
         update)
           _arguments \
+            '--json[Ak tur marché: wone benn rëdd résultat bu masin mën a jàng ni rëdd bu mujj ci stdout]' \
             '(-h --help)'{-h,--help}'[Wone ndimbal]' \
             '::name:'
           ;;
@@ -851,12 +898,23 @@ _claude_project() {
   esac
 }
 
+_claude_purge() {
+  _arguments \
+    '--dry-run[Wone li ñuy far te faruñu dara]' \
+    '(-y --yes)'{-y,--yes}'[Weesu prompt konfirmasion bi]' \
+    '(-i --interactive)'{-i,--interactive}'[Laaj ci élément bu nekk balaa ñu koy far]' \
+    '(1)--all[Far état ngir projet yépp (mënul dox ak ab yoon)]' \
+    '(-h --help)'{-h,--help}'[Wone ndimbal ci komond bi]' \
+    '(--all)::path:_directories'
+}
+
 _claude_ultrareview() {
   _arguments \
     '--json[Wone payload bugs.json bu raw ci lu dul li ñu gis bu ñu formaté]' \
     '--timeout[Nombre minute bu gëna kawe ngir xaar review bi jeex (default: 45)]:minutes:' \
     '(--no-post)--post[Yónnee li review bi gis ci PR bi ci sa tur (target PR rekk; benn commentaire bu yomb, du ab review)]' \
     '(--post)--no-post[Bul yónnee li ñu gis ci PR bi (default)]' \
+    '--trust-workspace[Wóolu dossier bi nekk ngir doxalin bii rekk, te laajul (ngir script ak CI)]' \
     '(-h --help)'{-h,--help}'[Wone ndimbal ci komond bi]' \
     '1:target:'
 }
@@ -874,6 +932,117 @@ _claude_rm() {
     '--force-remove-worktree[Far répertoire worktree bi doonte hook WorktreeRemove walla git mënul ko dindi (joxe worktree-id bi ab claude rm bu jiitu wone)]:worktree-id:' \
     '(-h --help)'{-h,--help}'[Wone ndimbal ci komond bi]' \
     '1:session:_claude_background_sessions'
+}
+
+_claude_self_hosted_runner() {
+  _arguments \
+    '--api-url[URL bu njëkk bu API (default: https://api.anthropic.com)]:url:' \
+    '--environment-secret-file[Yoon bu fiise sekre bu environment]:path:_files' \
+    '--lock-to-account[Tëj runner bi ci benn compte rekk ci bi ñuy bind]:id:' \
+    '--client-label[Etiket observabilité bi ñuy yónnee ci bi ñuy bind (default: hostname)]:label:' \
+    '(--proxy-authorization-file --agent-proxy-url)--proxy-authorization-command[Komond bu stdout am di header Proxy-Authorization ngir proxy yu génn]:shell command:' \
+    '(--proxy-authorization-command --agent-proxy-url)--proxy-authorization-file[Fiise bu denc header Proxy-Authorization ngir proxy yu génn]:path:_files' \
+    '(--proxy-authorization-command --proxy-authorization-file)--agent-proxy-url[Jaarale session yépp ci agent proxy bi nekk ci URL bii (https rekk)]:url:' \
+    '--capacity[Limu session yu ànd yu gëna bare (default: 1)]:n:' \
+    '--base-dir[Répertoire bu njëkk ngir checkout repo yi (default: /workspace)]:path:_directories' \
+    '--exec-path[Binaire bi ñuy tàmbali ngir session doom yi (default: binaire bii)]:path:_files' \
+    '--hooks-dir[Répertoire bu script hook lifecycle yi (checkout, command, post-session)]:path:_directories' \
+    '--session-stop-grace-sec[Ñaata lañuy xaar génn bu set ginaaw bu session bi jeexee (default: 5)]:n:' \
+    '--post-session-hook-timeout-sec[Waxtu bi ñu may hook post-session ginaaw SIGTERM (default: 60)]:n:' \
+    '--checkout-hook-timeout-min[Waxtu bu gëna yàgg ngir doxalin bu nekk bu hook checkout (default: 30; 0 dafay ko tere)]:n:' \
+    '--drain-wait-sec[Ci SIGTERM/SIGINT, xaar ba N segond ngir liggéey bi nekk ci yoon (default: 0)]:n:' \
+    '--drain-marker-file[Fiise màndarga bi host bi di yégle ab drain bu neex]:path:_files' \
+    '*--git-ssh-rewrite[Bindaat URL source yu https://<host>/... ni git@<host>:... (mën na ñu ko baamtu)]:host:' \
+    '*--git-host-rewrite[Bindaat URL source yu https://<f>/... ni https://<t>/... (mën na ñu ko baamtu)]:from=to:' \
+    '--use-anthropic-git-proxy[Jëfandikoo git bi Anthropic di yor. ÀTTANTE: dafay far te wuutu config git bu HOME, jëfandikoo ko rekk ci ab compte bu ñu ko jagleel]' \
+    '--configure-git[Defar identité git bu global te tàggat signature commit ci service signature bu Anthropic. Dafay bind ~/.gitconfig]' \
+    '--push-outcome-on-release[Push branch résultat yi ñuy topp bu runner bi tëjee ab session bu matul]' \
+    '--trust-workspace[Def ci kanam wóolu bu yàgg ngir yoonu repo yu session bu nekk (default: true)]::bool:(true false)' \
+    '--remove-session-state[Far état bu session bi bu session bi jeexee (default: false)]::bool:(true false)' \
+    '--diff-finds-nested-repository[Wone ab repository bu ñu clone ci ab sous-dossier ci panneau Changes; soxla na --capacity 1 (default: false)]::bool:(true false)' \
+    '--confine-repo-settings[Mode garde bu yamale réglaas yi ñu commit ci repo bi (default: warn)]:mode:(warn enforce off)' \
+    '--server-auto-mode-lists[Ban lim classifier auto mode yu jóge ci serwëer bi la session mën a jot (default: no-allow)]:mode:(all no-allow none)' \
+    '--host-config-snapshot[Fan lañuy denc snapshot config host bi ci tàmbali gi (default: disk)]:mode:(disk memory)' \
+    '--health-port[Port ngir listener HTTP /healthz (default: 8080; 0 dafay ko tere)]:port:' \
+    '--log-level[Niveau log (default: info)]:level:(info debug)' \
+    '--log-file[Bind itam log runner yi ci ab fiise ci mode append]:path:_files' \
+    '--exit-if-unused-min[Génn runner bi bu ñu ko joxul benn liggéey diirub N minit]:n:' \
+    '--drain-grace-sec[Segond yi ñuy wéy di laaj liggéey ginaaw bu session yu doxal yi jeexee (default: 0)]:n:' \
+    '--retire-at[Tëj runner bi ba fàww ci waxtu Unix bu absolu bii, ci segond]:epoch-seconds:' \
+    '--defer-shutdown-max-min[Ci SIGTERM/SIGINT bu njëkk, bàyyi jël liggéey te jeexal tëj gi M minit ginaaw (default: 0)]:m:' \
+    '--release-idle-session-min[Bàyyi ab place session ginaaw N minit yu utilisateur bi bindul dara]:n:' \
+    '--startup-timeout-min[Bàyyi ab place session bu doom bi jeexalul tàmbali gi ginaaw N minit (default: 15; 0 dafay ko tere)]:n:' \
+    '--kill-session-after-min[Yamale dundu session doom bi ci waxtu dëgg ci N minit]:n:' \
+    '--debug-token-dir[DEBUG REKK: dafay bind token yu dund ci disk bi. Bul ko jëfandikoo ci production]:path:_directories' \
+    '(-h --help)'{-h,--help}'[Wone bataaxal ndimbal bii]'
+}
+
+_claude_remote_control() {
+  _arguments \
+    '--name[Tur bu session bi (ñu koy wone ci claude.ai/code)]:name:' \
+    '--remote-control-session-name-prefix[Prefix ngir tur session bu ñu génère otomatik (default: hostname)]:prefix:' \
+    '(-c --continue --session-id)'{-c,--continue}'[Jokkoowaat ak session bi ñu bind mujj ngir répertoire bii walla benn ci git worktree yi]' \
+    '(-c --continue --session-id)--session-id[Jokkoowaat ak ab session bu wóor ci ID]:id:' \
+    '--permission-mode[Mode permission ngir session yi ñu tàmbali]:mode:(acceptEdits auto bypassPermissions default dontAsk plan)' \
+    '(--no-chrome)--chrome[Tàggat Claude in Chrome ngir session yi ñu tàmbali]' \
+    '(--chrome)--no-chrome[Tere Claude in Chrome ngir session yi ñu tàmbali]' \
+    '(-d --debug)'{-d,--debug}'[Tàggat mode debug ak filtre kategori bu optionel]::filter:' \
+    '--debug-file[Bind ay log debug ci fiise]:path:_files' \
+    '(-v --verbose)'{-v,--verbose}'[Tàggat output verbose]' \
+    '--spawn[Mode tàmbali (default: same-dir)]:mode:(same-dir worktree session)' \
+    '--capacity[Limu session yu ànd yu gëna bare ci mode worktree walla same-dir (default: 32)]:n:' \
+    '(--no-create-session-in-dir)--create-session-in-dir[Sos ci kanam ab session ci répertoire bi nekk (default)]' \
+    '(--create-session-in-dir)--no-create-session-in-dir[Bul sos ci kanam ab session ci répertoire bi nekk]' \
+    '(-h --help)'{-h,--help}'[Wone ndimbal bii]'
+}
+
+_claude_daemon() {
+  local -a daemon_commands common_options
+  daemon_commands=(
+    'run:Doxal superviseur bi ci foreground'
+    'status:Wone pid, version, uptime bu daemon bi'
+    'logs:Topp log bu daemon bi (Ctrl-C ngir taxawal)'
+    'uninstall:Dindi service background bi (launchctl/systemd)'
+    'stop:Tëj superviseur bi te jeexal session background yi'
+  )
+  common_options=(
+    '--json-path[Fiise config (default: ~/.claude/daemon.json)]:path:_files'
+    '--log-file[Fiise log (default: ~/.claude/daemon.log)]:path:_files'
+    '(-h --help)'{-h,--help}'[Wone ndimbal bii]'
+  )
+
+  local curcontext="$curcontext" state line
+  typeset -A opt_args
+
+  _arguments -C \
+    $common_options \
+    '1: :->command' \
+    '*::arg:->args'
+
+  case $state in
+    command)
+      _describe -t commands 'ay commande daemon' daemon_commands
+      ;;
+    args)
+      case $words[1] in
+        run)
+          _arguments \
+            $common_options \
+            '::json-path:_files'
+          ;;
+        stop)
+          _arguments \
+            $common_options \
+            '--any[Taxawal itam ab daemon bu diir (du service)]' \
+            '--keep-workers[Bàyyi session yu ñu wàcce ñuy wéy di dox]'
+          ;;
+        status|logs|uninstall)
+          _arguments \
+            $common_options
+          ;;
+      esac
+      ;;
+  esac
 }
 
 _claude_import() {

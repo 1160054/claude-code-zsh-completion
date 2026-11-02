@@ -200,11 +200,15 @@ _claude() {
     'stop:Atal sesiwn cefndir (cedwir ei sgwrs)'
     'respawn:Ailgychwyn sesiwn cefndir fel ei fod yn rhedeg y fersiwn gyfredol o Claude Code'
     'rm:Dileu sesiwn cefndir, a'\''i goeden waith pan fo hynny'\''n ddiogel'
+    'remote-control:Rheoli sesiynau lleol o claude.ai/code neu ap symudol Claude'
+    'daemon:Rheoli goruchwyliwr y sesiynau cefndir'
     'auth:Rheoli dilysu'
     'auto-mode:Archwilio neu ailosod ffurfweddiad dosbarthwr modd awto'
     'gateway:Rhedeg y porth dilysu/telemetreg menter'
+    'self-hosted-runner:Lletya sesiynau cwmwl Claude Code ar y peiriant neu’r cynhwysydd hwn'
     'import:Mewnforio ffurfweddiad o asiant codio AI arall i Claude Code'
     'project:Rheoli cyflwr prosiect Claude Code'
+    'purge:Dileu holl gyflwr Claude Code ar gyfer prosiect (trawsgrifiadau, tasgau, hanes ffeiliau, cofnod ffurfweddu)'
     'ultrareview:Rhedeg adolygiad cod aml-asiant wedi'\''i gynnal ar y cwmwl ac argraffu'\''r canfyddiadau'
     'setup-token:Gosod tocyn dilysu hirdymor (angen tanysgrifiad Claude)'
     'doctor:Gwiriad iechyd ar gyfer diweddarwr Claude Code'
@@ -214,73 +218,84 @@ _claude() {
 
   local -a main_options
   main_options=(
-    '(-d --debug)'{-d,--debug}'[Galluogi modd dadfygio gyda hidlo categori dewisol (e.e., "api,hooks" neu "!statsig,!file")]:hidlydd:'
+    '(-d --debug)'{-d,--debug}'[Galluogi modd dadfygio gyda hidlo categori dewisol (e.e., "api,hooks" neu "!statsig,!file")]:filter:'
     '--verbose[Gwrthwneud gosodiad modd manwl o'\''r ffeil ffurfweddu]'
     '(-p --print)'{-p,--print}'[Argraffu ymateb a gadael (ar gyfer defnydd gyda phibellau). Nodyn: defnyddiwch yn unig mewn cyfeiriaduron diogel]'
-    '--output-format[Fformat allbwn (gyda --print): "text" (rhagosodiad), "json" (canlyniad sengl), neu "stream-json" (ffrydio amser real)]:fformat:(text json stream-json)'
-    '--json-schema[Sgema JSON ar gyfer dilysu allbwn strwythuredig]:sgema:'
+    '--output-format[Fformat allbwn (gyda --print): "text" (rhagosodiad), "json" (canlyniad sengl), neu "stream-json" (ffrydio amser real)]:format:(text json stream-json)'
+    '--json-schema[Sgema JSON ar gyfer dilysu allbwn strwythuredig]:schema:'
     '--include-partial-messages[Cynnwys darnau neges rhannol wrth iddynt gyrraedd (gyda --print a --output-format=stream-json)]'
-    '--input-format[Fformat mewnbwn (gyda --print): "text" (rhagosodiad) neu "stream-json" (mewnbwn ffrydio amser real)]:fformat:(text stream-json)'
-    '--mcp-debug[\[Anghymell. Defnyddiwch --debug yn lle hynny\] Galluogi modd dadfygio MCP (dangos gwallau gweinydd MCP)]'
+    '--input-format[Fformat mewnbwn (gyda --print): "text" (rhagosodiad) neu "stream-json" (mewnbwn ffrydio amser real)]:format:(text stream-json)'
     '--dangerously-skip-permissions[Osgoi pob gwiriad caniatâd. Argymhellir ar gyfer blychau tywod yn unig heb fynediad i'\''r rhyngrwyd]'
     '--allow-dangerously-skip-permissions[Galluogi dewis i osgoi gwiriadau caniatâd heb alluogi yn ôl y rhagosodiad]'
     '--restricted[Modd cyfyngedig: tynnu'\''r offer sy'\''n rhedeg gorchmynion neu god a WebFetch, anwybyddu gosodiadau user/project/local, a chyfyngu offer ffeiliau i'\''r cyfeiriaduron gwaith]'
-    '--max-budget-usd[Uchafswm o ddoleri i'\''w wario ar alwadau API (--print yn unig)]:swm:'
+    '--max-budget-usd[Uchafswm o ddoleri i'\''w wario ar alwadau API (--print yn unig)]:amount:'
+    '--max-turns[Cyfyngu ar nifer y troeon asiantaidd (--print yn unig)]:turns:'
     '--replay-user-messages[Ail-anfon negeseuon defnyddiwr o stdin ar stdout ar gyfer cadarnhad]'
-    '--allowed-tools[Rhestr wedi'\''i gwahanu â choma neu ofod o enwau offer a ganiateir (e.e., "Bash(git:*) Edit")]:offer:'
-    '--allowedTools[Rhestr wedi'\''i gwahanu â choma neu ofod o enwau offer a ganiateir (fformat camelCase)]:offer:'
-    '--tools[Pennu rhestr o offer ar gael o'\''r set adeiledig. Modd argraffu yn unig]:offer:'
-    '--disallowed-tools[Rhestr wedi'\''i gwahanu â choma neu ofod o enwau offer na chaniateir (e.e., "Bash(git:*) Edit")]:offer:'
-    '--disallowedTools[Rhestr wedi'\''i gwahanu â choma neu ofod o enwau offer na chaniateir (fformat camelCase)]:offer:'
-    '--mcp-config[Llwytho gweinyddion MCP o ffeil neu linyn JSON (wedi'\''i wahanu ag ofod)]:ffurfweddiadau:'
-    '--system-prompt[Anogwr system i'\''w ddefnyddio ar gyfer y sesiwn]:anogwr:'
+    '--allowed-tools[Rhestr wedi'\''i gwahanu â choma neu ofod o enwau offer a ganiateir (e.e., "Bash(git:*) Edit")]:tools:'
+    '--allowedTools[Rhestr wedi'\''i gwahanu â choma neu ofod o enwau offer a ganiateir (fformat camelCase)]:tools:'
+    '--tools[Pennu rhestr o offer ar gael o'\''r set adeiledig. Modd argraffu yn unig]:tools:'
+    '--disallowed-tools[Rhestr wedi'\''i gwahanu â choma neu ofod o enwau offer na chaniateir (e.e., "Bash(git:*) Edit")]:tools:'
+    '--disallowedTools[Rhestr wedi'\''i gwahanu â choma neu ofod o enwau offer na chaniateir (fformat camelCase)]:tools:'
+    '--mcp-config[Llwytho gweinyddion MCP o ffeil neu linyn JSON (wedi'\''i wahanu ag ofod)]:configs:'
+    '--system-prompt[Anogwr system i'\''w ddefnyddio ar gyfer y sesiwn]:prompt:'
     '--system-prompt-file[Darllen anogwr system o ffeil]:file:_files'
-    '--append-system-prompt[Atodi anogwr system i anogwr system rhagosodedig]:anogwr:'
+    '--append-system-prompt[Atodi anogwr system i anogwr system rhagosodedig]:prompt:'
     '--append-system-prompt-file[Darllen anogwr system o ffeil a'\''i atodi i'\''r anogwr system rhagosodedig]:file:_files'
+    '(--append-subagent-system-prompt-file)--append-subagent-system-prompt[Atodi testun i anogwr system pob is-asiant (--print yn unig)]:prompt:'
+    '(--append-subagent-system-prompt)--append-subagent-system-prompt-file[Darllen testun o ffeil a’i atodi i anogwyr system is-asiantau (--print yn unig)]:file:_files'
     '--system-prompt-snapshot[Cofnodi'\''r anogwr system unwaith fesul sgwrs a'\''i ailddefnyddio air am air ar bob cais ac wrth ailddechrau (on, y rhagosodiad) neu ei rendro o'\''r newydd ar bob cais (off)]:mode:(on off)'
-    '--permission-mode[Modd caniatâd i'\''w ddefnyddio ar gyfer y sesiwn]:modd:(acceptEdits auto bypassPermissions manual dontAsk plan)'
+    '--permission-mode[Modd caniatâd i'\''w ddefnyddio ar gyfer y sesiwn]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)'
     '--permission-prompts[Pwy sy'\''n ateb anogwyr caniatâd gyda --print: "host" (gwesteiwr yr SDK neu --permission-prompt-tool) neu "none" (gwrthodir unrhyw beth a fyddai'\''n gofyn)]:target:(host none)'
     '--permission-prompt-tool[Offeryn MCP i'\''w ddefnyddio ar gyfer anogwyr caniatâd (--print yn unig)]:tool:'
     '(-c --continue)'{-c,--continue}'[Parhau â'\''r sgwrs fwyaf diweddar]'
-    '(-r --resume)'{-r,--resume}'[Ailddechrau sgwrs - pennu ID sesiwn neu ddewis yn rhyngweithiol]:IDsesiwn:_claude_sessions'
+    '(-r --resume)'{-r,--resume}'[Ailddechrau sgwrs - pennu ID sesiwn neu ddewis yn rhyngweithiol]:sessionId:_claude_sessions'
     '--fork-session[Creu ID sesiwn newydd yn lle ailddefnyddio ID sesiwn gwreiddiol wrth ailddechrau (gyda --resume neu --continue)]'
     '--no-session-persistence[Analluogi parhad sesiwn - ni chaiff sesiynau eu cadw (--print yn unig)]'
     '--model[Model ar gyfer y sesiwn gyfredol. Pennu alias ar gyfer y model diweddaraf (e.e., '\''sonnet'\'' neu '\''opus'\'')]:model:_claude_model_names'
-    '--agent[Asiant ar gyfer y sesiwn gyfredol. Mae'\''n gwrthwneud y gosodiad '\''agent'\'']:asiant:_claude_agent_names'
+    '--agent[Asiant ar gyfer y sesiwn gyfredol. Mae'\''n gwrthwneud y gosodiad '\''agent'\'']:agent:_claude_agent_names'
     '--betas[Penawdau beta i'\''w cynnwys mewn ceisiadau API (defnyddwyr allwedd API yn unig)]:betas:'
     '--fallback-model[Galluogi dirwyneb awtomatig i'\''r model a bennwyd pan fo'\''r model rhagosodedig dan straen (--print yn unig)]:model:_claude_model_names'
-    '--settings[Llwybr i ffeil JSON gosodiadau neu linyn JSON i lwytho gosodiadau ychwanegol]:ffeil-neu-json:_files'
-    '--add-dir[Cyfeiriaduron ychwanegol i ganiatáu mynediad offer]:cyfeiriaduron:_directories'
+    '--settings[Llwybr i ffeil JSON gosodiadau neu linyn JSON i lwytho gosodiadau ychwanegol]:file-or-json:_files'
+    '--add-dir[Cyfeiriaduron ychwanegol i ganiatáu mynediad offer]:directories:_directories'
     '--ide[Cysylltu'\''n awtomatig ag IDE wrth gychwyn os oes union un IDE dilys ar gael]'
     '--desktop[Agor yn ap Claude Desktop yn lle'\''r derfynell (gyda --continue neu --resume <id> i ddewis y sesiwn)]'
     '--strict-mcp-config[Defnyddio gweinyddion MCP o --mcp-config yn unig ac anwybyddu pob gosodiad MCP arall]'
     '--session-id[ID sesiwn penodol i'\''w ddefnyddio ar gyfer y sgwrs (rhaid bod yn UUID dilys)]:uuid:'
     '--agents[Gwrthrych JSON yn diffinio asiantau cyfaddas]:json:'
-    '--setting-sources[Rhestr wedi'\''i gwahanu â choma o ffynonellau gosodiadau i'\''w llwytho (user, project, local)]:ffynonellau:'
-    '--plugin-dir[Cyfeiriadur i lwytho ategion ohono ar gyfer y sesiwn hon yn unig (ailadroddadwy)]:llwybrau:_directories'
+    '--advisor[Galluogi’r offeryn cynghorydd ar ochr y gweinydd ar gyfer y sesiwn hon gydag alias model neu ID model llawn]:model:_claude_model_names'
+    '--teammate-mode[Sut mae cyd-chwaraewyr tîm asiantau yn cael eu dangos]:mode:(in-process auto tmux iterm2)'
+    '--setting-sources[Rhestr wedi'\''i gwahanu â choma o ffynonellau gosodiadau i'\''w llwytho (user, project, local)]:sources:'
+    '--plugin-dir[Cyfeiriadur i lwytho ategion ohono ar gyfer y sesiwn hon yn unig (ailadroddadwy)]:paths:_directories'
     '--disable-slash-commands[Analluogi pob gorchymyn slaes]'
     '(--bg --background)'{--bg,--background}'[Cychwyn y sesiwn fel asiant cefndir a dychwelyd ar unwaith]'
-    '(-w --worktree)'{-w,--worktree}'[Creu coeden waith git newydd ar gyfer y sesiwn hon (pennu enw yn ddewisol)]::enw:'
+    '(-w --worktree)'{-w,--worktree}'[Creu coeden waith git newydd ar gyfer y sesiwn hon (pennu enw yn ddewisol)]::name:'
     '--tmux=-[Creu sesiwn tmux ar gyfer y goeden waith (angen --worktree). Yn defnyddio paenau brodorol iTerm2 pan fyddant ar gael; --tmux=classic ar gyfer tmux traddodiadol]::mode:(classic)'
-    '(-n --name)'{-n,--name}'[Gosod enw arddangos ar gyfer y sesiwn hon]:enw:'
-    '--effort[Lefel ymdrech ar gyfer y sesiwn gyfredol]:lefel:(low medium high xhigh max)'
+    '(-n --name)'{-n,--name}'[Gosod enw arddangos ar gyfer y sesiwn hon]:name:'
+    '--effort[Lefel ymdrech ar gyfer y sesiwn gyfredol]:level:(low medium high xhigh max)'
     '--autocompact[Maint ffenestr awto-gywasgu (auto, neu 100k-1M tocyn)]:size:(auto)'
-    '--debug-file[Ysgrifennu cofnodion dadfygio i lwybr ffeil penodol (yn galluogi modd dadfygio yn ymhlyg)]:llwybr:_files'
-    '--from-pr[Ailddechrau sesiwn wedi'\''i gysylltu â PR yn ôl rhif/URL, neu agor dewisydd rhyngweithiol]::gwerth:'
+    '--debug-file[Ysgrifennu cofnodion dadfygio i lwybr ffeil penodol (yn galluogi modd dadfygio yn ymhlyg)]:path:_files'
+    '--from-pr[Ailddechrau sesiwn wedi'\''i gysylltu â PR yn ôl rhif/URL, neu agor dewisydd rhyngweithiol]::value:'
     '--teleport[Ailddechrau sesiwn teleport, gan bennu ID sesiwn yn ddewisol]::session:'
-    '--cloud[Creu sesiwn cwmwl gyda'\''r disgrifiad a roddwyd, neu gysylltu ag un sy'\''n bodoli yn ôl ID sesiwn neu URL claude.ai/code]::description-or-session:'
+    '(--remote)--cloud[Creu sesiwn cwmwl gyda'\''r disgrifiad a roddwyd, neu gysylltu ag un sy'\''n bodoli yn ôl ID sesiwn neu URL claude.ai/code]::description-or-session:'
+    '(--cloud)--remote[Alias anghymeradwy ar gyfer --cloud]::description-or-session:'
     '--environment[Creu sesiwn cwmwl newydd sy'\''n rhedeg ar yr amgylchedd hunan-westeiedig a roddwyd (ccpool_...)]:environment_id:'
-    '--remote-control[Cychwyn sesiwn rhyngweithiol gyda Rheolaeth o Bell wedi'\''i galluogi (wedi'\''i enwi'\''n ddewisol)]::enw:'
-    '--remote-control-session-name-prefix[Rhagddodiad ar gyfer enwau sesiwn Rheolaeth o Bell a gynhyrchir yn awtomatig]:rhagddodiad:'
+    '--ref[Gyda --environment: seilio checkout y sesiwn newydd ar ref a enwir yn lle HEAD lleol]:branch:'
+    '(--remote-control --rc)'{--remote-control,--rc}'[Cychwyn sesiwn rhyngweithiol gyda Rheolaeth o Bell wedi’i galluogi (wedi’i enwi’n ddewisol)]::name:'
+    '--remote-control-session-name-prefix[Rhagddodiad ar gyfer enwau sesiwn Rheolaeth o Bell a gynhyrchir yn awtomatig]:prefix:'
     '--chrome[Galluogi integreiddiad Claude yn Chrome]'
     '--no-chrome[Analluogi integreiddiad Claude yn Chrome]'
     '--plugin-url[Nôl .zip ategyn o URL ar gyfer y sesiwn hon yn unig (ailadroddadwy)]:url:'
-    '--file[Adnoddau ffeil i'\''w lawrlwytho wrth gychwyn (fformat: file_id:relative_path)]:manylebau:'
-    '--prompt-suggestions[Galluogi awgrymiadau anogwr (yn allyrru anogwr nesaf a ragfynegir mewn modd print/SDK)]::gwerth:(true false 1 0 yes no on off)'
+    '--file[Adnoddau ffeil i'\''w lawrlwytho wrth gychwyn (fformat: file_id:relative_path)]:specs:'
+    '--prompt-suggestions[Galluogi awgrymiadau anogwr (yn allyrru anogwr nesaf a ragfynegir mewn modd print/SDK)]::value:(true false 1 0 yes no on off)'
     '--forward-subagent-text[Anfon testun is-asiant a blociau meddwl ymlaen fel negeseuon (gyda --print a stream-json)]'
     '--include-hook-events[Cynnwys pob digwyddiad cylchred bywyd bachyn yn y ffrwd allbwn (gyda stream-json)]'
     '--exclude-dynamic-system-prompt-sections[Symud adrannau fesul peiriant i'\''r neges defnyddiwr cyntaf i wella ailddefnydd storfa anogwr]'
     '--brief[Galluogi'\''r offeryn SendUserMessage ar gyfer cyfathrebu asiant-i-ddefnyddiwr]'
+    '*--channels[(Rhagolwg ymchwil) Gweinyddion MCP y dylid gwrando ar eu hysbysiadau sianel (plugin\:<name>@<marketplace>)]:entries:'
+    '*--dangerously-load-development-channels[Galluogi sianeli nad ydynt ar y rhestr ganiatáu gymeradwy, ar gyfer datblygu lleol (plugin\:<name>@<marketplace> neu server\:<name>)]:entries:'
+    '--init[Rhedeg bachau Setup gyda’r cydweddwr init cyn y sesiwn (--print yn unig)]'
+    '--init-only[Rhedeg bachau Setup a SessionStart, yna gadael heb ddechrau sgwrs]'
+    '--maintenance[Rhedeg bachau Setup gyda’r cydweddwr maintenance cyn y sesiwn (--print yn unig)]'
     '--safe-mode[Cychwyn gyda phob addasiad wedi'\''i analluogi (defnyddiol ar gyfer datrys problemau ffurfweddiad diffygiol)]'
     '--bare[Modd minimal: hepgor bachau, LSP, cydweddu ategion, priodoli, awto-gof, a darganfod CLAUDE.md yn awtomatig]'
     '--ax-screen-reader[Rendro allbwn cyfeillgar i ddarllenydd sgrin (testun gwastad, dim borderi addurniadol na animeiddiadau)]'
@@ -304,7 +319,7 @@ _claude() {
         mcp)
           _claude_mcp
           ;;
-        plugin)
+        plugin|plugins)
           _claude_plugin
           ;;
         install)
@@ -324,6 +339,12 @@ _claude() {
         rm)
           _claude_rm
           ;;
+        remote-control|rc|remote|sync|bridge)
+          _claude_remote_control
+          ;;
+        daemon)
+          _claude_daemon
+          ;;
         auth)
           _claude_auth
           ;;
@@ -333,17 +354,24 @@ _claude() {
         gateway)
           _claude_gateway
           ;;
+        self-hosted-runner)
+          _claude_self_hosted_runner
+          ;;
         import)
           _claude_import
           ;;
         project)
           _claude_project
           ;;
+        purge)
+          _claude_purge
+          ;;
         ultrareview)
           _claude_ultrareview
           ;;
-        setup-token|doctor|update)
-          _message "dim dadleuon"
+        setup-token|doctor|update|upgrade)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Dangos cymorth ar gyfer gorchymyn]'
           ;;
         *)
           # Not a command but the prompt: options may still follow it
@@ -400,21 +428,21 @@ _claude_mcp() {
           ;;
         add)
           _arguments \
-            '(-s --scope)'{-s,--scope}'[Cwmpas ffurfweddu (local, user, project)]:cwmpas:(local user project)' \
-            '(-t --transport)'{-t,--transport}'[Math trafnidiaeth (stdio, sse, http)]:trafnidiaeth:(stdio sse http)' \
+            '(-s --scope)'{-s,--scope}'[Cwmpas ffurfweddu (local, user, project)]:scope:(local user project)' \
+            '(-t --transport)'{-t,--transport}'[Math trafnidiaeth (stdio, sse, http)]:transport:(stdio sse http)' \
             '(-e --env)'{-e,--env}'[Gosod newidyn amgylchedd (e.e., -e KEY=value)]:env:' \
-            '(-H --header)'{-H,--header}'[Gosod pennawd WebSocket]:pennawd:' \
+            '(-H --header)'{-H,--header}'[Gosod pennawd WebSocket]:header:' \
             '--client-id[ID cleient OAuth ar gyfer gweinyddion HTTP/SSE]:clientId:' \
             '--client-secret[Gofyn am gyfrinach cleient OAuth (neu osod y newidyn amgylchedd MCP_CLIENT_SECRET)]' \
             '--callback-port[Porth sefydlog ar gyfer galwad-yn-ôl OAuth (ar gyfer gweinyddion sydd angen URIs ailgyfeirio wedi'\''u cofrestru ymlaen llaw)]:port:' \
             '(-h --help)'{-h,--help}'[Dangos cymorth]' \
-            '1:enw:' \
-            '2:gorchmynNeuUrl:' \
-            '*:dadleuon:'
+            '1:name:' \
+            '2:commandOrUrl:' \
+            '*:args:'
           ;;
         remove)
           _arguments \
-            '(-s --scope)'{-s,--scope}'[Cwmpas ffurfweddu (local, user, project) - tynnu o gwmpas presennol os na phennir]:cwmpas:(local user project)' \
+            '(-s --scope)'{-s,--scope}'[Cwmpas ffurfweddu (local, user, project) - tynnu o gwmpas presennol os na phennir]:scope:(local user project)' \
             '(-h --help)'{-h,--help}'[Dangos cymorth]' \
             '1:enw:_claude_mcp_servers'
           ;;
@@ -429,15 +457,15 @@ _claude_mcp() {
           ;;
         add-json)
           _arguments \
-            '(-s --scope)'{-s,--scope}'[Cwmpas ffurfweddu (local, user, project)]:cwmpas:(local user project)' \
+            '(-s --scope)'{-s,--scope}'[Cwmpas ffurfweddu (local, user, project)]:scope:(local user project)' \
             '--client-secret[Gofyn am gyfrinach cleient OAuth (neu osod y newidyn amgylchedd MCP_CLIENT_SECRET)]' \
             '(-h --help)'{-h,--help}'[Dangos cymorth]' \
-            '1:enw:' \
+            '1:name:' \
             '2:json:'
           ;;
         add-from-claude-desktop)
           _arguments \
-            '(-s --scope)'{-s,--scope}'[Cwmpas ffurfweddu (local, user, project)]:cwmpas:(local user project)' \
+            '(-s --scope)'{-s,--scope}'[Cwmpas ffurfweddu (local, user, project)]:scope:(local user project)' \
             '(-h --help)'{-h,--help}'[Dangos cymorth]'
           ;;
         reset-project-choices)
@@ -502,6 +530,7 @@ _claude_plugin() {
         validate)
           _arguments \
             '--strict[Trin rhybuddion fel gwallau (cod gadael 1)]' \
+            '--profile[Gadael gyda chod 1 hefyd pan fyddai’r catalog a enwir yn gwrthod cyflwyno’r ategyn ar wiriad y mae’r gorchymyn hwn yn ei redeg]:name:(directory)' \
             '--json[Allbynnu'\''r adroddiad dilysu fel JSON (yr un codau gadael)]' \
             '(-h --help)'{-h,--help}'[Dangos cymorth]' \
             '1:llwybr:_files'
@@ -511,8 +540,11 @@ _claude_plugin() {
           ;;
         install|i)
           _arguments \
-            '(-s --scope)'{-s,--scope}'[Cwmpas gosod]:cwmpas:(user project local)' \
+            '(-s --scope)'{-s,--scope}'[Cwmpas gosod]:scope:(user project local)' \
+            '--accept-command[Derbyn y gorchymyn a ddatganwyd gan y farchnad y nododd rhediad --json blaenorol ei sha256 fel shownCommand.sha256]:sha256:' \
             '*--config[Gosod dewis userConfig a ddatganwyd ym maniffest yr ategyn (ailadroddadwy)]:key=value:' \
+            '--marketplace[Gosod yr ategyn wrth ei enw moel o’r farchnad yn y ffynhonnell hon (owner/repo, URL git neu https, neu lwybr), gan ychwanegu’r farchnad yn gyntaf os oes angen]:source:' \
+            '--registry[Ar gyfer gosodiad package@npm: datrys a llwytho i lawr o’r gofrestrfa npm hon]:url:' \
             '(-y --yes)'{-y,--yes}'[Derbyn y gorchymyn a ddangosir a ddatganwyd gan y farchnad heb yr anogwr cadarnhau]' \
             '--json[Argraffu un llinell ganlyniad y gall peiriant ei darllen yn lle'\''r neges i bobl]' \
             '(-h --help)'{-h,--help}'[Dangos cymorth]' \
@@ -520,7 +552,7 @@ _claude_plugin() {
           ;;
         uninstall|remove)
           _arguments \
-            '(-s --scope)'{-s,--scope}'[Cwmpas gosod]:cwmpas:(user project local)' \
+            '(-s --scope)'{-s,--scope}'[Cwmpas gosod]:scope:(user project local)' \
             '--keep-data[Cadw cyfeiriadur data parhaus yr ategyn]' \
             '--prune[Tynnu hefyd ddibyniaethau a osodwyd yn awtomatig nad oes eu hangen mwyach]' \
             '(-y --yes)'{-y,--yes}'[Hepgor anogwr cadarnhau --prune]' \
@@ -530,7 +562,7 @@ _claude_plugin() {
           ;;
         enable)
           _arguments \
-            '(-s --scope)'{-s,--scope}'[Cwmpas gosod]:cwmpas:(user project local)' \
+            '(-s --scope)'{-s,--scope}'[Cwmpas gosod]:scope:(user project local)' \
             '--json[Argraffu un llinell ganlyniad y gall peiriant ei darllen yn lle'\''r neges i bobl]' \
             '(-h --help)'{-h,--help}'[Dangos cymorth]' \
             '1:ategyn:_claude_installed_plugins'
@@ -545,7 +577,8 @@ _claude_plugin() {
           ;;
         update)
           _arguments \
-            '(-s --scope)'{-s,--scope}'[Cwmpas gosod]:cwmpas:(user project local managed)' \
+            '--accept-command[Derbyn y gorchymyn a ddatganwyd gan y farchnad y nododd rhediad --json blaenorol ei sha256 fel shownCommand.sha256]:sha256:' \
+            '(-s --scope)'{-s,--scope}'[Cwmpas gosod]:scope:(user project local managed)' \
             '(-y --yes)'{-y,--yes}'[Derbyn y gorchymyn a ddangosir a ddatganwyd gan y farchnad heb yr anogwr cadarnhau]' \
             '--json[Argraffu un llinell ganlyniad y gall peiriant ei darllen yn lle'\''r neges i bobl]' \
             '(-h --help)'{-h,--help}'[Dangos cymorth]' \
@@ -555,6 +588,7 @@ _claude_plugin() {
           _arguments \
             '--json[Allbynnu fel JSON]' \
             '--available[Cynnwys ategion sydd ar gael o farchnadoedd (angen --json)]' \
+            '--data-size[Mesur cyfeiriadur data cadw pob ategyn wedi’i osod, neu’r ategyn a enwir yn unig (angen --json)]::plugin:_claude_installed_plugins' \
             '(-h --help)'{-h,--help}'[Dangos cymorth]'
           ;;
         prune|autoremove)
@@ -587,6 +621,15 @@ _claude_plugin() {
             '1:enw:'
           ;;
         eval)
+          if [[ $words[2] == init ]]; then
+            _arguments \
+              '--bare[Ysgrifennu templed gwag yn lle cynnal y cyfweliad]' \
+              '--eval-dir[Cyfeiriadur o dan y cyfeiriadur cyfredol i ysgrifennu achosion iddo]:dir:_directories' \
+              '(-i --interactive)'{-i,--interactive}'[Cynnal y cyfweliad awduro (angen terfynell ryngweithiol)]' \
+              '(-h --help)'{-h,--help}'[Dangos cymorth]' \
+              '::name:'
+            return
+          fi
           _arguments \
             '--case[Hidlo achosion yn ôl glob enw]:glob:' \
             '*--tag[Hidlo achosion yn ôl tag (ailadroddadwy)]:tag:' \
@@ -600,6 +643,7 @@ _claude_plugin() {
             '--json[Argraffu canlyniad llawn y rhediad fel JSON i stdout, neu ei ysgrifennu i'\''r ffeil .json hon]::path:_files' \
             '--threshold[Gadael gyda chod gadael 1 os yw sgôr unrhyw achos yn is na'\''r trothwy hwn (rhagosodiad: 1.0)]:threshold:' \
             '*--allow-tools[Caniatâd gweithredwr ar gyfer offer cyfyngedig (Bash, Write, Edit, WebFetch, mcp__*)]:tools:' \
+            '*--disallow-tools[Offer adeiledig i’w cadw rhag Claude ym mhob achos, hyd yn oed os rhoddwyd caniatâd]:tools:' \
             '(--no-scaffold)--scaffold[Rhedeg scaffold_script pob achos (yn rhedeg bash a ddarparwyd gan yr awdur o dan eich cyfrif chi; i ffwrdd yn ôl y rhagosodiad)]' \
             '(--scaffold)--no-scaffold[Hepgor scaffold_script yn benodol]' \
             '--trust-plugin[Datgan eich bod yn ymddiried yn yr ategyn hwn a'\''i gyfres eval, gan hepgor yr anogwr ymddiriedaeth rhediad cyntaf (ar gyfer CI)]' \
@@ -612,7 +656,7 @@ _claude_plugin() {
             '(--no-publish)--publish-report[Mynnu hefyd fod yr adroddiad yn cael ei gyhoeddi i claude.ai]' \
             '(--publish-report)--no-publish[Cadw'\''r adroddiad HTML yn lleol yn unig; hepgor ei gyhoeddi i claude.ai]' \
             '(-h --help)'{-h,--help}'[Dangos cymorth]' \
-            '::target: _alternative "plugins\:installed plugin\:_claude_installed_plugins" "files\:path\:_files"'
+            '::target: _alternative "commands\:eval command\:(init)" "plugins\:installed plugin\:_claude_installed_plugins" "files\:path\:_files"'
           ;;
         tag)
           _arguments \
@@ -663,6 +707,7 @@ _claude_plugin_marketplace() {
           _arguments \
             '--sparse[Cyfyngu'\''r checkout i gyfeiriaduron penodol drwy git sparse-checkout (ar gyfer monorepos)]:paths:' \
             '--scope[Ble i ddatgan y farchnad]:scope:(user project local)' \
+            '--json[Argraffu un llinell ganlyniad y gall peiriant ei darllen fel y llinell olaf ar stdout]' \
             '--claudeai[Ychwanegu'\''r farchnad o'\''r enw hwn y mae claude.ai yn ei chynnal ar eich cyfer]' \
             '(-h --help)'{-h,--help}'[Dangos cymorth]' \
             '1:ffynhonnell:'
@@ -675,13 +720,15 @@ _claude_plugin_marketplace() {
         remove|rm)
           _arguments \
             '--scope[Tynnu datganiad y farchnad o gwmpas gosodiadau penodol (hepgor i'\''w dynnu o bob cwmpas)]:scope:(user project local)' \
+            '--json[Argraffu un llinell ganlyniad y gall peiriant ei darllen fel y llinell olaf ar stdout]' \
             '(-h --help)'{-h,--help}'[Dangos cymorth]' \
             '1:enw:'
           ;;
         update)
           _arguments \
+            '--json[Gydag enw marchnad: argraffu un llinell ganlyniad y gall peiriant ei darllen fel y llinell olaf ar stdout]' \
             '(-h --help)'{-h,--help}'[Dangos cymorth]' \
-            '::enw:'
+            '::name:'
           ;;
       esac
       ;;
@@ -692,25 +739,25 @@ _claude_install() {
   _arguments \
     '--force[Gorfodi gosodiad hyd yn oed os eisoes wedi'\''i osod]' \
     '(-h --help)'{-h,--help}'[Dangos cymorth]' \
-    '::targed:(stable latest)'
+    '::target:(stable latest)'
 }
 
 _claude_agents() {
   _arguments \
-    '*--add-dir[Cyfeiriadur ychwanegol i ganiatáu mynediad offer mewn sesiynau a anfonwyd]:cyfeiriadur:_directories' \
-    '--agent[Asiant rhagosodedig ar gyfer sesiynau a anfonwyd o'\''r golwg asiant]:asiant:_claude_agent_names' \
+    '*--add-dir[Cyfeiriadur ychwanegol i ganiatáu mynediad offer mewn sesiynau a anfonwyd]:directory:_directories' \
+    '--agent[Asiant rhagosodedig ar gyfer sesiynau a anfonwyd o'\''r golwg asiant]:agent:_claude_agent_names' \
     '--all[Gyda --json: cynnwys sesiynau cefndir cwblhawyd hefyd]' \
     '--allow-dangerously-skip-permissions[Gwneud modd osgoi-caniatâd ar gael i sesiynau a anfonwyd]' \
-    '--cwd[Dangos sesiynau cefndir a gychwynnwyd o dan lwybr yn unig]:llwybr:_directories' \
+    '--cwd[Dangos sesiynau cefndir a gychwynnwyd o dan lwybr yn unig]:path:_directories' \
     '--dangerously-skip-permissions[Alias ar gyfer --permission-mode bypassPermissions]' \
-    '--effort[Lefel ymdrech ragosodedig ar gyfer sesiynau a anfonwyd]:lefel:(low medium high xhigh max)' \
+    '--effort[Lefel ymdrech ragosodedig ar gyfer sesiynau a anfonwyd]:level:(low medium high xhigh max)' \
     '--json[Argraffu sesiynau gweithredol fel arae JSON a gadael]' \
-    '*--mcp-config[Ffurfweddiad gweinydd MCP i'\''w gymhwyso i sesiynau a anfonwyd]:ffurfweddiad:' \
+    '*--mcp-config[Ffurfweddiad gweinydd MCP i'\''w gymhwyso i sesiynau a anfonwyd]:config:' \
     '--model[Model rhagosodedig ar gyfer sesiynau a anfonwyd o'\''r golwg asiant]:model:_claude_model_names' \
-    '--permission-mode[Modd caniatâd rhagosodedig ar gyfer sesiynau a anfonwyd]:modd:(acceptEdits auto bypassPermissions manual dontAsk plan)' \
-    '*--plugin-dir[Llwytho ategion o gyfeiriadur ar gyfer y golwg asiant a sesiynau a anfonwyd]:llwybr:_directories' \
-    '--setting-sources[Rhestr wedi'\''i gwahanu â choma o ffynonellau gosodiadau i'\''w llwytho (user, project, local)]:ffynonellau:' \
-    '--settings[Ffeil gosodiadau neu linyn JSON i'\''w gymhwyso]:ffeil-neu-json:_files' \
+    '--permission-mode[Modd caniatâd rhagosodedig ar gyfer sesiynau a anfonwyd]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)' \
+    '*--plugin-dir[Llwytho ategion o gyfeiriadur ar gyfer y golwg asiant a sesiynau a anfonwyd]:path:_directories' \
+    '--setting-sources[Rhestr wedi'\''i gwahanu â choma o ffynonellau gosodiadau i'\''w llwytho (user, project, local)]:sources:' \
+    '--settings[Ffeil gosodiadau neu linyn JSON i'\''w gymhwyso]:file-or-json:_files' \
     '--strict-mcp-config[Defnyddio gweinyddion MCP o --mcp-config yn unig mewn sesiynau a anfonwyd]' \
     '--restricted[Cychwyn sesiynau a anfonwyd mewn modd cyfyngedig]' \
     '(-h --help)'{-h,--help}'[Dangos cymorth ar gyfer gorchymyn]'
@@ -812,7 +859,7 @@ _claude_auto_mode() {
 
 _claude_gateway() {
   _arguments \
-    '--config[Llwybr i ffurfweddiad YAML porth]:llwybr:_files' \
+    '--config[Llwybr i ffurfweddiad YAML porth]:path:_files' \
     '(-h --help)'{-h,--help}'[Dangos cymorth ar gyfer gorchymyn]'
 }
 
@@ -851,12 +898,23 @@ _claude_project() {
   esac
 }
 
+_claude_purge() {
+  _arguments \
+    '--dry-run[Rhestru'\''r hyn a fyddai'\''n cael ei ddileu heb ddileu dim]' \
+    '(-y --yes)'{-y,--yes}'[Hepgor yr anogwr cadarnhau]' \
+    '(-i --interactive)'{-i,--interactive}'[Gofyn am gadarnhad ar gyfer pob eitem cyn dileu]' \
+    '(1)--all[Dileu'\''r cyflwr ar gyfer pob prosiect (ni ellir ei ddefnyddio ynghyd â llwybr)]' \
+    '(-h --help)'{-h,--help}'[Dangos cymorth ar gyfer gorchymyn]' \
+    '(--all)::path:_directories'
+}
+
 _claude_ultrareview() {
   _arguments \
     '--json[Argraffu'\''r llwyth bugs.json crai yn lle canfyddiadau wedi'\''u fformatio]' \
     '--timeout[Uchafswm munudau i aros i'\''r adolygiad orffen (rhagosodiad: 45)]:minutes:' \
     '(--no-post)--post[Postio canfyddiadau'\''r adolygiad gorffenedig i'\''r PR yn eich enw chi (targedau PR yn unig; un sylw plaen, nid adolygiad)]' \
     '(--post)--no-post[Peidio â phostio'\''r canfyddiadau i'\''r PR (y rhagosodiad)]' \
+    '--trust-workspace[Ymddiried yn y ffolder gyfredol ar gyfer y rhediad hwn yn unig, heb ofyn (ar gyfer sgriptiau a CI)]' \
     '(-h --help)'{-h,--help}'[Dangos cymorth ar gyfer gorchymyn]' \
     '1:targed:'
 }
@@ -874,6 +932,117 @@ _claude_rm() {
     '--force-remove-worktree[Dileu cyfeiriadur y goeden waith er na allai'\''r bachyn WorktreeRemove na git ei dynnu (rhowch y worktree-id a adroddwyd gan claude rm blaenorol)]:worktree-id:' \
     '(-h --help)'{-h,--help}'[Dangos cymorth ar gyfer gorchymyn]' \
     '1:session:_claude_background_sessions'
+}
+
+_claude_self_hosted_runner() {
+  _arguments \
+    '--api-url[URL sylfaen API (rhagosodiad: https://api.anthropic.com)]:url:' \
+    '--environment-secret-file[Llwybr i ffeil gyfrinach yr amgylchedd]:path:_files' \
+    '--lock-to-account[Cloi’r rhedwr i un cyfrif wrth gofrestru]:id:' \
+    '--client-label[Label arsylwadwyedd a anfonir wrth gofrestru (rhagosodiad: hostname)]:label:' \
+    '(--proxy-authorization-file --agent-proxy-url)--proxy-authorization-command[Gorchymyn y mae ei stdout yn bennyn Proxy-Authorization ar gyfer dirprwyon allanol]:shell command:' \
+    '(--proxy-authorization-command --agent-proxy-url)--proxy-authorization-file[Ffeil sy’n dal y pennyn Proxy-Authorization ar gyfer dirprwyon allanol]:path:_files' \
+    '(--proxy-authorization-command --proxy-authorization-file)--agent-proxy-url[Llwybro pob sesiwn drwy’r dirprwy asiant yn yr URL hwn (https yn unig)]:url:' \
+    '--capacity[Uchafswm sesiynau cydamserol (rhagosodiad: 1)]:n:' \
+    '--base-dir[Cyfeiriadur sylfaen ar gyfer checkouts ystorfeydd (rhagosodiad: /workspace)]:path:_directories' \
+    '--exec-path[Deuaidd i’w lansio ar gyfer sesiynau plentyn (rhagosodiad: y deuaidd hwn)]:path:_files' \
+    '--hooks-dir[Cyfeiriadur sgriptiau bachau cylchred bywyd (checkout, command, post-session)]:path:_directories' \
+    '--session-stop-grace-sec[Pa mor hir i aros am adael glân ar ôl i sesiwn ddod i ben (rhagosodiad: 5)]:n:' \
+    '--post-session-hook-timeout-sec[Cyllideb SIGTERM ar gyfer y bachyn post-session (rhagosodiad: 60)]:n:' \
+    '--checkout-hook-timeout-min[Cyllideb amser real ar gyfer pob rhediad o’r bachyn checkout (rhagosodiad: 30; 0 yn analluogi)]:n:' \
+    '--drain-wait-sec[Ar SIGTERM/SIGINT, aros hyd at N eiliad am waith sydd ar y gweill (rhagosodiad: 0)]:n:' \
+    '--drain-marker-file[Ffeil farcio y mae’r gwesteiwr yn cyhoeddi draenio graslon â hi]:path:_files' \
+    '*--git-ssh-rewrite[Ailysgrifennu URLau ffynhonnell https://<host>/... i git@<host>:... (ailadroddadwy)]:host:' \
+    '*--git-host-rewrite[Ailysgrifennu URLau ffynhonnell https://<f>/... i https://<t>/... (ailadroddadwy)]:from=to:' \
+    '--use-anthropic-git-proxy[Defnyddio git a reolir gan Anthropic. RHYBUDD: yn dileu ac yn disodli ffurfwedd git lefel HOME, defnyddiwch dan gyfrif penodedig yn unig]' \
+    '--configure-git[Gosod hunaniaeth git fyd-eang a galluogi llofnodi commits drwy wasanaeth llofnodi Anthropic. Yn ysgrifennu ~/.gitconfig]' \
+    '--push-outcome-on-release[Gwthio canghennau canlyniad a draciwyd pan fydd y rhedwr yn dod â sesiwn anghyflawn i ben]' \
+    '--trust-workspace[Hadu ymddiriedaeth barhaus ar gyfer llwybrau ystorfa pob sesiwn (rhagosodiad: true)]::bool:(true false)' \
+    '--remove-session-state[Tynnu cyflwr pob sesiwn pan ddaw sesiwn i ben (rhagosodiad: false)]::bool:(true false)' \
+    '--diff-finds-nested-repository[Dangos ystorfa a glonwyd i is-ffolder yn y paen Changes; angen --capacity 1 (rhagosodiad: false)]::bool:(true false)' \
+    '--confine-repo-settings[Modd gwarchodwr cyfyngu gosodiadau a ymrwymwyd i’r ystorfa (rhagosodiad: warn)]:mode:(warn enforce off)' \
+    '--server-auto-mode-lists[Pa restrau dosbarthydd modd awto o’r gweinydd y caiff sesiwn eu derbyn (rhagosodiad: no-allow)]:mode:(all no-allow none)' \
+    '--host-config-snapshot[Ble cedwir ciplun cychwyn ffurfwedd y gwesteiwr (rhagosodiad: disk)]:mode:(disk memory)' \
+    '--health-port[Porth ar gyfer gwrandawr HTTP /healthz (rhagosodiad: 8080; 0 yn analluogi)]:port:' \
+    '--log-level[Lefel log (rhagosodiad: info)]:level:(info debug)' \
+    '--log-file[Copïo logiau’r rhedwr i ffeil hefyd yn y modd atodi (fel tee)]:path:_files' \
+    '--exit-if-unused-min[Gadael y rhedwr os na roddir gwaith iddo am N munud]:n:' \
+    '--drain-grace-sec[Eiliadau i barhau i holi am waith ar ôl i sesiynau gweithredol orffen (rhagosodiad: 0)]:n:' \
+    '--retire-at[Ymddeol y rhedwr ar yr amser Unix absoliwt hwn, mewn eiliadau]:epoch-seconds:' \
+    '--defer-shutdown-max-min[Ar y SIGTERM/SIGINT cyntaf, rhoi’r gorau i gymryd gwaith a gorffen cau M munud yn ddiweddarach (rhagosodiad: 0)]:m:' \
+    '--release-idle-session-min[Rhyddhau slot sesiwn ar ôl N munud heb fewnbwn defnyddiwr]:n:' \
+    '--startup-timeout-min[Rhyddhau slot sesiwn os nad yw’r plentyn wedi gorffen cychwyn ar ôl N munud (rhagosodiad: 15; 0 yn analluogi)]:n:' \
+    '--kill-session-after-min[Cyfyngu oes amser real plentyn sesiwn i N munud]:n:' \
+    '--debug-token-dir[DADFYGIO YN UNIG: yn ysgrifennu tocynnau byw i’r ddisg. Peidiwch â defnyddio wrth gynhyrchu]:path:_directories' \
+    '(-h --help)'{-h,--help}'[Dangos y neges gymorth hon]'
+}
+
+_claude_remote_control() {
+  _arguments \
+    '--name[Enw ar gyfer y sesiwn (a ddangosir yn claude.ai/code)]:name:' \
+    '--remote-control-session-name-prefix[Rhagddodiad ar gyfer enwau sesiwn a gynhyrchir yn awtomatig (rhagosodiad: hostname)]:prefix:' \
+    '(-c --continue --session-id)'{-c,--continue}'[Ailgysylltu â’r sesiwn a gofnodwyd ddiwethaf ar gyfer y cyfeiriadur hwn neu un o’i goed gwaith git]' \
+    '(-c --continue --session-id)--session-id[Ailgysylltu â sesiwn benodol yn ôl ID]:id:' \
+    '--permission-mode[Modd caniatâd ar gyfer sesiynau a lansiwyd]:mode:(acceptEdits auto bypassPermissions default dontAsk plan)' \
+    '(--no-chrome)--chrome[Galluogi Claude in Chrome ar gyfer sesiynau a lansiwyd]' \
+    '(--chrome)--no-chrome[Analluogi Claude in Chrome ar gyfer sesiynau a lansiwyd]' \
+    '(-d --debug)'{-d,--debug}'[Galluogi modd dadfygio gyda hidlo categori dewisol]::filter:' \
+    '--debug-file[Ysgrifennu logiau dadfygio i ffeil]:path:_files' \
+    '(-v --verbose)'{-v,--verbose}'[Galluogi allbwn manwl]' \
+    '--spawn[Modd lansio (rhagosodiad: same-dir)]:mode:(same-dir worktree session)' \
+    '--capacity[Uchafswm sesiynau cydamserol yn y modd worktree neu same-dir (rhagosodiad: 32)]:n:' \
+    '(--no-create-session-in-dir)--create-session-in-dir[Creu sesiwn ymlaen llaw yn y cyfeiriadur cyfredol (rhagosodiad)]' \
+    '(--create-session-in-dir)--no-create-session-in-dir[Peidio â chreu sesiwn ymlaen llaw yn y cyfeiriadur cyfredol]' \
+    '(-h --help)'{-h,--help}'[Dangos y cymorth hwn]'
+}
+
+_claude_daemon() {
+  local -a daemon_commands common_options
+  daemon_commands=(
+    'run:Rhedeg y goruchwyliwr yn y blaendir'
+    'status:Dangos pid, fersiwn ac amser rhedeg y daemon'
+    'logs:Dilyn log y daemon (Ctrl-C i atal)'
+    'uninstall:Tynnu’r gwasanaeth cefndir (launchctl/systemd)'
+    'stop:Cau’r goruchwyliwr a therfynu sesiynau cefndir'
+  )
+  common_options=(
+    '--json-path[Ffeil ffurfweddu (rhagosodiad: ~/.claude/daemon.json)]:path:_files'
+    '--log-file[Ffeil log (rhagosodiad: ~/.claude/daemon.log)]:path:_files'
+    '(-h --help)'{-h,--help}'[Dangos y cymorth hwn]'
+  )
+
+  local curcontext="$curcontext" state line
+  typeset -A opt_args
+
+  _arguments -C \
+    $common_options \
+    '1: :->command' \
+    '*::arg:->args'
+
+  case $state in
+    command)
+      _describe -t commands 'gorchmynion daemon' daemon_commands
+      ;;
+    args)
+      case $words[1] in
+        run)
+          _arguments \
+            $common_options \
+            '::json-path:_files'
+          ;;
+        stop)
+          _arguments \
+            $common_options \
+            '--any[Atal daemon dros dro (nid gwasanaeth) hefyd]' \
+            '--keep-workers[Gadael sesiynau datgysylltiedig yn rhedeg]'
+          ;;
+        status|logs|uninstall)
+          _arguments \
+            $common_options
+          ;;
+      esac
+      ;;
+  esac
 }
 
 _claude_import() {

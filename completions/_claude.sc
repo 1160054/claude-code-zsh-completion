@@ -200,11 +200,15 @@ _claude() {
     'stop:Firmare una sessione in segundu pianu (sa cunversatzione sua est mantesa)'
     'respawn:Torrare a aviare una sessione in segundu pianu pro chi impreet sa versione atuale de Claude Code'
     'rm:Cantzellare una sessione in segundu pianu, e su worktree suo cando est seguru'
+    'remote-control:Controllare sas sessiones locales dae claude.ai/code o dae s’app mòbile de Claude'
+    'daemon:Gestire su supervisore de sas sessiones in segundu pianu'
     'auth:Gestire s'\''autenticatzione'
     'auto-mode:Ispetzionare o ripristinare sa cunfiguratzione de su classificadore de sa modalidade automàtica'
     'gateway:Aviare su gateway de autenticatzione/telemetria pro s'\''impresa'
+    'self-hosted-runner:Ospitare sessiones cloud de Claude Code in custa màchina o container'
     'import:Importare sa cunfiguratzione dae un'\''àteru agente de programmatzione IA in Claude Code'
     'project:Gestire s'\''istadu de su progetu de Claude Code'
+    'purge:Cantzellare totu s'\''istadu de Claude Code pro unu progetu (trascritziones, atividades, istòria de sos archìvios, boghe de cunfiguratzione)'
     'ultrareview:Aviare una revisione de còdighe multi-agente ospitada in cloud e imprentare sos resultados'
     'setup-token:Configurare su token de autenticatzione a longu tempus (recheret abbonamentu Claude)'
     'doctor:Verificatzione de salude pro s'\''agiornamentu automàticu de Claude Code'
@@ -221,11 +225,11 @@ _claude() {
     '--json-schema[Ischema JSON pro validatzione de essida istruturada]:schema:'
     '--include-partial-messages[Includere sos fragmentos de mensàgios partzialesmente chi arribant (cun --print e --output-format=stream-json)]'
     '--input-format[Formadu de intrada (cun --print): "text" (predefinidu) o "stream-json" (intrada in trasmissione tempus reale)]:format:(text stream-json)'
-    '--mcp-debug[\[Deploradu. Impreare --debug imbetzes\] Atibare sa modalidade de debug MCP (ammustrat sos errores de su serbidore MCP)]'
     '--dangerously-skip-permissions[Surpare totu sas verificatziones de permissos. Cunsiglladu isceti pro sandboxes chene atzessu a internet]'
     '--allow-dangerously-skip-permissions[Atibare s'\''optzione de surpare sas verificatziones de permissos chene s'\''atibare pro predefinidu]'
     '--restricted[Modalidade limitada: bogare sos ainas chi esecutant cumandos o còdighe e WebFetch, ignorare sas impostattziones user/project/local, e limitare sos ainas de archìviu a sos directorios de traballu]'
     '--max-budget-usd[Importu màssimu in dòllaros de ispèndere in sas ciamadas API (isceti --print)]:amount:'
+    '--max-turns[Lìmitare su nùmeru de turnos agèntigos (isceti --print)]:turns:'
     '--replay-user-messages[Torrare a imbiare sos mensàgios de s'\''utente dae stdin a stdout pro cunfirmatzione]'
     '--allowed-tools[Lista separada cun vìrgulas o ispàtzios de sos nùmenes de sos ainas permìtidos (es: "Bash(git:*) Edit")]:tools:'
     '--allowedTools[Lista separada cun vìrgulas o ispàtzios de sos nùmenes de sos ainas permìtidos (formadu camelCase)]:tools:'
@@ -237,6 +241,8 @@ _claude() {
     '--system-prompt-file[Lèghere su prompt de sistema dae unu archìviu]:file:_files'
     '--append-system-prompt[Agiùnghere unu prompt de sistema a su prompt de sistema predefinidu]:prompt:'
     '--append-system-prompt-file[Lèghere su prompt de sistema dae unu archìviu e l'\''agiùnghere a su prompt de sistema predefinidu]:file:_files'
+    '(--append-subagent-system-prompt-file)--append-subagent-system-prompt[Agiùnghere testu a su prompt de sistema de onni subagente (isceti --print)]:prompt:'
+    '(--append-subagent-system-prompt)--append-subagent-system-prompt-file[Lèghere testu dae un’archìviu e l’agiùnghere a sos prompts de sistema de sos subagentes (isceti --print)]:file:_files'
     '--system-prompt-snapshot[Registrare su prompt de sistema una borta pro cunversatzione e lu torrare a impreare tale e cale in ogni rechesta e ripigliada (on, su predefinidu) o lu generare de nou in ogni rechesta (off)]:mode:(on off)'
     '--permission-mode[Modalidade de permissos de impreare pro sa sessione]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)'
     '--permission-prompts[Chie rispondet a sas rechestas de permissu cun --print: "host" (s'\''host de s'\''SDK o --permission-prompt-tool) o "none" (totu su chi diat pedire unu permissu est refudadu)]:target:(host none)'
@@ -256,6 +262,8 @@ _claude() {
     '--strict-mcp-config[Impreare isceti sos serbidores MCP dae --mcp-config e ignorare totu sas àteras impostattziones MCP]'
     '--session-id[ID de sessione ispetzìficu de impreare pro sa cunversatzione (depet èssere UUID bàlidu)]:uuid:'
     '--agents[Ogetu JSON chi definit agentes personalizados]:json:'
+    '--advisor[Atibare s’aina de consulente in su serbidore pro custa sessione cun un’alias de modellu o un’ID cumpletu de modellu]:model:_claude_model_names'
+    '--teammate-mode[Comente sunt ammustrados sos cumpàngios de s’iscuadra de agentes]:mode:(in-process auto tmux iterm2)'
     '--setting-sources[Lista separada cun vìrgulas de fontes de impostattziones de carrigare (user, project, local)]:sources:'
     '--plugin-dir[Diretòriu pro carrigare plugins isceti pro cussa sessione (repetìbile)]:paths:_directories'
     '--disable-slash-commands[Disativare totu sos cumandos cun barra]'
@@ -268,9 +276,11 @@ _claude() {
     '--debug-file[Iscrìere sos registros de debug in unu càmminu de archìviu ispetzìficu (atibat sa modalidade de debug in manera implìtzita)]:path:_files'
     '--from-pr[Ripigliare una sessione ligada a unu PR pro nùmeru/URL, o abèrrere su seletzionadore interativu]::value:'
     '--teleport[Ripigliare una sessione de teleport, optzionalmente ispetzificare s'\''ID de sessione]::session:'
-    '--cloud[Creare una sessione in cloud cun sa descritzione dada, o si connètere a una esistente pro ID de sessione o URL claude.ai/code]::description-or-session:'
+    '(--remote)--cloud[Creare una sessione in cloud cun sa descritzione dada, o si connètere a una esistente pro ID de sessione o URL claude.ai/code]::description-or-session:'
+    '(--cloud)--remote[Alias superadu pro --cloud]::description-or-session:'
     '--environment[Creare una sessione noa in cloud chi funtzionat in s'\''ambiente autospitadu dadu (ccpool_...)]:environment_id:'
-    '--remote-control[Aviare una sessione interativa cun Remote Control atibadu (optzionalmente cun nùmene)]::name:'
+    '--ref[Cun --environment: basare su checkout de sa sessione noa in una ref cun nùmene imbetzes de su HEAD locale]:branch:'
+    '(--remote-control --rc)'{--remote-control,--rc}'[Aviare una sessione interativa cun Remote Control atibadu (optzionalmente cun nùmene)]::name:'
     '--remote-control-session-name-prefix[Prefissu pro sos nùmenes de sessione Remote Control generados in automàticu]:prefix:'
     '--chrome[Atibare s'\''integratzione de Claude in Chrome]'
     '--no-chrome[Disativare s'\''integratzione de Claude in Chrome]'
@@ -281,6 +291,11 @@ _claude() {
     '--include-hook-events[Includere totu sos eventos de su tzìclu de vida de sos hooks in su flussu de essida (cun stream-json)]'
     '--exclude-dynamic-system-prompt-sections[Mòvere sas setziones pro màchina in su primu mensàgiu de s'\''utente pro megiorare su torradu a impreare de sa cache de prompt]'
     '--brief[Atibare s'\''aina SendUserMessage pro sa comunicatzione dae agente a utente]'
+    '*--channels[(Anteprima de chirca) Serbidores MCP de sos cales ascurtare sas notìficas de canale (plugin\:<name>@<marketplace>)]:entries:'
+    '*--dangerously-load-development-channels[Atibare canales chi non sunt in sa lista aprovada, pro su isvilupu locale (plugin\:<name>@<marketplace> o server\:<name>)]:entries:'
+    '--init[Esecutare sos hooks Setup cun su matcher init in antis de sa sessione (isceti --print)]'
+    '--init-only[Esecutare sos hooks Setup e SessionStart, e pustis essire sena cumintzare una cunversatzione]'
+    '--maintenance[Esecutare sos hooks Setup cun su matcher maintenance in antis de sa sessione (isceti --print)]'
     '--safe-mode[Aviare cun totu sas personalizatziones disativadas (ùtile pro risòlvere una cunfiguratzione istropiada)]'
     '--bare[Modalidade minimale: brincare hooks, LSP, sincronizatzione de plugins, atributzione, auto-memòria e iscoberta automàtica de CLAUDE.md]'
     '--ax-screen-reader[Rèndere s'\''essida amighèvole pro sos letores de schermu (testu pranu, chene bordos decorativos o animatziones)]'
@@ -304,7 +319,7 @@ _claude() {
         mcp)
           _claude_mcp
           ;;
-        plugin)
+        plugin|plugins)
           _claude_plugin
           ;;
         install)
@@ -324,6 +339,12 @@ _claude() {
         rm)
           _claude_rm
           ;;
+        remote-control|rc|remote|sync|bridge)
+          _claude_remote_control
+          ;;
+        daemon)
+          _claude_daemon
+          ;;
         auth)
           _claude_auth
           ;;
@@ -333,17 +354,24 @@ _claude() {
         gateway)
           _claude_gateway
           ;;
+        self-hosted-runner)
+          _claude_self_hosted_runner
+          ;;
         import)
           _claude_import
           ;;
         project)
           _claude_project
           ;;
+        purge)
+          _claude_purge
+          ;;
         ultrareview)
           _claude_ultrareview
           ;;
-        setup-token|doctor|update)
-          _message "perunu argumentu"
+        setup-token|doctor|update|upgrade)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Ammustare s'\''agiudu pro su cumandu]'
           ;;
         *)
           # Not a command but the prompt: options may still follow it
@@ -502,6 +530,7 @@ _claude_plugin() {
         validate)
           _arguments \
             '--strict[Tratare sos avisos comente errores (còdighe de essida 1)]' \
+            '--profile[Essire cun 1 fintzas cando su catàlogu cun nùmene diat refudare una presentada de su plugin in unu controllu chi custu cumandu esecutat]:name:(directory)' \
             '--json[Imprentare su resocontu de validatzione comente JSON (sos matessi còdighes de essida)]' \
             '(-h --help)'{-h,--help}'[Ammustare s'\''agiudu]' \
             '1:path:_files'
@@ -512,7 +541,10 @@ _claude_plugin() {
         install|i)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Àmbitu de installatzione]:scope:(user project local)' \
+            '--accept-command[Atzetare su cumandu declaradu dae su mercadu cun su sha256 chi un’esecutzione --json pretzedente at segnaladu comente shownCommand.sha256]:sha256:' \
             '*--config[Definire un'\''optzione userConfig declarada in su manifestu de su plugin (repetìbile)]:key=value:' \
+            '--marketplace[Installare su plugin cun su nùmene sèmplitze suo dae su mercadu in custa fonte (owner/repo, URL git o https, o càmminu), agiunghende·lu prima si bisòngiat]:source:' \
+            '--registry[Pro un’installatzione package@npm: risòlvere e iscarrigare dae custu registru npm]:url:' \
             '(-y --yes)'{-y,--yes}'[Atzetare su cumandu ammustradu declaradu dae su mercadu chene sa rechesta de cunfirma]' \
             '--json[Imprentare una lìnia de resultadu legìbile dae sa màchina imbetzes de su mensàgiu pro sas persones]' \
             '(-h --help)'{-h,--help}'[Ammustare s'\''agiudu]' \
@@ -545,6 +577,7 @@ _claude_plugin() {
           ;;
         update)
           _arguments \
+            '--accept-command[Atzetare su cumandu declaradu dae su mercadu cun su sha256 chi un’esecutzione --json pretzedente at segnaladu comente shownCommand.sha256]:sha256:' \
             '(-s --scope)'{-s,--scope}'[Àmbitu de installatzione]:scope:(user project local managed)' \
             '(-y --yes)'{-y,--yes}'[Atzetare su cumandu ammustradu declaradu dae su mercadu chene sa rechesta de cunfirma]' \
             '--json[Imprentare una lìnia de resultadu legìbile dae sa màchina imbetzes de su mensàgiu pro sas persones]' \
@@ -555,6 +588,7 @@ _claude_plugin() {
           _arguments \
             '--json[Imprentare comente JSON]' \
             '--available[Includere sos plugins disponìbiles dae sos mercados (recheret --json)]' \
+            '--data-size[Medire su diretòriu de datos sarvados de onni plugin installadu, o isceti de su plugin cun nùmene (recheret --json)]::plugin:_claude_installed_plugins' \
             '(-h --help)'{-h,--help}'[Ammustare s'\''agiudu]'
           ;;
         prune|autoremove)
@@ -587,6 +621,15 @@ _claude_plugin() {
             '1:name:'
           ;;
         eval)
+          if [[ $words[2] == init ]]; then
+            _arguments \
+              '--bare[Iscrìere unu modellu bòidu imbetzes de esecutare s’intervista]' \
+              '--eval-dir[Diretòriu in suta de su diretòriu atuale in ue iscrìere sos casos]:dir:_directories' \
+              '(-i --interactive)'{-i,--interactive}'[Esecutare s’intervista de creatzione (recheret unu terminale interativu)]' \
+              '(-h --help)'{-h,--help}'[Ammustare s'\''agiudu]' \
+              '::name:'
+            return
+          fi
           _arguments \
             '--case[Filtrare sos casos pro glob de nùmene]:glob:' \
             '*--tag[Filtrare sos casos pro tag (repetìbile)]:tag:' \
@@ -600,6 +643,7 @@ _claude_plugin() {
             '--json[Imprentare su resultadu cumpletu de s'\''esecutzione comente JSON in stdout, o l'\''iscrìere in custu archìviu .json]::path:_files' \
             '--threshold[Essire cun còdighe de essida 1 si su puntègiu de calicunu casu est suta de custa sòglia (predefinidu: 1.0)]:threshold:' \
             '*--allow-tools[Autorizatzione de s'\''operadore pro sos ainas controllados (Bash, Write, Edit, WebFetch, mcp__*)]:tools:' \
+            '*--disallow-tools[Ainas integradas de negare a Claude in onni casu, fintzas si permìtidas]:tools:' \
             '(--no-scaffold)--scaffold[Esecutare su scaffold_script de ogni casu (esecutat bash frunidu dae s'\''autore a nòmine tuo; disativadu pro predefinidu)]' \
             '(--scaffold)--no-scaffold[Brincare in manera esplìtzita su scaffold_script]' \
             '--trust-plugin[Declarare chi ti fidas de custu plugin e de sa suite de eval sua, brinchende sa rechesta de fidùtzia de su primu aviamentu (pro CI)]' \
@@ -612,7 +656,7 @@ _claude_plugin() {
             '(--no-publish)--publish-report[Rechèrrere fintzas sa publicatzione de su resocontu in claude.ai]' \
             '(--publish-report)--no-publish[Mantènnere su resocontu HTML isceti in locale; brincare sa publicatzione in claude.ai]' \
             '(-h --help)'{-h,--help}'[Ammustare s'\''agiudu]' \
-            '::target: _alternative "plugins\:installed plugin\:_claude_installed_plugins" "files\:path\:_files"'
+            '::target: _alternative "commands\:eval command\:(init)" "plugins\:installed plugin\:_claude_installed_plugins" "files\:path\:_files"'
           ;;
         tag)
           _arguments \
@@ -663,6 +707,7 @@ _claude_plugin_marketplace() {
           _arguments \
             '--sparse[Limitare su checkout a directorios ispetzìficos cun git sparse-checkout (pro monorepos)]:paths:' \
             '--scope[In ue declarare su mercadu]:scope:(user project local)' \
+            '--json[Imprentare una lìnia de resultadu legìbile dae sa màchina comente ùrtima lìnia in stdout]' \
             '--claudeai[Agiùnghere su mercadu cun custu nùmene chi claude.ai ospitat pro tene]' \
             '(-h --help)'{-h,--help}'[Ammustare s'\''agiudu]' \
             '1:source:'
@@ -675,11 +720,13 @@ _claude_plugin_marketplace() {
         remove|rm)
           _arguments \
             '--scope[Bogare sa declaratzione de su mercadu dae un'\''àmbitu de impostattziones ispetzìficu (omìtere pro la bogare dae ogni àmbitu)]:scope:(user project local)' \
+            '--json[Imprentare una lìnia de resultadu legìbile dae sa màchina comente ùrtima lìnia in stdout]' \
             '(-h --help)'{-h,--help}'[Ammustare s'\''agiudu]' \
             '1:name:'
           ;;
         update)
           _arguments \
+            '--json[Cun unu nùmene de mercadu: imprentare una lìnia de resultadu legìbile dae sa màchina comente ùrtima lìnia in stdout]' \
             '(-h --help)'{-h,--help}'[Ammustare s'\''agiudu]' \
             '::name:'
           ;;
@@ -851,12 +898,23 @@ _claude_project() {
   esac
 }
 
+_claude_purge() {
+  _arguments \
+    '--dry-run[Elencare su chi diat èssere cantzelladu chene cantzellare nudda]' \
+    '(-y --yes)'{-y,--yes}'[Brincare sa rechesta de cunfirma]' \
+    '(-i --interactive)'{-i,--interactive}'[Pedire cunfirma pro ogni elementu in antis de cantzellare]' \
+    '(1)--all[Cantzellare s'\''istadu de ogni progetu (esclusivu cun unu càmminu)]' \
+    '(-h --help)'{-h,--help}'[Ammustare s'\''agiudu pro su cumandu]' \
+    '(--all)::path:_directories'
+}
+
 _claude_ultrareview() {
   _arguments \
     '--json[Imprentare su càrrigu bugs.json grezzu imbetzes de sos resultados formatados]' \
     '--timeout[Minutos màssimos de isetare pro chi sa revisione acabbet (predefinidu: 45)]:minutes:' \
     '(--no-post)--post[Publicare sos resultados de sa revisione acabbada in su PR a nòmine tuo (isceti pro destinatziones PR; unu cumentu sèmplitze, non una revisione)]' \
     '(--post)--no-post[Non publicare sos resultados in su PR (su predefinidu)]' \
+    '--trust-workspace[Fidare su diretòriu atuale isceti pro custa esecutzione, sena pregontare (pro iscripts e CI)]' \
     '(-h --help)'{-h,--help}'[Ammustare s'\''agiudu pro su cumandu]' \
     '1:target:'
 }
@@ -874,6 +932,117 @@ _claude_rm() {
     '--force-remove-worktree[Cantzellare su diretòriu de su worktree fintzas si su hook WorktreeRemove o git no l'\''ant pòdidu bogare (passare su worktree-id chi at informadu unu claude rm anteriore)]:worktree-id:' \
     '(-h --help)'{-h,--help}'[Ammustare s'\''agiudu pro su cumandu]' \
     '1:session:_claude_background_sessions'
+}
+
+_claude_self_hosted_runner() {
+  _arguments \
+    '--api-url[URL de base de s’API (predefinidu: https://api.anthropic.com)]:url:' \
+    '--environment-secret-file[Càmminu a s’archìviu segretu de s’ambiente]:path:_files' \
+    '--lock-to-account[Blocare su runner a unu contu ùnicu in sa registratzione]:id:' \
+    '--client-label[Eticheta de osservabilidade imbiada in sa registratzione (predefinidu: hostname)]:label:' \
+    '(--proxy-authorization-file --agent-proxy-url)--proxy-authorization-command[Cumandu chi su stdout suo est s’intestatzione Proxy-Authorization pro sos proxy in essida]:shell command:' \
+    '(--proxy-authorization-command --agent-proxy-url)--proxy-authorization-file[Archìviu chi cuntenet s’intestatzione Proxy-Authorization pro sos proxy in essida]:path:_files' \
+    '(--proxy-authorization-command --proxy-authorization-file)--agent-proxy-url[Fàghere passare onni sessione pro su proxy de agente in custu URL (isceti https)]:url:' \
+    '--capacity[Màssimu de sessiones cuncurrentes (predefinidu: 1)]:n:' \
+    '--base-dir[Diretòriu de base pro sos checkout de sos repo (predefinidu: /workspace)]:path:_directories' \
+    '--exec-path[Binàriu de aviare pro sas sessiones fìgias (predefinidu: custu binàriu)]:path:_files' \
+    '--hooks-dir[Diretòriu de sos iscripts hook de su tzìclu de vida (checkout, command, post-session)]:path:_directories' \
+    '--session-stop-grace-sec[Cantu tempus abetare un’essida pulida a pustis chi una sessione acabat (predefinidu: 5)]:n:' \
+    '--post-session-hook-timeout-sec[Tempus SIGTERM pro su hook post-session (predefinidu: 60)]:n:' \
+    '--checkout-hook-timeout-min[Tempus reale pro onni esecutzione de su hook checkout (predefinidu: 30; 0 disativat)]:n:' \
+    '--drain-wait-sec[Cun SIGTERM/SIGINT, abetare finas a N segundos pro su traballu in cursu (predefinidu: 0)]:n:' \
+    '--drain-marker-file[Archìviu marcadore cun su cale s’host annùntziat unu isbuidamentu ordinadu]:path:_files' \
+    '*--git-ssh-rewrite[Torrare a iscrìere sos URL de fonte https://<host>/... in git@<host>:... (repetìbile)]:host:' \
+    '*--git-host-rewrite[Torrare a iscrìere sos URL de fonte https://<f>/... in https://<t>/... (repetìbile)]:from=to:' \
+    '--use-anthropic-git-proxy[Impreare git gestidu dae Anthropic. AVISU: cantzellat e sostituit sa cunfiguratzione git a livellu HOME, impreare isceti cun unu contu dedicadu]' \
+    '--configure-git[Impostare s’identidade git globale e atibare sa firma de sos commit cun su servìtziu de firma de Anthropic. Iscriet ~/.gitconfig]' \
+    '--push-outcome-on-release[Fàghere su push de sos rams de resultadu sighidos cando su runner acabat una sessione non cumpletada]' \
+    '--trust-workspace[Registrare in antis sa fidùcia persistente pro sos càmminos de repo de onni sessione (predefinidu: true)]::bool:(true false)' \
+    '--remove-session-state[Bogare s’istadu de onni sessione cando una sessione acabat (predefinidu: false)]::bool:(true false)' \
+    '--diff-finds-nested-repository[Ammustrare unu repository clonadu in unu suta-diretòriu in su pannellu Changes; recheret --capacity 1 (predefinidu: false)]::bool:(true false)' \
+    '--confine-repo-settings[Modalidade de amparu pro lìmitare sas impostatziones cummitadas in su repo (predefinidu: warn)]:mode:(warn enforce off)' \
+    '--server-auto-mode-lists[Cales listas de su classificadore de sa modalidade automàtica dae su serbidore podet retzire una sessione (predefinidu: no-allow)]:mode:(all no-allow none)' \
+    '--host-config-snapshot[In ue est mantesa s’istantànea de aviamentu de sa cunfiguratzione de s’host (predefinidu: disk)]:mode:(disk memory)' \
+    '--health-port[Porta pro s’ascurtadore HTTP /healthz (predefinidu: 8080; 0 disativat)]:port:' \
+    '--log-level[Livellu de registru (predefinidu: info)]:level:(info debug)' \
+    '--log-file[Copiare fintzas sos registros de su runner in un’archìviu in modalidade de agiunta]:path:_files' \
+    '--exit-if-unused-min[Essire dae su runner si non li est assignadu traballu pro N minutos]:n:' \
+    '--drain-grace-sec[Segundos pro sighire a pregontare traballu a pustis chi sas sessiones ativas acabant (predefinidu: 0)]:n:' \
+    '--retire-at[Ritirare su runner a custu tempus Unix assolutu, in segundos]:epoch-seconds:' \
+    '--defer-shutdown-max-min[A su primu SIGTERM/SIGINT, firmare de retzire traballu e acabare s’istudada M minutos a pustis (predefinidu: 0)]:m:' \
+    '--release-idle-session-min[Liberare unu postu de sessione a pustis de N minutos sena input de s’utente]:n:' \
+    '--startup-timeout-min[Liberare unu postu de sessione si su protzessu fìgiu no at acabadu de aviare a pustis de N minutos (predefinidu: 15; 0 disativat)]:n:' \
+    '--kill-session-after-min[Lìmitare sa vida in tempus reale de una sessione fìgia a N minutos]:n:' \
+    '--debug-token-dir[ISCETI PRO SU DEBUG: iscriet sos token ativos in su discu. Non impreare in produtzione]:path:_directories' \
+    '(-h --help)'{-h,--help}'[Ammustrare custu messàgiu de agiudu]'
+}
+
+_claude_remote_control() {
+  _arguments \
+    '--name[Nùmene pro sa sessione (ammustradu in claude.ai/code)]:name:' \
+    '--remote-control-session-name-prefix[Prefissu pro sos nùmenes de sessione generados in automàticu (predefinidu: hostname)]:prefix:' \
+    '(-c --continue --session-id)'{-c,--continue}'[Torrare a collegare a sa sessione registrada pro ùrtima pro custu diretòriu o pro unu de sos worktree git suos]' \
+    '(-c --continue --session-id)--session-id[Torrare a collegare a una sessione ispetzìfica pro ID]:id:' \
+    '--permission-mode[Modalidade de permissos pro sas sessiones aviadas]:mode:(acceptEdits auto bypassPermissions default dontAsk plan)' \
+    '(--no-chrome)--chrome[Atibare Claude in Chrome pro sas sessiones aviadas]' \
+    '(--chrome)--no-chrome[Disativare Claude in Chrome pro sas sessiones aviadas]' \
+    '(-d --debug)'{-d,--debug}'[Atibare sa modalidade de debug cun filtramentu optzionale pro categoria]::filter:' \
+    '--debug-file[Iscrìere sos registros de debug in un’archìviu]:path:_files' \
+    '(-v --verbose)'{-v,--verbose}'[Atibare s’essida detallada]' \
+    '--spawn[Modalidade de aviamentu (predefinidu: same-dir)]:mode:(same-dir worktree session)' \
+    '--capacity[Màssimu de sessiones cuncurrentes in modalidade worktree o same-dir (predefinidu: 32)]:n:' \
+    '(--no-create-session-in-dir)--create-session-in-dir[Creare in antis una sessione in su diretòriu atuale (predefinidu)]' \
+    '(--create-session-in-dir)--no-create-session-in-dir[Non creare in antis una sessione in su diretòriu atuale]' \
+    '(-h --help)'{-h,--help}'[Ammustrare custu agiudu]'
+}
+
+_claude_daemon() {
+  local -a daemon_commands common_options
+  daemon_commands=(
+    'run:Esecutare su supervisore in primu pianu'
+    'status:Ammustrare pid, versione e tempus de funtzionamentu de su daemon'
+    'logs:Sighire su registru de su daemon (Ctrl-C pro firmare)'
+    'uninstall:Bogare su servìtziu in segundu pianu (launchctl/systemd)'
+    'stop:Istudare su supervisore e terminare sas sessiones in segundu pianu'
+  )
+  common_options=(
+    '--json-path[Archìviu de cunfiguratzione (predefinidu: ~/.claude/daemon.json)]:path:_files'
+    '--log-file[Archìviu de registru (predefinidu: ~/.claude/daemon.log)]:path:_files'
+    '(-h --help)'{-h,--help}'[Ammustrare custu agiudu]'
+  )
+
+  local curcontext="$curcontext" state line
+  typeset -A opt_args
+
+  _arguments -C \
+    $common_options \
+    '1: :->command' \
+    '*::arg:->args'
+
+  case $state in
+    command)
+      _describe -t commands 'cumandos de daemon' daemon_commands
+      ;;
+    args)
+      case $words[1] in
+        run)
+          _arguments \
+            $common_options \
+            '::json-path:_files'
+          ;;
+        stop)
+          _arguments \
+            $common_options \
+            '--any[Firmare fintzas unu daemon temporàneu (non servìtziu)]' \
+            '--keep-workers[Lassare sas sessiones istaccadas in esecutzione]'
+          ;;
+        status|logs|uninstall)
+          _arguments \
+            $common_options
+          ;;
+      esac
+      ;;
+  esac
 }
 
 _claude_import() {

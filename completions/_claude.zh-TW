@@ -200,9 +200,12 @@ _claude() {
     'stop:停止背景工作階段（對話會被保留）'
     'respawn:重新啟動背景工作階段，使其執行目前的 Claude Code 版本'
     'rm:刪除背景工作階段，並在安全時一併刪除其工作樹'
+    'remote-control:從 claude.ai/code 或 Claude 行動應用程式控制本機工作階段'
+    'daemon:管理背景工作階段監督程式'
     'auth:管理驗證'
     'auto-mode:檢查或重設自動模式分類器設定'
     'gateway:執行企業驗證/遙測閘道'
+    'self-hosted-runner:在此機器或容器上託管 Claude Code 雲端工作階段'
     'import:將其他 AI 程式設計代理程式的設定匯入 Claude Code'
     'project:管理 Claude Code 專案狀態'
     'purge:刪除專案的所有 Claude Code 狀態（記錄稿、工作、檔案歷程記錄、設定項目）'
@@ -222,11 +225,11 @@ _claude() {
     '--json-schema[用於結構化輸出驗證的 JSON 結構描述]:schema:'
     '--include-partial-messages[包含部分訊息區塊（搭配 --print 和 --output-format=stream-json）]'
     '--input-format[輸入格式（搭配 --print）："text"（預設）或 "stream-json"（即時串流輸入）]:format:(text stream-json)'
-    '--mcp-debug[\[已淘汰。請改用 --debug\] 啟用 MCP 偵錯模式（顯示 MCP 伺服器錯誤）]'
     '--dangerously-skip-permissions[略過所有權限檢查。僅建議用於無網際網路存取的沙箱]'
     '--allow-dangerously-skip-permissions[啟用略過權限檢查的選項，但預設不啟用]'
     '--restricted[受限模式：移除執行命令或程式碼的工具和 WebFetch，忽略 user/project/local 設定，並將檔案工具限制在工作目錄內]'
     '--max-budget-usd[花費在 API 呼叫上的美元金額上限（僅限 --print）]:amount:'
+    '--max-turns[限制代理程式回合數（僅限 --print）]:turns:'
     '--replay-user-messages[在 stdout 上重新傳送來自 stdin 的使用者訊息以進行確認]'
     '--allowed-tools[以逗號或空格分隔的允許工具名稱清單（例如 "Bash(git:*) Edit"）]:tools:'
     '--allowedTools[以逗號或空格分隔的允許工具名稱清單（駝峰式大小寫格式）]:tools:'
@@ -238,6 +241,8 @@ _claude() {
     '--system-prompt-file[從檔案讀取系統提示]:file:_files'
     '--append-system-prompt[將系統提示附加至預設系統提示]:prompt:'
     '--append-system-prompt-file[從檔案讀取系統提示並附加到預設系統提示]:file:_files'
+    '(--append-subagent-system-prompt-file)--append-subagent-system-prompt[將文字附加到每個子代理程式的系統提示（僅限 --print）]:prompt:'
+    '(--append-subagent-system-prompt)--append-subagent-system-prompt-file[從檔案讀取文字並附加到子代理程式系統提示（僅限 --print）]:file:_files'
     '--system-prompt-snapshot[每個對話記錄一次系統提示，並在之後的每次請求與恢復中原樣重複使用（on，預設），或每次請求重新產生（off）]:mode:(on off)'
     '--permission-mode[工作階段使用的權限模式]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)'
     '--permission-prompts[使用 --print 時由誰回答權限提示："host"（SDK 主機或 --permission-prompt-tool）或 "none"（任何需要提示的操作都會被拒絕）]:target:(host none)'
@@ -257,6 +262,8 @@ _claude() {
     '--strict-mcp-config[僅使用 --mcp-config 中的 MCP 伺服器，忽略所有其他 MCP 設定]'
     '--session-id[用於對話的特定工作階段 ID（必須是有效的 UUID）]:uuid:'
     '--agents[定義自訂代理程式的 JSON 物件]:json:'
+    '--advisor[以模型別名或完整模型 ID 為此工作階段啟用伺服器端顧問工具]:model:_claude_model_names'
+    '--teammate-mode[代理程式團隊成員的顯示方式]:mode:(in-process auto tmux iterm2)'
     '--setting-sources[以逗號分隔的要載入的設定來源清單（user、project、local）]:sources:'
     '--plugin-dir[僅為此工作階段載入外掛程式的目錄（可重複）]:paths:_directories'
     '--disable-slash-commands[停用所有斜線命令]'
@@ -269,9 +276,11 @@ _claude() {
     '--debug-file[將偵錯記錄寫入特定檔案路徑（隱含啟用偵錯模式）]:path:_files'
     '--from-pr[繼續依編號/URL 連結至 PR 的工作階段，或開啟互動式選擇器]::value:'
     '--teleport[恢復傳送工作階段，可選擇指定工作階段 ID]::session:'
-    '--cloud[使用指定的描述建立雲端工作階段，或透過工作階段 ID 或 claude.ai/code URL 附加到現有的工作階段]::description-or-session:'
+    '(--remote)--cloud[使用指定的描述建立雲端工作階段，或透過工作階段 ID 或 claude.ai/code URL 附加到現有的工作階段]::description-or-session:'
+    '(--cloud)--remote[--cloud 的已淘汰別名]::description-or-session:'
     '--environment[建立在指定自架環境（ccpool_...）上執行的新雲端工作階段]:environment_id:'
-    '--remote-control[啟動已啟用遠端控制的互動式工作階段（可選擇命名）]::name:'
+    '--ref[搭配 --environment：新工作階段的簽出以指定的 ref 為基礎，而非本機 HEAD]:branch:'
+    '(--remote-control --rc)'{--remote-control,--rc}'[啟動已啟用遠端控制的互動式工作階段（可選擇命名）]::name:'
     '--remote-control-session-name-prefix[自動產生遠端控制工作階段名稱的前綴]:prefix:'
     '--chrome[啟用 Claude in Chrome 整合]'
     '--no-chrome[停用 Claude in Chrome 整合]'
@@ -282,6 +291,11 @@ _claude() {
     '--include-hook-events[在輸出串流中包含所有 hook 生命週期事件（搭配 stream-json）]'
     '--exclude-dynamic-system-prompt-sections[將每台機器的區段移至第一則使用者訊息以改善提示快取重複使用]'
     '--brief[啟用 SendUserMessage 工具以進行代理程式對使用者的通訊]'
+    '*--channels[（研究預覽）要接聽其頻道通知的 MCP 伺服器（plugin\:<name>@<marketplace>）]:entries:'
+    '*--dangerously-load-development-channels[為本機開發啟用不在已核准允許清單中的頻道（plugin\:<name>@<marketplace> 或 server\:<name>）]:entries:'
+    '--init[在工作階段前以 init 比對器執行 Setup hook（僅限 --print）]'
+    '--init-only[執行 Setup 和 SessionStart hook，然後不開始對話直接結束]'
+    '--maintenance[在工作階段前以 maintenance 比對器執行 Setup hook（僅限 --print）]'
     '--safe-mode[停用所有自訂項目啟動（適合疑難排解損毀的設定）]'
     '--bare[最小模式：略過 hooks、LSP、外掛程式同步、屬性標示、自動記憶體和 CLAUDE.md 自動探索]'
     '--ax-screen-reader[呈現螢幕助讀程式友善的輸出（純文字，無裝飾性邊框或動畫）]'
@@ -305,7 +319,7 @@ _claude() {
         mcp)
           _claude_mcp
           ;;
-        plugin)
+        plugin|plugins)
           _claude_plugin
           ;;
         install)
@@ -325,6 +339,12 @@ _claude() {
         rm)
           _claude_rm
           ;;
+        remote-control|rc|remote|sync|bridge)
+          _claude_remote_control
+          ;;
+        daemon)
+          _claude_daemon
+          ;;
         auth)
           _claude_auth
           ;;
@@ -333,6 +353,9 @@ _claude() {
           ;;
         gateway)
           _claude_gateway
+          ;;
+        self-hosted-runner)
+          _claude_self_hosted_runner
           ;;
         import)
           _claude_import
@@ -346,8 +369,9 @@ _claude() {
         ultrareview)
           _claude_ultrareview
           ;;
-        setup-token|doctor|update)
-          _message "no arguments"
+        setup-token|doctor|update|upgrade)
+          _arguments \
+            '(-h --help)'{-h,--help}'[顯示命令說明]'
           ;;
         *)
           # Not a command but the prompt: options may still follow it
@@ -506,6 +530,7 @@ _claude_plugin() {
         validate)
           _arguments \
             '--strict[將警告視為錯誤（結束代碼 1）]' \
+            '--profile[若指定的目錄（catalog）會因此命令執行的某項檢查拒絕提交該外掛程式，也以 exit 1 結束]:name:(directory)' \
             '--json[以 JSON 輸出驗證報告（結束代碼相同）]' \
             '(-h --help)'{-h,--help}'[顯示說明]' \
             '1:path:_files'
@@ -518,6 +543,7 @@ _claude_plugin() {
             '(-s --scope)'{-s,--scope}'[安裝範圍]:scope:(user project local)' \
             '--accept-command[接受市集宣告的指令，其 sha256 為上一次 --json 執行以 shownCommand.sha256 回報的值]:sha256:' \
             '*--config[設定外掛程式資訊清單中宣告的 userConfig 選項（可重複）]:key=value:' \
+            '--marketplace[依外掛程式名稱從此來源（owner/repo、git 或 https URL、或路徑）的市集安裝外掛程式，必要時先新增該市集]:source:' \
             '--registry[用於 package@npm 安裝：從此 npm 登錄庫解析並下載]:url:' \
             '(-y --yes)'{-y,--yes}'[不經確認提示即接受顯示的市集宣告命令]' \
             '--json[列印一行機器可讀的結果，而非人類可讀的訊息]' \
@@ -617,6 +643,7 @@ _claude_plugin() {
             '--json[將完整執行結果以 JSON 列印到標準輸出，或寫入此 .json 檔案]::path:_files' \
             '--threshold[任一案例分數低於此門檻時以結束代碼 1 結束（預設：1.0）]:threshold:' \
             '*--allow-tools[操作者對受限工具（Bash、Write、Edit、WebFetch、mcp__*）的授權]:tools:' \
+            '*--disallow-tools[無論如何都不讓 Claude 使用的內建工具，即使已授權]:tools:' \
             '(--no-scaffold)--scaffold[執行每個案例的 scaffold_script（以你的身分執行作者提供的 bash；預設關閉）]' \
             '(--scaffold)--no-scaffold[明確略過 scaffold_script]' \
             '--trust-plugin[聲明你信任此外掛程式及其評估套件，略過首次執行的信任提示（用於 CI）]' \
@@ -887,6 +914,7 @@ _claude_ultrareview() {
     '--timeout[等待審查完成的最長分鐘數（預設：45）]:minutes:' \
     '(--no-post)--post[以你的身分將完成的審查結果發佈到 PR（僅限 PR 目標；一則一般留言，而非 review）]' \
     '(--post)--no-post[不將結果發佈到 PR（預設）]' \
+    '--trust-workspace[僅在本次執行中信任目前資料夾，不詢問（用於指令碼和 CI）]' \
     '(-h --help)'{-h,--help}'[顯示命令說明]' \
     '1:target:'
 }
@@ -904,6 +932,117 @@ _claude_rm() {
     '--force-remove-worktree[即使 WorktreeRemove 掛鉤或 git 無法移除，也刪除工作樹目錄（傳入先前 claude rm 回報的 worktree-id）]:worktree-id:' \
     '(-h --help)'{-h,--help}'[顯示命令說明]' \
     '1:session:_claude_background_sessions'
+}
+
+_claude_self_hosted_runner() {
+  _arguments \
+    '--api-url[API 基礎 URL（預設：https://api.anthropic.com）]:url:' \
+    '--environment-secret-file[環境密鑰檔案的路徑]:path:_files' \
+    '--lock-to-account[註冊時將執行器鎖定至單一帳戶]:id:' \
+    '--client-label[註冊時傳送的可觀測性標籤（預設：hostname）]:label:' \
+    '(--proxy-authorization-file --agent-proxy-url)--proxy-authorization-command[其 stdout 作為對外代理伺服器 Proxy-Authorization 標頭的命令]:shell command:' \
+    '(--proxy-authorization-command --agent-proxy-url)--proxy-authorization-file[存放對外代理伺服器 Proxy-Authorization 標頭的檔案]:path:_files' \
+    '(--proxy-authorization-command --proxy-authorization-file)--agent-proxy-url[讓所有工作階段經由此 URL 的代理程式專用代理伺服器（僅限 https）]:url:' \
+    '--capacity[最大並行工作階段數（預設：1）]:n:' \
+    '--base-dir[存放庫簽出的基礎目錄（預設：/workspace）]:path:_directories' \
+    '--exec-path[用於啟動子工作階段的二進位檔（預設：此二進位檔）]:path:_files' \
+    '--hooks-dir[生命週期 hook 指令碼目錄（checkout、command、post-session）]:path:_directories' \
+    '--session-stop-grace-sec[工作階段結束後等待正常結束的時間（預設：5）]:n:' \
+    '--post-session-hook-timeout-sec[post-session hook 的 SIGTERM 時限（預設：60）]:n:' \
+    '--checkout-hook-timeout-min[checkout hook 每次執行的實際時間上限（預設：30；0 表示停用）]:n:' \
+    '--drain-wait-sec[收到 SIGTERM/SIGINT 時，最多等待 N 秒完成進行中的工作（預設：0）]:n:' \
+    '--drain-marker-file[主機用於宣告正常排空的標記檔案]:path:_files' \
+    '*--git-ssh-rewrite[將 https://<host>/... 來源 URL 改寫為 git@<host>:...（可重複）]:host:' \
+    '*--git-host-rewrite[將 https://<f>/... 來源 URL 改寫為 https://<t>/...（可重複）]:from=to:' \
+    '--use-anthropic-git-proxy[使用 Anthropic 管理的 git。警告：會刪除並取代 HOME 層級的 git 設定，僅在專用帳戶下使用]' \
+    '--configure-git[設定全域 git 身分並透過 Anthropic 簽署服務啟用提交簽署。會寫入 ~/.gitconfig]' \
+    '--push-outcome-on-release[執行器發起的工作階段未完成即結束時，推送追蹤的成果分支]' \
+    '--trust-workspace[為每個工作階段的存放庫路徑預先保存信任（預設：true）]::bool:(true false)' \
+    '--remove-session-state[工作階段結束時移除該工作階段的狀態（預設：false）]::bool:(true false)' \
+    '--diff-finds-nested-repository[在 Changes 窗格中顯示複製到子資料夾的存放庫；需要 --capacity 1（預設：false）]::bool:(true false)' \
+    '--confine-repo-settings[限制存放庫內已提交設定的防護模式（預設：warn）]:mode:(warn enforce off)' \
+    '--server-auto-mode-lists[工作階段可從伺服器接收哪些自動模式分類器清單（預設：no-allow）]:mode:(all no-allow none)' \
+    '--host-config-snapshot[主機設定啟動快照的保存位置（預設：disk）]:mode:(disk memory)' \
+    '--health-port[/healthz HTTP 接聽程式的連接埠（預設：8080；0 表示停用）]:port:' \
+    '--log-level[記錄層級（預設：info）]:level:(info debug)' \
+    '--log-file[以附加模式將執行器記錄同時寫入檔案]:path:_files' \
+    '--exit-if-unused-min[若 N 分鐘內從未指派工作則結束執行器]:n:' \
+    '--drain-grace-sec[使用中的工作階段結束後繼續輪詢工作的秒數（預設：0）]:n:' \
+    '--retire-at[在此絕對 Unix 時間（秒）停用執行器]:epoch-seconds:' \
+    '--defer-shutdown-max-min[首次收到 SIGTERM/SIGINT 時停止接受工作，並在 M 分鐘後完成關閉（預設：0）]:m:' \
+    '--release-idle-session-min[N 分鐘無使用者輸入後釋放工作階段名額]:n:' \
+    '--startup-timeout-min[子程序 N 分鐘後仍未完成啟動則釋放工作階段名額（預設：15；0 表示停用）]:n:' \
+    '--kill-session-after-min[將工作階段子程序的實際存續時間限制為 N 分鐘]:n:' \
+    '--debug-token-dir[僅限偵錯：將有效權杖寫入磁碟。請勿在正式環境中使用]:path:_directories' \
+    '(-h --help)'{-h,--help}'[顯示此說明訊息]'
+}
+
+_claude_remote_control() {
+  _arguments \
+    '--name[工作階段名稱（顯示於 claude.ai/code）]:name:' \
+    '--remote-control-session-name-prefix[自動產生之工作階段名稱的前綴（預設：hostname）]:prefix:' \
+    '(-c --continue --session-id)'{-c,--continue}'[重新連接到此目錄或其某個 git 工作樹最後記錄的工作階段]' \
+    '(-c --continue --session-id)--session-id[依 ID 重新連接到特定工作階段]:id:' \
+    '--permission-mode[所啟動工作階段的權限模式]:mode:(acceptEdits auto bypassPermissions default dontAsk plan)' \
+    '(--no-chrome)--chrome[為所啟動的工作階段啟用 Claude in Chrome]' \
+    '(--chrome)--no-chrome[為所啟動的工作階段停用 Claude in Chrome]' \
+    '(-d --debug)'{-d,--debug}'[啟用偵錯模式，可選類別篩選]::filter:' \
+    '--debug-file[將偵錯記錄寫入檔案]:path:_files' \
+    '(-v --verbose)'{-v,--verbose}'[啟用詳細輸出]' \
+    '--spawn[啟動模式（預設：same-dir）]:mode:(same-dir worktree session)' \
+    '--capacity[worktree 或 same-dir 模式下的最大並行工作階段數（預設：32）]:n:' \
+    '(--no-create-session-in-dir)--create-session-in-dir[在目前目錄中預先建立工作階段（預設）]' \
+    '(--create-session-in-dir)--no-create-session-in-dir[不在目前目錄中預先建立工作階段]' \
+    '(-h --help)'{-h,--help}'[顯示此說明]'
+}
+
+_claude_daemon() {
+  local -a daemon_commands common_options
+  daemon_commands=(
+    'run:在前景執行監督程式'
+    'status:顯示 daemon 的 pid、版本、運作時間'
+    'logs:追蹤 daemon 記錄（Ctrl-C 停止）'
+    'uninstall:移除背景服務（launchctl/systemd）'
+    'stop:關閉監督程式並終止背景工作階段'
+  )
+  common_options=(
+    '--json-path[設定檔（預設：~/.claude/daemon.json）]:path:_files'
+    '--log-file[記錄檔（預設：~/.claude/daemon.log）]:path:_files'
+    '(-h --help)'{-h,--help}'[顯示此說明]'
+  )
+
+  local curcontext="$curcontext" state line
+  typeset -A opt_args
+
+  _arguments -C \
+    $common_options \
+    '1: :->command' \
+    '*::arg:->args'
+
+  case $state in
+    command)
+      _describe -t commands 'daemon commands' daemon_commands
+      ;;
+    args)
+      case $words[1] in
+        run)
+          _arguments \
+            $common_options \
+            '::json-path:_files'
+          ;;
+        stop)
+          _arguments \
+            $common_options \
+            '--any[同時停止暫時性（非服務）daemon]' \
+            '--keep-workers[讓已分離的工作階段繼續執行]'
+          ;;
+        status|logs|uninstall)
+          _arguments \
+            $common_options
+          ;;
+      esac
+      ;;
+  esac
 }
 
 _claude_import() {

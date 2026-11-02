@@ -200,11 +200,15 @@ _claude() {
     'stop:Фон сессиясен туктату (аның сөйләшүе саклана)'
     'respawn:Фон сессиясен агымдагы Claude Code версиясендә эшләсен өчен яңадан башлау'
     'rm:Фон сессиясен, һәм куркынычсыз булганда аның worktree-ын бетерү'
+    'remote-control:Җирле сессияләрне claude.ai/code яки Claude мобиль кушымтасыннан идарә итү'
+    'daemon:Фон сессияләре күзәтчесен идарә итү'
     'auth:Аутентификацияне идарә итү'
     'auto-mode:Автомат режим классификаторы көйләвен карау яки торгызу'
     'gateway:Предприятие аутентификация/телеметрия шлюзын эшләтү'
+    'self-hosted-runner:Claude Code болыт сессияләрен бу машинада яки контейнерда урнаштыру'
     'import:Башка ИИ кодлау агентыннан көйләүне Claude Code-ка импортлау'
     'project:Claude Code проект халәтен идарә итү'
+    'purge:Проект өчен барлык Claude Code халәтен бетерү (транскриптлар, бурычлар, файл тарихы, көйләү язмасы)'
     'ultrareview:Болытта урнашкан күп агентлы код тикшерүен эшләтү һәм табылмаларны бастыру'
     'setup-token:Озак вакытлы аутентификация токенын көйләү (Claude язылуы кирәк)'
     'doctor:Claude Code автомат яңартучы өчен сәламәтлек тикшерүе'
@@ -221,11 +225,11 @@ _claude() {
     '--json-schema[Структуралы чыгышны тикшерү өчен JSON схемасы]:schema:'
     '--include-partial-messages[Килгәндә өлешчә хәбәр кисәкләрен кертү (--print һәм --output-format=stream-json белән)]'
     '--input-format[Кертү форматы (--print белән): "text" (килешенгән) яки "stream-json" (реаль вакыт агымы кертүе)]:format:(text stream-json)'
-    '--mcp-debug[\[Искергән. Аның урынына --debug кулланыгыз\] MCP җайлау режимын кабызу (MCP сервер хаталарын күрсәтә)]'
     '--dangerously-skip-permissions[Барлык рөхсәт тикшерүләрен узып китү. Тик интернетка керә алмаган sandbox мохит өчен тәкъдим ителә]'
     '--allow-dangerously-skip-permissions[Килешенгән буларак кабызмыйча рөхсәт тикшерүләрен узып китү вариантын кабызу]'
     '--restricted[Чикләнгән режим: боерыклар яки код эшләтүче коралларны һәм WebFetch-ны бетерү, user/project/local көйләүләрен санга сукмау, һәм файл коралларын эш каталоглары белән чикләү]'
     '--max-budget-usd[API чакыруларына тотыла торган максималь доллар суммасы (тик --print)]:amount:'
+    '--max-turns[Агент адымнары санын чикләү (тик --print)]:turns:'
     '--replay-user-messages[Раслау өчен stdin-нан stdout-ка кулланучы хәбәрләрен кабат җибәрү]'
     '--allowed-tools[Өтер яки буш урын белән аерылган рөхсәт ителгән корал исемнәре исемлеге (мәсәлән, "Bash(git:*) Edit")]:tools:'
     '--allowedTools[Өтер яки буш урын белән аерылган рөхсәт ителгән корал исемнәре исемлеге (camelCase форматы)]:tools:'
@@ -237,6 +241,8 @@ _claude() {
     '--system-prompt-file[Система чакыруын файлдан уку]:file:_files'
     '--append-system-prompt[Килешенгән система чакыруына система чакыруын өстәү]:prompt:'
     '--append-system-prompt-file[Система чакыруын файлдан уку һәм килешенгән система чакыруына өстәү]:file:_files'
+    '(--append-subagent-system-prompt-file)--append-subagent-system-prompt[Һәр субагентның система чакыруына текст өстәү (тик --print)]:prompt:'
+    '(--append-subagent-system-prompt)--append-subagent-system-prompt-file[Текстны файлдан уку һәм субагент система чакыруларына өстәү (тик --print)]:file:_files'
     '--system-prompt-snapshot[Система чакыруын һәр сөйләшүгә бер тапкыр язып алу һәм аны һәр запроста һәм дәвам иткәндә сүзгә-сүз кабат куллану (on, килешенгән) яки аны һәр запроста яңадан ясау (off)]:mode:(on off)'
     '--permission-mode[Сессия өчен рөхсәт режимы]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)'
     '--permission-prompts[--print белән рөхсәт сорауларына кем җавап бирә: "host" (SDK хосты яки --permission-prompt-tool) яки "none" (сорау чыгарачак һәрнәрсә кире кагыла)]:target:(host none)'
@@ -256,6 +262,8 @@ _claude() {
     '--strict-mcp-config[Тик --mcp-config-тан MCP серверларын кулланыгыз һәм бөтен башка MCP көйләүләрен санга сукмагыз]'
     '--session-id[Сөйләшү өчен махсус сессия идентификаторы (дөрес UUID булырга тиеш)]:uuid:'
     '--agents[Махсуслаштырылган агентларны билгеләүче JSON объекты]:json:'
+    '--advisor[Бу сессия өчен сервер ягындагы advisor коралын модель лакап исеме яки тулы модель ID белән кабызу]:model:_claude_model_names'
+    '--teammate-mode[agent team әгъзалары ничек күрсәтелә]:mode:(in-process auto tmux iterm2)'
     '--setting-sources[Йөкләү өчен өтер белән аерылган көйләү чыганаклары исемлеге (user, project, local)]:sources:'
     '--plugin-dir[Тик бу сессия өчен плагиннар йөкләү өчен каталог (кабатланырлык)]:paths:_directories'
     '--disable-slash-commands[Барлык slash боерыкларын сүндерү]'
@@ -268,9 +276,11 @@ _claude() {
     '--debug-file[Җайлау журналларын махсус файл юлына язу (яшерен рәвештә җайлау режимын кабыза)]:path:_files'
     '--from-pr[Номер/URL буенча PR белән бәйле сессияне дәвам итү, яки интерактив сайлаучыны ачу]::value:'
     '--teleport[Teleport сессиясен дәвам итү, теләсә сессия идентификаторын күрсәтегез]::session:'
-    '--cloud[Бирелгән тасвирлама белән болыт сессиясе ясау, яки сессия идентификаторы яки claude.ai/code URL буенча булган сессиягә тоташу]::description-or-session:'
+    '(--remote)--cloud[Бирелгән тасвирлама белән болыт сессиясе ясау, яки сессия идентификаторы яки claude.ai/code URL буенча булган сессиягә тоташу]::description-or-session:'
+    '(--cloud)--remote[--cloud өчен искергән лакап исем]::description-or-session:'
     '--environment[Бирелгән үз-хостлы мохиттә (ccpool_...) эшли торган яңа болыт сессиясе ясау]:environment_id:'
-    '--remote-control[Ерактан идарә кабызылган интерактив сессия башлау (теләсә исемле)]::name:'
+    '--ref[--environment белән: яңа сессиянең checkout-ын җирле HEAD урынына исемле ref нигезендә ясау]:branch:'
+    '(--remote-control --rc)'{--remote-control,--rc}'[Ерактан идарә кабызылган интерактив сессия башлау (теләсә исемле)]::name:'
     '--remote-control-session-name-prefix[Автомат ясалган Ерактан идарә сессия исемнәре өчен префикс]:prefix:'
     '--chrome[Chrome интеграциясендә Claude-ны кабызу]'
     '--no-chrome[Chrome интеграциясендә Claude-ны сүндерү]'
@@ -281,6 +291,11 @@ _claude() {
     '--include-hook-events[Чыгыш агымына барлык hook тормыш циклы вакыйгаларын кертү (stream-json белән)]'
     '--exclude-dynamic-system-prompt-sections[Prompt-cache кабат кулланылуын яхшырту өчен һәр-машина бүлекләрен беренче кулланучы хәбәренә күчерү]'
     '--brief[Агент-кулланучы аралашуы өчен SendUserMessage коралын кабызу]'
+    '*--channels[(Тикшеренү алдан карау) Канал хәбәрнамәләрен тыңлый торган MCP серверлары (plugin\:<name>@<marketplace>)]:entries:'
+    '*--dangerously-load-development-channels[Расланган рөхсәт исемлегендә булмаган каналларны җирле эшләү өчен кабызу (plugin\:<name>@<marketplace> яки server\:<name>)]:entries:'
+    '--init[Сессия алдыннан init matcher белән Setup hook-ларын эшләтү (тик --print)]'
+    '--init-only[Setup һәм SessionStart hook-ларын эшләтү, аннары сөйләшү башламыйча чыгу]'
+    '--maintenance[Сессия алдыннан maintenance matcher белән Setup hook-ларын эшләтү (тик --print)]'
     '--safe-mode[Барлык җайлаштырулар сүндерелгән хәлдә башлау (ватык көйләүне төзәтү өчен файдалы)]'
     '--bare[Минималь режим: hook, LSP, плагин синхронлау, атрибуция, авто-хәтер һәм CLAUDE.md авто-табуны узып китү]'
     '--ax-screen-reader[Экран укучыга уңайлы чыгыш ясау (тигез текст, бизәкле кырыйлар яки анимацияләр юк)]'
@@ -304,7 +319,7 @@ _claude() {
         mcp)
           _claude_mcp
           ;;
-        plugin)
+        plugin|plugins)
           _claude_plugin
           ;;
         install)
@@ -324,6 +339,12 @@ _claude() {
         rm)
           _claude_rm
           ;;
+        remote-control|rc|remote|sync|bridge)
+          _claude_remote_control
+          ;;
+        daemon)
+          _claude_daemon
+          ;;
         auth)
           _claude_auth
           ;;
@@ -333,17 +354,24 @@ _claude() {
         gateway)
           _claude_gateway
           ;;
+        self-hosted-runner)
+          _claude_self_hosted_runner
+          ;;
         import)
           _claude_import
           ;;
         project)
           _claude_project
           ;;
+        purge)
+          _claude_purge
+          ;;
         ultrareview)
           _claude_ultrareview
           ;;
-        setup-token|doctor|update)
-          _message "аргументлар юк"
+        setup-token|doctor|update|upgrade)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Боерык өчен ярдәм күрсәтү]'
           ;;
         *)
           # Not a command but the prompt: options may still follow it
@@ -502,6 +530,7 @@ _claude_plugin() {
         validate)
           _arguments \
             '--strict[Кисәтүләрне хата дип санау (чыгу коды 1)]' \
+            '--profile[Күрсәтелгән каталог бу боерык эшләткән тикшерүдә плагин тапшыруын кире кагачак булса, шулай ук 1 чыгу коды белән чыгу]:name:(directory)' \
             '--json[Раслау хисабын JSON буларак чыгару (шул ук чыгу кодлары)]' \
             '(-h --help)'{-h,--help}'[Ярдәм күрсәтү]' \
             '1:path:_files'
@@ -512,7 +541,10 @@ _claude_plugin() {
         install|i)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Урнаштыру өлкәсе]:scope:(user project local)' \
+            '--accept-command[Алдагы --json эшләтү shownCommand.sha256 итеп хәбәр иткән sha256 белән базар игълан иткән боерыкны кабул итү]:sha256:' \
             '*--config[Плагин манифестында игълан ителгән userConfig параметрын көйләү (кабатланырлык)]:key=value:' \
+            '--marketplace[Плагинны гади исеме буенча шушы чыганактагы базардан урнаштыру (owner/repo, git яки https URL, яки юл), кирәк булса, башта базарны өстәп]:source:' \
+            '--registry[package@npm урнаштыру өчен: шушы npm registry-дан табу һәм йөкләү]:url:' \
             '(-y --yes)'{-y,--yes}'[Күрсәтелгән, базар игълан иткән боерыкны раслау соравыннан башка кабул итү]' \
             '--json[Кеше өчен хәбәр урынына машина укый ала торган бер нәтиҗә юлын бастыру]' \
             '(-h --help)'{-h,--help}'[Ярдәм күрсәтү]' \
@@ -545,6 +577,7 @@ _claude_plugin() {
           ;;
         update)
           _arguments \
+            '--accept-command[Алдагы --json эшләтү shownCommand.sha256 итеп хәбәр иткән sha256 белән базар игълан иткән боерыкны кабул итү]:sha256:' \
             '(-s --scope)'{-s,--scope}'[Урнаштыру өлкәсе]:scope:(user project local managed)' \
             '(-y --yes)'{-y,--yes}'[Күрсәтелгән, базар игълан иткән боерыкны раслау соравыннан башка кабул итү]' \
             '--json[Кеше өчен хәбәр урынына машина укый ала торган бер нәтиҗә юлын бастыру]' \
@@ -555,6 +588,7 @@ _claude_plugin() {
           _arguments \
             '--json[JSON буларак чыгару]' \
             '--available[Базарлардагы булган плагиннарны кертү (--json кирәк)]' \
+            '--data-size[Һәр урнаштырылган плагинның сакланган мәгълүмат каталогын, яки тик күрсәтелгән плагинныкын үлчәү (--json кирәк)]::plugin:_claude_installed_plugins' \
             '(-h --help)'{-h,--help}'[Ярдәм күрсәтү]'
           ;;
         prune|autoremove)
@@ -587,6 +621,15 @@ _claude_plugin() {
             '1:name:'
           ;;
         eval)
+          if [[ $words[2] == init ]]; then
+            _arguments \
+              '--bare[Интервью үткәрү урынына буш шаблон язу]' \
+              '--eval-dir[Очракларны язу өчен агымдагы каталог эчендәге каталог]:dir:_directories' \
+              '(-i --interactive)'{-i,--interactive}'[Очраклар язу интервьюсын үткәрү (интерактив терминал кирәк)]' \
+              '(-h --help)'{-h,--help}'[Ярдәм күрсәтү]' \
+              '::name:'
+            return
+          fi
           _arguments \
             '--case[Очракларны исем glob үрнәге буенча фильтрлау]:glob:' \
             '*--tag[Очракларны тамга буенча фильтрлау (кабатланырлык)]:tag:' \
@@ -600,6 +643,7 @@ _claude_plugin() {
             '--json[Тулы эшләтү нәтиҗәсен JSON буларак stdout-ка бастыру, яки аны бу .json файлына язу]::path:_files' \
             '--threshold[Берәр очрак бәясе бу чиктән түбән булса, 1 чыгу коды белән чыгу (килешенгән: 1.0)]:threshold:' \
             '*--allow-tools[Чикләнгән кораллар өчен оператор рөхсәте (Bash, Write, Edit, WebFetch, mcp__*)]:tools:' \
+            '*--disallow-tools[Рөхсәт бирелгән булса да, һәр очракта Claude-дан тыела торган эчке кораллар]:tools:' \
             '(--no-scaffold)--scaffold[Һәр очракның scaffold_script-ын эшләтү (автор биргән bash-ны сезнең исемнән эшләтә; килешенгән буенча сүнек)]' \
             '(--scaffold)--no-scaffold[scaffold_script-ны ачыктан-ачык узып китү]' \
             '--trust-plugin[Бу плагинга һәм аның eval җыелмасына ышануыгызны раслау, беренче эшләтүдәге ышаныч соравын узып китеп (CI өчен)]' \
@@ -612,7 +656,7 @@ _claude_plugin() {
             '(--no-publish)--publish-report[Хисапны claude.ai-да бастырып чыгаруны да таләп итү]' \
             '(--publish-report)--no-publish[HTML хисабын тик җирле саклау; аны claude.ai-да бастырып чыгаруны узып китү]' \
             '(-h --help)'{-h,--help}'[Ярдәм күрсәтү]' \
-            '::target: _alternative "plugins\:installed plugin\:_claude_installed_plugins" "files\:path\:_files"'
+            '::target: _alternative "commands\:eval command\:(init)" "plugins\:installed plugin\:_claude_installed_plugins" "files\:path\:_files"'
           ;;
         tag)
           _arguments \
@@ -663,6 +707,7 @@ _claude_plugin_marketplace() {
           _arguments \
             '--sparse[git sparse-checkout ярдәмендә checkout-ны билгеле каталоглар белән чикләү (монорепозиторияләр өчен)]:paths:' \
             '--scope[Базарны кайда игълан итәргә]:scope:(user project local)' \
+            '--json[stdout-та соңгы юл буларак машина укый ала торган бер нәтиҗә юлын бастыру]' \
             '--claudeai[claude.ai сезнең өчен урнаштырган шушы исемле базарны өстәү]' \
             '(-h --help)'{-h,--help}'[Ярдәм күрсәтү]' \
             '1:source:'
@@ -675,11 +720,13 @@ _claude_plugin_marketplace() {
         remove|rm)
           _arguments \
             '--scope[Базар игъланын билгеле көйләү өлкәсеннән бетерү (һәр өлкәдән бетерү өчен күрсәтмәгез)]:scope:(user project local)' \
+            '--json[stdout-та соңгы юл буларак машина укый ала торган бер нәтиҗә юлын бастыру]' \
             '(-h --help)'{-h,--help}'[Ярдәм күрсәтү]' \
             '1:name:'
           ;;
         update)
           _arguments \
+            '--json[Базар исеме белән: stdout-та соңгы юл буларак машина укый ала торган бер нәтиҗә юлын бастыру]' \
             '(-h --help)'{-h,--help}'[Ярдәм күрсәтү]' \
             '::name:'
           ;;
@@ -851,12 +898,23 @@ _claude_project() {
   esac
 }
 
+_claude_purge() {
+  _arguments \
+    '--dry-run[Берни дә бетермичә, нәрсә бетереләчәген исемлеккә чыгару]' \
+    '(-y --yes)'{-y,--yes}'[Раслау соравын узып китү]' \
+    '(-i --interactive)'{-i,--interactive}'[Бетерү алдыннан һәр элемент өчен сорау]' \
+    '(1)--all[Һәр проект өчен халәтне бетерү (юл белән бергә кулланылмый)]' \
+    '(-h --help)'{-h,--help}'[Боерык өчен ярдәм күрсәтү]' \
+    '(--all)::path:_directories'
+}
+
 _claude_ultrareview() {
   _arguments \
     '--json[Форматланган табылмалар урынына чи bugs.json йөген бастыру]' \
     '--timeout[Тикшерү тәмамлануын көтү өчен максималь минутлар (килешенгән: 45)]:minutes:' \
     '(--no-post)--post[Тәмамланган тикшерү табылмаларын PR-га сезнең исемнән урнаштыру (тик PR максатлары; тикшерү түгел, бер гади аңлатма)]' \
     '(--post)--no-post[Табылмаларны PR-га урнаштырмау (килешенгән)]' \
+    '--trust-workspace[Агымдагы папкага тик бу эшләтү өчен сорамыйча ышану (скриптлар һәм CI өчен)]' \
     '(-h --help)'{-h,--help}'[Боерык өчен ярдәм күрсәтү]' \
     '1:target:'
 }
@@ -874,6 +932,117 @@ _claude_rm() {
     '--force-remove-worktree[WorktreeRemove hook яки git бетерә алмаса да, worktree каталогын бетерү (алдагы claude rm хәбәр иткән worktree-id-ны бирегез)]:worktree-id:' \
     '(-h --help)'{-h,--help}'[Боерык өчен ярдәм күрсәтү]' \
     '1:session:_claude_background_sessions'
+}
+
+_claude_self_hosted_runner() {
+  _arguments \
+    '--api-url[API нигез URL-ы (килешенгән: https://api.anthropic.com)]:url:' \
+    '--environment-secret-file[Мохит сер файлына юл]:path:_files' \
+    '--lock-to-account[Теркәлгәндә runner-ны бер хисап язмасына беркетү]:id:' \
+    '--client-label[Теркәлгәндә җибәрелә торган күзәтү тамгасы (килешенгән: hostname)]:label:' \
+    '(--proxy-authorization-file --agent-proxy-url)--proxy-authorization-command[stdout-ы чыгыш прокси өчен Proxy-Authorization башлыгы булган боерык]:shell command:' \
+    '(--proxy-authorization-command --agent-proxy-url)--proxy-authorization-file[Чыгыш прокси өчен Proxy-Authorization башлыгын саклаган файл]:path:_files' \
+    '(--proxy-authorization-command --proxy-authorization-file)--agent-proxy-url[Һәр сессияне шушы URL-дагы агент прокси аша җибәрү (тик https)]:url:' \
+    '--capacity[Бер үк вакыттагы сессияләрнең максималь саны (килешенгән: 1)]:n:' \
+    '--base-dir[Репозиторий checkout-лары өчен нигез каталог (килешенгән: /workspace)]:path:_directories' \
+    '--exec-path[Бала сессияләрне җибәрү өчен бинар файл (килешенгән: шушы бинар файл)]:path:_files' \
+    '--hooks-dir[Тормыш циклы hook скриптлары каталогы (checkout, command, post-session)]:path:_directories' \
+    '--session-stop-grace-sec[Сессия тәмамлангач чиста чыгуны күпме көтәргә (килешенгән: 5)]:n:' \
+    '--post-session-hook-timeout-sec[post-session hook өчен SIGTERM вакыт чиге (килешенгән: 60)]:n:' \
+    '--checkout-hook-timeout-min[checkout hook-ның һәр эшләтүе өчен реаль вакыт чиге (килешенгән: 30; 0 сүндерә)]:n:' \
+    '--drain-wait-sec[SIGTERM/SIGINT килгәч, барган эш өчен N секундка кадәр көтү (килешенгән: 0)]:n:' \
+    '--drain-marker-file[Хост йомшак туктатуны игълан итә торган тамга файлы]:path:_files' \
+    '*--git-ssh-rewrite[https://<host>/... чыганак URL-ларын git@<host>:... итеп яңадан язу (кабатланырлык)]:host:' \
+    '*--git-host-rewrite[https://<f>/... чыганак URL-ларын https://<t>/... итеп яңадан язу (кабатланырлык)]:from=to:' \
+    '--use-anthropic-git-proxy[Anthropic идарә иткән git куллану. ИГЪТИБАР: HOME дәрәҗәсендәге git көйләвен бетерә һәм алыштыра, тик аерым хисап язмасы астында кулланыгыз]' \
+    '--configure-git[Глобаль git шәхесен көйләү һәм Anthropic имза хезмәте аша commit имзалауны кабызу. ~/.gitconfig-ка яза]' \
+    '--push-outcome-on-release[Runner тәмамланмаган сессияне үзе туктатканда, күзәтелгән нәтиҗә тармакларын push итү]' \
+    '--trust-workspace[Һәр сессиянең репозиторий юллары өчен даими ышанычны алдан урнаштыру (килешенгән: true)]::bool:(true false)' \
+    '--remove-session-state[Сессия тәмамлангач, сессиянең торышын бетерү (килешенгән: false)]::bool:(true false)' \
+    '--diff-finds-nested-repository[Эчке папкага клонланган репозиторийны Changes тәрәзәсендә күрсәтү; --capacity 1 кирәк (килешенгән: false)]::bool:(true false)' \
+    '--confine-repo-settings[Репозиторийга commit ителгән көйләүләрне чикләү сак режимы (килешенгән: warn)]:mode:(warn enforce off)' \
+    '--server-auto-mode-lists[Сессия сервердан нинди автомат режим классификаторы исемлекләрен ала ала (килешенгән: no-allow)]:mode:(all no-allow none)' \
+    '--host-config-snapshot[Хост көйләвенең старт снимогы кайда саклана (килешенгән: disk)]:mode:(disk memory)' \
+    '--health-port[/healthz HTTP тыңлаучысы өчен порт (килешенгән: 8080; 0 сүндерә)]:port:' \
+    '--log-level[Журнал дәрәҗәсе (килешенгән: info)]:level:(info debug)' \
+    '--log-file[Runner журналларын өстәү режимында файлга да язу]:path:_files' \
+    '--exit-if-unused-min[N минут буе бер эш тә бирелмәсә, runner-дан чыгу]:n:' \
+    '--drain-grace-sec[Актив сессияләр тәмамлангач, эш эзләүне дәвам итү секундлары (килешенгән: 0)]:n:' \
+    '--retire-at[Runner-ны шушы абсолют Unix вакытында, секундларда, отставкага чыгару]:epoch-seconds:' \
+    '--defer-shutdown-max-min[Беренче SIGTERM/SIGINT килгәч, эш алуны туктату һәм M минуттан соң сүнүне тәмамлау (килешенгән: 0)]:m:' \
+    '--release-idle-session-min[N минут кулланучы кертүе булмаса, сессия урынын бушату]:n:' \
+    '--startup-timeout-min[Бала процесс N минуттан соң да башлануны тәмамламаса, сессия урынын бушату (килешенгән: 15; 0 сүндерә)]:n:' \
+    '--kill-session-after-min[Бала сессиянең реаль яшәү вакытын N минут белән чикләү]:n:' \
+    '--debug-token-dir[ТИК ҖАЙЛАУ ӨЧЕН: актив токеннарны дискка яза. Production-да кулланмагыз]:path:_directories' \
+    '(-h --help)'{-h,--help}'[Бу ярдәм хәбәрен күрсәтү]'
+}
+
+_claude_remote_control() {
+  _arguments \
+    '--name[Сессия исеме (claude.ai/code-та күрсәтелә)]:name:' \
+    '--remote-control-session-name-prefix[Автомат ясалган сессия исемнәре өчен префикс (килешенгән: hostname)]:prefix:' \
+    '(-c --continue --session-id)'{-c,--continue}'[Бу каталог яки аның git worktree-ларының берсе өчен соңгы язылган сессиягә кабат тоташу]' \
+    '(-c --continue --session-id)--session-id[ID буенча билгеле сессиягә кабат тоташу]:id:' \
+    '--permission-mode[Җибәрелгән сессияләр өчен рөхсәт режимы]:mode:(acceptEdits auto bypassPermissions default dontAsk plan)' \
+    '(--no-chrome)--chrome[Җибәрелгән сессияләр өчен Claude in Chrome-ны кабызу]' \
+    '(--chrome)--no-chrome[Җибәрелгән сессияләр өчен Claude in Chrome-ны сүндерү]' \
+    '(-d --debug)'{-d,--debug}'[Категория фильтрлау белән җайлау режимын кабызу]::filter:' \
+    '--debug-file[Җайлау журналларын файлга язу]:path:_files' \
+    '(-v --verbose)'{-v,--verbose}'[Җентекле чыгышны кабызу]' \
+    '--spawn[Җибәрү режимы (килешенгән: same-dir)]:mode:(same-dir worktree session)' \
+    '--capacity[worktree яки same-dir режимында бер үк вакыттагы сессияләрнең максималь саны (килешенгән: 32)]:n:' \
+    '(--no-create-session-in-dir)--create-session-in-dir[Агымдагы каталогта сессияне алдан ясау (килешенгән)]' \
+    '(--create-session-in-dir)--no-create-session-in-dir[Агымдагы каталогта сессияне алдан ясамау]' \
+    '(-h --help)'{-h,--help}'[Бу ярдәмне күрсәтү]'
+}
+
+_claude_daemon() {
+  local -a daemon_commands common_options
+  daemon_commands=(
+    'run:Күзәтчене алгы планда эшләтү'
+    'status:Daemon pid, версия, эш вакытын күрсәтү'
+    'logs:Daemon журналын күзәтү (туктату өчен Ctrl-C)'
+    'uninstall:Фон хезмәтен бетерү (launchctl/systemd)'
+    'stop:Күзәтчене сүндерү һәм фон сессияләрен тәмамлау'
+  )
+  common_options=(
+    '--json-path[Көйләү файлы (килешенгән: ~/.claude/daemon.json)]:path:_files'
+    '--log-file[Журнал файлы (килешенгән: ~/.claude/daemon.log)]:path:_files'
+    '(-h --help)'{-h,--help}'[Бу ярдәмне күрсәтү]'
+  )
+
+  local curcontext="$curcontext" state line
+  typeset -A opt_args
+
+  _arguments -C \
+    $common_options \
+    '1: :->command' \
+    '*::arg:->args'
+
+  case $state in
+    command)
+      _describe -t commands 'daemon commands' daemon_commands
+      ;;
+    args)
+      case $words[1] in
+        run)
+          _arguments \
+            $common_options \
+            '::json-path:_files'
+          ;;
+        stop)
+          _arguments \
+            $common_options \
+            '--any[Вакытлыча (хезмәт булмаган) daemon-ны да туктату]' \
+            '--keep-workers[Аерылган сессияләрне эшләүдә калдыру]'
+          ;;
+        status|logs|uninstall)
+          _arguments \
+            $common_options
+          ;;
+      esac
+      ;;
+  esac
 }
 
 _claude_import() {

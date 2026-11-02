@@ -200,11 +200,15 @@ _claude() {
     'stop:Simamisha kipindi cha mandharinyuma (mazungumzo yake yanahifadhiwa)'
     'respawn:Anzisha upya kipindi cha mandharinyuma ili kiendeshe toleo la sasa la Claude Code'
     'rm:Futa kipindi cha mandharinyuma, na worktree yake inapokuwa salama kufanya hivyo'
+    'remote-control:Dhibiti vipindi vya ndani kutoka claude.ai/code au programu ya simu ya Claude'
+    'daemon:Simamia msimamizi wa vipindi vya mandharinyuma'
     'auth:Simamia uthibitishaji'
     'auto-mode:Kagua au weka upya usanidi wa kiainishi cha hali otomatiki'
     'gateway:Endesha lango la uthibitishaji/telemetria la biashara'
+    'self-hosted-runner:Pangisha vipindi vya wingu vya Claude Code kwenye mashine au kontena hii'
     'import:Leta usanidi kutoka kwa wakala mwingine wa AI wa kuandika msimbo hadi Claude Code'
     'project:Simamia hali ya mradi ya Claude Code'
+    'purge:Futa hali yote ya Claude Code kwa mradi (nakala, kazi, historia ya faili, ingizo la usanidi)'
     'ultrareview:Endesha ukaguzi wa msimbo wa mawakala wengi ulioko wingu na uchapishe matokeo'
     'setup-token:Weka alama ya uthibitishaji wa muda mrefu (inahitaji usajili wa Claude)'
     'doctor:Ukaguzi wa afya kwa auto-updater ya Claude Code'
@@ -221,11 +225,11 @@ _claude() {
     '--json-schema[Muundo wa JSON kwa uthibitishaji wa matokeo yaliyopangwa]:schema:'
     '--include-partial-messages[Jumuisha vipande vya ujumbe vya sehemu vinavyowasili (pamoja na --print na --output-format=stream-json)]'
     '--input-format[Muundo wa ingizo (pamoja na --print): "text" (chaguo-msingi) au "stream-json" (mkondo wa ingizo wa wakati halisi)]:format:(text stream-json)'
-    '--mcp-debug[\[Haipendekezi tena. Tumia --debug badala yake\] Washa mtindo wa utatuzi wa MCP (inaonyesha makosa ya seva za MCP)]'
     '--dangerously-skip-permissions[Ruka ukaguzi wote wa ruhusa. Inashauriwa tu kwa sanduku za uchawi bila upatikanaji wa mtandao]'
     '--allow-dangerously-skip-permissions[Wezesha chaguo la kuruka ukaguzi wa ruhusa bila kuwezesha kwa chaguo-msingi]'
     '--restricted[Mtindo wenye vikwazo: ondoa zana zinazoendesha amri au msimbo na WebFetch, puuza mipangilio ya user/project/local, na weka kikomo cha zana za faili kwenye saraka za kazi pekee]'
     '--max-budget-usd[Kiasi cha juu cha dola cha kutumia kwenye simu za API (--print tu)]:amount:'
+    '--max-turns[Weka kikomo cha idadi ya zamu za wakala (--print tu)]:turns:'
     '--replay-user-messages[Tuma tena ujumbe wa mtumiaji kutoka stdin kwenye stdout kwa uthibitishaji]'
     '--allowed-tools[Orodha ya majina ya zana zinazoruhusiwa yaliyotenganishwa kwa koma au nafasi (mfano: "Bash(git:*) Edit")]:tools:'
     '--allowedTools[Orodha ya majina ya zana zinazoruhusiwa yaliyotenganishwa kwa koma au nafasi (muundo wa camelCase)]:tools:'
@@ -237,6 +241,8 @@ _claude() {
     '--system-prompt-file[Soma kidokezo cha mfumo kutoka kwa faili]:file:_files'
     '--append-system-prompt[Ongeza orodhesha mfumo kwenye orodhesha chaguo-msingi ya mfumo]:prompt:'
     '--append-system-prompt-file[Soma kidokezo cha mfumo kutoka kwa faili na ukiongeze kwenye kidokezo chaguo-msingi cha mfumo]:file:_files'
+    '(--append-subagent-system-prompt-file)--append-subagent-system-prompt[Ongeza maandishi kwenye maelekezo ya mfumo ya kila wakala mdogo (--print tu)]:prompt:'
+    '(--append-subagent-system-prompt)--append-subagent-system-prompt-file[Soma maandishi kutoka faili na uyaongeze kwenye maelekezo ya mfumo ya mawakala wadogo (--print tu)]:file:_files'
     '--system-prompt-snapshot[Rekodi kidokezo cha mfumo mara moja kwa kila mazungumzo na ukitumie tena neno kwa neno katika kila ombi na urejeshaji (on, chaguo-msingi) au ukitengeneze upya katika kila ombi (off)]:mode:(on off)'
     '--permission-mode[Mtindo wa ruhusa wa kutumia kwa kipindi]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)'
     '--permission-prompts[Nani hujibu maombi ya ruhusa pamoja na --print: "host" (mwenyeji wa SDK au --permission-prompt-tool) au "none" (chochote ambacho kingeomba ruhusa kinakataliwa)]:target:(host none)'
@@ -256,6 +262,8 @@ _claude() {
     '--strict-mcp-config[Tumia seva za MCP kutoka kwa --mcp-config tu na upuuzie mipangilio mingine yote ya MCP]'
     '--session-id[Kitambulisho mahususi cha kipindi cha kutumia kwa mazungumzo (lazima iwe UUID halali)]:uuid:'
     '--agents[Kipengele cha JSON kinachobainisha wakala maalum]:json:'
+    '--advisor[Wezesha zana ya mshauri ya upande wa seva kwa kipindi hiki kwa jina-mbadala la modeli au kitambulisho kamili cha modeli]:model:_claude_model_names'
+    '--teammate-mode[Jinsi wanachama wa timu ya mawakala wanavyoonyeshwa]:mode:(in-process auto tmux iterm2)'
     '--setting-sources[Orodha ya vyanzo vya mipangilio iliyotenganishwa kwa koma ya kupakia (user, project, local)]:sources:'
     '--plugin-dir[Saraka ya kupakia programu-jalizi kutoka kwa kipindi hiki tu (inaweza kurudiwa)]:paths:_directories'
     '--disable-slash-commands[Zima amri zote za mkwaju]'
@@ -268,9 +276,11 @@ _claude() {
     '--debug-file[Andika kumbukumbu za utatuzi kwenye njia mahususi ya faili (huwezesha mtindo wa utatuzi kwa dhahiri)]:path:_files'
     '--from-pr[Rudisha kipindi kilichounganishwa na PR kwa nambari/URL, au fungua kichaguzi cha mwingiliano]::value:'
     '--teleport[Rudisha kipindi cha teleport, kwa hiari bainisha kitambulisho cha kipindi]::session:'
-    '--cloud[Unda kipindi cha wingu kwa maelezo uliyotoa, au unganisha na kilichopo kwa kitambulisho cha kipindi au URL ya claude.ai/code]::description-or-session:'
+    '(--remote)--cloud[Unda kipindi cha wingu kwa maelezo uliyotoa, au unganisha na kilichopo kwa kitambulisho cha kipindi au URL ya claude.ai/code]::description-or-session:'
+    '(--cloud)--remote[Jina-mbadala lililopitwa na wakati la --cloud]::description-or-session:'
     '--environment[Unda kipindi kipya cha wingu kinachoendeshwa kwenye mazingira uliyobainisha yanayojipangishia (ccpool_...)]:environment_id:'
-    '--remote-control[Anzisha kipindi cha mwingiliano na Udhibiti wa Mbali umewezeshwa (kwa hiari na jina)]::name:'
+    '--ref[Pamoja na --environment: weka checkout ya kipindi kipya juu ya ref yenye jina badala ya HEAD ya ndani]:branch:'
+    '(--remote-control --rc)'{--remote-control,--rc}'[Anzisha kipindi cha mwingiliano na Udhibiti wa Mbali umewezeshwa (kwa hiari na jina)]::name:'
     '--remote-control-session-name-prefix[Kiambishi awali cha majina ya vipindi vya Udhibiti wa Mbali yaliyozalishwa kiotomatiki]:prefix:'
     '--chrome[Wezesha muunganisho wa Claude katika Chrome]'
     '--no-chrome[Zima muunganisho wa Claude katika Chrome]'
@@ -281,6 +291,11 @@ _claude() {
     '--include-hook-events[Jumuisha matukio yote ya mzunguko wa maisha wa hook katika mkondo wa matokeo (pamoja na stream-json)]'
     '--exclude-dynamic-system-prompt-sections[Hamisha sehemu za kila-mashine kwenye ujumbe wa kwanza wa mtumiaji ili kuboresha utumiaji upya wa akiba ya orodhesha]'
     '--brief[Wezesha zana ya SendUserMessage kwa mawasiliano ya wakala-kwa-mtumiaji]'
+    '*--channels[(Hakiki ya utafiti) Seva za MCP ambazo arifa za chaneli zake zitasikilizwa (plugin\:<name>@<marketplace>)]:entries:'
+    '*--dangerously-load-development-channels[Wezesha chaneli zisizo kwenye orodha iliyoidhinishwa, kwa usanidi wa ndani (plugin\:<name>@<marketplace> au server\:<name>)]:entries:'
+    '--init[Endesha hooks za Setup na kilinganishi cha init kabla ya kipindi (--print tu)]'
+    '--init-only[Endesha hooks za Setup na SessionStart, kisha utoke bila kuanzisha mazungumzo]'
+    '--maintenance[Endesha hooks za Setup na kilinganishi cha maintenance kabla ya kipindi (--print tu)]'
     '--safe-mode[Anzisha na ubinafsishaji wote umezimwa (muhimu kwa kutatua usanidi uliovunjika)]'
     '--bare[Mtindo mdogo: ruka hooks, LSP, ulandanishi wa programu-jalizi, sifa, kumbukumbu-otomatiki, na ugunduzi-otomatiki wa CLAUDE.md]'
     '--ax-screen-reader[Toa matokeo yanayofaa kisomaji-skrini (maandishi tambarare, hakuna mipaka ya mapambo au uhuishaji)]'
@@ -304,7 +319,7 @@ _claude() {
         mcp)
           _claude_mcp
           ;;
-        plugin)
+        plugin|plugins)
           _claude_plugin
           ;;
         install)
@@ -324,6 +339,12 @@ _claude() {
         rm)
           _claude_rm
           ;;
+        remote-control|rc|remote|sync|bridge)
+          _claude_remote_control
+          ;;
+        daemon)
+          _claude_daemon
+          ;;
         auth)
           _claude_auth
           ;;
@@ -333,17 +354,24 @@ _claude() {
         gateway)
           _claude_gateway
           ;;
+        self-hosted-runner)
+          _claude_self_hosted_runner
+          ;;
         import)
           _claude_import
           ;;
         project)
           _claude_project
           ;;
+        purge)
+          _claude_purge
+          ;;
         ultrareview)
           _claude_ultrareview
           ;;
-        setup-token|doctor|update)
-          _message "hakuna hoja"
+        setup-token|doctor|update|upgrade)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Onyesha msaada kwa amri]'
           ;;
         *)
           # Not a command but the prompt: options may still follow it
@@ -502,6 +530,7 @@ _claude_plugin() {
         validate)
           _arguments \
             '--strict[Chukulia maonyo kama makosa (msimbo wa kutoka 1)]' \
+            '--profile[Toka na 1 pia wakati katalogi iliyotajwa ingekataa uwasilishaji wa programu-jalizi katika ukaguzi ambao amri hii huendesha]:name:(directory)' \
             '--json[Toa ripoti ya uthibitishaji kama JSON (misimbo ile ile ya kutoka)]' \
             '(-h --help)'{-h,--help}'[Onyesha msaada]' \
             '1:path:_files'
@@ -512,7 +541,10 @@ _claude_plugin() {
         install|i)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Upeo wa usakinishaji]:scope:(user project local)' \
+            '--accept-command[Kubali amri iliyotangazwa na soko ambayo sha256 yake iliripotiwa na uendeshaji wa awali wa --json kama shownCommand.sha256]:sha256:' \
             '*--config[Weka chaguo la userConfig lililotangazwa katika manifest ya programu-jalizi (inaweza kurudiwa)]:key=value:' \
+            '--marketplace[Sakinisha programu-jalizi kwa jina lake tupu kutoka kwa soko lililo kwenye chanzo hiki (owner/repo, URL ya git au https, au njia), ukiliongeza kwanza ikihitajika]:source:' \
+            '--registry[Kwa usakinishaji wa package@npm: tatua na pakua kutoka kwa sajili hii ya npm]:url:' \
             '(-y --yes)'{-y,--yes}'[Kubali amri iliyoonyeshwa iliyotangazwa na soko bila ombi la uthibitisho]' \
             '--json[Chapisha mstari mmoja wa matokeo unaosomeka na mashine badala ya ujumbe wa binadamu]' \
             '(-h --help)'{-h,--help}'[Onyesha msaada]' \
@@ -545,6 +577,7 @@ _claude_plugin() {
           ;;
         update)
           _arguments \
+            '--accept-command[Kubali amri iliyotangazwa na soko ambayo sha256 yake iliripotiwa na uendeshaji wa awali wa --json kama shownCommand.sha256]:sha256:' \
             '(-s --scope)'{-s,--scope}'[Upeo wa usakinishaji]:scope:(user project local managed)' \
             '(-y --yes)'{-y,--yes}'[Kubali amri iliyoonyeshwa iliyotangazwa na soko bila ombi la uthibitisho]' \
             '--json[Chapisha mstari mmoja wa matokeo unaosomeka na mashine badala ya ujumbe wa binadamu]' \
@@ -555,6 +588,7 @@ _claude_plugin() {
           _arguments \
             '--json[Toa matokeo kama JSON]' \
             '--available[Jumuisha programu-jalizi zinazopatikana kutoka kwa masoko (inahitaji --json)]' \
+            '--data-size[Pima saraka ya data iliyohifadhiwa ya kila programu-jalizi iliyosakinishwa, au ya programu-jalizi iliyotajwa tu (inahitaji --json)]::plugin:_claude_installed_plugins' \
             '(-h --help)'{-h,--help}'[Onyesha msaada]'
           ;;
         prune|autoremove)
@@ -587,6 +621,15 @@ _claude_plugin() {
             '1:name:'
           ;;
         eval)
+          if [[ $words[2] == init ]]; then
+            _arguments \
+              '--bare[Andika kiolezo tupu badala ya kuendesha mahojiano]' \
+              '--eval-dir[Saraka chini ya saraka ya sasa ya kuandikia kesi]:dir:_directories' \
+              '(-i --interactive)'{-i,--interactive}'[Endesha mahojiano ya uandishi (inahitaji terminal shirikishi)]' \
+              '(-h --help)'{-h,--help}'[Onyesha msaada]' \
+              '::name:'
+            return
+          fi
           _arguments \
             '--case[Chuja kesi kwa glob ya jina]:glob:' \
             '*--tag[Chuja kesi kwa lebo (inaweza kurudiwa)]:tag:' \
@@ -600,6 +643,7 @@ _claude_plugin() {
             '--json[Chapisha matokeo kamili ya uendeshaji kama JSON kwenye stdout, au yaandike kwenye faili hii ya .json]::path:_files' \
             '--threshold[Toka kwa msimbo wa kutoka 1 ikiwa alama ya kesi yoyote iko chini ya kizingiti hiki (chaguo-msingi: 1.0)]:threshold:' \
             '*--allow-tools[Ruhusa ya mwendeshaji kwa zana zinazodhibitiwa (Bash, Write, Edit, WebFetch, mcp__*)]:tools:' \
+            '*--disallow-tools[Zana zilizojengewa ndani za kumzuilia Claude katika kila kesi, hata kama zimeruhusiwa]:tools:' \
             '(--no-scaffold)--scaffold[Endesha scaffold_script ya kila kesi (huendesha bash iliyotolewa na mwandishi kwa jina lako; imezimwa kwa chaguo-msingi)]' \
             '(--scaffold)--no-scaffold[Ruka scaffold_script kwa dhahiri]' \
             '--trust-plugin[Thibitisha kwamba unaamini programu-jalizi hii na seti yake ya tathmini, ukiruka ombi la uaminifu la uendeshaji wa kwanza (kwa CI)]' \
@@ -612,7 +656,7 @@ _claude_plugin() {
             '(--no-publish)--publish-report[Pia hitaji kuchapisha ripoti kwenye claude.ai]' \
             '(--publish-report)--no-publish[Weka ripoti ya HTML kwenye kompyuta ya ndani tu; ruka kuichapisha kwenye claude.ai]' \
             '(-h --help)'{-h,--help}'[Onyesha msaada]' \
-            '::target: _alternative "plugins\:installed plugin\:_claude_installed_plugins" "files\:path\:_files"'
+            '::target: _alternative "commands\:eval command\:(init)" "plugins\:installed plugin\:_claude_installed_plugins" "files\:path\:_files"'
           ;;
         tag)
           _arguments \
@@ -663,6 +707,7 @@ _claude_plugin_marketplace() {
           _arguments \
             '--sparse[Weka kikomo cha checkout kwa saraka mahususi kupitia git sparse-checkout (kwa monorepo)]:paths:' \
             '--scope[Mahali pa kutangaza soko]:scope:(user project local)' \
+            '--json[Chapisha mstari mmoja wa matokeo unaosomeka na mashine kama mstari wa mwisho kwenye stdout]' \
             '--claudeai[Ongeza soko la jina hili ambalo claude.ai hukupangishia]' \
             '(-h --help)'{-h,--help}'[Onyesha msaada]' \
             '1:source:'
@@ -675,11 +720,13 @@ _claude_plugin_marketplace() {
         remove|rm)
           _arguments \
             '--scope[Ondoa tangazo la soko kutoka kwa upeo mahususi wa mipangilio (usiubainishe upeo ili kuliondoa kutoka kwa kila upeo)]:scope:(user project local)' \
+            '--json[Chapisha mstari mmoja wa matokeo unaosomeka na mashine kama mstari wa mwisho kwenye stdout]' \
             '(-h --help)'{-h,--help}'[Onyesha msaada]' \
             '1:name:'
           ;;
         update)
           _arguments \
+            '--json[Na jina la soko: chapisha mstari mmoja wa matokeo unaosomeka na mashine kama mstari wa mwisho kwenye stdout]' \
             '(-h --help)'{-h,--help}'[Onyesha msaada]' \
             '::name:'
           ;;
@@ -851,12 +898,23 @@ _claude_project() {
   esac
 }
 
+_claude_purge() {
+  _arguments \
+    '--dry-run[Orodhesha kile ambacho kingefutwa bila kufuta chochote]' \
+    '(-y --yes)'{-y,--yes}'[Ruka ombi la uthibitisho]' \
+    '(-i --interactive)'{-i,--interactive}'[Uliza kwa kila kipengee kabla ya kufuta]' \
+    '(1)--all[Futa hali kwa kila mradi (haiwezi kutumika pamoja na njia)]' \
+    '(-h --help)'{-h,--help}'[Onyesha msaada kwa amri]' \
+    '(--all)::path:_directories'
+}
+
 _claude_ultrareview() {
   _arguments \
     '--json[Chapisha mzigo ghafi wa bugs.json badala ya matokeo yaliyoumbizwa]' \
     '--timeout[Dakika za juu za kusubiri ukaguzi ukamilike (chaguo-msingi: 45)]:minutes:' \
     '(--no-post)--post[Chapisha matokeo ya ukaguzi uliokamilika kwenye PR kwa jina lako (malengo ya PR tu; maoni moja ya kawaida, si ukaguzi)]' \
     '(--post)--no-post[Usichapishe matokeo kwenye PR (chaguo-msingi)]' \
+    '--trust-workspace[Amini folda ya sasa kwa uendeshaji huu tu, bila kuuliza (kwa hati na CI)]' \
     '(-h --help)'{-h,--help}'[Onyesha msaada kwa amri]' \
     '1:target:'
 }
@@ -874,6 +932,117 @@ _claude_rm() {
     '--force-remove-worktree[Futa saraka ya worktree hata kama hook ya WorktreeRemove au git haikuweza kuiondoa (pitisha worktree-id iliyoripotiwa na claude rm ya awali)]:worktree-id:' \
     '(-h --help)'{-h,--help}'[Onyesha msaada kwa amri]' \
     '1:session:_claude_background_sessions'
+}
+
+_claude_self_hosted_runner() {
+  _arguments \
+    '--api-url[URL ya msingi ya API (chaguo-msingi: https://api.anthropic.com)]:url:' \
+    '--environment-secret-file[Njia ya faili ya siri ya mazingira]:path:_files' \
+    '--lock-to-account[Funga runner kwa akaunti moja wakati wa usajili]:id:' \
+    '--client-label[Lebo ya ufuatiliaji inayotumwa wakati wa usajili (chaguo-msingi: hostname)]:label:' \
+    '(--proxy-authorization-file --agent-proxy-url)--proxy-authorization-command[Amri ambayo stdout yake ni kichwa cha Proxy-Authorization kwa proksi za kutoka]:shell command:' \
+    '(--proxy-authorization-command --agent-proxy-url)--proxy-authorization-file[Faili yenye kichwa cha Proxy-Authorization kwa proksi za kutoka]:path:_files' \
+    '(--proxy-authorization-command --proxy-authorization-file)--agent-proxy-url[Pitisha kila kipindi kupitia proksi ya wakala kwenye URL hii (https tu)]:url:' \
+    '--capacity[Idadi ya juu ya vipindi vinavyoendeshwa kwa wakati mmoja (chaguo-msingi: 1)]:n:' \
+    '--base-dir[Saraka ya msingi ya checkout za hazina (chaguo-msingi: /workspace)]:path:_directories' \
+    '--exec-path[Faili-tekelezi ya kuzindua kwa vipindi tegemezi (chaguo-msingi: faili-tekelezi hii)]:path:_files' \
+    '--hooks-dir[Saraka ya hati za hook za mzunguko wa maisha (checkout, command, post-session)]:path:_directories' \
+    '--session-stop-grace-sec[Muda wa kusubiri kutoka safi baada ya kipindi kuisha (chaguo-msingi: 5)]:n:' \
+    '--post-session-hook-timeout-sec[Muda wa SIGTERM kwa hook ya post-session (chaguo-msingi: 60)]:n:' \
+    '--checkout-hook-timeout-min[Muda halisi kwa kila uendeshaji wa hook ya checkout (chaguo-msingi: 30; 0 huzima)]:n:' \
+    '--drain-wait-sec[Kwenye SIGTERM/SIGINT, subiri hadi sekunde N kwa kazi inayoendelea (chaguo-msingi: 0)]:n:' \
+    '--drain-marker-file[Faili ya alama ambayo mwenyeji hutangaza nayo kumaliza kwa utaratibu kazi zinazoendelea kabla ya kusimama]:path:_files' \
+    '*--git-ssh-rewrite[Andika upya URL za chanzo https://<host>/... kuwa git@<host>:... (inaweza kurudiwa)]:host:' \
+    '*--git-host-rewrite[Andika upya URL za chanzo https://<f>/... kuwa https://<t>/... (inaweza kurudiwa)]:from=to:' \
+    '--use-anthropic-git-proxy[Tumia git inayosimamiwa na Anthropic. ONYO: hufuta na kubadilisha usanidi wa git wa kiwango cha HOME, tumia tu chini ya akaunti maalum]' \
+    '--configure-git[Weka utambulisho wa git wa kimataifa na wezesha kusaini commit kupitia huduma ya kusaini ya Anthropic. Huandika ~/.gitconfig]' \
+    '--push-outcome-on-release[Sukuma matawi ya matokeo yanayofuatiliwa wakati runner inamaliza kipindi ambacho hakijakamilika]' \
+    '--trust-workspace[Weka mapema uaminifu wa kudumu kwa njia za hazina za kila kipindi (chaguo-msingi: true)]::bool:(true false)' \
+    '--remove-session-state[Ondoa hali ya kila kipindi kipindi kinapoisha (chaguo-msingi: false)]::bool:(true false)' \
+    '--diff-finds-nested-repository[Onyesha hazina iliyoklonwa ndani ya folda-ndogo kwenye kidirisha cha Changes; inahitaji --capacity 1 (chaguo-msingi: false)]::bool:(true false)' \
+    '--confine-repo-settings[Hali ya kinga ya kuzuia mipangilio iliyofanyiwa commit kwenye hazina (chaguo-msingi: warn)]:mode:(warn enforce off)' \
+    '--server-auto-mode-lists[Orodha zipi za kiainishi cha hali otomatiki kutoka kwa seva kipindi kinaweza kupokea (chaguo-msingi: no-allow)]:mode:(all no-allow none)' \
+    '--host-config-snapshot[Mahali ambapo picha ya kuanza ya usanidi wa mwenyeji huhifadhiwa (chaguo-msingi: disk)]:mode:(disk memory)' \
+    '--health-port[Mlango wa msikilizaji wa HTTP wa /healthz (chaguo-msingi: 8080; 0 huzima)]:port:' \
+    '--log-level[Kiwango cha kumbukumbu (chaguo-msingi: info)]:level:(info debug)' \
+    '--log-file[Nakili pia kumbukumbu za runner kwenye faili kwa hali ya kuongeza mwishoni]:path:_files' \
+    '--exit-if-unused-min[Toka kwenye runner ikiwa haijapewa kazi kwa dakika N]:n:' \
+    '--drain-grace-sec[Sekunde za kuendelea kuuliza kazi baada ya vipindi hai kumalizika (chaguo-msingi: 0)]:n:' \
+    '--retire-at[Staafisha runner katika wakati huu kamili wa Unix, kwa sekunde]:epoch-seconds:' \
+    '--defer-shutdown-max-min[Kwenye SIGTERM/SIGINT ya kwanza, acha kupokea kazi na umalize kuzima dakika M baadaye (chaguo-msingi: 0)]:m:' \
+    '--release-idle-session-min[Achilia nafasi ya kipindi baada ya dakika N bila ingizo la mtumiaji]:n:' \
+    '--startup-timeout-min[Achilia nafasi ya kipindi ikiwa kipindi tegemezi hakijamaliza kuanza baada ya dakika N (chaguo-msingi: 15; 0 huzima)]:n:' \
+    '--kill-session-after-min[Weka kikomo cha muda halisi wa maisha wa kipindi tegemezi kuwa dakika N]:n:' \
+    '--debug-token-dir[KWA UTATUZI TU: huandika tokeni hai kwenye diski. Usitumie katika uzalishaji]:path:_directories' \
+    '(-h --help)'{-h,--help}'[Onyesha ujumbe huu wa usaidizi]'
+}
+
+_claude_remote_control() {
+  _arguments \
+    '--name[Jina la kipindi (huonyeshwa katika claude.ai/code)]:name:' \
+    '--remote-control-session-name-prefix[Kiambishi awali cha majina ya vipindi yanayozalishwa kiotomatiki (chaguo-msingi: hostname)]:prefix:' \
+    '(-c --continue --session-id)'{-c,--continue}'[Unganisha tena kwenye kipindi kilichorekodiwa mwisho kwa saraka hii au mojawapo ya git worktree zake]' \
+    '(-c --continue --session-id)--session-id[Unganisha tena kwenye kipindi mahususi kwa kitambulisho]:id:' \
+    '--permission-mode[Hali ya ruhusa kwa vipindi vilivyozinduliwa]:mode:(acceptEdits auto bypassPermissions default dontAsk plan)' \
+    '(--no-chrome)--chrome[Wezesha Claude in Chrome kwa vipindi vilivyozinduliwa]' \
+    '(--chrome)--no-chrome[Zima Claude in Chrome kwa vipindi vilivyozinduliwa]' \
+    '(-d --debug)'{-d,--debug}'[Washa mtindo wa utatuzi na kichujio cha jamii cha hiari]::filter:' \
+    '--debug-file[Andika kumbukumbu za utatuzi kwenye faili]:path:_files' \
+    '(-v --verbose)'{-v,--verbose}'[Wezesha matokeo ya kina]' \
+    '--spawn[Hali ya kuzindua (chaguo-msingi: same-dir)]:mode:(same-dir worktree session)' \
+    '--capacity[Idadi ya juu ya vipindi vinavyoendeshwa kwa wakati mmoja katika hali ya worktree au same-dir (chaguo-msingi: 32)]:n:' \
+    '(--no-create-session-in-dir)--create-session-in-dir[Unda kipindi mapema katika saraka ya sasa (chaguo-msingi)]' \
+    '(--create-session-in-dir)--no-create-session-in-dir[Usiunde kipindi mapema katika saraka ya sasa]' \
+    '(-h --help)'{-h,--help}'[Onyesha usaidizi huu]'
+}
+
+_claude_daemon() {
+  local -a daemon_commands common_options
+  daemon_commands=(
+    'run:Endesha msimamizi katika mandhari ya mbele'
+    'status:Onyesha pid, toleo na muda wa kufanya kazi wa daemon'
+    'logs:Fuatilia kumbukumbu ya daemon (Ctrl-C kusimamisha)'
+    'uninstall:Ondoa huduma ya mandharinyuma (launchctl/systemd)'
+    'stop:Zima msimamizi na usitishe vipindi vya mandharinyuma'
+  )
+  common_options=(
+    '--json-path[Faili ya usanidi (chaguo-msingi: ~/.claude/daemon.json)]:path:_files'
+    '--log-file[Faili ya kumbukumbu (chaguo-msingi: ~/.claude/daemon.log)]:path:_files'
+    '(-h --help)'{-h,--help}'[Onyesha usaidizi huu]'
+  )
+
+  local curcontext="$curcontext" state line
+  typeset -A opt_args
+
+  _arguments -C \
+    $common_options \
+    '1: :->command' \
+    '*::arg:->args'
+
+  case $state in
+    command)
+      _describe -t commands 'amri za daemon' daemon_commands
+      ;;
+    args)
+      case $words[1] in
+        run)
+          _arguments \
+            $common_options \
+            '::json-path:_files'
+          ;;
+        stop)
+          _arguments \
+            $common_options \
+            '--any[Simamisha pia daemon ya muda (isiyo huduma)]' \
+            '--keep-workers[Acha vipindi vilivyotenganishwa viendelee kufanya kazi]'
+          ;;
+        status|logs|uninstall)
+          _arguments \
+            $common_options
+          ;;
+      esac
+      ;;
+  esac
 }
 
 _claude_import() {

@@ -200,11 +200,15 @@ _claude() {
     'stop:Manajanona session ambadika (voatahiry ny resaka)'
     'respawn:Mamerina manomboka session ambadika mba hampandeha ny version Claude Code ankehitriny'
     'rm:Mamafa session ambadika, sy ny worktree-ny rehefa azo antoka izany'
+    'remote-control:Mifehy ny session eo an-toerana avy amin ny claude.ai/code na ny app finday Claude'
+    'daemon:Mitantana ny supervisor an ny session ambadika'
     'auth:Mitantana ny authentication'
     'auto-mode:Mizaha na mamerina amin ny laoniny ny configuration classifier auto mode'
     'gateway:Mampandeha ny gateway auth/telemetry orinasa'
+    'self-hosted-runner:Mampiantrano session cloud Claude Code amin ity milina na container ity'
     'import:Mampiditra config avy amin ny agent AI fanoratana kaody hafa ho ao amin ny Claude Code'
     'project:Mitantana ny toetry ny tetikasa Claude Code'
+    'purge:Mamafa ny toetra Claude Code rehetra ho an ny tetikasa (transcripts, asa, tantaran-drakitra, config entry)'
     'ultrareview:Mampandeha famerenana kaody multi-agent an-drahona ary manonta ny zavatra hita'
     'setup-token:Mametraka token authentication maharitra (mitaky famandrihana Claude)'
     'doctor:Fizahana fahasalamana ho an ny auto-updater Claude Code'
@@ -221,11 +225,11 @@ _claude() {
     '--json-schema[Schema JSON ho an ny fanamarinana output voarafitra]:schema:'
     '--include-partial-messages[Ampidiro ny ampahan ny hafatra ampahan-kevitra rehefa tonga (miaraka amin ny --print sy --output-format=stream-json)]'
     '--input-format[Format input (miaraka amin ny --print): "text" (default) na "stream-json" (streaming input amin ny fotoana tena izy)]:format:(text stream-json)'
-    '--mcp-debug[\[Efa lany andro. Ampiasao --debug raha tokony ho izy\] Mampiasa mode debug MCP (mampiseho lesoka serveurs MCP)]'
     '--dangerously-skip-permissions[Mandingana ny fanamarinana alalana rehetra. Soso-kevitra ho an ny sandbox tsy misy fidirana internet ihany]'
     '--allow-dangerously-skip-permissions[Mamela safidy handingana fanamarinana alalana nefa tsy mamela izany amin ny alalan ny default]'
     '--restricted[Mode voafetra: manala ny fitaovana mampandeha baiko na kaody sy WebFetch, tsy manahina ny settings user/project/local, ary mametra ny fitaovana rakitra ao amin ny lahatahiry iasana]'
     '--max-budget-usd[Vola dolara ambony indrindra holaniana amin ny antso API (--print ihany)]:amount:'
+    '--max-turns[Mametra ny isan ny fihodinana agentic (--print ihany)]:turns:'
     '--replay-user-messages[Mandefa indray ny hafatra mpampiasa avy amin ny stdin amin ny stdout ho an ny fanamafisana]'
     '--allowed-tools[Lisitr ireo anaran ny fitaovana avela izay sarahan ny virgule na espace (ohatra: "Bash(git:*) Edit")]:tools:'
     '--allowedTools[Lisitr ireo anaran ny fitaovana avela izay sarahan ny virgule na espace (endrika camelCase)]:tools:'
@@ -237,6 +241,8 @@ _claude() {
     '--system-prompt-file[Mamaky system prompt avy amin ny rakitra]:file:_files'
     '--append-system-prompt[Manampy system prompt amin ny system prompt default]:prompt:'
     '--append-system-prompt-file[Mamaky system prompt avy amin ny rakitra ary manampy azy amin ny system prompt default]:file:_files'
+    '(--append-subagent-system-prompt-file)--append-subagent-system-prompt[Manampy lahatsoratra amin ny system prompt an ny subagent tsirairay (--print ihany)]:prompt:'
+    '(--append-subagent-system-prompt)--append-subagent-system-prompt-file[Mamaky lahatsoratra avy amin ny rakitra ary manampy azy amin ny system prompt an ny subagents (--print ihany)]:file:_files'
     '--system-prompt-snapshot[Mandrakitra ny system prompt indray mandeha isaky ny resaka ary mampiasa azy indray tsy miova amin ny fangatahana sy fiverenana rehetra (on, ny default) na mamorona azy vaovao isaky ny fangatahana (off)]:mode:(on off)'
     '--permission-mode[Mode alalana hampiasaina amin ny session]:mode:(acceptEdits auto bypassPermissions manual dontAsk plan)'
     '--permission-prompts[Iza no mamaly ny fangatahana alalana miaraka amin ny --print: "host" (ny host SDK na --permission-prompt-tool) na "none" (lavina izay rehetra mety hangataka alalana)]:target:(host none)'
@@ -256,6 +262,8 @@ _claude() {
     '--strict-mcp-config[Mampiasa serveurs MCP avy amin ny --mcp-config ihany ary tsy manahina ny settings MCP hafa rehetra]'
     '--session-id[ID session manokana hampiasaina amin ny resaka (tsy maintsy UUID manan-kery)]:uuid:'
     '--agents[JSON object mamaritra agents manokana]:json:'
+    '--advisor[Mampiasa ny fitaovana advisor eo amin ny lafiny server ho an ity session ity miaraka amin ny alias modely na ID modely feno]:model:_claude_model_names'
+    '--teammate-mode[Ny fomba isehoan ny mpikambana ao amin ny ekipan agents]:mode:(in-process auto tmux iterm2)'
     '--setting-sources[Lisitr ireo loharanom-baovao settings sarahan ny virgule ho ampidirina (user, project, local)]:sources:'
     '--plugin-dir[Lahatahiry hampidirana plugins ho an ny session ity ihany (azo averina)]:paths:_directories'
     '--disable-slash-commands[Manakana ny baiko slash rehetra]'
@@ -268,9 +276,11 @@ _claude() {
     '--debug-file[Manoratra logs debug amin ny lalan-drakitra manokana (mampiasa mode debug ho azy)]:path:_files'
     '--from-pr[Miverina amin ny session mifandray amin ny PR amin ny alalan ny nomerao/URL, na manokatra mpisafidy interactive]::value:'
     '--teleport[Miverina amin ny session teleport, azo omena ID session raha tiana]::session:'
-    '--cloud[Mamorona session cloud miaraka amin ny famaritana nomena, na mifandray amin ny session efa misy amin ny alalan ny ID session na URL claude.ai/code]::description-or-session:'
+    '(--remote)--cloud[Mamorona session cloud miaraka amin ny famaritana nomena, na mifandray amin ny session efa misy amin ny alalan ny ID session na URL claude.ai/code]::description-or-session:'
+    '(--cloud)--remote[Alias efa lany andro ho an ny --cloud]::description-or-session:'
     '--environment[Mamorona session cloud vaovao mandeha amin ny environment self-hosted nomena (ccpool_...)]:environment_id:'
-    '--remote-control[Manomboka session interactive miaraka amin ny Remote Control voaomana (azo omena anarana safidy)]::name:'
+    '--ref[Miaraka amin ny --environment: miorina amin ny ref voatondro ny checkout an ny session vaovao fa tsy amin ny HEAD eo an-toerana]:branch:'
+    '(--remote-control --rc)'{--remote-control,--rc}'[Manomboka session interactive miaraka amin ny Remote Control voaomana (azo omena anarana safidy)]::name:'
     '--remote-control-session-name-prefix[Prefix ho an ny anaran ny session Remote Control noforonina ho azy]:prefix:'
     '--chrome[Mampiasa ny fampidirana Claude ao Chrome]'
     '--no-chrome[Manakana ny fampidirana Claude ao Chrome]'
@@ -281,6 +291,11 @@ _claude() {
     '--include-hook-events[Ampidiro ny hetsika lifecycle hook rehetra amin ny stream output (miaraka amin ny stream-json)]'
     '--exclude-dynamic-system-prompt-sections[Mamindra ny fizarana isaky ny milina mankany amin ny hafatra mpampiasa voalohany mba hanatsara ny fampiasana indray ny prompt-cache]'
     '--brief[Mampiasa ny fitaovana SendUserMessage ho an ny fifandraisana agent-amin-mpampiasa]'
+    '*--channels[(Topi-maso fikarohana) Server MCP izay hihainoana ny fampandrenesana channel avy aminy (plugin\:<name>@<marketplace>)]:entries:'
+    '*--dangerously-load-development-channels[Mampiasa channels tsy ao amin ny allowlist nankatoavina, ho an ny fampandrosoana eo an-toerana (plugin\:<name>@<marketplace> na server\:<name>)]:entries:'
+    '--init[Mampandeha ny hooks Setup miaraka amin ny matcher init alohan ny session (--print ihany)]'
+    '--init-only[Mampandeha ny hooks Setup sy SessionStart, avy eo mivoaka tsy manomboka resaka]'
+    '--maintenance[Mampandeha ny hooks Setup miaraka amin ny matcher maintenance alohan ny session (--print ihany)]'
     '--safe-mode[Manomboka amin ny fanovana rehetra voasakana (mahasoa amin ny famahana configuration simba)]'
     '--bare[Mode kely indrindra: dingana hooks, LSP, plugin sync, attribution, auto-memory, sy ny fitadiavana CLAUDE.md ho azy]'
     '--ax-screen-reader[Mamoaka output mora ho an ny screen-reader (lahatsoratra fisaka, tsy misy sisiny na animation haingo)]'
@@ -304,7 +319,7 @@ _claude() {
         mcp)
           _claude_mcp
           ;;
-        plugin)
+        plugin|plugins)
           _claude_plugin
           ;;
         install)
@@ -324,6 +339,12 @@ _claude() {
         rm)
           _claude_rm
           ;;
+        remote-control|rc|remote|sync|bridge)
+          _claude_remote_control
+          ;;
+        daemon)
+          _claude_daemon
+          ;;
         auth)
           _claude_auth
           ;;
@@ -333,17 +354,24 @@ _claude() {
         gateway)
           _claude_gateway
           ;;
+        self-hosted-runner)
+          _claude_self_hosted_runner
+          ;;
         import)
           _claude_import
           ;;
         project)
           _claude_project
           ;;
+        purge)
+          _claude_purge
+          ;;
         ultrareview)
           _claude_ultrareview
           ;;
-        setup-token|doctor|update)
-          _message "tsy misy argument"
+        setup-token|doctor|update|upgrade)
+          _arguments \
+            '(-h --help)'{-h,--help}'[Mampiseho fanampiana ho an ny baiko]'
           ;;
         *)
           # Not a command but the prompt: options may still follow it
@@ -502,6 +530,7 @@ _claude_plugin() {
         validate)
           _arguments \
             '--strict[Mihevitra ny fampitandremana ho lesoka (exit code 1)]' \
+            '--profile[Mivoaka amin ny exit code 1 ihany koa rehefa handà ny fandefasana ny plugin ny katalaogy voatondro noho ny fanamarinana ataon ity baiko ity]:name:(directory)' \
             '--json[Mamoaka ny tatitra fanamarinana ho JSON (exit codes mitovy)]' \
             '(-h --help)'{-h,--help}'[Mampiseho fanampiana]' \
             '1:path:_files'
@@ -512,7 +541,10 @@ _claude_plugin() {
         install|i)
           _arguments \
             '(-s --scope)'{-s,--scope}'[Faritry ny fametrahana]:scope:(user project local)' \
+            '--accept-command[Manaiky ny baiko nambaran ny marketplace izay notaterin ny fandehanana --json teo aloha ny sha256-ny ho shownCommand.sha256]:sha256:' \
             '*--config[Mametraka safidy userConfig voalaza ao amin ny manifest plugin (azo averina)]:key=value:' \
+            '--marketplace[Mametraka ny plugin amin ny anarany tsotra avy amin ny marketplace eo amin ity loharano ity (owner/repo, URL git na https, na lalana), ka manampy azy aloha raha ilaina]:source:' \
+            '--registry[Ho an ny fametrahana package@npm: mamaha sy maka avy amin ity registry npm ity]:url:' \
             '(-y --yes)'{-y,--yes}'[Manaiky ny baiko aseho izay nambaran ny marketplace tsy misy fangatahana fanamafisana]' \
             '--json[Manonta andalana valiny tokana azon ny milina vakiana fa tsy ny hafatra ho an olona]' \
             '(-h --help)'{-h,--help}'[Mampiseho fanampiana]' \
@@ -545,6 +577,7 @@ _claude_plugin() {
           ;;
         update)
           _arguments \
+            '--accept-command[Manaiky ny baiko nambaran ny marketplace izay notaterin ny fandehanana --json teo aloha ny sha256-ny ho shownCommand.sha256]:sha256:' \
             '(-s --scope)'{-s,--scope}'[Faritry ny fametrahana]:scope:(user project local managed)' \
             '(-y --yes)'{-y,--yes}'[Manaiky ny baiko aseho izay nambaran ny marketplace tsy misy fangatahana fanamafisana]' \
             '--json[Manonta andalana valiny tokana azon ny milina vakiana fa tsy ny hafatra ho an olona]' \
@@ -555,6 +588,7 @@ _claude_plugin() {
           _arguments \
             '--json[Mamoaka ho JSON]' \
             '--available[Ampidiro ny plugins misy avy amin ny marketplaces (mitaky --json)]' \
+            '--data-size[Mandrefy ny lahatahiry data voatahirin ny plugin napetraka tsirairay, na ny an ny plugin voatondro ihany (mitaky --json)]::plugin:_claude_installed_plugins' \
             '(-h --help)'{-h,--help}'[Mampiseho fanampiana]'
           ;;
         prune|autoremove)
@@ -587,6 +621,15 @@ _claude_plugin() {
             '1:name:'
           ;;
         eval)
+          if [[ $words[2] == init ]]; then
+            _arguments \
+              '--bare[Manoratra modely banga fa tsy mampandeha ny resadresaka]' \
+              '--eval-dir[Lahatahiry ao ambanin ny lahatahiry ankehitriny hanoratana ireo tranga]:dir:_directories' \
+              '(-i --interactive)'{-i,--interactive}'[Mampandeha ny resadresaka famoronana (mitaky terminal interactive)]' \
+              '(-h --help)'{-h,--help}'[Mampiseho fanampiana]' \
+              '::name:'
+            return
+          fi
           _arguments \
             '--case[Manivana ny tranga amin ny glob anarana]:glob:' \
             '*--tag[Manivana ny tranga amin ny tag (azo averina)]:tag:' \
@@ -600,6 +643,7 @@ _claude_plugin() {
             '--json[Manonta ny valin ny fandehanana feno ho JSON amin ny stdout, na manoratra azy amin ity rakitra .json ity]::path:_files' \
             '--threshold[Mivoaka miaraka amin ny exit code 1 raha misy tranga manana isa ambanin ity fetra ity (default: 1.0)]:threshold:' \
             '*--allow-tools[Alalana omen ny operator ho an ny fitaovana voafehy (Bash, Write, Edit, WebFetch, mcp__*)]:tools:' \
+            '*--disallow-tools[Fitaovana tafiditra izay tsy omena an i Claude amin ny tranga rehetra, na dia nomena alalana aza]:tools:' \
             '(--no-scaffold)--scaffold[Mampandeha ny scaffold_script an ny tranga tsirairay (mampandeha bash nomen ny mpanoratra amin ny anaranao; off amin ny default)]' \
             '(--scaffold)--no-scaffold[Mandingana mazava ny scaffold_script]' \
             '--trust-plugin[Manamafy fa matoky ity plugin ity sy ny eval suite-ny ianao, ka mandingana ny fangatahana fahatokisana amin ny fandehanana voalohany (ho an ny CI)]' \
@@ -612,7 +656,7 @@ _claude_plugin() {
             '(--no-publish)--publish-report[Mitaky koa ny famoahana ny tatitra amin ny claude.ai]' \
             '(--publish-report)--no-publish[Mitazona ny tatitra HTML eo an-toerana ihany; mandingana ny famoahana azy amin ny claude.ai]' \
             '(-h --help)'{-h,--help}'[Mampiseho fanampiana]' \
-            '::target: _alternative "plugins\:installed plugin\:_claude_installed_plugins" "files\:path\:_files"'
+            '::target: _alternative "commands\:eval command\:(init)" "plugins\:installed plugin\:_claude_installed_plugins" "files\:path\:_files"'
           ;;
         tag)
           _arguments \
@@ -663,6 +707,7 @@ _claude_plugin_marketplace() {
           _arguments \
             '--sparse[Mametra ny checkout amin ny lahatahiry manokana amin ny alalan ny git sparse-checkout (ho an ny monorepos)]:paths:' \
             '--scope[Toerana hanambarana ny marketplace]:scope:(user project local)' \
+            '--json[Manonta andalana valiny tokana azon ny milina vakiana ho andalana farany amin ny stdout]' \
             '--claudeai[Manampy ny marketplace amin ity anarana ity izay ampiantranoin ny claude.ai ho anao]' \
             '(-h --help)'{-h,--help}'[Mampiseho fanampiana]' \
             '1:source:'
@@ -675,11 +720,13 @@ _claude_plugin_marketplace() {
         remove|rm)
           _arguments \
             '--scope[Manala ny fanambarana marketplace avy amin ny faritra settings manokana (aza asiana raha hesorina amin ny faritra rehetra)]:scope:(user project local)' \
+            '--json[Manonta andalana valiny tokana azon ny milina vakiana ho andalana farany amin ny stdout]' \
             '(-h --help)'{-h,--help}'[Mampiseho fanampiana]' \
             '1:name:'
           ;;
         update)
           _arguments \
+            '--json[Miaraka amin ny anaran ny marketplace: manonta andalana valiny tokana azon ny milina vakiana ho andalana farany amin ny stdout]' \
             '(-h --help)'{-h,--help}'[Mampiseho fanampiana]' \
             '::name:'
           ;;
@@ -851,12 +898,23 @@ _claude_project() {
   esac
 }
 
+_claude_purge() {
+  _arguments \
+    '--dry-run[Milista izay hofafana nefa tsy mamafa na inona na inona]' \
+    '(-y --yes)'{-y,--yes}'[Mandingana ny fangatahana fanamafisana]' \
+    '(-i --interactive)'{-i,--interactive}'[Manontany isaky ny singa alohan ny hamafana]' \
+    '(1)--all[Mamafa ny toetra ho an ny tetikasa rehetra (tsy azo ampiarahina amin ny lalana)]' \
+    '(-h --help)'{-h,--help}'[Mampiseho fanampiana ho an ny baiko]' \
+    '(--all)::path:_directories'
+}
+
 _claude_ultrareview() {
   _arguments \
     '--json[Manonta ny payload bugs.json manta fa tsy ny zavatra hita voaformat]' \
     '--timeout[Minitra ambony indrindra hiandrasana ny famerenana hifarana (default: 45)]:minutes:' \
     '(--no-post)--post[Mamoaka ny zavatra hita tamin ny famerenana vita ao amin ny PR amin ny anaranao (tanjona PR ihany; fanehoan-kevitra tsotra iray, fa tsy review)]' \
     '(--post)--no-post[Tsy mamoaka ny zavatra hita ao amin ny PR (ny default)]' \
+    '--trust-workspace[Matoky ny lahatahiry ankehitriny ho an ity fandehanana ity ihany, tsy manontany (ho an ny scripts sy CI)]' \
     '(-h --help)'{-h,--help}'[Mampiseho fanampiana ho an ny baiko]' \
     '1:target:'
 }
@@ -874,6 +932,117 @@ _claude_rm() {
     '--force-remove-worktree[Mamafa ny lahatahiry worktree na dia tsy nahavita nanala azy aza ny hook WorktreeRemove na git (omeo ny worktree-id nolazain ny claude rm teo aloha)]:worktree-id:' \
     '(-h --help)'{-h,--help}'[Mampiseho fanampiana ho an ny baiko]' \
     '1:session:_claude_background_sessions'
+}
+
+_claude_self_hosted_runner() {
+  _arguments \
+    '--api-url[URL fototra API (default: https://api.anthropic.com)]:url:' \
+    '--environment-secret-file[Lalana mankany amin ny rakitra tsiambaratelon ny environment]:path:_files' \
+    '--lock-to-account[Mamehy ny runner amin ny kaonty tokana amin ny fisoratana anarana]:id:' \
+    '--client-label[Marika observability alefa amin ny fisoratana anarana (default: hostname)]:label:' \
+    '(--proxy-authorization-file --agent-proxy-url)--proxy-authorization-command[Baiko izay ny stdout-ny no header Proxy-Authorization ho an ny proxy mivoaka]:shell command:' \
+    '(--proxy-authorization-command --agent-proxy-url)--proxy-authorization-file[Rakitra misy ny header Proxy-Authorization ho an ny proxy mivoaka]:path:_files' \
+    '(--proxy-authorization-command --proxy-authorization-file)--agent-proxy-url[Mampandalo ny session rehetra amin ny proxy agent amin ity URL ity (https ihany)]:url:' \
+    '--capacity[Isan ny session miaraka ambony indrindra (default: 1)]:n:' \
+    '--base-dir[Lahatahiry fototra ho an ny checkout repository (default: /workspace)]:path:_directories' \
+    '--exec-path[Binary halefa ho an ny session zanaka (default: ity binary ity)]:path:_files' \
+    '--hooks-dir[Lahatahiry misy ny scripts hook lifecycle (checkout, command, post-session)]:path:_directories' \
+    '--session-stop-grace-sec[Faharetan ny fiandrasana fivoahana madio aorian ny fiafaran ny session (default: 5)]:n:' \
+    '--post-session-hook-timeout-sec[Fe-potoana aorian ny SIGTERM ho an ny hook post-session (default: 60)]:n:' \
+    '--checkout-hook-timeout-min[Fe-potoana tena izy ho an ny fandehanana tsirairay an ny hook checkout (default: 30; 0 manafoana)]:n:' \
+    '--drain-wait-sec[Amin ny SIGTERM/SIGINT, miandry hatramin ny N segondra ny asa mbola mandeha (default: 0)]:n:' \
+    '--drain-marker-file[Rakitra marika ampiasain ny host hanambarana famaranana milamina]:path:_files' \
+    '*--git-ssh-rewrite[Manoratra indray ny URL loharano https://<host>/... ho git@<host>:... (azo averina)]:host:' \
+    '*--git-host-rewrite[Manoratra indray ny URL loharano https://<f>/... ho https://<t>/... (azo averina)]:from=to:' \
+    '--use-anthropic-git-proxy[Mampiasa git tantanin i Anthropic. FAMPITANDREMANA: mamafa sy manolo ny config git amin ny ambaratonga HOME, ampiasao amin ny kaonty natokana ihany]' \
+    '--configure-git[Mametraka ny identity git global ary mampiasa ny sonia commit amin ny alalan ny serivisy fanaovan-tsonia Anthropic. Manoratra ~/.gitconfig]' \
+    '--push-outcome-on-release[Manao push ny branches valiny arahina rehefa mifarana tsy vita ny session noho ny runner]' \
+    '--trust-workspace[Mametraka mialoha fahatokisana maharitra ho an ny lalan ny repository an ny session tsirairay (default: true)]::bool:(true false)' \
+    '--remove-session-state[Manala ny toetry ny session rehefa mifarana ny session (default: false)]::bool:(true false)' \
+    '--diff-finds-nested-repository[Mampiseho repository nokopiana ao anaty zana-lahatahiry ao amin ny takelaka Changes; mitaky --capacity 1 (default: false)]::bool:(true false)' \
+    '--confine-repo-settings[Mode fiarovana mametra ny settings commit-ina ao amin ny repository (default: warn)]:mode:(warn enforce off)' \
+    '--server-auto-mode-lists[Lisitry ny classifier auto mode avy amin ny server inona no azon ny session raisina (default: no-allow)]:mode:(all no-allow none)' \
+    '--host-config-snapshot[Toerana itahirizana ny snapshot fanombohan ny config an ny host (default: disk)]:mode:(disk memory)' \
+    '--health-port[Port ho an ny listener HTTP /healthz (default: 8080; 0 manafoana)]:port:' \
+    '--log-level[Ambaratongan ny log (default: info)]:level:(info debug)' \
+    '--log-file[Mandika koa ny logs an ny runner ho any amin ny rakitra amin ny mode append]:path:_files' \
+    '--exit-if-unused-min[Mivoaka ny runner raha tsy nomena asa mandritra ny N minitra]:n:' \
+    '--drain-grace-sec[Segondra hanohizana ny fangatahana asa aorian ny fiafaran ny session mavitrika (default: 0)]:n:' \
+    '--retire-at[Mampitsahatra tanteraka ny runner amin ity fotoana Unix tanteraka ity, amin ny segondra]:epoch-seconds:' \
+    '--defer-shutdown-max-min[Amin ny SIGTERM/SIGINT voalohany, mitsahatra tsy mandray asa ary mamarana ny fanidiana M minitra aty aoriana (default: 0)]:m:' \
+    '--release-idle-session-min[Manafaka toerana session aorian ny N minitra tsy misy fampidirana avy amin ny mpampiasa]:n:' \
+    '--startup-timeout-min[Manafaka toerana session raha mbola tsy vita ny fanombohan ny process zanaka aorian ny N minitra (default: 15; 0 manafoana)]:n:' \
+    '--kill-session-after-min[Mametra ho N minitra ny faharetan ny fiainan ny process zanaka an ny session]:n:' \
+    '--debug-token-dir[HO AN NY DEBUG IHANY: manoratra tokens velona amin ny disk. Aza ampiasaina amin ny production]:path:_directories' \
+    '(-h --help)'{-h,--help}'[Mampiseho ity hafatra fanampiana ity]'
+}
+
+_claude_remote_control() {
+  _arguments \
+    '--name[Anaran ny session (aseho ao amin ny claude.ai/code)]:name:' \
+    '--remote-control-session-name-prefix[Prefix ho an ny anaran ny session noforonina ho azy (default: hostname)]:prefix:' \
+    '(-c --continue --session-id)'{-c,--continue}'[Mifandray indray amin ny session farany voarakitra ho an ity lahatahiry ity na iray amin ny git worktrees-ny]' \
+    '(-c --continue --session-id)--session-id[Mifandray indray amin ny session manokana amin ny alalan ny ID]:id:' \
+    '--permission-mode[Mode alalana ho an ny session natomboka]:mode:(acceptEdits auto bypassPermissions default dontAsk plan)' \
+    '(--no-chrome)--chrome[Mampiasa Claude in Chrome ho an ny session natomboka]' \
+    '(--chrome)--no-chrome[Manafoana Claude in Chrome ho an ny session natomboka]' \
+    '(-d --debug)'{-d,--debug}'[Mampiasa mode debug miaraka amin ny sivana sokajy safidy]::filter:' \
+    '--debug-file[Manoratra logs debug amin ny rakitra]:path:_files' \
+    '(-v --verbose)'{-v,--verbose}'[Mampiasa output verbose]' \
+    '--spawn[Mode fanombohana (default: same-dir)]:mode:(same-dir worktree session)' \
+    '--capacity[Isan ny session miaraka ambony indrindra amin ny mode worktree na same-dir (default: 32)]:n:' \
+    '(--no-create-session-in-dir)--create-session-in-dir[Mamorona session mialoha ao amin ny lahatahiry ankehitriny (default)]' \
+    '(--create-session-in-dir)--no-create-session-in-dir[Tsy mamorona session mialoha ao amin ny lahatahiry ankehitriny]' \
+    '(-h --help)'{-h,--help}'[Mampiseho ity fanampiana ity]'
+}
+
+_claude_daemon() {
+  local -a daemon_commands common_options
+  daemon_commands=(
+    'run:Mampandeha ny supervisor eo aloha'
+    'status:Mampiseho ny pid, version, uptime an ny daemon'
+    'logs:Manaraka ny log an ny daemon (Ctrl-C hampijanonana)'
+    'uninstall:Manala ny serivisy ambadika (launchctl/systemd)'
+    'stop:Mamono ny supervisor ary mamarana ny session ambadika'
+  )
+  common_options=(
+    '--json-path[Rakitra config (default: ~/.claude/daemon.json)]:path:_files'
+    '--log-file[Rakitra log (default: ~/.claude/daemon.log)]:path:_files'
+    '(-h --help)'{-h,--help}'[Mampiseho ity fanampiana ity]'
+  )
+
+  local curcontext="$curcontext" state line
+  typeset -A opt_args
+
+  _arguments -C \
+    $common_options \
+    '1: :->command' \
+    '*::arg:->args'
+
+  case $state in
+    command)
+      _describe -t commands 'baikon ny daemon' daemon_commands
+      ;;
+    args)
+      case $words[1] in
+        run)
+          _arguments \
+            $common_options \
+            '::json-path:_files'
+          ;;
+        stop)
+          _arguments \
+            $common_options \
+            '--any[Manajanona koa daemon vonjimaika (tsy serivisy)]' \
+            '--keep-workers[Avela handeha ny session tsy mifandray]'
+          ;;
+        status|logs|uninstall)
+          _arguments \
+            $common_options
+          ;;
+      esac
+      ;;
+  esac
 }
 
 _claude_import() {
