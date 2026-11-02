@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - A Japanese demo (`demo.ja.gif`) under "Other languages" in the README, recorded with `_claude.ja` and Japanese session and job names by `demo/make-ja.sh`
+- `remote-control` (its `rc`, `remote`, `sync` and `bridge` aliases work when typed but are not offered) and `daemon`, which `claude --help` does not list. In `_claude` and the `en-*` variants; the translated locales do not carry them yet
 - Top-level options that `claude --help` does not list: `--max-turns`, `--advisor`, `--append-subagent-system-prompt` and its `-file` variant, `--teammate-mode`, `--channels`, `--dangerously-load-development-channels`, `--ref`, `--init`, `--init-only`, `--maintenance`, and the `--rc` and `--remote` aliases. In `_claude` and the `en-*` variants; the translated locales do not carry them yet
 - Subcommand options the drift check cannot see: `plugin install --marketplace`, `plugin validate --profile`, `plugin eval --disallow-tools`, `ultrareview --trust-workspace`, and `-h`/`--help` for `doctor`, `setup-token` and `update`. In `_claude` and the `en-*` variants; the translated locales do not carry them yet
 
