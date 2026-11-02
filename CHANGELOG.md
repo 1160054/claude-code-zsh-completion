@@ -9,12 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - A Japanese demo (`demo.ja.gif`) under "Other languages" in the README, recorded with `_claude.ja` and Japanese session and job names by `demo/make-ja.sh`
+- Subcommand options the drift check cannot see: `plugin install --marketplace`, `plugin validate --profile`, `plugin eval --disallow-tools`, `ultrareview --trust-workspace`, and `-h`/`--help` for `doctor`, `setup-token` and `update`. In `_claude` and the `en-*` variants; the translated locales do not carry them yet
 
 ### Changed
 - Demo: `<TAB>` now flashes in plain text where the cursor is, instead of as a green badge at the right edge
 - Demo sessions and background jobs are everyday Claude Code work now: the job started in the demo reviews a PR through the GitHub MCP server just added, and `--resume` lists a CI failure, a pasted `TypeError`, a README pass and login-flow tests
 
 ### Fixed
+- Typing the `plugins` or `upgrade` alias now completes like `plugin` and `update`
 - Frisian (`fy`): an unescaped apostrophe left the whole completion unusable
 - The first TAB in a fresh shell only loaded the completion and offered nothing; it now completes right away, in all 120 files
 - Options right after a command were parsed by the top-level completion, so `claude rm --model <TAB>` offered model names although `rm` has no such option, and exclusions between the options of a command did not apply. Fixed in all 120 files
