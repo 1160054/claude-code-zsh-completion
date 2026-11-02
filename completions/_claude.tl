@@ -354,6 +354,12 @@ _claude() {
       esac
       ;;
   esac
+  local ret=$?
+
+  # The last step, such as listing commands for --r, can fail although options
+  # were added before it. Report success then: on failure zsh moves on to the
+  # next completers, and _correct or _approximate pile on corrections
+  (( compstate[nmatches] > 0 )) || return $ret
 }
 
 _claude_mcp() {
