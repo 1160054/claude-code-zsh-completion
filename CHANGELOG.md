@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.10.0] - 2026-11-14
+
 ### Added
 - `plugin restore-set-aside` and its `--discard` option (claude 2.1.325), in `_claude`, the `en-*` variants and the twelve main translations
 
