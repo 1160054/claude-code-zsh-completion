@@ -508,6 +508,7 @@ _claude_plugin() {
     'eval:针对插件运行评估用例并报告评分结果'
     'prune:删除不再需要的自动安装依赖项'
     'autoremove:删除不再需要的自动安装依赖项（prune的别名）'
+    'restore-set-aside:将组织声明的市场替换来源时被搁置的选项和密钥归还给插件'
     'tag:为插件发布创建{name}--v{version} git标签'
     'test:运行 mod 的测试'
     'help:显示帮助'
@@ -597,6 +598,12 @@ _claude_plugin() {
             '--dry-run[列出将被删除的内容但不实际删除]' \
             '(-y --yes)'{-y,--yes}'[跳过确认提示]' \
             '(-h --help)'{-h,--help}'[显示帮助]'
+          ;;
+        restore-set-aside)
+          _arguments \
+            '--discard[删除被搁置的内容而不是恢复]' \
+            '(-h --help)'{-h,--help}'[显示帮助]' \
+            '1:plugin:_claude_installed_plugins'
           ;;
         configure)
           _arguments \

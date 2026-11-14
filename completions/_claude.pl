@@ -508,6 +508,7 @@ _claude_plugin() {
     'eval:Uruchom przypadki testowe dla wtyczki i zgłoś ocenione wyniki'
     'prune:Usuń automatycznie zainstalowane zależności, które nie są już potrzebne'
     'autoremove:Usuń automatycznie zainstalowane zależności, które nie są już potrzebne (alias dla prune)'
+    'restore-set-aside:Przywróć wtyczce opcje i sekrety odłożone, gdy zadeklarowany przez organizację marketplace zastąpił jej źródło'
     'tag:Utwórz tag git {name}--v{version} dla wydania wtyczki'
     'test:Uruchom testy moda'
     'help:Wyświetl pomoc'
@@ -597,6 +598,12 @@ _claude_plugin() {
             '--dry-run[Wypisz, co zostałoby usunięte, bez usuwania]' \
             '(-y --yes)'{-y,--yes}'[Pomiń pytanie o potwierdzenie]' \
             '(-h --help)'{-h,--help}'[Wyświetl pomoc]'
+          ;;
+        restore-set-aside)
+          _arguments \
+            '--discard[Usuń odłożone elementy zamiast je przywracać]' \
+            '(-h --help)'{-h,--help}'[Wyświetl pomoc]' \
+            '1:plugin:_claude_installed_plugins'
           ;;
         configure)
           _arguments \

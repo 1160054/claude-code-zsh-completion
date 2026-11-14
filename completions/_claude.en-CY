@@ -508,6 +508,7 @@ _claude_plugin() {
     'eval:Run eval cases against a plugin and report scored results'
     'prune:Remove auto-installed dependencies that are no longer needed'
     'autoremove:Remove auto-installed dependencies that are no longer needed (alias for prune)'
+    'restore-set-aside:Give a plugin back the options and secrets set aside when a marketplace replaced its source'
     'tag:Create a {name}--v{version} git tag for a plugin release'
     'test:Run a mod'\''s tests'
     'help:Display help'
@@ -597,6 +598,12 @@ _claude_plugin() {
             '--dry-run[List what would be removed without removing]' \
             '(-y --yes)'{-y,--yes}'[Skip the confirmation prompt]' \
             '(-h --help)'{-h,--help}'[Display help]'
+          ;;
+        restore-set-aside)
+          _arguments \
+            '--discard[Delete what is set aside instead of restoring it]' \
+            '(-h --help)'{-h,--help}'[Display help]' \
+            '1:plugin:_claude_installed_plugins'
           ;;
         configure)
           _arguments \

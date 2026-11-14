@@ -508,6 +508,7 @@ _claude_plugin() {
     'eval:Bir eklentiye karşı değerlendirme durumlarını çalıştır ve puanlanan sonuçları raporla'
     'prune:Artık gerekmeyen otomatik kurulan bağımlılıkları kaldır'
     'autoremove:Artık gerekmeyen otomatik kurulan bağımlılıkları kaldır (prune için takma ad)'
+    'restore-set-aside:Kuruluşun bildirdiği bir pazar yeri kaynağı değiştirdiğinde ayrılan seçenekleri ve gizli bilgileri eklentiye geri ver'
     'tag:Bir eklenti sürümü için {name}--v{version} git etiketi oluştur'
     'test:Bir mod'\''un testlerini çalıştır'
     'help:Yardım göster'
@@ -597,6 +598,12 @@ _claude_plugin() {
             '--dry-run[Kaldırmadan nelerin kaldırılacağını listele]' \
             '(-y --yes)'{-y,--yes}'[Onay istemini atla]' \
             '(-h --help)'{-h,--help}'[Yardım göster]'
+          ;;
+        restore-set-aside)
+          _arguments \
+            '--discard[Ayrılanları geri yüklemek yerine sil]' \
+            '(-h --help)'{-h,--help}'[Yardım göster]' \
+            '1:plugin:_claude_installed_plugins'
           ;;
         configure)
           _arguments \

@@ -508,6 +508,7 @@ _claude_plugin() {
     'eval:Esegue casi di valutazione su un plugin e riporta i risultati con punteggio'
     'prune:Rimuove le dipendenze installate automaticamente che non sono più necessarie'
     'autoremove:Rimuove le dipendenze installate automaticamente che non sono più necessarie (alias di prune)'
+    'restore-set-aside:Restituisce a un plugin le opzioni e i segreti messi da parte quando un marketplace dichiarato dall'\''organizzazione ne ha sostituito l'\''origine'
     'tag:Crea un tag git {name}--v{version} per il rilascio di un plugin'
     'test:Esegui i test di un mod'
     'help:Mostra la guida'
@@ -597,6 +598,12 @@ _claude_plugin() {
             '--dry-run[Elenca cosa verrebbe rimosso senza rimuovere nulla]' \
             '(-y --yes)'{-y,--yes}'[Salta la richiesta di conferma]' \
             '(-h --help)'{-h,--help}'[Mostra la guida]'
+          ;;
+        restore-set-aside)
+          _arguments \
+            '--discard[Elimina ciò che è stato messo da parte invece di ripristinarlo]' \
+            '(-h --help)'{-h,--help}'[Mostra la guida]' \
+            '1:plugin:_claude_installed_plugins'
           ;;
         configure)
           _arguments \

@@ -508,6 +508,7 @@ _claude_plugin() {
     'eval:플러그인에 대해 eval 케이스를 실행하고 채점된 결과 보고'
     'prune:더 이상 필요하지 않은 자동 설치된 종속성 제거'
     'autoremove:더 이상 필요하지 않은 자동 설치된 종속성 제거(prune의 별칭)'
+    'restore-set-aside:조직이 선언한 마켓플레이스가 소스를 대체할 때 따로 보관된 플러그인의 옵션과 시크릿을 되돌려 줌'
     'tag:플러그인 릴리스를 위한 {name}--v{version} git 태그 생성'
     'test:mod의 테스트 실행'
     'help:도움말 표시'
@@ -597,6 +598,12 @@ _claude_plugin() {
             '--dry-run[제거하지 않고 제거될 항목 나열]' \
             '(-y --yes)'{-y,--yes}'[확인 프롬프트 건너뛰기]' \
             '(-h --help)'{-h,--help}'[도움말 표시]'
+          ;;
+        restore-set-aside)
+          _arguments \
+            '--discard[따로 보관된 항목을 복원하지 않고 삭제]' \
+            '(-h --help)'{-h,--help}'[도움말 표시]' \
+            '1:plugin:_claude_installed_plugins'
           ;;
         configure)
           _arguments \

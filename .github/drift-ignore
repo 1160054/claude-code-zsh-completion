@@ -83,3 +83,16 @@ clear
 --thinking
 --thinking-display
 --watch-artifact
+
+# Internal or SDK-only: Desktop worktree hook (--event, --path, --trusted-folder), teammate
+# spawns, ultrareview eval (--list, --output, --max-cost, --review-md), mcp add --web (flagged)
+--event
+--path
+--trusted-folder
+--lead-verify-key
+--managed-settings-in-initialize
+--list
+--output
+--max-cost
+--review-md
+--web

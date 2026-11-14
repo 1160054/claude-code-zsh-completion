@@ -508,6 +508,7 @@ _claude_plugin() {
     'eval:對外掛程式執行評估案例並回報評分結果'
     'prune:移除不再需要的自動安裝相依項目'
     'autoremove:移除不再需要的自動安裝相依項目（prune 的別名）'
+    'restore-set-aside:將組織宣告的市集取代來源時被擱置的選項與密鑰歸還給外掛程式'
     'tag:為外掛程式版本建立 {name}--v{version} git 標籤'
     'test:執行 mod 的測試'
     'help:顯示說明'
@@ -597,6 +598,12 @@ _claude_plugin() {
             '--dry-run[列出將被移除的項目但不實際移除]' \
             '(-y --yes)'{-y,--yes}'[略過確認提示]' \
             '(-h --help)'{-h,--help}'[顯示說明]'
+          ;;
+        restore-set-aside)
+          _arguments \
+            '--discard[刪除被擱置的內容而不是還原]' \
+            '(-h --help)'{-h,--help}'[顯示說明]' \
+            '1:plugin:_claude_installed_plugins'
           ;;
         configure)
           _arguments \
