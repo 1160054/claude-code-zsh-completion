@@ -89,11 +89,14 @@ jobs:
           The installed `claude` CLI has commands or options that completions/_claude
           does not complete. Bring the completion up to date and open a pull request.
 
-          1. Run `zsh .github/workflows/test.zsh --drift-only` to list the gaps.
-             It only reads the top-level `claude --help`; also run `claude <command> --help`
-             for each command and subcommand, because nested options are missed by it.
-             Never run `claude <command> help <sub>`: it starts an interactive session.
-             If nothing is missing, stop here without changing any file or opening a PR.
+          1. Run `zsh .github/workflows/test.zsh --drift-only` to list the gaps. Besides
+             `claude --help`, it reads every command and option defined in the binary.
+             Read `claude <command> --help` for what each one does and which command it
+             belongs to. Never run `claude <command> help <sub>`: it starts an interactive session.
+             A name only passed by the IDE, desktop app, SDK or remote runner, or one this
+             build does not offer, goes into .github/drift-ignore under the matching heading
+             instead of the completion. If nothing is missing, stop here without changing
+             any file or opening a PR.
           2. Update completions/_claude, the source of truth, following the existing style.
              Remove nothing that the CLI still has.
           3. Copy completions/_claude over every completions/_claude.en-* file (they are identical to it).

@@ -1,0 +1,85 @@
+# Commands and options the CLI defines that the completion leaves out on purpose.
+#
+# The drift check (zsh .github/workflows/test.zsh --drift-only) reads every
+# .command() and .option() out of the installed claude binary and reports the
+# ones completions/_claude does not have. Commands marked {hidden:!0} are
+# skipped on their own. Everything else that should stay out goes here, one
+# name per line. A command is matched by name alone, so `show` here also hides
+# a future top-level `show`.
+
+# Passed by the IDE extensions, the desktop app, the SDK, deep links, teammate
+# spawns or the remote runner; not typed by hand
+--agent-color
+--agent-id
+--agent-name
+--agent-type
+--agents-view-if-allowed
+--allow-other-models
+--attach-serve
+--await-claim
+--await-initialize
+--client-data-url
+--correlation-id
+--cowork
+--deep-link-cwd-b64
+--deep-link-last-fetch
+--deep-link-origin
+--deep-link-repo
+--enable-auth-status
+--forward-home-settings
+--from-link
+--gateway-json
+--host-auth-is-org-sign-in
+--inherit-permission-mode
+--managed-settings
+--messaging-socket-path
+--parent-session-id
+--plan-mode-instructions
+--plugin-dir-no-mcp
+--prefill-b64
+--project-config-root
+--reply-on-resume
+--resolve-only
+--resume-drops-turn
+--runner-declares
+--sdk-url
+--session-began-as-copy
+--session-mirror
+--task-budget
+--team-name
+--watch-artifact-no-autoreact
+--workload
+--status                # design-login, a hidden command
+
+# Deprecated or aliases the CLI no longer documents
+--debug-to-stderr
+--enable-auto-mode
+--interview
+--max-thinking-tokens
+--pool
+
+# Behind a feature flag: defined in the binary, not offered by this build
+--proactivity
+--xaa                   # mcp add
+xaa                     # mcp xaa, and its subcommands below
+setup
+show
+clear
+--issuer
+--id-token
+--port                  # mcp serve --transport http
+--result-format
+--session-tunnel
+
+# Hidden by the CLI but usable by hand; candidates to complete later
+--fast-mode
+--include-unsupported-models
+--on-branch
+--plan-mode-required
+--prefill
+--replace
+--resume-session-at
+--rewind-files
+--thinking
+--thinking-display
+--watch-artifact

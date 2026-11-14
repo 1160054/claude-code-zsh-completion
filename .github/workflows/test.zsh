@@ -376,6 +376,57 @@ test_cli_commands_coverage() {
   return 0
 }
 
+# Test 14b: Commands and options defined in the CLI but not listed by --help
+#
+# `claude --help` leaves out hidden options and most nested subcommand options,
+# and `claude <cmd> <sub> --help` falls back to the top-level help. So this
+# reads the definitions out of the installed binary instead. What is
+# deliberately left out (internal flags the IDE, SDK or remote runner passes,
+# commands behind a feature flag) is listed in .github/drift-ignore.
+# Commands the CLI dispatches on argv before commander sees them
+# (remote-control, daemon, self-hosted-runner) are out of its reach.
+# Drift mode only: the binary changes with every CLI release.
+DRIFT_IGNORE="$SCRIPT_DIR/.github/drift-ignore"
+
+test_cli_definitions_coverage() {
+  local file="$1"
+  (( $+commands[claude] )) || return 0
+
+  local bin=${commands[claude]:A}
+  if ! grep -aqE '\.command\("' "$bin"; then
+    echo "    Cannot read command definitions from $bin, skipping" >&2
+    return 0
+  fi
+
+  local -a ignored=()
+  [[ -f $DRIFT_IGNORE ]] && ignored=(${(f)"$(sed -E 's/#.*//; s/[[:space:]]+$//; /^$/d' "$DRIFT_IGNORE")"})
+
+  local -a missing=()
+  local opt cmd
+
+  # .option("-d, --debug", ...), .requiredOption(...), new Option("--x <v>", ...)
+  # The whole string must be a flag spec, so "--jq needs jq ..." in an error is not one.
+  for opt in ${(f)"$(grep -aoE '(\.(option|requiredOption)|new [A-Za-z_$][A-Za-z0-9_$]*)\("(-[a-zA-Z0-9]+, )?--[a-zA-Z][a-zA-Z0-9-]*(, --[a-zA-Z][a-zA-Z0-9-]*)*( [<[][^"]*)?"' "$bin" \
+      | grep -oE -- '--[a-zA-Z][a-zA-Z0-9-]*' | sort -u)"}; do
+    (( ${ignored[(Ie)$opt]} )) && continue
+    grep -qE -- "${opt}([^a-zA-Z0-9-]|\$)" "$file" || missing+=("$opt")
+  done
+
+  # .command("name ...") that is not {hidden:!0}
+  for cmd in ${(f)"$(grep -aoE '\.command\("[a-z][a-z0-9-]*[" ][^)]*\)' "$bin" \
+      | grep -v 'hidden:!0' | sed -E 's/^\.command\("([a-z0-9-]+).*/\1/' | sort -u)"}; do
+    (( ${ignored[(Ie)$cmd]} )) && continue
+    grep -qE "'${cmd}[:'\[]|[ (|]${cmd}\)" "$file" || missing+=("$cmd")
+  done
+
+  if [[ ${#missing[@]} -gt 0 ]]; then
+    echo "    Defined in the CLI but not completed: ${missing[*]}" >&2
+    echo "    (add each one to the completion, or to .github/drift-ignore if it is internal)" >&2
+    return 1
+  fi
+  return 0
+}
+
 # Oh My Zsh plugin bootstrap (claude-code.plugin.zsh)
 #
 # These run in `zsh -f` subshells so the developer's own zshrc, fpath and
@@ -666,6 +717,13 @@ run_drift_check() {
     echo "${GREEN}✓${NC} Every command in \`claude --help\` is completed"
   else
     echo "${RED}✗${NC} Commands are missing from the completion"
+    drifted=true
+  fi
+
+  if test_cli_definitions_coverage "$ENGLISH_FILE" 2>&1; then
+    echo "${GREEN}✓${NC} Every command and option defined in the CLI is completed or ignored"
+  else
+    echo "${RED}✗${NC} The CLI defines commands or options the completion does not have"
     drifted=true
   fi
 
