@@ -60,8 +60,8 @@ jobs:
         RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
       run: |
         {
-          echo "The scheduled drift check found commands or options in \`claude --help\` that"
-          echo "\`completions/_claude\` does not complete."
+          echo "The scheduled drift check found commands or options in \`claude --help\`, or"
+          echo "defined in the claude binary, that \`completions/_claude\` does not complete."
           echo
           echo "- Claude CLI: \`${CLI_VERSION}\`"
           echo "- Workflow run: ${RUN_URL}"
