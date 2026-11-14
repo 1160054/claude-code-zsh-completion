@@ -49,6 +49,15 @@
 --team-name
 --watch-artifact-no-autoreact
 --workload
+--event                 # worktree-hook, used by Claude Desktop
+--path
+--trusted-folder
+--lead-verify-key
+--managed-settings-in-initialize
+--list                  # ultrareview eval runs
+--output
+--max-cost
+--review-md
 --status                # design-login, a hidden command
 
 # Deprecated or aliases the CLI no longer documents
@@ -83,3 +92,4 @@ clear
 --thinking
 --thinking-display
 --watch-artifact
+--web                   # mcp add: add as a claude.ai connector

@@ -508,6 +508,7 @@ _claude_plugin() {
     'eval:Ejecutar casos de evaluación contra un plugin e informar los resultados puntuados'
     'prune:Eliminar dependencias instaladas automáticamente que ya no se necesitan'
     'autoremove:Eliminar dependencias instaladas automáticamente que ya no se necesitan (alias de prune)'
+    'restore-set-aside:Devolver a un plugin las opciones y secretos apartados cuando un marketplace declarado por la organización reemplazó su origen'
     'tag:Crear una etiqueta de git {name}--v{version} para una versión del plugin'
     'test:Ejecutar las pruebas de un mod'
     'help:Mostrar ayuda'
@@ -597,6 +598,12 @@ _claude_plugin() {
             '--dry-run[Listar lo que se eliminaría sin eliminar nada]' \
             '(-y --yes)'{-y,--yes}'[Omitir la pregunta de confirmación]' \
             '(-h --help)'{-h,--help}'[Mostrar ayuda]'
+          ;;
+        restore-set-aside)
+          _arguments \
+            '--discard[Eliminar lo apartado en lugar de restaurarlo]' \
+            '(-h --help)'{-h,--help}'[Mostrar ayuda]' \
+            '1:plugin:_claude_installed_plugins'
           ;;
         configure)
           _arguments \

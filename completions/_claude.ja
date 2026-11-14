@@ -508,6 +508,7 @@ _claude_plugin() {
     'eval:プラグインに対してevalケースを実行し、スコア付き結果を報告'
     'prune:不要になった自動インストール済み依存関係を削除'
     'autoremove:不要になった自動インストール済み依存関係を削除（pruneのエイリアス）'
+    'restore-set-aside:マーケットプレイスがソースを置き換えたときに退避された、プラグインのオプションとシークレットを戻す'
     'tag:プラグインリリース用に{name}--v{version}のgitタグを作成'
     'test:mod のテストを実行'
     'help:ヘルプを表示'
@@ -597,6 +598,12 @@ _claude_plugin() {
             '--dry-run[削除せずに削除対象を一覧表示]' \
             '(-y --yes)'{-y,--yes}'[確認プロンプトをスキップ]' \
             '(-h --help)'{-h,--help}'[ヘルプを表示]'
+          ;;
+        restore-set-aside)
+          _arguments \
+            '--discard[退避されたものを復元せず削除]' \
+            '(-h --help)'{-h,--help}'[ヘルプを表示]' \
+            '1:plugin:_claude_installed_plugins'
           ;;
         configure)
           _arguments \

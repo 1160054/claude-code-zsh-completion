@@ -508,6 +508,7 @@ _claude_plugin() {
     'eval:Eval-Fälle gegen ein Plugin ausführen und bewertete Ergebnisse melden'
     'prune:Automatisch installierte Abhängigkeiten entfernen, die nicht mehr benötigt werden'
     'autoremove:Automatisch installierte Abhängigkeiten entfernen, die nicht mehr benötigt werden (Alias für prune)'
+    'restore-set-aside:Einem Plugin die Optionen und Secrets zurückgeben, die beiseitegelegt wurden, als ein von der Organisation deklarierter Marketplace seine Quelle ersetzte'
     'tag:Einen {name}--v{version} Git-Tag für eine Plugin-Veröffentlichung erstellen'
     'test:Tests eines Mods ausführen'
     'help:Hilfe anzeigen'
@@ -597,6 +598,12 @@ _claude_plugin() {
             '--dry-run[Auflisten, was entfernt würde, ohne etwas zu entfernen]' \
             '(-y --yes)'{-y,--yes}'[Bestätigungsabfrage überspringen]' \
             '(-h --help)'{-h,--help}'[Hilfe anzeigen]'
+          ;;
+        restore-set-aside)
+          _arguments \
+            '--discard[Beiseitegelegtes löschen, statt es wiederherzustellen]' \
+            '(-h --help)'{-h,--help}'[Hilfe anzeigen]' \
+            '1:plugin:_claude_installed_plugins'
           ;;
         configure)
           _arguments \

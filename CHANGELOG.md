@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `plugin restore-set-aside` and its `--discard` option (claude 2.1.325), in `_claude`, the `en-*` variants and the twelve main translations
+
 ### Changed
 - Drift check: besides `claude --help`, it now reads every command and option defined in the installed `claude` binary, so hidden options and nested subcommand options no longer slip past it. Names left out on purpose are listed in `.github/drift-ignore`
 
