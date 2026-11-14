@@ -85,6 +85,9 @@ jobs:
         anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
         claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
         github_token: ${{ github.token }}
+        # drift-check.yml starts this run with GITHUB_TOKEN, so the actor is the
+        # github-actions bot, which the action refuses unless it is listed here.
+        allowed_bots: github-actions
         prompt: |
           The installed `claude` CLI has commands or options that completions/_claude
           does not complete. Bring the completion up to date and open a pull request.
