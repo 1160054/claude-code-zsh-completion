@@ -88,8 +88,6 @@ clear
 --prefill
 --replace
 --resume-session-at
---rewind-files
---thinking
 --thinking-display
 --watch-artifact
 --web                   # mcp add: add as a claude.ai connector

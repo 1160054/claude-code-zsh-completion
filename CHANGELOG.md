@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `--rewind-files` and `--thinking` (`enabled`, `adaptive`, `disabled`), which `claude --help` does not list but the documentation uses, in all 120 files
+
 ## [2.10.0] - 2026-11-14
 
 ### Added
