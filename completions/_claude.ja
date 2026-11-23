@@ -282,6 +282,7 @@ _claude() {
     '(--cloud)--remote[--cloudの非推奨エイリアス]::description-or-session:'
     '--environment[指定したセルフホスト環境（ccpool_...）で動く新しいクラウドセッションを作成]:environment_id:'
     '--ref[--environmentと併用：新しいセッションのチェックアウトをローカルのHEADではなく指定したrefから作成]:branch:'
+    '--metadata[セッションにラベルを付け、マシンを起動するスクリプトに渡す（繰り返し指定可、--environmentと併用）]:key=value:'
     '(--remote-control --rc)'{--remote-control,--rc}'[Remote Controlを有効にした対話セッションを開始（オプションで名前指定可能）]::name:'
     '--remote-control-session-name-prefix[自動生成されるRemote Controlセッション名のプレフィックス]:prefix:'
     '--chrome[Claude in Chrome統合を有効化]'
@@ -799,6 +800,7 @@ _claude_auth() {
           _arguments \
             '--email[ログインページにメールアドレスをあらかじめ入力]:email:' \
             '--sso[SSOログインフローを強制]' \
+            '--organization-gateway[組織のゲートウェイにそのIDプロバイダー経由でサインイン]' \
             '(--claudeai)--console[ClaudeサブスクリプションではなくAnthropic Console（API従量課金）を使用]' \
             '(--console)--claudeai[Claudeサブスクリプションを使用（デフォルト）]' \
             '(-h --help)'{-h,--help}'[コマンドのヘルプを表示]'

@@ -282,6 +282,7 @@ _claude() {
     '(--cloud)--remote[--cloud의 더 이상 사용되지 않는 별칭]::description-or-session:'
     '--environment[지정한 자체 호스팅 환경(ccpool_...)에서 실행되는 새 클라우드 세션 생성]:environment_id:'
     '--ref[--environment와 함께: 새 세션의 체크아웃을 로컬 HEAD 대신 지정한 ref 기준으로 생성]:branch:'
+    '--metadata[머신을 시작하는 스크립트를 위해 세션에 레이블 지정 (반복 가능, --environment와 함께 사용)]:key=value:'
     '(--remote-control --rc)'{--remote-control,--rc}'[Remote Control이 활성화된 대화식 세션 시작(선택적으로 이름 지정)]::name:'
     '--remote-control-session-name-prefix[자동 생성된 Remote Control 세션 이름의 접두사]:prefix:'
     '--chrome[Claude in Chrome 통합 활성화]'
@@ -799,6 +800,7 @@ _claude_auth() {
           _arguments \
             '--email[로그인 페이지에 이메일 주소 미리 채우기]:email:' \
             '--sso[SSO 로그인 흐름 강제]' \
+            '--organization-gateway[조직의 게이트웨이에 해당 ID 공급자를 통해 로그인]' \
             '(--claudeai)--console[Claude 구독 대신 Anthropic Console(API 사용량 과금) 사용]' \
             '(--console)--claudeai[Claude 구독 사용(기본값)]' \
             '(-h --help)'{-h,--help}'[명령 도움말 표시]'

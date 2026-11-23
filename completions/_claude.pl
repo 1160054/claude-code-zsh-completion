@@ -282,6 +282,7 @@ _claude() {
     '(--cloud)--remote[Przestarzały alias dla --cloud]::description-or-session:'
     '--environment[Utwórz nową sesję w chmurze działającą we wskazanym środowisku self-hosted (ccpool_...)]:environment_id:'
     '--ref[Z --environment: oprzyj checkout nowej sesji na nazwanej referencji zamiast na lokalnym HEAD]:branch:'
+    '--metadata[Oznacz sesję etykietą dla skryptu uruchamiającego jej maszynę (powtarzalne; z --environment)]:key=value:'
     '(--remote-control --rc)'{--remote-control,--rc}'[Uruchom interaktywną sesję z włączonym Remote Control (opcjonalnie nazwaną)]::name:'
     '--remote-control-session-name-prefix[Prefiks dla automatycznie generowanych nazw sesji Remote Control]:prefix:'
     '--chrome[Włącz integrację Claude w Chrome]'
@@ -799,6 +800,7 @@ _claude_auth() {
           _arguments \
             '--email[Wstępnie wypełnij adres e-mail na stronie logowania]:email:' \
             '--sso[Wymuś logowanie przez SSO]' \
+            '--organization-gateway[Zaloguj się do bramy organizacji przez jej dostawcę tożsamości]' \
             '(--claudeai)--console[Użyj Anthropic Console (rozliczanie za użycie API) zamiast subskrypcji Claude]' \
             '(--console)--claudeai[Użyj subskrypcji Claude (domyślnie)]' \
             '(-h --help)'{-h,--help}'[Wyświetl pomoc dla polecenia]'

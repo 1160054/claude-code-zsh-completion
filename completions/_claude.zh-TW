@@ -282,6 +282,7 @@ _claude() {
     '(--cloud)--remote[--cloud 的已淘汰別名]::description-or-session:'
     '--environment[建立在指定自架環境（ccpool_...）上執行的新雲端工作階段]:environment_id:'
     '--ref[搭配 --environment：新工作階段的簽出以指定的 ref 為基礎，而非本機 HEAD]:branch:'
+    '--metadata[為啟動其機器的指令碼替工作階段加上標籤（可重複，需搭配 --environment）]:key=value:'
     '(--remote-control --rc)'{--remote-control,--rc}'[啟動已啟用遠端控制的互動式工作階段（可選擇命名）]::name:'
     '--remote-control-session-name-prefix[自動產生遠端控制工作階段名稱的前綴]:prefix:'
     '--chrome[啟用 Claude in Chrome 整合]'
@@ -799,6 +800,7 @@ _claude_auth() {
           _arguments \
             '--email[在登入頁面預先填入電子郵件地址]:email:' \
             '--sso[強制使用 SSO 登入流程]' \
+            '--organization-gateway[透過身分提供者登入您組織的閘道]' \
             '(--claudeai)--console[使用 Anthropic Console（依 API 用量計費）而非 Claude 訂閱]' \
             '(--console)--claudeai[使用 Claude 訂閱（預設）]' \
             '(-h --help)'{-h,--help}'[顯示命令說明]'
