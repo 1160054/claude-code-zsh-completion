@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `--metadata` (with `--environment`) and `auth login --organization-gateway`, which `claude --help` does not list, in `_claude`, the `en-*` variants and the twelve main translations (claude 2.1.330)
+
+### Changed
+- `.github/drift-ignore`: `--hold-repository-while-parked` and `--initialize-fields`, which only the remote runner and SDK pass
+
 ## [2.11.0] - 2026-11-14
 
 ### Added

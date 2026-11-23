@@ -282,6 +282,7 @@ _claude() {
     '(--cloud)--remote[--cloud için kullanımdan kaldırılmış takma ad]::description-or-session:'
     '--environment[Belirtilen kendi barındırılan ortamda (ccpool_...) çalışan yeni bir bulut oturumu oluştur]:environment_id:'
     '--ref[--environment ile: yeni oturumun checkout işlemini yerel HEAD yerine adlandırılmış bir ref üzerine kur]:branch:'
+    '--metadata[Oturumu, makinesini başlatan betik için etiketle (tekrarlanabilir; --environment ile)]:key=value:'
     '(--remote-control --rc)'{--remote-control,--rc}'[Uzaktan Kontrol etkinleştirilmiş etkileşimli bir oturum başlat (isteğe bağlı olarak adlandırılmış)]::name:'
     '--remote-control-session-name-prefix[Otomatik oluşturulan Uzaktan Kontrol oturum adları için önek]:prefix:'
     '--chrome[Chrome entegrasyonunda Claude'\''u etkinleştir]'
@@ -799,6 +800,7 @@ _claude_auth() {
           _arguments \
             '--email[Giriş sayfasında e-posta adresini önceden doldur]:email:' \
             '--sso[SSO giriş akışını zorla]' \
+            '--organization-gateway[Kuruluşunuzun ağ geçidine kimlik sağlayıcısı üzerinden giriş yap]' \
             '(--claudeai)--console[Claude aboneliği yerine Anthropic Console (API kullanım faturalandırması) kullan]' \
             '(--console)--claudeai[Claude aboneliğini kullan (varsayılan)]' \
             '(-h --help)'{-h,--help}'[Komut için yardım göster]'

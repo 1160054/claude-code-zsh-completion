@@ -282,6 +282,7 @@ _claude() {
     '(--cloud)--remote[--cloud的已弃用别名]::description-or-session:'
     '--environment[创建在指定自托管环境（ccpool_...）上运行的新云会话]:environment_id:'
     '--ref[与--environment一起使用：新会话的检出基于指定的ref而非本地HEAD]:branch:'
+    '--metadata[为启动其机器的脚本给会话添加标签（可重复，需配合 --environment）]:key=value:'
     '(--remote-control --rc)'{--remote-control,--rc}'[启动启用远程控制的交互式会话（可选命名）]::name:'
     '--remote-control-session-name-prefix[自动生成的远程控制会话名称的前缀]:prefix:'
     '--chrome[启用Chrome中的Claude集成]'
@@ -799,6 +800,7 @@ _claude_auth() {
           _arguments \
             '--email[在登录页面预填邮箱地址]:email:' \
             '--sso[强制使用SSO登录流程]' \
+            '--organization-gateway[通过身份提供商登录您组织的网关]' \
             '(--claudeai)--console[使用Anthropic Console（按API用量计费）而非Claude订阅]' \
             '(--console)--claudeai[使用Claude订阅（默认）]' \
             '(-h --help)'{-h,--help}'[显示命令帮助]'

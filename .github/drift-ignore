@@ -29,6 +29,8 @@
 --forward-home-settings
 --from-link
 --gateway-json
+--hold-repository-while-parked
+--initialize-fields
 --host-auth-is-org-sign-in
 --inherit-permission-mode
 --managed-settings
